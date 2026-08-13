@@ -1,0 +1,2 @@
+# This directory is the single, clear storage location for invitation data.
+# The live database file `invitations.json` is git-ignored because it holds PII.

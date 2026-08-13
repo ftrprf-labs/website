@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>FTRLABS · Invitation Manager</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23111827'/%3E%3Ctext x='16' y='22' font-size='18' text-anchor='middle' fill='%2338bdf8' font-family='sans-serif' font-weight='700'%3EF%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <!-- Login gate -->
+    <div id="login" class="login hidden">
+      <form id="login-form" class="login-card">
+        <div class="brand-mark">FTR<span>LABS</span></div>
+        <h1>Invitation Manager</h1>
+        <p class="muted">Interne beheeromgeving — log in om verder te gaan.</p>
+        <label for="pw">Beheerderswachtwoord</label>
+        <input id="pw" type="password" autocomplete="current-password" required />
+        <button type="submit" class="btn btn-primary">Inloggen</button>
+        <p id="login-error" class="error hidden"></p>
+      </form>
+    </div>
+
+    <!-- Main app -->
+    <div id="app" class="app hidden">
+      <header class="topbar">
+        <div class="topbar-left">
+          <div class="brand-mark">FTR<span>LABS</span></div>
+          <div class="topbar-title">
+            <strong>Invitation Manager</strong>
+            <span class="campaign-pill" id="campaign-pill">MACULIS_FIRST_FIVE</span>
+          </div>
+        </div>
+        <div class="topbar-right">
+          <button class="btn" id="btn-template">✎ Template</button>
+          <button class="btn" id="btn-import">⤓ Importeren</button>
+          <button class="btn" id="btn-add">＋ Handmatig</button>
+          <button class="btn btn-ghost hidden" id="btn-logout">Uitloggen</button>
+        </div>
+      </header>
+
+      <section class="controls">
+        <div class="search-wrap">
+          <input id="search" type="search" placeholder="Zoek op naam of bedrijf…" />
+        </div>
+        <div class="filter-wrap">
+          <label for="status-filter" class="muted small">Status</label>
+          <select id="status-filter">
+            <option value="">Alle</option>
+          </select>
+        </div>
+        <div class="bulk-wrap">
+          <span id="selection-count" class="muted small">0 geselecteerd</span>
+          <button class="btn btn-primary" id="btn-wa-next" disabled>
+            ➤ Via WhatsApp uitnodigen
+          </button>
+        </div>
+      </section>
+
+      <main class="table-wrap">
+        <table class="tester-table" id="tester-table">
+          <thead>
+            <tr>
+              <th class="col-check"><input type="checkbox" id="check-all" title="Alles selecteren" /></th>
+              <th>Naam</th>
+              <th>Bedrijf</th>
+              <th>Contact</th>
+              <th>Domein</th>
+              <th>Persoonlijke link</th>
+              <th>Status</th>
+              <th class="col-actions">Acties</th>
+            </tr>
+          </thead>
+          <tbody id="tester-rows"></tbody>
+        </table>
+        <div id="empty-state" class="empty-state hidden">
+          <p><strong>Nog geen testers.</strong></p>
+          <p class="muted">Importeer een CSV/Excel-bestand of voeg iemand handmatig toe.</p>
+        </div>
+      </main>
+
+      <footer class="statusbar">
+        <span id="stat-total">0 testers</span>
+        <span class="dot">·</span>
+        <span id="stat-breakdown"></span>
+      </footer>
+    </div>
+
+    <!-- Import wizard modal -->
+    <div id="import-modal" class="modal hidden">
+      <div class="modal-card modal-wide">
+        <div class="modal-head">
+          <h2>Testers importeren</h2>
+          <button class="icon-btn" data-close>✕</button>
+        </div>
+        <div class="modal-body">
+          <div id="import-step-file" class="import-step">
+            <p class="muted">Kies een CSV- of Excel-bestand. Kolommen worden automatisch herkend; je controleert alles in de preview vóór opslaan.</p>
+            <input type="file" id="import-file" accept=".csv,.xlsx,.xls,text/csv" />
+            <p class="muted small">Verwachte velden: voornaam, achternaam, bedrijf, e-mail, mobiel, domein.</p>
+          </div>
+
+          <div id="import-step-preview" class="import-step hidden">
+            <div class="import-summary" id="import-summary"></div>
+            <div class="preview-scroll">
+              <table class="preview-table" id="preview-table"></table>
+            </div>
+          </div>
+          <p id="import-error" class="error hidden"></p>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-ghost" data-close>Annuleren</button>
+          <button class="btn btn-primary hidden" id="btn-commit-import">Importeren</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Template modal -->
+    <div id="template-modal" class="modal hidden">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2>Berichttemplate</h2>
+          <button class="icon-btn" data-close>✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="muted small">
+            Beschikbare velden: <code>{first_name}</code> <code>{last_name}</code>
+            <code>{company_name}</code> <code>{domain}</code> <code>{personal_url}</code>
+          </p>
+          <label>WhatsApp-bericht</label>
+          <textarea id="tpl-whatsapp" rows="9"></textarea>
+          <label>E-mail onderwerp</label>
+          <input id="tpl-email-subject" type="text" />
+          <label>E-mail bericht</label>
+          <textarea id="tpl-email-body" rows="7"></textarea>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-ghost" data-close>Sluiten</button>
+          <button class="btn btn-primary" id="btn-save-template">Opslaan</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit / add tester modal -->
+    <div id="edit-modal" class="modal hidden">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2 id="edit-title">Tester bewerken</h2>
+          <button class="icon-btn" data-close>✕</button>
+        </div>
+        <div class="modal-body edit-grid">
+          <div><label>Voornaam</label><input id="ef-first_name" type="text" /></div>
+          <div><label>Achternaam</label><input id="ef-last_name" type="text" /></div>
+          <div><label>Bedrijf</label><input id="ef-company_name" type="text" /></div>
+          <div><label>Domein</label><input id="ef-domain" type="text" /></div>
+          <div><label>E-mail</label><input id="ef-email" type="email" /></div>
+          <div><label>Mobiel</label><input id="ef-mobile" type="text" /></div>
+          <div class="span2"><label>Notitie (intern)</label><textarea id="ef-notes" rows="2"></textarea></div>
+          <p id="edit-error" class="error hidden span2"></p>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-ghost" data-close>Annuleren</button>
+          <button class="btn btn-primary" id="btn-save-edit">Opslaan</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- WhatsApp sequence modal -->
+    <div id="wa-modal" class="modal hidden">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2>WhatsApp-uitnodiging</h2>
+          <button class="icon-btn" data-close>✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="muted small" id="wa-progress"></p>
+          <div class="wa-target">
+            <strong id="wa-name"></strong>
+            <span id="wa-number" class="muted"></span>
+          </div>
+          <label>Voorbeeldbericht</label>
+          <textarea id="wa-preview" rows="9" readonly></textarea>
+          <p id="wa-warn" class="warn hidden"></p>
+        </div>
+        <div class="modal-foot wa-foot">
+          <button class="btn btn-ghost" id="btn-wa-skip">Overslaan</button>
+          <button class="btn btn-primary" id="btn-wa-open">WhatsApp openen &amp; INVITED</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

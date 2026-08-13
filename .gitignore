@@ -1,0 +1,9 @@
+node_modules/
+
+# Never commit real invitation data — it contains PII (names, e-mail, mobile).
+data/*.json
+!data/.gitkeep
+
+# Local environment / secrets
+.env
+.env.local
