@@ -35,6 +35,9 @@ export const config = {
   port: Number(process.env.PORT || 4321),
   host: process.env.HOST || '127.0.0.1',
   maculisHost: (process.env.MACULIS_HOST || 'https://maculis.ftrlabs.example').replace(/\/+$/, ''),
+  // Shared server-to-server key for publishing participants to Maculis
+  // (PUT {MACULIS_HOST}/api/participants). Empty → publish is not configured.
+  maculisSyncKey: process.env.MACULIS_SYNC_KEY || '',
   adminPassword: process.env.ADMIN_PASSWORD || '',
   dataDir: join(ROOT, 'data'),
   dbFile: join(ROOT, 'data', 'invitations.json'),

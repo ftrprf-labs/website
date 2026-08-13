@@ -70,6 +70,27 @@ de browser — alleen wat nodig is om te tonen "Welkom Edwin" en
 "Ik heb alvast naar {bedrijf} gekeken". Bij de eerste keer openen zet dit
 endpoint de status automatisch van `INVITED` → `STARTED`.
 
+### Publiceren naar Maculis (server-to-server sync)
+
+De echte Maculis-app (`ftrprf-labs/maculis-first-five.`) leest een
+`participants.json` (token → context) en resolvet die via zijn eigen
+`GET /api/participant?p=<token>`. De knop **⇪ Publiceer naar Maculis** stuurt de
+geselecteerde testers server-to-server naar Maculis:
+
+```
+POST /api/publish { ids:[…] }        (Invitation Manager, admin-gated)
+   → PUT {MACULIS_HOST}/api/participants   (header x-sync-key: MACULIS_SYNC_KEY)
+```
+
+- Meegestuurd: **alleen** `first_name, last_name, company_name, domain` per token.
+  **E-mail en mobiel gaan NIET naar Maculis** (dataminimalisatie — de Invitation
+  Manager blijft de bron voor contactgegevens).
+- Maculis **merged** (upsert): eerder gepubliceerde testers blijven staan.
+- Vereist `MACULIS_HOST` en `MACULIS_SYNC_KEY` in `.env` (beide kanten dezelfde key).
+  Aan Maculis-kant moet `MACULIS_DATA_DIR` gezet zijn (de Render-disk).
+- Publiceren wijzigt de status niet; het maakt alleen de persoonlijke link
+  resolvebaar. Uitnodigen (→ INVITED) blijft de aparte WhatsApp-actie.
+
 ---
 
 ## Privacy & security

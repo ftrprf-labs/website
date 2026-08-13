@@ -205,6 +205,7 @@ function updateSelectionUi() {
   const n = state.selection.size;
   $('#selection-count').textContent = `${n} geselecteerd`;
   $('#btn-wa-next').disabled = n === 0;
+  $('#btn-publish').disabled = n === 0;
   const vis = visibleRows();
   const allChecked = vis.length > 0 && vis.every((r) => state.selection.has(r.id));
   $('#check-all').checked = allChecked;
@@ -249,6 +250,30 @@ async function removeTester(id) {
   state.selection.delete(id);
   await refresh();
   toast('Verwijderd');
+}
+
+// ---- Publish to Maculis --------------------------------------------------
+async function publishSelected() {
+  const ids = visibleRows().filter((r) => state.selection.has(r.id)).map((r) => r.id);
+  if (!ids.length) { toast('Selecteer eerst één of meer testers'); return; }
+  if (!state.cfg.maculisConfigured) {
+    toast('Maculis-sync niet ingesteld (MACULIS_SYNC_KEY ontbreekt)');
+    return;
+  }
+  const btn = $('#btn-publish');
+  btn.disabled = true;
+  const prev = btn.textContent;
+  btn.textContent = '⇪ Publiceren…';
+  try {
+    // Browser sends only ids — never PII.
+    const res = await api('/api/publish', { method: 'POST', body: JSON.stringify({ ids }) });
+    toast(`${res.published} tester(s) gepubliceerd naar Maculis`);
+  } catch (e) {
+    toast(e.message || 'Publiceren mislukt');
+  } finally {
+    btn.textContent = prev;
+    updateSelectionUi();
+  }
 }
 
 // ---- WhatsApp sequence ---------------------------------------------------
@@ -466,6 +491,8 @@ function wireEvents() {
     const ordered = visibleRows().filter((r) => state.selection.has(r.id)).map((r) => r.id);
     startWhatsAppSequence(ordered);
   });
+
+  $('#btn-publish').addEventListener('click', publishSelected);
 
   $('#btn-import').addEventListener('click', () => { resetImport(); $('#import-modal').classList.remove('hidden'); });
   $('#import-file').addEventListener('change', (e) => { if (e.target.files[0]) onImportFile(e.target.files[0]); });

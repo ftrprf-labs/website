@@ -10,6 +10,7 @@ import { config, ROOT } from './config.mjs';
 import * as store from './store.mjs';
 import { buildPreview } from './import.mjs';
 import { buildWhatsApp, buildMailto } from './messages.mjs';
+import { publishToMaculis } from './maculis-sync.mjs';
 import { validateRow } from './validation.mjs';
 import {
   authRequired,
@@ -132,6 +133,8 @@ async function handleApi(req, res, pathname) {
       statuses: store.STATUSES,
       authRequired: authRequired(),
       authed: isAuthed(req),
+      // Is server-to-server publish to Maculis configured? (no secret exposed)
+      maculisConfigured: Boolean(config.maculisSyncKey),
     });
   }
 
@@ -240,6 +243,20 @@ async function handleApi(req, res, pathname) {
       created.push(store.createInvitation(row));
     }
     return json(res, 201, { created: created.length, invitations: created });
+  }
+
+  // Publish selected testers to Maculis (server-to-server). The browser sends
+  // only { ids }, never PII; the IM already holds the records. We log counts
+  // only — never names/e-mail/tokens.
+  if (pathname === '/api/publish' && method === 'POST') {
+    const body = await readJson(req);
+    const ids = Array.isArray(body.ids) ? body.ids : [];
+    const records = ids.map((id) => store.getInvitation(id)).filter(Boolean);
+    if (records.length === 0) {
+      return json(res, 400, { ok: false, reason: 'empty', message: 'Geen (geldige) testers geselecteerd.' });
+    }
+    const result = await publishToMaculis(records);
+    return json(res, result.ok ? 200 : 502, result);
   }
 
   if (pathname === '/api/template' && method === 'GET') {
