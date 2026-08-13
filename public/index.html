@@ -36,10 +36,15 @@
         <div class="topbar-right">
           <button class="btn" id="btn-template">✎ Template</button>
           <button class="btn" id="btn-import">⤓ Importeren</button>
-          <button class="btn" id="btn-add">＋ Handmatig</button>
+          <button class="btn" id="btn-add">＋ Tester toevoegen</button>
           <button class="btn btn-ghost hidden" id="btn-logout">Uitloggen</button>
         </div>
       </header>
+
+      <nav class="tabs">
+        <button class="tab active" data-view="testers">Testerbeheer</button>
+        <button class="tab" data-view="evaluaties">Evaluaties / Inzichten</button>
+      </nav>
 
       <section class="controls">
         <div class="search-wrap">
@@ -55,6 +60,9 @@
           <span id="selection-count" class="muted small">0 geselecteerd</span>
           <button class="btn" id="btn-publish" disabled title="Publiceer geselecteerde testers naar Maculis">
             ⇪ Publiceer naar Maculis
+          </button>
+          <button class="btn" id="btn-email-invite" disabled title="Nodig geselecteerde testers uit via e-mail">
+            Via e-mail uitnodigen
           </button>
           <button class="btn btn-primary" id="btn-wa-next" disabled>
             ➤ Via WhatsApp uitnodigen
@@ -73,14 +81,16 @@
               <th>Domein</th>
               <th>Persoonlijke link</th>
               <th>Status</th>
+              <th>Toestemming</th>
               <th class="col-actions">Acties</th>
             </tr>
           </thead>
           <tbody id="tester-rows"></tbody>
         </table>
         <div id="empty-state" class="empty-state hidden">
-          <p><strong>Nog geen testers.</strong></p>
-          <p class="muted">Importeer een CSV/Excel-bestand of voeg iemand handmatig toe.</p>
+          <p><strong>Nog geen testers</strong></p>
+          <p class="muted">Importeer een CSV/Excel-bestand of voeg de eerste tester handmatig toe.</p>
+          <button class="btn btn-primary" id="btn-empty-add">＋ Tester toevoegen</button>
         </div>
       </main>
 
@@ -89,6 +99,30 @@
         <span class="dot">·</span>
         <span id="stat-breakdown"></span>
       </footer>
+
+      <!-- Evaluaties / Inzichten view (Maculis is source of truth) -->
+      <section id="view-evaluaties" class="view-eval hidden">
+        <div class="eval-head">
+          <div class="eval-title">
+            <strong id="eval-campaign">MACULIS_FIRST_FIVE</strong>
+            <span class="muted small" id="eval-sync"></span>
+          </div>
+          <div class="eval-controls">
+            <select id="eval-filter" title="Filter op evaluatiestatus">
+              <option value="">Alle testers</option>
+              <option value="NOT_STARTED">Niet gestart</option>
+              <option value="IN_PROGRESS">Gestart</option>
+              <option value="COMPLETED">Afgerond</option>
+            </select>
+            <button class="btn" id="btn-eval-refresh">Vernieuwen</button>
+          </div>
+        </div>
+        <p id="eval-notice" class="warn hidden"></p>
+        <div class="eval-cards" id="eval-summary"></div>
+        <div id="eval-distributions"></div>
+        <div id="eval-open"></div>
+        <div class="eval-testers" id="eval-testers"></div>
+      </section>
     </div>
 
     <!-- Import wizard modal -->
@@ -154,6 +188,10 @@
           <button class="icon-btn" data-close>✕</button>
         </div>
         <div class="modal-body edit-grid">
+          <div class="span2 provenance hidden" id="edit-provenance-row">
+            <span class="muted small">Bron</span>
+            <span id="ef-source" class="prov-val"></span>
+          </div>
           <div><label>Voornaam</label><input id="ef-first_name" type="text" /></div>
           <div><label>Achternaam</label><input id="ef-last_name" type="text" /></div>
           <div><label>Bedrijf</label><input id="ef-company_name" type="text" /></div>
@@ -161,6 +199,25 @@
           <div><label>E-mail</label><input id="ef-email" type="email" /></div>
           <div><label>Mobiel</label><input id="ef-mobile" type="text" /></div>
           <div class="span2"><label>Notitie (intern)</label><textarea id="ef-notes" rows="2"></textarea></div>
+          <div class="span2" id="edit-consent-row">
+            <label>Toestemming</label>
+            <select id="ef-consent">
+              <option value="UNKNOWN">Onbekend</option>
+              <option value="OPTED_IN">Toestemming gegeven</option>
+              <option value="OPTED_OUT">Geen toestemming</option>
+            </select>
+            <p class="muted small" style="margin-top:6px">
+              Aparte dimensie naast de status. "Geen toestemming" blokkeert uitnodigen en publiceren naar Maculis.
+            </p>
+          </div>
+          <div class="span2 status-correct hidden" id="edit-status-row">
+            <label>Status corrigeren</label>
+            <select id="ef-status"></select>
+            <p class="muted small" style="margin-top:6px">
+              Administratieve uitzondering — verandert de systeemgestuurde status.
+              Normale statussen worden automatisch door systeemgebeurtenissen bepaald.
+            </p>
+          </div>
           <p id="edit-error" class="error hidden span2"></p>
         </div>
         <div class="modal-foot">
@@ -190,6 +247,62 @@
         <div class="modal-foot wa-foot">
           <button class="btn btn-ghost" id="btn-wa-skip">Overslaan</button>
           <button class="btn btn-primary" id="btn-wa-open">WhatsApp openen &amp; INVITED</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- E-mail invite modal -->
+    <div id="email-modal" class="modal hidden">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2>E-mailuitnodiging</h2>
+          <button class="icon-btn" data-close>✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="muted small" id="email-summary"></p>
+          <div class="email-recipients" id="email-recipients"></div>
+          <label>Onderwerp</label>
+          <input id="email-subject-preview" type="text" readonly />
+          <label>Voorbeeldbericht</label>
+          <textarea id="email-body-preview" rows="8" readonly></textarea>
+          <p id="email-warn" class="warn hidden"></p>
+          <p id="email-error" class="error hidden"></p>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-ghost" data-close>Annuleren</button>
+          <button class="btn btn-primary" id="btn-email-send">Verzend uitnodigingen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Evaluatie-detail per tester -->
+    <div id="eval-detail-modal" class="modal hidden">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2 id="eval-detail-name">Evaluatie</h2>
+          <button class="icon-btn" data-close>✕</button>
+        </div>
+        <div class="modal-body" id="eval-detail-body"></div>
+        <div class="modal-foot">
+          <button class="btn btn-ghost" data-close>Sluiten</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Testerdossier / historie (append-only observatielaag) -->
+    <div id="history-modal" class="modal hidden">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h2 id="history-name">Historie</h2>
+          <button class="icon-btn" data-close>✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="history-summary" id="history-summary"></div>
+          <h3 class="history-sub">Tijdlijn</h3>
+          <div class="timeline" id="history-timeline"></div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-ghost" data-close>Sluiten</button>
         </div>
       </div>
     </div>

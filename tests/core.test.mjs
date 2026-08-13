@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { generateToken, personalUrl } from '../server/tokens.mjs';
 import { isValidEmail, isValidMobile, cleanDomain, validateRow } from '../server/validation.mjs';
 import { parseCsv, autoMap } from '../server/import.mjs';
-import { render, waNumber, buildWhatsApp } from '../server/messages.mjs';
+import { render, waNumber, buildWhatsApp, buildEmail } from '../server/messages.mjs';
 
 test('tokens are opaque, high-entropy and unique', () => {
   const a = generateToken();
@@ -77,6 +77,168 @@ test('message rendering fills placeholders, no leftover PII in url', () => {
 test('waNumber is digits-only, no plus/spaces', () => {
   assert.equal(waNumber('+31 6 12345678'), '31612345678');
   assert.equal(waNumber('06-23 45 67 89'), '0623456789');
+});
+
+test('name normalization: person names — capitalise first letter, preserve compound', async () => {
+  const { normalizePersonName, normalizeCompany } = await import('../server/normalize.mjs');
+  assert.equal(normalizePersonName('edwin'), 'Edwin');
+  assert.equal(normalizePersonName('EDWIN'), 'Edwin');
+  assert.equal(normalizePersonName('eDWIN'), 'Edwin');
+  assert.equal(normalizePersonName('pavert'), 'Pavert');
+  assert.equal(normalizePersonName('PAVERT'), 'Pavert');
+  assert.equal(normalizePersonName('van de Pavert'), 'Van de Pavert');
+  assert.equal(normalizePersonName('de Vries'), 'De Vries');
+  assert.equal(normalizePersonName('  edwin   '), 'Edwin');
+  assert.equal(normalizePersonName(''), '');
+  // brand-safe company rule (only lift a fully-lowercase first word)
+  assert.equal(normalizeCompany('maculis'), 'Maculis');
+  assert.equal(normalizeCompany('maculis labs'), 'Maculis labs');
+  assert.equal(normalizeCompany('maculis AI'), 'Maculis AI');
+  assert.equal(normalizeCompany('ftrprf labs'), 'Ftrprf labs');
+  assert.equal(normalizeCompany('AI Labs'), 'AI Labs');
+  assert.equal(normalizeCompany('FTRLABS'), 'FTRLABS');
+  assert.equal(normalizeCompany('McKinsey'), 'McKinsey');
+  assert.equal(normalizeCompany('iDEAL'), 'iDEAL');
+  // brand allow-list (§11)
+  assert.equal(normalizeCompany('MACULIS'), 'Maculis');
+  assert.equal(normalizeCompany('MACULIS AI'), 'Maculis AI');
+  assert.equal(normalizeCompany('maculis'), 'Maculis');
+  assert.equal(normalizeCompany('ftrlabs'), 'FTRLABS');
+});
+
+test('consent: default UNKNOWN, setConsent + isOptedOut, independent of lifecycle', async () => {
+  const store = await import('../server/store.mjs');
+  const { config } = await import('../server/config.mjs');
+  const { mkdtempSync } = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'im-consent-'));
+  const prevDb = config.dbFile, prevDir = config.dataDir;
+  config.dataDir = dir; config.dbFile = path.join(dir, 'db.json');
+  store._resetForTests();
+  try {
+    const inv = store.createInvitation({ first_name: 'test', email: 'a@b.example' });
+    assert.equal(inv.consent_status, 'UNKNOWN');          // new tester → UNKNOWN
+    assert.equal(store.isOptedOut(inv.id), false);        // UNKNOWN is not opted-out
+    const upd = store.setConsent(inv.id, 'OPTED_OUT');
+    assert.equal(upd.consent_status, 'OPTED_OUT');
+    assert.ok(upd.consent_at);
+    assert.equal(upd.status, 'DRAFT');                    // consent never touches lifecycle
+    assert.equal(store.isOptedOut(inv.id), true);
+    assert.deepEqual(store.CONSENT, ['UNKNOWN', 'OPTED_IN', 'OPTED_OUT']);
+    assert.throws(() => store.setConsent(inv.id, 'MAYBE'));
+  } finally {
+    config.dbFile = prevDb; config.dataDir = prevDir; store._resetForTests();
+  }
+});
+
+test('history + provenance: append-only, source, migration-safe, no auto-status', async () => {
+  const store = await import('../server/store.mjs');
+  const { config } = await import('../server/config.mjs');
+  const { mkdtempSync, writeFileSync } = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'im-history-'));
+  const prevDb = config.dbFile, prevDir = config.dataDir;
+  config.dataDir = dir; config.dbFile = path.join(dir, 'db.json');
+  store._resetForTests();
+  const evOf = (rec) => rec.history.map((h) => h.event);
+  try {
+    // 1. new tester → history has tester_created + source provenance
+    const inv = store.createInvitation({ first_name: 'test', email: 'a@b.example', source: 'manual' });
+    assert.deepEqual(evOf(inv), ['tester_created']);
+    assert.equal(inv.source, 'manual');
+    assert.equal(inv.history[0].channel, undefined);   // creation is not an outbound action
+    assert.equal(inv.history[0].result, undefined);
+    assert.ok(inv.history[0].at);
+
+    // provenance defaults to 'manual' when an unknown/absent source is passed
+    assert.equal(store.createInvitation({ first_name: 'x', email: 'x@y.example' }).source, 'manual');
+    assert.equal(store.createInvitation({ first_name: 'y', email: 'y@y.example', source: 'HACK' }).source, 'manual');
+    // reserved future source is accepted but no intake is built in Step 3
+    assert.equal(store.createInvitation({ first_name: 'z', email: 'z@y.example', source: 'pass_the_lens' }).source, 'pass_the_lens');
+
+    // 2-6. channel/result events append with the right shape
+    let r = store.addEvent(inv.id, 'invitation_sent', { channel: 'whatsapp', result: 'success' });
+    assert.deepEqual(r.history.at(-1), { at: r.history.at(-1).at, event: 'invitation_sent', channel: 'whatsapp', result: 'success' });
+    store.addEvent(inv.id, 'invitation_sent', { channel: 'email', result: 'success' });
+    store.addEvent(inv.id, 'invitation_failed', { channel: 'email', result: 'failed' });
+    store.addEvent(inv.id, 'invitation_skipped', { channel: 'email', result: 'skipped' });
+    store.addEvent(inv.id, 'invitation_blocked', { channel: 'whatsapp', result: 'blocked' });
+
+    // 7. re-invitation: BOTH invitation_sent entries survive (append-only, brief §9)
+    const sent = store.getHistory(inv.id).history.filter((h) => h.event === 'invitation_sent');
+    assert.equal(sent.length, 2);
+    assert.deepEqual(sent.map((h) => h.channel), ['whatsapp', 'email']);
+
+    // 8. consent change records consent_changed WITHOUT touching lifecycle
+    const c = store.setConsent(inv.id, 'OPTED_OUT');
+    assert.equal(c.status, 'DRAFT');                     // history/consent never drive lifecycle (§20)
+    assert.deepEqual(c.history.at(-1).event, 'consent_changed');
+    assert.equal(c.history.at(-1).result, 'opted_out');
+
+    // 9. publish event
+    assert.equal(store.addEvent(inv.id, 'published_to_maculis', { result: 'success' }).history.at(-1).event, 'published_to_maculis');
+
+    // idempotent Maculis milestones: recorded once even when observed repeatedly
+    store.recordEventOnce(inv.id, 'journey_started', { at: '2026-08-13T10:00:00.000Z' });
+    store.recordEventOnce(inv.id, 'journey_started', { at: '2026-08-13T11:00:00.000Z' });
+    assert.equal(store.getHistory(inv.id).history.filter((h) => h.event === 'journey_started').length, 1);
+
+    // unknown event names are rejected (defends the vocabulary)
+    assert.throws(() => store.addEvent(inv.id, 'nonsense_event', {}));
+
+    // 10. legacy record without history/source is migrated non-destructively
+    const legacy = {
+      id: 'LEGACY1', token: 'legacytok', first_name: 'Oud', last_name: 'Record',
+      company_name: 'Bestaand BV', email: 'oud@record.example', mobile: '', domain: '',
+      campaign: 'X', status: 'INVITED', consent_status: 'OPTED_IN', consent_at: '2026-01-01T00:00:00.000Z',
+      notes: 'behouden', created_at: '2026-01-01T00:00:00.000Z', invited_at: '2026-01-02T00:00:00.000Z',
+      started_at: null, completed_at: null,
+      // NB: no `history`, no `source`
+    };
+    writeFileSync(config.dbFile, JSON.stringify({ invitations: [legacy], template: {}, version: 1 }, null, 2), 'utf8');
+    store._resetForTests();
+    const migrated = store.getInvitation('LEGACY1');
+    assert.deepEqual(migrated.history, []);              // empty, NOT back-filled with fake events
+    assert.equal(migrated.source, 'unknown');            // no invented provenance (§16)
+    assert.equal(migrated.notes, 'behouden');            // existing fields intact
+    assert.equal(migrated.status, 'INVITED');
+    assert.equal(migrated.consent_status, 'OPTED_IN');
+
+    assert.deepEqual(store.SOURCES, ['manual', 'csv', 'xlsx', 'import', 'pass_the_lens', 'unknown']);
+  } finally {
+    config.dbFile = prevDb; config.dataDir = prevDir; store._resetForTests();
+  }
+});
+
+test('buildEmail renders subject + body with the personal link, no PII in keys', () => {
+  const rec = { first_name: 'Edwin', email: 'edwin@x.example', token: 'TOK' };
+  const tpl = { emailSubject: 'Hoi {first_name}', emailBody: 'Link: {personal_url}' };
+  const m = buildEmail(tpl, rec);
+  assert.equal(m.to, 'edwin@x.example');
+  assert.equal(m.subject, 'Hoi Edwin');
+  assert.ok(m.body.includes('/?p=TOK'));
+  assert.equal(m.hasEmail, true);
+  assert.equal(buildEmail(tpl, { token: 'T' }).hasEmail, false);
+});
+
+test('mailer contract: not-configured never fake-sends; mock succeeds/bounces', async () => {
+  const { sendEmail, mailConfigured } = await import('../server/mailer.mjs');
+  const { config } = await import('../server/config.mjs');
+  const prev = config.mailTransport;
+
+  config.mailTransport = '';           // default: nothing configured
+  assert.equal(mailConfigured(), false);
+  assert.deepEqual(await sendEmail({ to: 'a@b.example', subject: 's', body: 'b' }), { ok: false, reason: 'not_configured' });
+
+  config.mailTransport = 'mock';       // test transport
+  assert.equal(mailConfigured(), true);
+  assert.equal((await sendEmail({ to: 'ok@b.example', subject: 's', body: 'b' })).ok, true);
+  assert.equal((await sendEmail({ to: 'bounce@b.example', subject: 's', body: 'b' })).ok, false);
+  assert.equal((await sendEmail({ to: '', subject: 's', body: 'b' })).reason, 'no_email');
+
+  config.mailTransport = prev;
 });
 
 test('buildWhatsApp yields a wa.me deep link with encoded text', () => {

@@ -48,3 +48,14 @@ export function buildMailto(template, record) {
   )}&body=${encodeURIComponent(body)}`;
   return { url, subject, body, hasEmail: Boolean(to) };
 }
+
+// Plain rendered e-mail (recipient + subject + body) for server-side sending.
+// The personal Maculis link is embedded in the body via {personal_url}.
+export function buildEmail(template, record) {
+  return {
+    to: record.email || '',
+    subject: render(template.emailSubject, record),
+    body: render(template.emailBody, record),
+    hasEmail: Boolean(record.email),
+  };
+}

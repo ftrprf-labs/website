@@ -38,7 +38,19 @@ export const config = {
   // Shared server-to-server key for publishing participants to Maculis
   // (PUT {MACULIS_HOST}/api/participants). Empty → publish is not configured.
   maculisSyncKey: process.env.MACULIS_SYNC_KEY || '',
+  // Read key for pulling Maculis session/evaluation results
+  // (GET {MACULIS_HOST}/api/session/export?key=…). Empty → results view is off.
+  maculisExportKey: process.env.MACULIS_EXPORT_KEY || '',
   adminPassword: process.env.ADMIN_PASSWORD || '',
+
+  // E-mail sending contract (see server/mailer.mjs). No credentials in code:
+  //   MAIL_TRANSPORT = ''    → not configured; the app never fake-sends.
+  //   MAIL_TRANSPORT = http  → POST each mail to MAIL_API_URL (Bearer MAIL_API_KEY).
+  //   MAIL_TRANSPORT = mock  → deterministic TEST transport (local verification only).
+  mailTransport: (process.env.MAIL_TRANSPORT || '').toLowerCase(),
+  mailApiUrl: process.env.MAIL_API_URL || '',
+  mailApiKey: process.env.MAIL_API_KEY || '',
+  mailFrom: process.env.MAIL_FROM || '',
   dataDir: join(ROOT, 'data'),
   dbFile: join(ROOT, 'data', 'invitations.json'),
   // The only campaign this MVP builds for (see brief §12).
@@ -54,12 +66,11 @@ export const DEFAULT_TEMPLATE = {
     'Maculis kijkt met andere ogen naar wat er op je website zichtbaar is.\n\n' +
     'Ik ben benieuwd wat je ervan vindt.\n\n' +
     'Dit is jouw persoonlijke link:\n{personal_url}',
-  emailSubject: 'Een persoonlijke kennismaking met Maculis',
+  emailSubject: 'Je bent uitgenodigd om Maculis te testen',
   emailBody:
     'Hoi {first_name},\n\n' +
-    'ik wil je graag laten kennismaken met iets waar we aan werken: Maculis.\n\n' +
-    'Maculis kijkt met andere ogen naar wat er op je website zichtbaar is.\n\n' +
-    'Ik ben benieuwd wat je ervan vindt.\n\n' +
-    'Dit is jouw persoonlijke link:\n{personal_url}\n\n' +
-    'Groet',
+    'We nodigen je graag uit om Maculis te testen.\n\n' +
+    'Via onderstaande persoonlijke link kun je de ervaring bekijken:\n{personal_url}\n\n' +
+    'Alvast bedankt voor het meekijken en je feedback.\n\n' +
+    'Groet,\nLud',
 };

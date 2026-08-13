@@ -12,8 +12,40 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from '
 import { join } from 'node:path';
 import { config, DEFAULT_TEMPLATE } from './config.mjs';
 import { generateId, generateToken } from './tokens.mjs';
+import { normalizePersonName, normalizeCompany } from './normalize.mjs';
 
 const STATUSES = ['DRAFT', 'INVITED', 'STARTED', 'COMPLETED', 'DECLINED', 'ERROR'];
+// Consent is a THIRD, independent dimension — never mixed with lifecycle status.
+const CONSENT = ['UNKNOWN', 'OPTED_IN', 'OPTED_OUT'];
+
+// Provenance (brief §6). Only real sources; `pass_the_lens` is RESERVED for the
+// future intake — no intake is built in Step 3. `unknown` is used for legacy
+// records whose origin we cannot reliably determine (brief §16).
+const SOURCES = ['manual', 'csv', 'xlsx', 'import', 'pass_the_lens', 'unknown'];
+
+// Append-only history event vocabulary (brief §3). History is an OBSERVATION
+// layer (brief §20): it records what happened; it never drives status/consent.
+const EVENTS = [
+  'tester_created',
+  'invitation_sent',
+  'invitation_failed',
+  'invitation_skipped',
+  'invitation_blocked',
+  'journey_started',
+  'evaluation_started',
+  'evaluation_completed',
+  'consent_changed',
+  'published_to_maculis',
+];
+
+// A single history entry: { at, event, channel?, result? }. No PII, no bodies,
+// no links, no tokens (brief §2, §18) — only the minimal facts of an event.
+function historyEntry(event, { channel = null, result = null, at = null } = {}) {
+  const entry = { at: at || new Date().toISOString(), event };
+  if (channel) entry.channel = channel;
+  if (result) entry.result = result;
+  return entry;
+}
 
 // Canonical shape of a stored invitation record.
 function emptyRecord() {
@@ -28,11 +60,15 @@ function emptyRecord() {
     domain: '',
     campaign: config.campaign,
     status: 'DRAFT',
+    consent_status: 'UNKNOWN',
+    consent_at: null,
+    source: 'manual',
     notes: '',
     created_at: null,
     invited_at: null,
     started_at: null,
     completed_at: null,
+    history: [],
   };
 }
 
@@ -51,8 +87,21 @@ function load() {
   }
   try {
     const parsed = JSON.parse(readFileSync(config.dbFile, 'utf8'));
+    const invitations = Array.isArray(parsed.invitations) ? parsed.invitations : [];
+    // Forward-safe defaults for records written by an older version. Additive
+    // only — no existing field is ever removed or reset (brief §16).
+    for (const r of invitations) {
+      if (r.consent_status === undefined) r.consent_status = 'UNKNOWN';
+      if (r.consent_at === undefined) r.consent_at = null;
+      // History defaults to empty. We do NOT back-fill synthetic events for
+      // records that predate history — their past is genuinely unknown.
+      if (!Array.isArray(r.history)) r.history = [];
+      // Provenance: we cannot reliably tell how a legacy record was created,
+      // so we record `unknown` rather than inventing a source (brief §16).
+      if (r.source === undefined) r.source = 'unknown';
+    }
     db = {
-      invitations: Array.isArray(parsed.invitations) ? parsed.invitations : [],
+      invitations,
       template: { ...DEFAULT_TEMPLATE, ...(parsed.template || {}) },
       version: parsed.version || 1,
     };
@@ -115,6 +164,7 @@ export function normaliseMobile(raw) {
 
 export function createInvitation(data) {
   const now = new Date().toISOString();
+  const source = SOURCES.includes(data && data.source) ? data.source : 'manual';
   const record = {
     ...emptyRecord(),
     ...pickFields(data),
@@ -122,7 +172,11 @@ export function createInvitation(data) {
     token: generateToken(),
     campaign: config.campaign,
     status: 'DRAFT',
+    source,
     created_at: now,
+    // First history event: the tester exists. No channel/result — creation is
+    // not an outbound action.
+    history: [historyEntry('tester_created', { at: now })],
   };
   ready().invitations.push(record);
   persist();
@@ -151,6 +205,92 @@ export function setStatus(id, status) {
   return { ...r };
 }
 
+// Monotonic lifecycle upgrade from Maculis session facts (system-driven).
+// Only moves FORWARD along DRAFT→INVITED→STARTED→COMPLETED, and never touches
+// administrative/terminal states outside that ladder (e.g. DECLINED, ERROR).
+const LADDER = ['DRAFT', 'INVITED', 'STARTED', 'COMPLETED'];
+export function applySessionStatus(id, started, completed) {
+  const r = ready().invitations.find((x) => x.id === id);
+  if (!r) return null;
+  if (!LADDER.includes(r.status)) return { ...r }; // leave DECLINED/ERROR/etc. as-is
+  const rank = (s) => LADDER.indexOf(s);
+  let target = r.status;
+  if (started && rank('STARTED') > rank(target)) target = 'STARTED';
+  if (completed && rank('COMPLETED') > rank(target)) target = 'COMPLETED';
+  if (target !== r.status) return setStatus(id, target);
+  return { ...r };
+}
+
+// Consent is an independent dimension — this never touches the lifecycle status.
+export function setConsent(id, consent) {
+  if (!CONSENT.includes(consent)) throw new Error(`Onbekende consentwaarde: ${consent}`);
+  const r = ready().invitations.find((x) => x.id === id);
+  if (!r) return null;
+  r.consent_status = consent;
+  r.consent_at = new Date().toISOString();
+  if (!Array.isArray(r.history)) r.history = [];
+  // History records the change; it does NOT drive consent (brief §10, §20).
+  r.history.push(historyEntry('consent_changed', { at: r.consent_at, result: consent.toLowerCase() }));
+  persist();
+  return { ...r };
+}
+
+// ---- History (append-only observation layer, brief §2/§3/§20) ------------
+
+// Append a real event that has actually happened. Never changes status/consent.
+export function addEvent(id, event, opts = {}) {
+  if (!EVENTS.includes(event)) throw new Error(`Onbekend history-event: ${event}`);
+  const r = ready().invitations.find((x) => x.id === id);
+  if (!r) return null;
+  if (!Array.isArray(r.history)) r.history = [];
+  r.history.push(historyEntry(event, opts));
+  persist();
+  return { ...r };
+}
+
+// Idempotent variant for Maculis-derived milestones (journey/evaluation) that
+// are observed repeatedly on each poll — record the FIRST observation only, at
+// the real Maculis timestamp when known. Prevents duplicate timeline entries.
+export function recordEventOnce(id, event, opts = {}) {
+  if (!EVENTS.includes(event)) throw new Error(`Onbekend history-event: ${event}`);
+  const r = ready().invitations.find((x) => x.id === id);
+  if (!r) return null;
+  if (!Array.isArray(r.history)) r.history = [];
+  if (r.history.some((h) => h.event === event)) return { ...r };
+  r.history.push(historyEntry(event, opts));
+  persist();
+  return { ...r };
+}
+
+// Read-only dossier for one tester: provenance + the current dimension values
+// + the full chronological history. No PII beyond what the admin list holds.
+export function getHistory(id) {
+  const r = ready().invitations.find((x) => x.id === id);
+  if (!r) return null;
+  return {
+    id: r.id,
+    source: r.source || 'unknown',
+    lifecycle: r.status,
+    consent_status: r.consent_status,
+    consent_at: r.consent_at,
+    created_at: r.created_at,
+    invited_at: r.invited_at,
+    started_at: r.started_at,
+    completed_at: r.completed_at,
+    history: (r.history || []).map((h) => ({ ...h })),
+  };
+}
+
+// Hard consent gate used by every outbound action (server-side enforcement).
+export function isOptedOut(idOrRecord) {
+  const r = typeof idOrRecord === 'string'
+    ? ready().invitations.find((x) => x.id === idOrRecord)
+    : idOrRecord;
+  return Boolean(r && r.consent_status === 'OPTED_OUT');
+}
+
+export { CONSENT };
+
 export function deleteInvitation(id) {
   const list = ready().invitations;
   const idx = list.findIndex((x) => x.id === id);
@@ -173,7 +313,7 @@ export function saveTemplate(patch) {
   return { ...t };
 }
 
-export { STATUSES };
+export { STATUSES, SOURCES, EVENTS };
 
 // Only allow known fields to be written — defends against junk/overwrite.
 function pickFields(data) {
@@ -189,6 +329,10 @@ function pickFields(data) {
   ]) {
     if (data[k] !== undefined && data[k] !== null) out[k] = String(data[k]).trim();
   }
+  // Real name normalisation (brief §36) — one choke point for every write route.
+  if (out.first_name !== undefined) out.first_name = normalizePersonName(out.first_name);
+  if (out.last_name !== undefined) out.last_name = normalizePersonName(out.last_name);
+  if (out.company_name !== undefined) out.company_name = normalizeCompany(out.company_name);
   return out;
 }
 

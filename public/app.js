@@ -3,6 +3,50 @@
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
+// Inline line icons (no dependency, no emoji). They inherit the button's text
+// colour via stroke="currentColor" so they sit quietly in the Dark Admin theme.
+const svg = (p) =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const ICON = {
+  whatsapp: svg('<path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20.5l1.6-5.4A8.4 8.4 0 1 1 21 11.5Z"/>'),
+  email: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/>'),
+  edit: svg('<path d="M4 20h4L19 9a2 2 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5l3 3"/>'),
+  del: svg('<path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/><path d="M10 11v6M14 11v6"/>'),
+  copy: svg('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>'),
+  history: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 1.8"/>'),
+};
+
+// Dutch UI labels for the consent enum (internal values stay English).
+const CONSENT_LABEL = { UNKNOWN: 'ONBEKEND', OPTED_IN: 'TOEGESTAAN', OPTED_OUT: 'AFGEWEZEN' };
+
+// Dutch UI labels for the history layer (internal event/values stay English).
+const EVENT_LABEL = {
+  tester_created: 'Tester aangemaakt',
+  invitation_sent: 'Uitnodiging verzonden',
+  invitation_failed: 'Uitnodiging mislukt',
+  invitation_skipped: 'Uitnodiging overgeslagen',
+  invitation_blocked: 'Uitnodiging geblokkeerd',
+  journey_started: 'Maculis gestart',
+  evaluation_started: 'Evaluatie gestart',
+  evaluation_completed: 'Evaluatie afgerond',
+  consent_changed: 'Toestemming gewijzigd',
+  published_to_maculis: 'Gepubliceerd naar Maculis',
+};
+const CHANNEL_LABEL = { whatsapp: 'WhatsApp', email: 'E-mail' };
+const RESULT_LABEL = {
+  success: 'Succesvol', failed: 'Mislukt', skipped: 'Overgeslagen', blocked: 'Geblokkeerd',
+  opted_in: 'Toestemming gegeven', opted_out: 'Geen toestemming', unknown: 'Onbekend',
+};
+const SOURCE_LABEL = {
+  manual: 'Handmatig', csv: 'CSV-import', xlsx: 'Excel-import', import: 'Import',
+  pass_the_lens: 'Pass the Lens', unknown: 'Onbekend',
+};
+const CONSENT_OPTIONS = [
+  ['UNKNOWN', 'Onbekend'],
+  ['OPTED_IN', 'Toestemming gegeven'],
+  ['OPTED_OUT', 'Geen toestemming'],
+];
+
 const state = {
   cfg: null,
   template: null,
@@ -13,6 +57,9 @@ const state = {
   waQueue: [],
   waIndex: 0,
   editingId: null,
+  view: 'testers',
+  evalData: null,
+  evalFilter: '',
 };
 
 // ---- tiny API layer ------------------------------------------------------
@@ -130,9 +177,6 @@ function render() {
       updateSelectionUi();
     });
   });
-  $$('#tester-rows [data-status]').forEach((sel) => {
-    sel.addEventListener('change', () => changeStatus(sel.dataset.status, sel.value));
-  });
   $$('#tester-rows [data-copy]').forEach((b) => {
     b.addEventListener('click', () => copyLink(b.dataset.copy));
   });
@@ -141,6 +185,9 @@ function render() {
   });
   $$('#tester-rows [data-mail]').forEach((b) => {
     b.addEventListener('click', () => openMailto(b.dataset.mail));
+  });
+  $$('#tester-rows [data-history]').forEach((b) => {
+    b.addEventListener('click', () => openHistory(b.dataset.history));
   });
   $$('#tester-rows [data-edit]').forEach((b) => {
     b.addEventListener('click', () => openEdit(b.dataset.edit));
@@ -158,9 +205,7 @@ function rowHtml(r) {
   const contact = [r.email, r.mobile].filter(Boolean);
   const url = personalUrl(r.token);
   const checked = state.selection.has(r.id) ? 'checked' : '';
-  const statusOpts = state.cfg.statuses
-    .map((s) => `<option value="${s}" ${s === r.status ? 'selected' : ''}>${s}</option>`)
-    .join('');
+  const optedOut = r.consent_status === 'OPTED_OUT';
   return `
     <td class="col-check" data-label="">
       <input type="checkbox" data-check="${r.id}" ${checked} />
@@ -175,18 +220,22 @@ function rowHtml(r) {
     <td data-label="Link">
       <div class="link-cell">
         <code title="${esc(url)}">${esc(url)}</code>
-        <button class="copy-btn" data-copy="${r.id}" title="Kopieer link">⧉</button>
+        <button class="copy-btn" data-copy="${r.id}" title="Kopieer link" aria-label="Kopieer link">${ICON.copy}</button>
       </div>
     </td>
     <td data-label="Status">
-      <select class="status-select status-${r.status}" data-status="${r.id}">${statusOpts}</select>
+      <span class="status-badge status-${r.status}" title="Systeemgestuurd — corrigeren via Bewerken">${r.status}</span>
+    </td>
+    <td data-label="Toestemming">
+      <span class="status-badge consent-${r.consent_status}" title="Toestemming — wijzigen via Bewerken">${CONSENT_LABEL[r.consent_status] || r.consent_status}</span>
     </td>
     <td class="col-actions" data-label="Acties">
       <div class="row-actions">
-        <button class="act-wa" data-wa="${r.id}" title="Via WhatsApp uitnodigen">🟢</button>
-        <button data-mail="${r.id}" title="E-mail (mailto)">✉</button>
-        <button data-edit="${r.id}" title="Bewerken">✎</button>
-        <button data-del="${r.id}" title="Verwijderen">🗑</button>
+        <button class="act-wa" data-wa="${r.id}" title="${optedOut ? 'Geblokkeerd — geen toestemming' : 'Via WhatsApp uitnodigen'}" aria-label="Via WhatsApp uitnodigen" ${optedOut ? 'disabled' : ''}>${ICON.whatsapp}</button>
+        <button data-mail="${r.id}" title="${optedOut ? 'Geblokkeerd — geen toestemming' : 'E-mail uitnodigen'}" aria-label="E-mail uitnodigen" ${optedOut ? 'disabled' : ''}>${ICON.email}</button>
+        <button data-history="${r.id}" title="Historie bekijken" aria-label="Historie bekijken">${ICON.history}</button>
+        <button data-edit="${r.id}" title="Bewerken" aria-label="Bewerken">${ICON.edit}</button>
+        <button data-del="${r.id}" title="Verwijderen" aria-label="Verwijderen">${ICON.del}</button>
       </div>
     </td>`;
 }
@@ -206,19 +255,19 @@ function updateSelectionUi() {
   $('#selection-count').textContent = `${n} geselecteerd`;
   $('#btn-wa-next').disabled = n === 0;
   $('#btn-publish').disabled = n === 0;
+  $('#btn-email-invite').disabled = n === 0;
   const vis = visibleRows();
   const allChecked = vis.length > 0 && vis.every((r) => state.selection.has(r.id));
   $('#check-all').checked = allChecked;
 }
 
 // ---- actions -------------------------------------------------------------
-async function changeStatus(id, status) {
-  try {
-    await api(`/api/invitations/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) });
-    await refresh();
-    toast(`Status → ${status}`);
-  } catch (e) { toast(e.message); }
-}
+// Status is SYSTEM-DRIVEN — it changes only on real events:
+//   create -> DRAFT · successful e-mail/WhatsApp send -> INVITED ·
+//   personal link activated (resolve) -> STARTED.
+// The table shows a read-only badge; the only manual path is the explicit
+// "Status corrigeren" field inside the edit modal (administrative exception),
+// which calls POST /api/invitations/:id/status directly.
 
 async function copyLink(id) {
   const r = state.invitations.find((x) => x.id === id);
@@ -267,12 +316,90 @@ async function publishSelected() {
   try {
     // Browser sends only ids — never PII.
     const res = await api('/api/publish', { method: 'POST', body: JSON.stringify({ ids }) });
-    toast(`${res.published} tester(s) gepubliceerd naar Maculis`);
+    toast(`${res.published} tester(s) gepubliceerd naar Maculis` + (res.blocked ? ` · ${res.blocked} geblokkeerd (geen toestemming)` : ''));
   } catch (e) {
     toast(e.message || 'Publiceren mislukt');
   } finally {
     btn.textContent = prev;
     updateSelectionUi();
+  }
+}
+
+// ---- E-mail invite -------------------------------------------------------
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function startEmailInvite() {
+  const recs = visibleRows().filter((r) => state.selection.has(r.id));
+  if (!recs.length) { toast('Selecteer eerst één of meer testers'); return; }
+  state.emailIds = recs.map((r) => r.id);
+
+  // Per-tester check for a valid e-mail (server re-checks on send).
+  const list = recs.map((r) => {
+    const name = [r.first_name, r.last_name].filter(Boolean).join(' ') || r.company_name || '—';
+    return { name, email: (r.email || '').trim(), valid: EMAIL_RE.test((r.email || '').trim()) };
+  });
+  const validCount = list.filter((x) => x.valid).length;
+
+  $('#email-recipients').innerHTML = list
+    .map((x) => `<div class="rcpt ${x.valid ? '' : 'invalid'}">
+        <span class="rcpt-name">${esc(x.name)}</span>
+        <span class="rcpt-addr">${x.valid ? esc(x.email) : 'geen geldig e-mailadres'}</span>
+      </div>`)
+    .join('');
+  $('#email-summary').textContent =
+    `${recs.length} geselecteerd · ${validCount} met geldig e-mailadres` +
+    (validCount < recs.length ? ` · ${recs.length - validCount} worden overgeslagen` : '');
+
+  // Rendered subject/body preview (server-side template) from the first valid tester.
+  const firstValid = recs.find((r) => EMAIL_RE.test((r.email || '').trim())) || recs[0];
+  try {
+    const m = await api(`/api/invitations/${firstValid.id}/mailto`);
+    $('#email-subject-preview').value = m.subject;
+    $('#email-body-preview').value = m.body;
+  } catch { /* leave preview blank */ }
+
+  const warn = $('#email-warn');
+  if (!state.cfg.mailConfigured) {
+    warn.textContent =
+      'E-mailverzending is niet geconfigureerd op de server. Er wordt niets verzonden en niemand komt op INVITED totdat een mailtransport is ingesteld.';
+    warn.classList.remove('hidden');
+  } else {
+    warn.classList.add('hidden');
+  }
+  $('#email-error').classList.add('hidden');
+  $('#btn-email-send').disabled = validCount === 0;
+  $('#email-modal').classList.remove('hidden');
+}
+
+async function sendEmailInvites() {
+  const btn = $('#btn-email-send');
+  const prev = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Verzenden…';
+  const err = $('#email-error');
+  err.classList.add('hidden');
+  try {
+    // Browser sends only ids — never PII. Server marks INVITED only on success.
+    const res = await api('/api/invite/email', { method: 'POST', body: JSON.stringify({ ids: state.emailIds }) });
+    closeModal('#email-modal');
+    await refresh();
+    const blocked = (res.results || []).filter((x) => x.reason === 'opted_out').length;
+    const noEmail = (res.results || []).filter((x) => x.reason === 'no_email').length;
+    if (!res.configured) {
+      toast('E-mailverzending niet geconfigureerd — niets verzonden' + (blocked ? ` · ${blocked} geblokkeerd (geen toestemming)` : ''));
+    } else {
+      const parts = [`${res.sent} verzonden`];
+      if (noEmail) parts.push(`${noEmail} zonder e-mail`);
+      if (blocked) parts.push(`${blocked} geblokkeerd (geen toestemming)`);
+      if (res.failed) parts.push(`${res.failed} mislukt`);
+      toast(parts.join(' · '));
+    }
+  } catch (e) {
+    err.textContent = e.message || 'Verzenden mislukt';
+    err.classList.remove('hidden');
+  } finally {
+    btn.textContent = prev;
+    btn.disabled = false;
   }
 }
 
@@ -289,7 +416,14 @@ async function showWaCurrent() {
   const id = state.waQueue[state.waIndex];
   const r = state.invitations.find((x) => x.id === id);
   if (!r) { advanceWa(); return; }
-  const wa = await api(`/api/invitations/${id}/whatsapp`);
+  // OPTED_OUT is enforced server-side (403) — skip this tester cleanly.
+  if (r.consent_status === 'OPTED_OUT') {
+    toast(`${r.first_name || r.company_name || 'Tester'} is AFGEWEZEN — WhatsApp overgeslagen`);
+    advanceWa(); return;
+  }
+  let wa;
+  try { wa = await api(`/api/invitations/${id}/whatsapp`); }
+  catch (e) { toast(e.message); advanceWa(); return; }
   $('#wa-progress').textContent =
     state.waQueue.length > 1 ? `Tester ${state.waIndex + 1} van ${state.waQueue.length}` : '';
   $('#wa-name').textContent = [r.first_name, r.last_name].filter(Boolean).join(' ') || r.company_name || '—';
@@ -314,7 +448,7 @@ async function openWaCurrent() {
   window.open(url, '_blank', 'noopener');
   // ... and mark this tester INVITED (manual trigger, brief §9 + acceptance §20).
   try {
-    await api(`/api/invitations/${id}/status`, { method: 'POST', body: JSON.stringify({ status: 'INVITED' }) });
+    await api(`/api/invitations/${id}/status`, { method: 'POST', body: JSON.stringify({ status: 'INVITED', channel: 'whatsapp' }) });
   } catch (e) { toast(e.message); }
   advanceWa();
 }
@@ -346,6 +480,9 @@ let importPreview = null;
 async function onImportFile(file) {
   const err = $('#import-error');
   err.classList.add('hidden');
+  // Remember the file kind so provenance can record csv vs xlsx (brief §6).
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  state.importSource = (ext === 'xlsx' || ext === 'xls') ? 'xlsx' : (ext === 'csv' ? 'csv' : 'import');
   try {
     const dataBase64 = await fileToBase64(file);
     const preview = await api('/api/import/preview', {
@@ -403,7 +540,7 @@ async function commitImport() {
     .map(({ first_name, last_name, company_name, email, mobile, domain }) =>
       ({ first_name, last_name, company_name, email, mobile, domain }));
   if (!rows.length) { toast('Geen geldige, unieke rijen om te importeren'); return; }
-  const res = await api('/api/import/commit', { method: 'POST', body: JSON.stringify({ rows }) });
+  const res = await api('/api/import/commit', { method: 'POST', body: JSON.stringify({ rows, source: state.importSource || 'import' }) });
   closeModal('#import-modal');
   resetImport();
   await refresh();
@@ -427,6 +564,28 @@ function openEdit(id) {
   for (const f of ['first_name', 'last_name', 'company_name', 'domain', 'email', 'mobile', 'notes']) {
     $(`#ef-${f}`).value = r ? (r[f] || '') : '';
   }
+  // Provenance is read-only here (brief §15) — shown for existing testers only.
+  const provRow = $('#edit-provenance-row');
+  if (r) {
+    $('#ef-source').textContent = SOURCE_LABEL[r.source] || r.source || 'Onbekend';
+    provRow.classList.remove('hidden');
+  } else {
+    provRow.classList.add('hidden');
+  }
+  // Consent (independent dimension) — editable for both new and existing testers.
+  $('#ef-consent').value = r ? (r.consent_status || 'UNKNOWN') : 'UNKNOWN';
+  state.editConsentOriginal = r ? (r.consent_status || 'UNKNOWN') : 'UNKNOWN';
+  // "Status corrigeren" — only for existing testers, as an explicit exception.
+  const statusRow = $('#edit-status-row');
+  if (r) {
+    $('#ef-status').innerHTML = state.cfg.statuses.map((s) => `<option value="${s}">${s}</option>`).join('');
+    $('#ef-status').value = r.status;
+    state.editStatusOriginal = r.status;
+    statusRow.classList.remove('hidden');
+  } else {
+    state.editStatusOriginal = null;
+    statusRow.classList.add('hidden');
+  }
   $('#edit-error').classList.add('hidden');
   $('#edit-modal').classList.remove('hidden');
 }
@@ -439,10 +598,29 @@ async function saveEdit() {
   const err = $('#edit-error');
   err.classList.add('hidden');
   try {
+    let targetId = state.editingId;
     if (state.editingId) {
       await api(`/api/invitations/${state.editingId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      // Administrative status correction (explicit exception, not the normal flow).
+      const newStatus = $('#ef-status').value;
+      if (newStatus && newStatus !== state.editStatusOriginal) {
+        if (confirm(`Status administratief corrigeren van ${state.editStatusOriginal} naar ${newStatus}?\n\n` +
+          `Normale statussen worden automatisch door systeemgebeurtenissen bepaald.`)) {
+          await api(`/api/invitations/${state.editingId}/status`, { method: 'POST', body: JSON.stringify({ status: newStatus }) });
+        }
+      }
     } else {
-      await api('/api/invitations', { method: 'POST', body: JSON.stringify(payload) });
+      const created = await api('/api/invitations', { method: 'POST', body: JSON.stringify(payload) });
+      targetId = created.invitation.id;
+    }
+    // Consent change (independent dimension). OPTED_OUT needs explicit confirmation.
+    const newConsent = $('#ef-consent').value;
+    if (targetId && newConsent && newConsent !== state.editConsentOriginal) {
+      let go = true;
+      if (newConsent === 'OPTED_OUT') {
+        go = confirm('Deze tester wordt uitgesloten van uitnodigingen en publicatie naar Maculis. Wil je deze keuze registreren?');
+      }
+      if (go) await api(`/api/invitations/${targetId}/consent`, { method: 'POST', body: JSON.stringify({ consent_status: newConsent }) });
     }
     closeModal('#edit-modal');
     await refresh();
@@ -472,6 +650,174 @@ async function saveTemplate() {
   toast('Template opgeslagen');
 }
 
+// ---- Evaluaties / Inzichten (Maculis is source of truth) -----------------
+function switchView(view) {
+  state.view = view;
+  $$('.tab').forEach((t) => t.classList.toggle('active', t.dataset.view === view));
+  const onEval = view === 'evaluaties';
+  $('.controls').classList.toggle('hidden', onEval);
+  $('.table-wrap').classList.toggle('hidden', onEval);
+  $('.statusbar').classList.toggle('hidden', onEval);
+  $('#view-evaluaties').classList.toggle('hidden', !onEval);
+  if (onEval) loadEvaluations();
+}
+
+async function loadEvaluations() {
+  try {
+    state.evalData = await api('/api/evaluations');
+    $('#eval-sync').textContent = 'Laatste ophaling ' + new Date().toLocaleTimeString('nl-NL');
+    renderEvaluations();
+  } catch (e) {
+    const n = $('#eval-notice');
+    n.textContent = 'Kon evaluaties niet laden: ' + e.message;
+    n.classList.remove('hidden');
+  }
+}
+
+function fmtTs(iso) {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleString('nl-NL', { dateStyle: 'short', timeStyle: 'short' }); }
+  catch { return iso; }
+}
+
+function renderEvaluations() {
+  const data = state.evalData;
+  if (!data) return;
+  const rows = data.evaluations || [];
+  const questions = data.questions || [];
+
+  const notice = $('#eval-notice');
+  if (!data.ok) {
+    const map = {
+      not_configured: 'Maculis-export is niet geconfigureerd (MACULIS_EXPORT_KEY ontbreekt).',
+      forbidden: 'Maculis weigerde de export-sleutel.',
+      network: 'Maculis is niet bereikbaar.',
+    };
+    notice.textContent = 'Let op: ' + (map[data.reason] || ('Maculis-resultaten niet beschikbaar (' + data.reason + ').')) +
+      ' Evaluatiestatussen tonen dan alleen "niet gestart".';
+    notice.classList.remove('hidden');
+  } else notice.classList.add('hidden');
+
+  // Campaign summary (campaign-wide)
+  const total = rows.length;
+  const invited = rows.filter((r) => ['INVITED', 'STARTED', 'COMPLETED'].includes(r.lifecycle)).length;
+  const started = rows.filter((r) => r.started).length;
+  const evalStarted = rows.filter((r) => r.eval_status !== 'NOT_STARTED').length;
+  const evalComplete = rows.filter((r) => r.eval_status === 'COMPLETED').length;
+  const pct = total ? Math.round((evalComplete / total) * 100) : 0;
+  $('#eval-campaign').textContent = rows[0] ? rows[0].campaign : (state.cfg.campaign || 'Evaluaties');
+  $('#eval-summary').innerHTML = [
+    ['Testers', total], ['Uitgenodigd', invited], ['Gestart', started],
+    ['Evaluatie gestart', evalStarted], ['Evaluatie compleet', evalComplete], ['Compleet', pct + '%'],
+  ].map(([k, v]) => `<div class="eval-card"><div class="eval-card-num">${v}</div><div class="eval-card-lbl">${k}</div></div>`).join('');
+
+  // Per-question distributions (counts + %)
+  $('#eval-distributions').innerHTML = questions.map((q) => {
+    const opts = Object.entries(q.options || {});
+    const counts = opts.map(([val, label]) => ({ label, n: rows.filter((r) => r.answers[q.id] === val).length }));
+    const answered = counts.reduce((a, c) => a + c.n, 0);
+    const bars = counts.map((c) => {
+      const p = answered ? Math.round((c.n / answered) * 100) : 0;
+      return `<div class="dist-row"><span class="dist-lbl">${esc(c.label)}</span>` +
+        `<span class="dist-bar"><span style="width:${p}%"></span></span>` +
+        `<span class="dist-n">${c.n}${answered ? ' · ' + p + '%' : ''}</span></div>`;
+    }).join('');
+    return `<div class="dist-block"><h3>${esc(q.text)}</h3>${bars}</div>`;
+  }).join('');
+
+  // Open answers (conditional context), full text, grouped per question
+  const openBlocks = questions.filter((q) => q.context).map((q) => {
+    const cid = q.context.id;
+    const items = rows.filter((r) => r.contexts && r.contexts[cid]).map((r) =>
+      `<div class="open-item"><div class="open-who">${esc(r.name)}${r.company_name ? ' · ' + esc(r.company_name) : ''}</div>` +
+      `<div class="open-txt">${esc(r.contexts[cid])}</div></div>`).join('');
+    return items ? `<div class="open-block"><h3>${esc(q.context.text)}</h3>${items}</div>` : '';
+  }).filter(Boolean).join('');
+  $('#eval-open').innerHTML = openBlocks ? `<h2 class="eval-sub">Open toelichtingen</h2>${openBlocks}` : '';
+
+  // Per-tester list (filtered by evaluation status)
+  const f = state.evalFilter;
+  const list = f ? rows.filter((r) => r.eval_status === f) : rows;
+  $('#eval-testers').innerHTML = `<h2 class="eval-sub">Per tester</h2>` + (list.length
+    ? list.map((r) => `<div class="eval-tester">
+        <div class="eval-tester-main"><span class="et-name">${esc(r.name)}</span>${r.company_name ? `<span class="muted small">${esc(r.company_name)}</span>` : ''}</div>
+        <span class="status-badge eval-${r.eval_status}">${r.eval_status.replace('_', ' ')}</span>
+        <button class="btn btn-ghost" data-eval="${r.id}">Evaluatie bekijken</button>
+      </div>`).join('')
+    : `<p class="muted">Geen testers in deze filter.</p>`);
+  $$('#eval-testers [data-eval]').forEach((b) => b.addEventListener('click', () => openEvalDetail(b.dataset.eval)));
+}
+
+function openEvalDetail(id) {
+  const r = (state.evalData.evaluations || []).find((x) => x.id === id);
+  if (!r) return;
+  const questions = state.evalData.questions || [];
+  $('#eval-detail-name').textContent = r.name + (r.company_name ? ' · ' + r.company_name : '');
+  let html = `<p class="muted small">Campagne ${esc(r.campaign)} · Lifecycle ${esc(r.lifecycle)} · Evaluatie ${esc(r.eval_status.replace('_', ' '))}</p>`;
+  if (r.eval_status === 'NOT_STARTED' && !r.started) {
+    html += `<p class="muted">${r.started ? 'Evaluatie in uitvoering.' : 'Nog geen evaluatieresultaten.'}</p>`;
+  }
+  html += questions.map((q) => {
+    const val = r.answers[q.id];
+    const label = val ? (q.options[val] || val) : '—';
+    let block = `<div class="qa"><div class="qa-q">${esc(q.text)}</div><div class="qa-a ${val ? '' : 'muted'}">${esc(label)}</div>`;
+    if (q.context && r.contexts[q.context.id]) {
+      block += `<div class="qa-ctx"><div class="muted small">${esc(q.context.text)}</div><div>${esc(r.contexts[q.context.id])}</div></div>`;
+    }
+    return block + `</div>`;
+  }).join('');
+  const ts = [];
+  if (r.started_at) ts.push('Gestart: ' + fmtTs(r.started_at));
+  if (r.completed_at) ts.push('Afgerond: ' + fmtTs(r.completed_at));
+  if (ts.length) html += `<p class="muted small">${esc(ts.join(' · '))}</p>`;
+  $('#eval-detail-body').innerHTML = html;
+  $('#eval-detail-modal').classList.remove('hidden');
+}
+
+// ---- Testerdossier / historie --------------------------------------------
+async function openHistory(id) {
+  let h;
+  try { h = await api(`/api/invitations/${id}/history`); }
+  catch (e) { toast(e.message || 'Kon historie niet laden'); return; }
+
+  const r = state.invitations.find((x) => x.id === id);
+  const name = r ? ([r.first_name, r.last_name].filter(Boolean).join(' ') || r.company_name || '—') : '—';
+  $('#history-name').textContent = 'Historie · ' + name;
+
+  // Chronological (append order can differ from real time for Maculis milestones).
+  const entries = (h.history || []).slice().sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  const lastInvite = [...entries].reverse().find((e) => e.event === 'invitation_sent');
+  const lastActivity = entries.length ? entries[entries.length - 1] : null;
+
+  $('#history-summary').innerHTML = [
+    ['Bron', SOURCE_LABEL[h.source] || h.source],
+    ['Aangemaakt', fmtTs(h.created_at)],
+    ['Laatste uitnodiging', lastInvite
+      ? fmtTs(lastInvite.at) + (lastInvite.channel ? ' · ' + (CHANNEL_LABEL[lastInvite.channel] || lastInvite.channel) : '')
+      : '—'],
+    ['Laatste activiteit', lastActivity ? fmtTs(lastActivity.at) : '—'],
+    ['Lifecycle', h.lifecycle],
+    ['Toestemming', CONSENT_LABEL[h.consent_status] || h.consent_status],
+  ].map(([k, v]) => `<div class="hs-row"><span class="hs-k">${esc(k)}</span><span class="hs-v">${esc(v || '—')}</span></div>`).join('');
+
+  $('#history-timeline').innerHTML = entries.length
+    ? entries.map((e) => {
+        const meta = [];
+        if (e.channel) meta.push(CHANNEL_LABEL[e.channel] || e.channel);
+        if (e.result) meta.push(RESULT_LABEL[e.result] || e.result);
+        return `<div class="tl-item tl-${esc(e.result || 'info')}">
+          <div class="tl-time">${esc(fmtTs(e.at))}</div>
+          <div class="tl-body">
+            <div class="tl-event">${esc(EVENT_LABEL[e.event] || e.event)}</div>
+            ${meta.length ? `<div class="tl-meta muted small">${esc(meta.join(' · '))}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('')
+    : `<p class="muted">Nog geen gebeurtenissen.</p>`;
+
+  $('#history-modal').classList.remove('hidden');
+}
+
 // ---- misc ui -------------------------------------------------------------
 function closeModal(sel) { $(sel).classList.add('hidden'); }
 
@@ -492,7 +838,14 @@ function wireEvents() {
     startWhatsAppSequence(ordered);
   });
 
+  $$('.tab').forEach((t) => t.addEventListener('click', () => switchView(t.dataset.view)));
+  $('#btn-eval-refresh').addEventListener('click', loadEvaluations);
+  $('#eval-filter').addEventListener('change', (e) => { state.evalFilter = e.target.value; renderEvaluations(); });
+
   $('#btn-publish').addEventListener('click', publishSelected);
+
+  $('#btn-email-invite').addEventListener('click', startEmailInvite);
+  $('#btn-email-send').addEventListener('click', sendEmailInvites);
 
   $('#btn-import').addEventListener('click', () => { resetImport(); $('#import-modal').classList.remove('hidden'); });
   $('#import-file').addEventListener('change', (e) => { if (e.target.files[0]) onImportFile(e.target.files[0]); });
@@ -502,6 +855,7 @@ function wireEvents() {
   $('#btn-save-template').addEventListener('click', saveTemplate);
 
   $('#btn-add').addEventListener('click', () => openEdit(null));
+  $('#btn-empty-add').addEventListener('click', () => openEdit(null));
   $('#btn-save-edit').addEventListener('click', saveEdit);
 
   $('#btn-wa-open').addEventListener('click', openWaCurrent);
