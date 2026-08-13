@@ -1,38 +1,37 @@
-/* FTRLABS Invitation Manager — internal admin styling.
-   Functional, fast, professional, responsive. Light + dark aware. */
+/* Maculis · Testerbeheer — internal admin styling ("Maculis Dark Admin").
+   Warm, dark, restrained — clearly the admin environment behind Maculis, but
+   still a fast, scannable, functional tool. Not a copy of the journey. */
 
 :root {
-  --bg: #f4f6f8;
-  --surface: #ffffff;
-  --surface-2: #f8fafc;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --text: #0f172a;
-  --muted: #64748b;
-  --primary: #0ea5e9;
-  --primary-hover: #0284c7;
-  --primary-text: #ffffff;
-  --danger: #dc2626;
-  --warn: #b45309;
-  --ok: #059669;
-  --shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.05);
-  --radius: 10px;
-}
+  color-scheme: dark;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0b1120;
-    --surface: #131c2e;
-    --surface-2: #0f172a;
-    --border: #263248;
-    --border-strong: #33415c;
-    --text: #e6edf6;
-    --muted: #94a3b8;
-    --primary: #38bdf8;
-    --primary-hover: #0ea5e9;
-    --primary-text: #04121f;
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 6px 18px rgba(0, 0, 0, 0.35);
-  }
+  /* Warm near-black field + slightly lighter warm surfaces (Maculis #080503). */
+  --bg: #080503;
+  --surface: #140e08;          /* cards, topbar, table                     */
+  --surface-2: #1d130b;        /* table header, row hover, inputs          */
+  --surface-elevated: #251a10; /* modals & dropdowns (a touch lighter)     */
+
+  /* Amber-tinted warm hairlines (from Maculis --line rgba(200,137,74,.22)). */
+  --border: rgba(200, 137, 74, 0.18);
+  --border-strong: rgba(200, 137, 74, 0.34);
+
+  /* Warm ivory text (Maculis #ece2d4) + a muted warm greige. */
+  --text: #ece2d4;
+  --muted: #a89a86;
+
+  /* Maculis amber accent + its own hover value; dark warm text on amber. */
+  --primary: #c8894a;
+  --primary-hover: #e6a866;
+  --primary-text: #241606;
+
+  /* Functional status codes — kept distinct from the brand amber. */
+  --danger: #e5674f;
+  --warn: #cf8a3c;
+  --ok: #4cae86;
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.45);
+  --radius: 10px;
 }
 
 * { box-sizing: border-box; }
@@ -58,14 +57,26 @@ button, input, select, textarea {
   font-size: 14px;
   color: var(--text);
 }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
+
+/* Selection accent = Maculis amber (never browser-default blue). */
+input[type="checkbox"] { accent-color: var(--primary); }
 
 /* ---- brand ---- */
+/* MACULIS wordmark — the one place the Maculis serif appears in the chrome. */
 .brand-mark {
-  font-weight: 800;
-  letter-spacing: 0.5px;
+  font-family: var(--serif);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  font-size: 19px;
   color: var(--text);
 }
 .brand-mark span { color: var(--primary); }
+/* FTRlabs demoted to a small, secondary org tag (never the product name). */
+.org-tag {
+  font-size: 11px; letter-spacing: 0.3px; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px;
+}
 
 /* ---- buttons ---- */
 .btn {
@@ -129,7 +140,7 @@ button, input, select, textarea {
   flex-wrap: wrap;
 }
 .topbar-left { display: flex; align-items: center; gap: 14px; }
-.topbar-title { display: flex; align-items: center; gap: 10px; }
+.topbar-title { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
 .topbar-title strong { font-size: 15px; }
 .topbar-right { display: flex; gap: 8px; flex-wrap: wrap; }
 .campaign-pill {
@@ -215,6 +226,7 @@ button, input, select, textarea {
 .act-wa:hover { border-color: #25d366; }
 
 .empty-state { text-align: center; padding: 60px 20px; }
+.empty-state strong { font-family: var(--serif); font-weight: 700; font-size: 18px; }
 
 /* ---- statusbar ---- */
 .statusbar {
@@ -227,12 +239,12 @@ button, input, select, textarea {
 /* ---- modals ---- */
 .modal {
   position: fixed; inset: 0; z-index: 50;
-  background: rgba(2, 6, 23, 0.5);
+  background: rgba(4, 2, 1, 0.62);
   display: grid; place-items: center; padding: 20px;
   backdrop-filter: blur(2px);
 }
 .modal-card {
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--surface-elevated); border: 1px solid var(--border);
   border-radius: var(--radius); box-shadow: var(--shadow);
   width: 100%; max-width: 480px; max-height: 90vh;
   display: flex; flex-direction: column;
@@ -301,7 +313,7 @@ button, input, select, textarea {
 /* ---- responsive: table becomes cards ---- */
 @media (max-width: 760px) {
   .topbar-right .btn { padding: 8px 10px; font-size: 13px; }
-  .bulk-wrap { width: 100%; margin-left: 0; justify-content: space-between; }
+  .bulk-wrap { width: 100%; margin-left: 0; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
   .table-wrap { padding: 0 10px 20px; overflow-x: visible; }
 
   .tester-table thead { display: none; }
