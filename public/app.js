@@ -438,17 +438,31 @@ async function showWaCurrent() {
   }
   $('#btn-wa-open').dataset.url = wa.url;
   $('#btn-wa-open').dataset.id = id;
+  // Two-step manual flow: opening WhatsApp does NOT change status. Reset the
+  // buttons so every tester starts at "WhatsApp openen".
+  $('#btn-wa-open').classList.remove('hidden');
+  $('#btn-wa-sent').classList.add('hidden');
+  $('#wa-hint').classList.add('hidden');
 }
 
-async function openWaCurrent() {
+// Step 1: open WhatsApp. Deliberately does NOT touch the lifecycle status — the
+// admin still has to press Send in WhatsApp and then confirm here (option 2).
+function openWaCurrent() {
   const btn = $('#btn-wa-open');
-  const url = btn.dataset.url;
-  const id = btn.dataset.id;
-  // Open WhatsApp (admin still presses send there) ...
-  window.open(url, '_blank', 'noopener');
-  // ... and mark this tester INVITED (manual trigger, brief §9 + acceptance §20).
+  window.open(btn.dataset.url, '_blank', 'noopener');
+  $('#btn-wa-sent').dataset.id = btn.dataset.id;
+  btn.classList.add('hidden');
+  $('#btn-wa-sent').classList.remove('hidden');
+  $('#wa-hint').classList.remove('hidden');
+}
+
+// Step 2: the admin explicitly confirms the invitation was actually sent. ONLY
+// now does the tester go to INVITED (+ invited_at + invitation_sent history).
+async function confirmWaSent() {
+  const id = $('#btn-wa-sent').dataset.id;
   try {
     await api(`/api/invitations/${id}/status`, { method: 'POST', body: JSON.stringify({ status: 'INVITED', channel: 'whatsapp' }) });
+    toast('Uitnodiging geregistreerd — INVITED');
   } catch (e) { toast(e.message); }
   advanceWa();
 }
@@ -698,7 +712,7 @@ function renderEvaluations() {
     notice.classList.remove('hidden');
   } else notice.classList.add('hidden');
 
-  // Campaign summary (campaign-wide)
+  // Campaign-wide funnel counts (factual status data only).
   const total = rows.length;
   const invited = rows.filter((r) => ['INVITED', 'STARTED', 'COMPLETED'].includes(r.lifecycle)).length;
   const started = rows.filter((r) => r.started).length;
@@ -706,44 +720,106 @@ function renderEvaluations() {
   const evalComplete = rows.filter((r) => r.eval_status === 'COMPLETED').length;
   const pct = total ? Math.round((evalComplete / total) * 100) : 0;
   $('#eval-campaign').textContent = rows[0] ? rows[0].campaign : (state.cfg.campaign || 'Evaluaties');
-  $('#eval-summary').innerHTML = [
-    ['Testers', total], ['Uitgenodigd', invited], ['Gestart', started],
-    ['Evaluatie gestart', evalStarted], ['Evaluatie compleet', evalComplete], ['Compleet', pct + '%'],
-  ].map(([k, v]) => `<div class="eval-card"><div class="eval-card-num">${v}</div><div class="eval-card-lbl">${k}</div></div>`).join('');
 
-  // Per-question distributions (counts + %)
-  $('#eval-distributions').innerHTML = questions.map((q) => {
+  // Empty state (brief §9): keep it human, not an empty dashboard.
+  if (total === 0) {
+    $('#eval-summary').innerHTML = '';
+    $('#eval-funnel').innerHTML = `<div class="eval-empty"><p><strong>Nog geen testers in deze campagne</strong></p>
+      <p class="muted">Voeg testers toe in Testerbeheer; hun voortgang en antwoorden verschijnen hier zodra Maculis-sessies binnenkomen.</p></div>`;
+    $('#eval-distributions').innerHTML = '';
+    $('#eval-open').innerHTML = '';
+    $('#eval-testers').innerHTML = '';
+    return;
+  }
+
+  // KPI cards — value + subtle progress where a ratio is meaningful.
+  const card = (label, value, num, den) => {
+    const p = den ? Math.round((num / den) * 100) : 0;
+    const bar = den == null ? '' :
+      `<div class="kpi-bar" role="img" aria-label="${num} van ${den} (${p}%)"><span style="width:${p}%"></span></div>
+       <div class="kpi-sub">${num}/${den} · ${p}%</div>`;
+    return `<div class="eval-card"><div class="eval-card-num">${value}</div><div class="eval-card-lbl">${label}</div>${bar}</div>`;
+  };
+  $('#eval-summary').innerHTML =
+    card('Testers', total) +
+    card('Uitgenodigd', invited, invited, total) +
+    card('Gestart', started, started, total) +
+    card('Evaluatie gestart', evalStarted, evalStarted, total) +
+    card('Evaluatie compleet', evalComplete, evalComplete, total) +
+    card('Compleet', pct + '%', evalComplete, total);
+
+  // Testerreis funnel — where do testers drop off? (counts + share of total)
+  const stages = [
+    ['Uitgenodigd', invited], ['Gestart', started],
+    ['Evaluatie gestart', evalStarted], ['Evaluatie compleet', evalComplete],
+  ];
+  $('#eval-funnel').innerHTML = `<h2 class="eval-sub">Testerreis</h2>
+    <div class="funnel">` + stages.map(([label, n], i) => {
+      const p = total ? Math.round((n / total) * 100) : 0;
+      const drop = i > 0 ? stages[i - 1][1] - n : 0;
+      return `<div class="funnel-stage">
+        <div class="funnel-count">${n}</div>
+        <div class="funnel-bar" role="img" aria-label="${label}: ${n} van ${total} (${p}%)"><span style="width:${p}%"></span></div>
+        <div class="funnel-label">${esc(label)}</div>
+        ${drop > 0 ? `<div class="funnel-drop" title="Afhakers t.o.v. vorige fase">−${drop}</div>` : '<div class="funnel-drop"></div>'}
+      </div>${i < stages.length - 1 ? '<div class="funnel-arrow" aria-hidden="true">›</div>' : ''}`;
+    }).join('') + `</div>`;
+
+  // Per-question distributions — label + bar + count + percentage (never colour-only).
+  $('#eval-distributions').innerHTML = `<h2 class="eval-sub">Gezamenlijke antwoorden</h2>` + questions.map((q) => {
     const opts = Object.entries(q.options || {});
     const counts = opts.map(([val, label]) => ({ label, n: rows.filter((r) => r.answers[q.id] === val).length }));
     const answered = counts.reduce((a, c) => a + c.n, 0);
     const bars = counts.map((c) => {
       const p = answered ? Math.round((c.n / answered) * 100) : 0;
-      return `<div class="dist-row"><span class="dist-lbl">${esc(c.label)}</span>` +
-        `<span class="dist-bar"><span style="width:${p}%"></span></span>` +
-        `<span class="dist-n">${c.n}${answered ? ' · ' + p + '%' : ''}</span></div>`;
+      return `<div class="dist-row">
+        <span class="dist-lbl">${esc(c.label)}</span>
+        <span class="dist-bar" role="img" aria-label="${esc(c.label)}: ${c.n}${answered ? ' (' + p + '%)' : ''}"><span style="width:${p}%"></span></span>
+        <span class="dist-n">${c.n} · ${answered ? p + '%' : '—'}</span></div>`;
     }).join('');
-    return `<div class="dist-block"><h3>${esc(q.text)}</h3>${bars}</div>`;
+    const sub = answered ? `${answered} van ${total} beantwoord` : 'nog niet beantwoord';
+    return `<div class="dist-block"><h3>${esc(q.text)}</h3><div class="dist-sub muted small">${sub}</div>${bars}</div>`;
   }).join('');
 
-  // Open answers (conditional context), full text, grouped per question
+  // Open insights — qualitative, quiet card list (no charts, no invented text).
   const openBlocks = questions.filter((q) => q.context).map((q) => {
     const cid = q.context.id;
     const items = rows.filter((r) => r.contexts && r.contexts[cid]).map((r) =>
-      `<div class="open-item"><div class="open-who">${esc(r.name)}${r.company_name ? ' · ' + esc(r.company_name) : ''}</div>` +
-      `<div class="open-txt">${esc(r.contexts[cid])}</div></div>`).join('');
+      `<div class="open-item"><div class="open-quote">${esc(r.contexts[cid])}</div>` +
+      `<div class="open-who">${esc(r.name)}${r.company_name ? ' · ' + esc(r.company_name) : ''}</div></div>`).join('');
     return items ? `<div class="open-block"><h3>${esc(q.context.text)}</h3>${items}</div>` : '';
   }).filter(Boolean).join('');
-  $('#eval-open').innerHTML = openBlocks ? `<h2 class="eval-sub">Open toelichtingen</h2>${openBlocks}` : '';
+  $('#eval-open').innerHTML = openBlocks ? `<h2 class="eval-sub">Open inzichten</h2>${openBlocks}` : '';
 
-  // Per-tester list (filtered by evaluation status)
+  // Per-tester list with a factual 4-step progress indicator + consent when set.
   const f = state.evalFilter;
   const list = f ? rows.filter((r) => r.eval_status === f) : rows;
   $('#eval-testers').innerHTML = `<h2 class="eval-sub">Per tester</h2>` + (list.length
-    ? list.map((r) => `<div class="eval-tester">
-        <div class="eval-tester-main"><span class="et-name">${esc(r.name)}</span>${r.company_name ? `<span class="muted small">${esc(r.company_name)}</span>` : ''}</div>
-        <span class="status-badge eval-${r.eval_status}">${r.eval_status.replace('_', ' ')}</span>
-        <button class="btn btn-ghost" data-eval="${r.id}">Evaluatie bekijken</button>
-      </div>`).join('')
+    ? list.map((r) => {
+        const inv = state.invitations.find((x) => x.id === r.id);
+        const consent = inv ? inv.consent_status : 'UNKNOWN';
+        const consentTag = (consent === 'OPTED_IN' || consent === 'OPTED_OUT')
+          ? `<span class="status-badge consent-${consent} et-consent">${CONSENT_LABEL[consent]}</span>` : '';
+        // Steps reached, using ONLY real status (never mark a step done that isn't).
+        const steps = [
+          ['Uitgenodigd', ['INVITED', 'STARTED', 'COMPLETED'].includes(r.lifecycle)],
+          ['Gestart', r.started],
+          ['Evaluatie', r.eval_status !== 'NOT_STARTED'],
+          ['Compleet', r.eval_status === 'COMPLETED'],
+        ];
+        const prog = `<div class="et-steps" role="img" aria-label="Voortgang: ${steps.filter((s) => s[1]).map((s) => s[0]).join(', ') || 'nog geen'}">` +
+          steps.map(([lbl, on]) => `<span class="et-step ${on ? 'on' : ''}" title="${esc(lbl)}${on ? '' : ' — nog niet'}"></span>`).join('') + `</div>`;
+        return `<div class="eval-tester">
+          <div class="eval-tester-main">
+            <span class="et-name">${esc(r.name)}</span>
+            ${r.company_name ? `<span class="muted small">${esc(r.company_name)}</span>` : ''}
+            ${prog}
+          </div>
+          ${consentTag}
+          <span class="status-badge eval-${r.eval_status}">${r.eval_status.replace('_', ' ')}</span>
+          <button class="btn btn-ghost" data-eval="${r.id}">Evaluatie bekijken</button>
+        </div>`;
+      }).join('')
     : `<p class="muted">Geen testers in deze filter.</p>`);
   $$('#eval-testers [data-eval]').forEach((b) => b.addEventListener('click', () => openEvalDetail(b.dataset.eval)));
 }
@@ -859,6 +935,7 @@ function wireEvents() {
   $('#btn-save-edit').addEventListener('click', saveEdit);
 
   $('#btn-wa-open').addEventListener('click', openWaCurrent);
+  $('#btn-wa-sent').addEventListener('click', confirmWaSent);
   $('#btn-wa-skip').addEventListener('click', advanceWa);
 
   $('#btn-logout').addEventListener('click', async () => {

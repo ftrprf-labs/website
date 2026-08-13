@@ -119,6 +119,7 @@
         </div>
         <p id="eval-notice" class="warn hidden"></p>
         <div class="eval-cards" id="eval-summary"></div>
+        <div id="eval-funnel"></div>
         <div id="eval-distributions"></div>
         <div id="eval-open"></div>
         <div class="eval-testers" id="eval-testers"></div>
@@ -243,10 +244,15 @@
           <label>Voorbeeldbericht</label>
           <textarea id="wa-preview" rows="9" readonly></textarea>
           <p id="wa-warn" class="warn hidden"></p>
+          <p id="wa-hint" class="muted small hidden">
+            WhatsApp is geopend. Druk daar zelf op <strong>Verzenden</strong>. Bevestig hieronder
+            pas nadat je de uitnodiging daadwerkelijk hebt verstuurd — dan wordt de tester op INVITED gezet.
+          </p>
         </div>
         <div class="modal-foot wa-foot">
           <button class="btn btn-ghost" id="btn-wa-skip">Overslaan</button>
-          <button class="btn btn-primary" id="btn-wa-open">WhatsApp openen &amp; INVITED</button>
+          <button class="btn btn-primary" id="btn-wa-open">WhatsApp openen</button>
+          <button class="btn btn-primary hidden" id="btn-wa-sent">Uitnodiging verzonden</button>
         </div>
       </div>
     </div>

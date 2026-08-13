@@ -427,6 +427,49 @@ input[type="checkbox"] { accent-color: var(--primary); }
 .qa-a { font-size: 15px; font-weight: 600; margin-top: 2px; }
 .qa-ctx { margin-top: 6px; padding-left: 10px; border-left: 2px solid var(--border-strong); }
 
+/* ---- KPI card progress + empty state ---- */
+.kpi-bar {
+  height: 5px; background: var(--surface-2); border-radius: 999px;
+  overflow: hidden; margin: 8px 2px 4px;
+}
+.kpi-bar > span { display: block; height: 100%; background: var(--primary); }
+.kpi-sub { font-size: 11px; color: var(--muted); }
+.eval-empty {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px; text-align: center; margin-top: 8px;
+}
+.eval-empty p { margin: 2px 0; }
+
+/* ---- testerreis funnel ---- */
+.funnel { display: flex; align-items: stretch; gap: 6px; }
+.funnel-stage {
+  flex: 1 1 0; min-width: 0; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 12px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.funnel-count { font-size: 24px; font-weight: 700; color: var(--primary); line-height: 1; }
+.funnel-bar { height: 6px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.funnel-bar > span { display: block; height: 100%; background: var(--primary); }
+.funnel-label { font-size: 12px; color: var(--text); }
+.funnel-drop { font-size: 11px; color: var(--muted); min-height: 14px; }
+.funnel-arrow { align-self: center; color: var(--border-strong); font-size: 22px; flex: 0 0 auto; }
+
+/* ---- distributions: per-question meta ---- */
+.dist-sub { margin: -2px 0 8px; }
+
+/* ---- open insights: quote-forward card ---- */
+.open-quote { font-size: 14px; line-height: 1.45; }
+.open-who { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+/* ---- per-tester factual progress dots ---- */
+.et-steps { display: inline-flex; gap: 4px; margin-top: 6px; }
+.et-step {
+  width: 22px; height: 4px; border-radius: 999px; background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.et-step.on { background: var(--primary); border-color: var(--primary); }
+.et-consent { flex: 0 0 auto; font-size: 11px; }
+
 /* ---- provenance (read-only in edit modal) ---- */
 .provenance { display: flex; align-items: baseline; gap: 10px; }
 .prov-val { font-weight: 600; color: var(--text); }
@@ -467,6 +510,18 @@ input[type="checkbox"] { accent-color: var(--primary); }
   .dist-lbl { flex-basis: 90px; }
   .history-summary { grid-template-columns: 1fr; gap: 6px; }
   .tl-time { flex-basis: 96px; }
+  /* Funnel stacks vertically; the horizontal arrows are hidden. */
+  .funnel { flex-direction: column; gap: 8px; }
+  .funnel-stage { flex-direction: row; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .funnel-count { flex: 0 0 auto; min-width: 34px; }
+  .funnel-bar { flex: 1 1 60px; }
+  .funnel-label { flex: 1 1 100%; order: 3; }
+  .funnel-arrow { display: none; }
+  .eval-card { flex-basis: 44%; }
+  /* Per-tester row wraps: name on its own line, badges + action below. */
+  .eval-tester { flex-wrap: wrap; }
+  .eval-tester .eval-tester-main { flex-basis: 100%; }
+  .eval-tester [data-eval] { margin-left: auto; }
   .topbar-right .btn { padding: 8px 10px; font-size: 13px; }
   .bulk-wrap { width: 100%; margin-left: 0; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
   .table-wrap { padding: 0 10px 20px; overflow-x: visible; }

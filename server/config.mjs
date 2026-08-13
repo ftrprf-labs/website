@@ -34,7 +34,11 @@ loadDotEnv();
 export const config = {
   port: Number(process.env.PORT || 4321),
   host: process.env.HOST || '127.0.0.1',
-  maculisHost: (process.env.MACULIS_HOST || 'https://maculis.ftrlabs.example').replace(/\/+$/, ''),
+  // Single source of truth for the Maculis host. Personal links, e-mail,
+  // WhatsApp, publish and session-export all derive from this one value.
+  // Override per environment via MACULIS_HOST (e.g. http://localhost:8137 for
+  // local testing); the canonical production host is the default below.
+  maculisHost: (process.env.MACULIS_HOST || 'https://www.maculis.nl').replace(/\/+$/, ''),
   // Shared server-to-server key for publishing participants to Maculis
   // (PUT {MACULIS_HOST}/api/participants). Empty → publish is not configured.
   maculisSyncKey: process.env.MACULIS_SYNC_KEY || '',
