@@ -29,6 +29,7 @@ const EVENT_LABEL = {
   journey_started: 'Maculis gestart',
   evaluation_started: 'Evaluatie gestart',
   evaluation_completed: 'Evaluatie afgerond',
+  consent_recorded: 'Toestemming vastgelegd',
   consent_changed: 'Toestemming gewijzigd',
   published_to_maculis: 'Gepubliceerd naar Maculis',
 };
@@ -588,6 +589,16 @@ function openEdit(id) {
   }
   // Consent (independent dimension) — editable for both new and existing testers.
   $('#ef-consent').value = r ? (r.consent_status || 'UNKNOWN') : 'UNKNOWN';
+  // Consent provenance (brief §5/§15): show where an explicit choice came from.
+  const prov = $('#ef-consent-prov');
+  if (r && r.consent_source) {
+    const src = SOURCE_LABEL[r.consent_source] || r.consent_source;
+    prov.textContent = `Toestemming via ${src}${r.consent_at ? ' · ' + fmtTs(r.consent_at) : ''}` +
+      (r.consent_version ? ` · versie ${r.consent_version}` : '');
+    prov.classList.remove('hidden');
+  } else {
+    prov.classList.add('hidden');
+  }
   state.editConsentOriginal = r ? (r.consent_status || 'UNKNOWN') : 'UNKNOWN';
   // "Status corrigeren" — only for existing testers, as an explicit exception.
   const statusRow = $('#edit-status-row');
@@ -881,6 +892,7 @@ async function openHistory(id) {
         const meta = [];
         if (e.channel) meta.push(CHANNEL_LABEL[e.channel] || e.channel);
         if (e.result) meta.push(RESULT_LABEL[e.result] || e.result);
+        if (e.source) meta.push(SOURCE_LABEL[e.source] || e.source);
         return `<div class="tl-item tl-${esc(e.result || 'info')}">
           <div class="tl-time">${esc(fmtTs(e.at))}</div>
           <div class="tl-body">

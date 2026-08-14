@@ -34,16 +34,20 @@ const EVENTS = [
   'journey_started',
   'evaluation_started',
   'evaluation_completed',
+  'consent_recorded',
   'consent_changed',
   'published_to_maculis',
 ];
 
 // A single history entry: { at, event, channel?, result? }. No PII, no bodies,
 // no links, no tokens (brief §2, §18) — only the minimal facts of an event.
-function historyEntry(event, { channel = null, result = null, at = null } = {}) {
+function historyEntry(event, { channel = null, result = null, at = null, source = null } = {}) {
   const entry = { at: at || new Date().toISOString(), event };
   if (channel) entry.channel = channel;
   if (result) entry.result = result;
+  // Relevant provenance/context for the event (brief §17) — e.g. the intake
+  // source for a consent event. Never a token, secret or PII.
+  if (source) entry.source = source;
   return entry;
 }
 
@@ -62,7 +66,14 @@ function emptyRecord() {
     status: 'DRAFT',
     consent_status: 'UNKNOWN',
     consent_at: null,
+    // Consent provenance (brief §3/§5): where an explicit consent choice came
+    // from and which consent version, when known. null until a real signal.
+    consent_source: null,
+    consent_version: null,
     source: 'manual',
+    // Stable identity of the PERSON (not the session token, brief §7). Derived
+    // from normalised e-mail (primary) or mobile, scoped by campaign.
+    person_key: null,
     notes: '',
     created_at: null,
     invited_at: null,
@@ -70,6 +81,16 @@ function emptyRecord() {
     completed_at: null,
     history: [],
   };
+}
+
+// Person identity for dedup (brief §7). Deliberately NOT the participant/session
+// token: it identifies the human, scoped to a campaign, from the same fields the
+// existing importer dedups on (e-mail primary, mobile fallback).
+export function personKey(record, campaign = config.campaign) {
+  const email = (record.email || '').trim().toLowerCase();
+  const mobile = normaliseMobile(record.mobile || '');
+  const id = email || mobile;
+  return id ? `${campaign || ''}|${id}` : null;
 }
 
 let db = null;
@@ -99,6 +120,12 @@ function load() {
       // Provenance: we cannot reliably tell how a legacy record was created,
       // so we record `unknown` rather than inventing a source (brief §16).
       if (r.source === undefined) r.source = 'unknown';
+      // Consent provenance defaults — no invented source/version (brief §18).
+      if (r.consent_source === undefined) r.consent_source = null;
+      if (r.consent_version === undefined) r.consent_version = null;
+      // Backfill the person key from the record's own contact data (safe,
+      // deterministic — derived, not invented).
+      if (r.person_key === undefined) r.person_key = personKey(r, r.campaign);
     }
     db = {
       invitations,
@@ -165,30 +192,82 @@ export function normaliseMobile(raw) {
 export function createInvitation(data) {
   const now = new Date().toISOString();
   const source = SOURCES.includes(data && data.source) ? data.source : 'manual';
+  const campaign = (data && data.campaign) ? String(data.campaign).trim() : config.campaign;
   const record = {
     ...emptyRecord(),
     ...pickFields(data),
     id: generateId(),
     token: generateToken(),
-    campaign: config.campaign,
+    campaign,
     status: 'DRAFT',
     source,
     created_at: now,
     // First history event: the tester exists. No channel/result — creation is
-    // not an outbound action.
-    history: [historyEntry('tester_created', { at: now })],
+    // not an outbound action. Provenance is carried in `source`.
+    history: [historyEntry('tester_created', { at: now, source })],
   };
+  // Person identity for dedup, derived from the final record (brief §7).
+  record.person_key = personKey(record, campaign);
   ready().invitations.push(record);
   persist();
   return { ...record };
+}
+
+// Find an existing tester for the SAME PERSON (brief §7). Uses the person key
+// (e-mail/mobile within campaign); never the participant/session token.
+export function findByPersonKey(candidate, campaign = config.campaign) {
+  const key = personKey(candidate, campaign);
+  if (!key) return null;
+  return ready().invitations.find((r) => (r.person_key || personKey(r, r.campaign)) === key) || null;
 }
 
 export function updateInvitation(id, patch) {
   const r = ready().invitations.find((x) => x.id === id);
   if (!r) return null;
   Object.assign(r, pickFields(patch));
+  // Keep the person key in sync when contact details change.
+  r.person_key = personKey(r, r.campaign);
   persist();
   return { ...r };
+}
+
+// Automatic intake from an external journey (Pass the Lens, brief §6-§9).
+// Dedups by person key, NEVER resets an existing tester's lifecycle, and records
+// consent only for an EXPLICIT choice (a journey completion is not an opt-in).
+export function intake(payload) {
+  const contact = {
+    first_name: payload.first_name,
+    last_name: payload.last_name,
+    company_name: payload.company_name ?? payload.company,
+    email: payload.email,
+    mobile: payload.mobile,
+    domain: payload.domain,
+  };
+  const campaign = (payload.campaign && String(payload.campaign).trim()) || config.campaign;
+  const existing = findByPersonKey(contact, campaign);
+  let rec, created;
+  if (existing) {
+    created = false;
+    // Existing person: refresh contact details only — lifecycle stays put (§9).
+    updateInvitation(existing.id, contact);
+    rec = getInvitation(existing.id);
+  } else {
+    created = true;
+    rec = createInvitation({ ...contact, campaign, source: 'pass_the_lens' });
+  }
+  // Consent: only OPTED_IN / OPTED_OUT is an explicit choice. UNKNOWN never
+  // overwrites an existing choice and is never treated as an opt-in (§3, §10).
+  let consentApplied = false;
+  const c = payload.consent_status;
+  if (c === 'OPTED_IN' || c === 'OPTED_OUT') {
+    const cur = getInvitation(rec.id);
+    const src = payload.consent_source || 'pass_the_lens';
+    if (cur.consent_status !== c || cur.consent_source !== src) {
+      setConsent(rec.id, c, { source: src, version: payload.consent_version ?? null, at: payload.consent_at || undefined });
+      consentApplied = true;
+    }
+  }
+  return { created, invitation: getInvitation(rec.id), consentApplied };
 }
 
 // Status transition with automatic timestamping (brief §9).
@@ -222,15 +301,23 @@ export function applySessionStatus(id, started, completed) {
 }
 
 // Consent is an independent dimension — this never touches the lifecycle status.
-export function setConsent(id, consent) {
+// opts: { source, version, at } record where an explicit choice came from and
+// which consent version (brief §3/§5). The first consent from a source logs
+// `consent_recorded`; a later change logs `consent_changed`.
+export function setConsent(id, consent, opts = {}) {
   if (!CONSENT.includes(consent)) throw new Error(`Onbekende consentwaarde: ${consent}`);
   const r = ready().invitations.find((x) => x.id === id);
   if (!r) return null;
-  r.consent_status = consent;
-  r.consent_at = new Date().toISOString();
   if (!Array.isArray(r.history)) r.history = [];
+  const at = opts.at || new Date().toISOString();
+  const firstConsent = !r.history.some((h) => h.event === 'consent_recorded' || h.event === 'consent_changed');
+  r.consent_status = consent;
+  r.consent_at = at;
+  if (opts.source !== undefined) r.consent_source = opts.source || null;
+  if (opts.version !== undefined) r.consent_version = opts.version || null;
   // History records the change; it does NOT drive consent (brief §10, §20).
-  r.history.push(historyEntry('consent_changed', { at: r.consent_at, result: consent.toLowerCase() }));
+  r.history.push(historyEntry(firstConsent ? 'consent_recorded' : 'consent_changed',
+    { at, result: consent.toLowerCase(), source: opts.source || null }));
   persist();
   return { ...r };
 }

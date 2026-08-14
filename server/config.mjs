@@ -45,6 +45,10 @@ export const config = {
   // Read key for pulling Maculis session/evaluation results
   // (GET {MACULIS_HOST}/api/session/export?key=…). Empty → results view is off.
   maculisExportKey: process.env.MACULIS_EXPORT_KEY || '',
+  // Separate server-to-server key for the automatic intake endpoint
+  // (POST /api/intake, used by Pass the Lens). Empty → intake is DISABLED
+  // (returns 503); never a public unauthenticated intake.
+  intakeKey: process.env.INTAKE_KEY || '',
   adminPassword: process.env.ADMIN_PASSWORD || '',
 
   // E-mail sending contract (see server/mailer.mjs). No credentials in code:

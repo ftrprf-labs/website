@@ -62,10 +62,14 @@ export function deriveByToken(sessions) {
     if (!token || typeof token !== 'string') continue;
     let d = byToken.get(token);
     if (!d) {
-      d = { started: true, completed: false, answers: {}, contexts: {}, started_at: null, completed_at: null };
+      d = { started: true, completed: false, answers: {}, contexts: {}, started_at: null, completed_at: null, consent: null, consent_at: null };
       byToken.set(token, d);
     }
     if (s.started_at && (!d.started_at || s.started_at < d.started_at)) d.started_at = s.started_at;
+    // Explicit consent from the Maculis journey (the "inner circle" opt-in step,
+    // brief §3/§4). A positive action → OPTED_IN, an explicit decline → OPTED_OUT,
+    // neither → null (UNKNOWN). Journey completion is NEVER an implicit opt-in.
+    if (s.inner_circle_opt_in === true) { d.consent = 'OPTED_IN'; d.consent_at = d.consent_at || s.updated_at || s.received_at || null; }
     for (const e of Array.isArray(s.events) ? s.events : []) {
       if (!e || !e.name) continue;
       if (e.name === 'recognition_answered' && e.value != null) d.answers.recognition = String(e.value);
@@ -74,6 +78,9 @@ export function deriveByToken(sessions) {
       else if (e.name === 'recognition_context' && e.text) d.contexts.recognition_context = String(e.text);
       else if (e.name === 'accuracy_context' && e.text) d.contexts.accuracy_context = String(e.text);
       else if (e.name === 'session_completed') { d.completed = true; d.completed_at = s.received_at || s.updated_at || d.completed_at; }
+      // Consent events carried in the session event trail.
+      else if (e.name === 'inner_circle_opt_in') { d.consent = 'OPTED_IN'; d.consent_at = d.consent_at || e.at || s.updated_at || null; }
+      else if (e.name === 'inner_circle_declined') { d.consent = 'OPTED_OUT'; d.consent_at = d.consent_at || e.at || s.updated_at || null; }
     }
   }
   for (const d of byToken.values()) d.eval_status = evalStatus(d);

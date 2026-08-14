@@ -143,6 +143,8 @@ async function handleApi(req, res, pathname) {
       mailConfigured: mailConfigured(),
       // Can we pull Maculis evaluation results? (export key present, no secret exposed)
       evaluationsConfigured: Boolean(config.maculisExportKey),
+      // Is the automatic Pass the Lens intake enabled? (key present, no secret exposed)
+      intakeConfigured: Boolean(config.intakeKey),
     });
   }
 
@@ -169,6 +171,32 @@ async function handleApi(req, res, pathname) {
     // Maculis experience actually started. STARTED/COMPLETED are derived only
     // from real Maculis session data (see /api/evaluations, brief §4).
     return json(res, 200, publicContext(rec));
+  }
+
+  // Automatic intake from Pass the Lens (brief §6). Server-to-server: NOT the
+  // admin gate — guarded by its own INTAKE_KEY. No key configured → disabled
+  // (503). Never a public unauthenticated intake. Body is never logged.
+  if (pathname === '/api/intake' && method === 'POST') {
+    if (!config.intakeKey) return json(res, 503, { ok: false, error: 'Intake niet geconfigureerd (INTAKE_KEY ontbreekt).' });
+    if (req.headers['x-intake-key'] !== config.intakeKey) return json(res, 403, { ok: false, error: 'Intake-sleutel geweigerd.' });
+    const body = await readJson(req);
+    // Need at least one contact identifier to form a person key (dedup, §7).
+    if (!body.email && !body.mobile) return json(res, 400, { ok: false, error: 'email of mobile is vereist voor intake.' });
+    if (body.consent_status && !store.CONSENT.includes(body.consent_status)) {
+      return json(res, 400, { ok: false, error: 'Onbekende consent_status.' });
+    }
+    const result = store.intake(body);
+    const inv = result.invitation;
+    // Minimal, PII-free response: no token, no e-mail. Just what the caller needs.
+    return json(res, result.created ? 201 : 200, {
+      ok: true,
+      created: result.created,
+      consentApplied: result.consentApplied,
+      id: inv.id,
+      status: inv.status,
+      consent_status: inv.consent_status,
+      source: inv.source,
+    });
   }
 
   // ---- everything below requires the admin gate ----
@@ -377,6 +405,15 @@ async function handleApi(req, res, pathname) {
         if (d.started) store.recordEventOnce(inv.id, 'journey_started', { at: d.started_at || null });
         if (d.eval_status !== 'NOT_STARTED') store.recordEventOnce(inv.id, 'evaluation_started', { at: d.started_at || null });
         if (d.eval_status === 'COMPLETED') store.recordEventOnce(inv.id, 'evaluation_completed', { at: d.completed_at || d.started_at || null });
+        // Consent from the Maculis journey's inner-circle opt-in (brief §3/§4).
+        // Only an EXPLICIT choice updates consent; applied idempotently (skipped
+        // when it already matches). Journey completion alone stays UNKNOWN.
+        if (d.consent === 'OPTED_IN' || d.consent === 'OPTED_OUT') {
+          const before = store.getInvitation(inv.id);
+          if (before && before.consent_status !== d.consent) {
+            store.setConsent(inv.id, d.consent, { source: 'pass_the_lens', version: null, at: d.consent_at || undefined });
+          }
+        }
       }
       const cur = store.getInvitation(inv.id) || inv;
       return {

@@ -171,11 +171,16 @@ test('history + provenance: append-only, source, migration-safe, no auto-status'
     assert.equal(sent.length, 2);
     assert.deepEqual(sent.map((h) => h.channel), ['whatsapp', 'email']);
 
-    // 8. consent change records consent_changed WITHOUT touching lifecycle
-    const c = store.setConsent(inv.id, 'OPTED_OUT');
-    assert.equal(c.status, 'DRAFT');                     // history/consent never drive lifecycle (§20)
-    assert.deepEqual(c.history.at(-1).event, 'consent_changed');
+    // 8. first consent records consent_recorded; a later change records consent_changed;
+    //    neither touches lifecycle (§20)
+    const c = store.setConsent(inv.id, 'OPTED_OUT', { source: 'pass_the_lens' });
+    assert.equal(c.status, 'DRAFT');                     // history/consent never drive lifecycle
+    assert.equal(c.history.at(-1).event, 'consent_recorded');   // first consent on this record
     assert.equal(c.history.at(-1).result, 'opted_out');
+    assert.equal(c.history.at(-1).source, 'pass_the_lens');     // provenance on the event
+    assert.equal(c.consent_source, 'pass_the_lens');
+    const c2 = store.setConsent(inv.id, 'OPTED_IN');
+    assert.equal(c2.history.at(-1).event, 'consent_changed');   // subsequent change
 
     // 9. publish event
     assert.equal(store.addEvent(inv.id, 'published_to_maculis', { result: 'success' }).history.at(-1).event, 'published_to_maculis');
