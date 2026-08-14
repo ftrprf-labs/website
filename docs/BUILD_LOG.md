@@ -5,6 +5,32 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-14 — Journey-consent afronding (consent_version uit sessie)
+
+**Feature (IM-kant van een cross-repo wijziging).** De Maculis-journey stempelt
+sinds `maculis-contact-v1` de getoonde consent-versie in de sessie
+(`contact_consent_version`) en het `inner_circle_opt_in`-event. De IM-pull leest
+die versie nu uit en legt hem vast bij de OPTED_IN, zodat aantoonbaar is met
+welke tekst iemand heeft ingestemd (voorheen `null`).
+
+- `maculis-sessions.mjs`: `deriveByToken` leest `contact_consent_version` (sessie
+  en event) → `d.consent_version`.
+- `index.mjs`: de evaluations-pull geeft `version: d.consent_version` mee aan
+  `setConsent` i.p.v. hardcoded `null`.
+- Ongewijzigd: alleen een expliciete opt-in → OPTED_IN; "Nog niet"
+  (`contact_consent_deferred` én de oude `inner_circle_declined`) → geen
+  transitie; COMPLETED ≠ consent. Historische `null`-versies blijven `null`.
+
+**Journey-repo (apart):** `ftrprf-labs/maculis-first-five.` branch
+`claude/journey-consent-v1` — memory/contact ontkoppeld, V1-copy, nieuw event,
+version-stamping, privacy-placeholder. **Consent-registry:** `ftrprf-labs/ftrlabs-docs`
+(`00-governance/compliance/gdpr/consent-registry.md`).
+
+**Getest:** 17/17 unit, 8/8 journey-pull-E2E, 34/34 journey-browser (desktop+375),
+volledige IM-regressie groen. Geen tokens/PII in logs.
+
+---
+
 ## 2026-08-14 — Fail-closed contactmodel + consent-provenance
 
 **Feature.** Contact is voortaan **fail-closed**: alleen een expliciete

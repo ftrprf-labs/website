@@ -62,10 +62,12 @@ export function deriveByToken(sessions) {
     if (!token || typeof token !== 'string') continue;
     let d = byToken.get(token);
     if (!d) {
-      d = { started: true, completed: false, answers: {}, contexts: {}, started_at: null, completed_at: null, consent: null, consent_at: null };
+      d = { started: true, completed: false, answers: {}, contexts: {}, started_at: null, completed_at: null, consent: null, consent_at: null, consent_version: null };
       byToken.set(token, d);
     }
     if (s.started_at && (!d.started_at || s.started_at < d.started_at)) d.started_at = s.started_at;
+    // The journey stamps the consent version it actually showed (maculis-contact-v1).
+    if (typeof s.contact_consent_version === 'string' && s.contact_consent_version) d.consent_version = s.contact_consent_version;
     // Explicit consent from the Maculis journey (the "inner circle" opt-in step).
     // ONLY an affirmative opt-in is an explicit choice → OPTED_IN. "Nog niet"
     // (inner_circle_declined) is a deferral, NOT a refusal: it records no consent
@@ -85,7 +87,7 @@ export function deriveByToken(sessions) {
       // opt-in maps to consent; `inner_circle_declined` ("Nog niet") is a
       // deferral and is intentionally NOT mapped (stays UNKNOWN). We still read
       // the event name for backward compatibility, but it drives no transition.
-      else if (e.name === 'inner_circle_opt_in') { d.consent = 'OPTED_IN'; d.consent_at = d.consent_at || e.at || s.updated_at || null; }
+      else if (e.name === 'inner_circle_opt_in') { d.consent = 'OPTED_IN'; d.consent_at = d.consent_at || e.at || s.updated_at || null; if (typeof e.version === 'string' && e.version) d.consent_version = e.version; }
     }
   }
   for (const d of byToken.values()) d.eval_status = evalStatus(d);

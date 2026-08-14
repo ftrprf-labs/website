@@ -435,7 +435,8 @@ async function handleApi(req, res, pathname) {
         if (d.consent === 'OPTED_IN') {
           const before = store.getInvitation(inv.id);
           if (before && before.consent_status !== 'OPTED_IN') {
-            store.setConsent(inv.id, 'OPTED_IN', { source: 'pass_the_lens', version: null, at: d.consent_at || undefined });
+            // Record the consent version the journey actually presented (D).
+            store.setConsent(inv.id, 'OPTED_IN', { source: 'pass_the_lens', version: d.consent_version || null, at: d.consent_at || undefined });
           }
         }
       }
