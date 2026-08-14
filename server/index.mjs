@@ -68,6 +68,15 @@ async function readJson(req) {
   return JSON.parse(buf.toString('utf8'));
 }
 
+// Human reason for a fail-closed contact block — distinguishes an explicit
+// refusal/withdrawal (OPTED_OUT) from merely-absent consent (UNKNOWN).
+function contactBlockReason(rec, channel) {
+  const why = rec && rec.consent_status === 'OPTED_OUT'
+    ? 'toestemming ingetrokken of geweigerd (OPTED_OUT)'
+    : 'geen aantoonbare toestemming (nog geen OPTED_IN)';
+  return `${channel} geblokkeerd: ${why}.`;
+}
+
 // Privacy-by-default: strip PII fields before sending to a non-admin context.
 function publicContext(record) {
   return {
@@ -230,11 +239,22 @@ async function handleApi(req, res, pathname) {
   }
 
   // Consent (independent dimension). Setting it never changes lifecycle status.
+  // Admin-recorded OPTED_IN is NOT a free checkbox (brief §1): it requires a
+  // provenance note (how the explicit consent was obtained) and is stamped
+  // consent_source=manual. This is the admin route; the intake/pull carry their
+  // own source. OPTED_OUT here is the admin withdrawal path (First Five, §3).
   const consentMatch = pathname.match(/^\/api\/invitations\/([^/]+)\/consent$/);
   if (consentMatch && method === 'POST') {
     const body = await readJson(req);
+    const status = body.consent_status;
+    const source = body.consent_source || 'manual';
+    const note = typeof body.consent_note === 'string' ? body.consent_note.trim() : '';
+    // A hand-recorded opt-in must be backed by a real, documented basis.
+    if (status === 'OPTED_IN' && source === 'manual' && !note) {
+      return json(res, 400, { error: 'Handmatige toestemming vereist een korte notitie: hoe is de expliciete toestemming verkregen (bv. mondeling/e-mail)?' });
+    }
     try {
-      const updated = store.setConsent(consentMatch[1], body.consent_status);
+      const updated = store.setConsent(consentMatch[1], status, { source, note: note || null });
       if (!updated) return json(res, 404, { error: 'Niet gevonden' });
       return json(res, 200, { invitation: updated });
     } catch (e) {
@@ -253,13 +273,14 @@ async function handleApi(req, res, pathname) {
   const statusMatch = pathname.match(/^\/api\/invitations\/([^/]+)\/status$/);
   if (statusMatch && method === 'POST') {
     const body = await readJson(req);
-    // OPTED_OUT is a hard block on becoming INVITED (also guards the WhatsApp
-    // client flow and any direct/malicious call).
-    if (body.status === 'INVITED' && store.isOptedOut(statusMatch[1])) {
+    // Fail-closed (brief §1): becoming INVITED requires an explicit OPTED_IN.
+    // UNKNOWN and OPTED_OUT are both blocked — for the WhatsApp/e-mail flow and
+    // any direct/administrative call. Other lifecycle corrections are unaffected.
+    if (body.status === 'INVITED' && !store.mayContact(statusMatch[1])) {
       if (body.channel === 'whatsapp' || body.channel === 'email') {
         store.addEvent(statusMatch[1], 'invitation_blocked', { channel: body.channel, result: 'blocked' });
       }
-      return json(res, 403, { error: 'Tester heeft geen toestemming (OPTED_OUT) — uitnodigen geblokkeerd.' });
+      return json(res, 403, { error: 'Uitnodigen geblokkeerd: alleen bij expliciete toestemming (OPTED_IN).' });
     }
     try {
       const updated = store.setStatus(statusMatch[1], body.status);
@@ -281,9 +302,10 @@ async function handleApi(req, res, pathname) {
   if (waMatch && method === 'GET') {
     const rec = store.getInvitation(waMatch[1]);
     if (!rec) return json(res, 404, { error: 'Niet gevonden' });
-    if (store.isOptedOut(rec)) {
+    // Fail-closed: WhatsApp only with an explicit OPTED_IN (brief §1).
+    if (!store.mayContact(rec)) {
       store.addEvent(waMatch[1], 'invitation_blocked', { channel: 'whatsapp', result: 'blocked' });
-      return json(res, 403, { error: 'Tester heeft geen toestemming (OPTED_OUT) — WhatsApp geblokkeerd.' });
+      return json(res, 403, { error: contactBlockReason(rec, 'WhatsApp') });
     }
     return json(res, 200, buildWhatsApp(store.getTemplate(), rec));
   }
@@ -331,13 +353,13 @@ async function handleApi(req, res, pathname) {
     const body = await readJson(req);
     const ids = Array.isArray(body.ids) ? body.ids : [];
     const all = ids.map((id) => store.getInvitation(id)).filter(Boolean);
-    // OPTED_OUT testers are never published to Maculis.
-    const blocked = all.filter((r) => store.isOptedOut(r)).length;
-    const records = all.filter((r) => !store.isOptedOut(r));
+    // Fail-closed: only testers with an explicit OPTED_IN are published (brief §1).
+    const blocked = all.filter((r) => !store.mayContact(r)).length;
+    const records = all.filter((r) => store.mayContact(r));
     if (records.length === 0) {
       return json(res, 400, {
-        ok: false, reason: blocked ? 'opted_out' : 'empty',
-        message: blocked ? 'Alle geselecteerde testers zijn OPTED_OUT — publicatie geblokkeerd.' : 'Geen (geldige) testers geselecteerd.',
+        ok: false, reason: blocked ? 'no_consent' : 'empty',
+        message: blocked ? 'Geen van de geselecteerde testers heeft toestemming (OPTED_IN) — publicatie geblokkeerd.' : 'Geen (geldige) testers geselecteerd.',
         blocked,
       });
     }
@@ -365,9 +387,10 @@ async function handleApi(req, res, pathname) {
     for (const id of ids) {
       const rec = store.getInvitation(id);
       if (!rec) { results.push({ id, ok: false, reason: 'not_found' }); skipped++; continue; }
-      if (store.isOptedOut(rec)) {
+      // Fail-closed: only an explicit OPTED_IN may be e-mailed (brief §1).
+      if (!store.mayContact(rec)) {
         store.addEvent(id, 'invitation_blocked', { channel: 'email', result: 'blocked' });
-        results.push({ id, ok: false, reason: 'opted_out' }); skipped++; continue;
+        results.push({ id, ok: false, reason: rec.consent_status === 'OPTED_OUT' ? 'opted_out' : 'no_consent' }); skipped++; continue;
       }
       if (!isValidEmail(rec.email)) {
         store.addEvent(id, 'invitation_skipped', { channel: 'email', result: 'skipped' });
@@ -405,13 +428,14 @@ async function handleApi(req, res, pathname) {
         if (d.started) store.recordEventOnce(inv.id, 'journey_started', { at: d.started_at || null });
         if (d.eval_status !== 'NOT_STARTED') store.recordEventOnce(inv.id, 'evaluation_started', { at: d.started_at || null });
         if (d.eval_status === 'COMPLETED') store.recordEventOnce(inv.id, 'evaluation_completed', { at: d.completed_at || d.started_at || null });
-        // Consent from the Maculis journey's inner-circle opt-in (brief §3/§4).
-        // Only an EXPLICIT choice updates consent; applied idempotently (skipped
-        // when it already matches). Journey completion alone stays UNKNOWN.
-        if (d.consent === 'OPTED_IN' || d.consent === 'OPTED_OUT') {
+        // Consent from the Maculis journey's inner-circle opt-in (brief §1/§3).
+        // ONLY an explicit affirmative opt-in maps to OPTED_IN; "Nog niet" and a
+        // mere completion stay UNKNOWN (fail-closed). Applied idempotently.
+        // consent_version stays null until the formal V1 journey text is live.
+        if (d.consent === 'OPTED_IN') {
           const before = store.getInvitation(inv.id);
-          if (before && before.consent_status !== d.consent) {
-            store.setConsent(inv.id, d.consent, { source: 'pass_the_lens', version: null, at: d.consent_at || undefined });
+          if (before && before.consent_status !== 'OPTED_IN') {
+            store.setConsent(inv.id, 'OPTED_IN', { source: 'pass_the_lens', version: null, at: d.consent_at || undefined });
           }
         }
       }

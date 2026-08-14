@@ -66,9 +66,12 @@ export function deriveByToken(sessions) {
       byToken.set(token, d);
     }
     if (s.started_at && (!d.started_at || s.started_at < d.started_at)) d.started_at = s.started_at;
-    // Explicit consent from the Maculis journey (the "inner circle" opt-in step,
-    // brief §3/§4). A positive action → OPTED_IN, an explicit decline → OPTED_OUT,
-    // neither → null (UNKNOWN). Journey completion is NEVER an implicit opt-in.
+    // Explicit consent from the Maculis journey (the "inner circle" opt-in step).
+    // ONLY an affirmative opt-in is an explicit choice → OPTED_IN. "Nog niet"
+    // (inner_circle_declined) is a deferral, NOT a refusal: it records no consent
+    // and leaves the tester UNKNOWN (fail-closed, brief §1/§6). Journey completion
+    // is never an implicit opt-in. OPTED_OUT only comes from an explicit
+    // withdrawal/refusal, handled admin-side for First Five (not derived here).
     if (s.inner_circle_opt_in === true) { d.consent = 'OPTED_IN'; d.consent_at = d.consent_at || s.updated_at || s.received_at || null; }
     for (const e of Array.isArray(s.events) ? s.events : []) {
       if (!e || !e.name) continue;
@@ -78,9 +81,11 @@ export function deriveByToken(sessions) {
       else if (e.name === 'recognition_context' && e.text) d.contexts.recognition_context = String(e.text);
       else if (e.name === 'accuracy_context' && e.text) d.contexts.accuracy_context = String(e.text);
       else if (e.name === 'session_completed') { d.completed = true; d.completed_at = s.received_at || s.updated_at || d.completed_at; }
-      // Consent events carried in the session event trail.
+      // Consent events carried in the session event trail. Only an affirmative
+      // opt-in maps to consent; `inner_circle_declined` ("Nog niet") is a
+      // deferral and is intentionally NOT mapped (stays UNKNOWN). We still read
+      // the event name for backward compatibility, but it drives no transition.
       else if (e.name === 'inner_circle_opt_in') { d.consent = 'OPTED_IN'; d.consent_at = d.consent_at || e.at || s.updated_at || null; }
-      else if (e.name === 'inner_circle_declined') { d.consent = 'OPTED_OUT'; d.consent_at = d.consent_at || e.at || s.updated_at || null; }
     }
   }
   for (const d of byToken.values()) d.eval_status = evalStatus(d);

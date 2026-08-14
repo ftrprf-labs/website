@@ -70,6 +70,9 @@ function emptyRecord() {
     // from and which consent version, when known. null until a real signal.
     consent_source: null,
     consent_version: null,
+    // How a manual/admin consent was obtained (the lawful basis note, brief §1).
+    // Required when an admin records OPTED_IN by hand. No sensitive data.
+    consent_note: null,
     source: 'manual',
     // Stable identity of the PERSON (not the session token, brief §7). Derived
     // from normalised e-mail (primary) or mobile, scoped by campaign.
@@ -123,6 +126,7 @@ function load() {
       // Consent provenance defaults — no invented source/version (brief §18).
       if (r.consent_source === undefined) r.consent_source = null;
       if (r.consent_version === undefined) r.consent_version = null;
+      if (r.consent_note === undefined) r.consent_note = null;
       // Backfill the person key from the record's own contact data (safe,
       // deterministic — derived, not invented).
       if (r.person_key === undefined) r.person_key = personKey(r, r.campaign);
@@ -315,6 +319,7 @@ export function setConsent(id, consent, opts = {}) {
   r.consent_at = at;
   if (opts.source !== undefined) r.consent_source = opts.source || null;
   if (opts.version !== undefined) r.consent_version = opts.version || null;
+  if (opts.note !== undefined) r.consent_note = opts.note || null;
   // History records the change; it does NOT drive consent (brief §10, §20).
   r.history.push(historyEntry(firstConsent ? 'consent_recorded' : 'consent_changed',
     { at, result: consent.toLowerCase(), source: opts.source || null }));
@@ -360,6 +365,8 @@ export function getHistory(id) {
     lifecycle: r.status,
     consent_status: r.consent_status,
     consent_at: r.consent_at,
+    consent_source: r.consent_source || null,
+    consent_version: r.consent_version || null,
     created_at: r.created_at,
     invited_at: r.invited_at,
     started_at: r.started_at,
@@ -368,7 +375,19 @@ export function getHistory(id) {
   };
 }
 
-// Hard consent gate used by every outbound action (server-side enforcement).
+// Fail-closed contact gate (brief §1): the ONLY state that permits outbound
+// contact is an explicit OPTED_IN. UNKNOWN (incl. "Nog niet") and OPTED_OUT both
+// block e-mail, WhatsApp, publish and the transition to INVITED. No proven
+// opt-in = no contact.
+export function mayContact(idOrRecord) {
+  const r = typeof idOrRecord === 'string'
+    ? ready().invitations.find((x) => x.id === idOrRecord)
+    : idOrRecord;
+  return Boolean(r && r.consent_status === 'OPTED_IN');
+}
+
+// Kept for reason-code messaging: distinguishes an explicit refusal/withdrawal
+// (OPTED_OUT) from merely-absent consent (UNKNOWN). Not the contact gate.
 export function isOptedOut(idOrRecord) {
   const r = typeof idOrRecord === 'string'
     ? ready().invitations.find((x) => x.id === idOrRecord)

@@ -217,6 +217,41 @@ test('history + provenance: append-only, source, migration-safe, no auto-status'
   }
 });
 
+test('fail-closed: mayContact only OPTED_IN; declined maps to no consent', async () => {
+  const store = await import('../server/store.mjs');
+  const { config } = await import('../server/config.mjs');
+  const { deriveByToken } = await import('../server/maculis-sessions.mjs');
+  const { mkdtempSync } = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'im-fc-'));
+  const prevDb = config.dbFile, prevDir = config.dataDir;
+  config.dataDir = dir; config.dbFile = path.join(dir, 'db.json');
+  store._resetForTests();
+  try {
+    const inv = store.createInvitation({ first_name: 'una', email: 'una@b.example' });
+    // Fail-closed: UNKNOWN and OPTED_OUT block contact; only OPTED_IN allows it.
+    assert.equal(store.mayContact(inv.id), false);              // UNKNOWN
+    store.setConsent(inv.id, 'OPTED_OUT', { source: 'manual', note: 'x' });
+    assert.equal(store.mayContact(inv.id), false);              // OPTED_OUT
+    store.setConsent(inv.id, 'OPTED_IN', { source: 'manual', note: 'akkoord' });
+    assert.equal(store.mayContact(inv.id), true);               // OPTED_IN
+    assert.equal(store.getInvitation(inv.id).consent_note, 'akkoord');
+
+    // Pull mapping: opt_in → OPTED_IN; "Nog niet" (declined) → no consent signal.
+    const optIn = deriveByToken([{ participant: 'TOK1', inner_circle_opt_in: true, events: [{ name: 'inner_circle_opt_in' }] }]);
+    assert.equal(optIn.get('TOK1').consent, 'OPTED_IN');
+    const declined = deriveByToken([{ participant: 'TOK2', events: [{ name: 'recognition_answered', value: 'nee' }, { name: 'inner_circle_declined' }] }]);
+    assert.equal(declined.get('TOK2').consent, null);           // stays UNKNOWN, never OPTED_OUT
+    // A completed session without opt-in is never an implicit opt-in.
+    const done = deriveByToken([{ participant: 'TOK3', events: [{ name: 'recognition_answered', value: 'ja' }, { name: 'session_completed' }] }]);
+    assert.equal(done.get('TOK3').consent, null);
+    assert.equal(done.get('TOK3').completed, true);
+  } finally {
+    config.dbFile = prevDb; config.dataDir = prevDir; store._resetForTests();
+  }
+});
+
 test('buildEmail renders subject + body with the personal link, no PII in keys', () => {
   const rec = { first_name: 'Edwin', email: 'edwin@x.example', token: 'TOK' };
   const tpl = { emailSubject: 'Hoi {first_name}', emailBody: 'Link: {personal_url}' };

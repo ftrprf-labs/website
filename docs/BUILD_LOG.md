@@ -5,6 +5,45 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-14 — Fail-closed contactmodel + consent-provenance
+
+**Feature.** Contact is voortaan **fail-closed**: alleen een expliciete
+`OPTED_IN` staat benaderen toe.
+
+**Beslissingen (na product/governance-review):**
+- **`mayContact = consent_status === 'OPTED_IN'`.** UNKNOWN én OPTED_OUT
+  blokkeren e-mail, WhatsApp, publish en de overgang naar INVITED (server-side,
+  403/400). "Geen aantoonbare opt-in = geen contact."
+- **"Nog niet" (`inner_circle_declined`) → geen consent-transitie** (blijft
+  UNKNOWN), i.p.v. de eerdere OPTED_OUT. "Nog niet" is een uitstel, geen
+  weigering. De oude event-naam wordt nog gelezen (backward compatible) maar
+  stuurt geen transitie. OPTED_OUT is gereserveerd voor expliciete
+  weigering/intrekking.
+- **Handmatige OPTED_IN is geen vrijblijvend vinkje**: de admin-route eist een
+  provenance-notitie (`consent_note`, hoe is toestemming verkregen) en stempelt
+  `consent_source=manual`. Zonder notitie → 400.
+- **Intrekking (First Five)** via de bestaande admin-route: `OPTED_IN →
+  OPTED_OUT` met `consent_changed` (append-only) en directe blokkade. Een
+  publieke self-service afmeldlink (W1) is bewust uitgesteld tot bredere
+  opschaling.
+- Geen historische migratie nodig (feitelijk 0 productierecords; identificeerbaar
+  als `OPTED_OUT + consent_source=pass_the_lens` mocht het ooit voorkomen).
+
+**Gewijzigd:** `store.mjs` (`mayContact`, `consent_note`, migratie),
+`index.mjs` (fail-closed gates + verplichte notitie), `maculis-sessions.mjs`
+(declined niet meer → OPTED_OUT), `public/*` (knoppen disabled voor alle
+niet-OPTED_IN, notitieveld), `tests/core.test.mjs`.
+
+**Getest (fictief):** 17/17 unit, 22/22 fail-closed-E2E, 41/41 intake-E2E,
+16/16 fail-closed-browser; regressie Step 3-integratie, Evaluaties-UX 38/38,
+WhatsApp-bevestiging 30/30, intake-browser 18/18. Logs zonder notitie/PII/keys.
+
+**Nog open (aparte GO's):** Maculis-journey (nieuwe copy, memory/contact
+ontkoppelen, privacy-link, `consent_version=maculis-contact-v1`), consent-
+registry, en later self-service withdrawal (W1).
+
+---
+
 ## 2026-08-14 — Pass the Lens → consent → Testerbeheer (intake-keten)
 
 **Feature.** De ontbrekende ruggengraat tussen de Maculis-journey ("Pass the Lens")

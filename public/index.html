@@ -208,8 +208,15 @@
               <option value="OPTED_OUT">Geen toestemming</option>
             </select>
             <p class="muted small" style="margin-top:6px">
-              Aparte dimensie naast de status. "Geen toestemming" blokkeert uitnodigen en publiceren naar Maculis.
+              Alleen bij expliciete toestemming (OPTED_IN) is contact toegestaan. "Onbekend" en "Geen toestemming" blokkeren uitnodigen en publiceren.
             </p>
+            <div id="ef-consent-note-row" class="consent-note hidden" style="margin-top:8px">
+              <label>Hoe is de toestemming verkregen? <span class="req">*</span></label>
+              <input id="ef-consent-note" type="text" placeholder="bv. mondeling akkoord 14-08, of per e-mail" />
+              <p class="muted small" style="margin-top:4px">
+                Verplicht bij handmatig registreren van toestemming — leg de aantoonbare grondslag vast.
+              </p>
+            </div>
             <p class="muted small consent-prov hidden" id="ef-consent-prov" style="margin-top:6px"></p>
           </div>
           <div class="span2 status-correct hidden" id="edit-status-row">

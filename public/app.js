@@ -206,7 +206,12 @@ function rowHtml(r) {
   const contact = [r.email, r.mobile].filter(Boolean);
   const url = personalUrl(r.token);
   const checked = state.selection.has(r.id) ? 'checked' : '';
-  const optedOut = r.consent_status === 'OPTED_OUT';
+  // Fail-closed: contact is only allowed with an explicit OPTED_IN. UNKNOWN and
+  // OPTED_OUT both disable the WhatsApp/e-mail actions.
+  const noContact = r.consent_status !== 'OPTED_IN';
+  const blockTitle = r.consent_status === 'OPTED_OUT'
+    ? 'Geblokkeerd — toestemming ingetrokken/geweigerd'
+    : 'Geblokkeerd — geen toestemming (OPTED_IN vereist)';
   return `
     <td class="col-check" data-label="">
       <input type="checkbox" data-check="${r.id}" ${checked} />
@@ -232,8 +237,8 @@ function rowHtml(r) {
     </td>
     <td class="col-actions" data-label="Acties">
       <div class="row-actions">
-        <button class="act-wa" data-wa="${r.id}" title="${optedOut ? 'Geblokkeerd — geen toestemming' : 'Via WhatsApp uitnodigen'}" aria-label="Via WhatsApp uitnodigen" ${optedOut ? 'disabled' : ''}>${ICON.whatsapp}</button>
-        <button data-mail="${r.id}" title="${optedOut ? 'Geblokkeerd — geen toestemming' : 'E-mail uitnodigen'}" aria-label="E-mail uitnodigen" ${optedOut ? 'disabled' : ''}>${ICON.email}</button>
+        <button class="act-wa" data-wa="${r.id}" title="${noContact ? blockTitle : 'Via WhatsApp uitnodigen'}" aria-label="Via WhatsApp uitnodigen" ${noContact ? 'disabled' : ''}>${ICON.whatsapp}</button>
+        <button data-mail="${r.id}" title="${noContact ? blockTitle : 'E-mail uitnodigen'}" aria-label="E-mail uitnodigen" ${noContact ? 'disabled' : ''}>${ICON.email}</button>
         <button data-history="${r.id}" title="Historie bekijken" aria-label="Historie bekijken">${ICON.history}</button>
         <button data-edit="${r.id}" title="Bewerken" aria-label="Bewerken">${ICON.edit}</button>
         <button data-del="${r.id}" title="Verwijderen" aria-label="Verwijderen">${ICON.del}</button>
@@ -384,7 +389,7 @@ async function sendEmailInvites() {
     const res = await api('/api/invite/email', { method: 'POST', body: JSON.stringify({ ids: state.emailIds }) });
     closeModal('#email-modal');
     await refresh();
-    const blocked = (res.results || []).filter((x) => x.reason === 'opted_out').length;
+    const blocked = (res.results || []).filter((x) => x.reason === 'opted_out' || x.reason === 'no_consent').length;
     const noEmail = (res.results || []).filter((x) => x.reason === 'no_email').length;
     if (!res.configured) {
       toast('E-mailverzending niet geconfigureerd — niets verzonden' + (blocked ? ` · ${blocked} geblokkeerd (geen toestemming)` : ''));
@@ -417,9 +422,10 @@ async function showWaCurrent() {
   const id = state.waQueue[state.waIndex];
   const r = state.invitations.find((x) => x.id === id);
   if (!r) { advanceWa(); return; }
-  // OPTED_OUT is enforced server-side (403) — skip this tester cleanly.
-  if (r.consent_status === 'OPTED_OUT') {
-    toast(`${r.first_name || r.company_name || 'Tester'} is AFGEWEZEN — WhatsApp overgeslagen`);
+  // Fail-closed: WhatsApp only with explicit OPTED_IN (server enforces 403 too).
+  if (r.consent_status !== 'OPTED_IN') {
+    const why = r.consent_status === 'OPTED_OUT' ? 'AFGEWEZEN' : 'geen toestemming';
+    toast(`${r.first_name || r.company_name || 'Tester'}: ${why} — WhatsApp overgeslagen`);
     advanceWa(); return;
   }
   let wa;
@@ -600,6 +606,9 @@ function openEdit(id) {
     prov.classList.add('hidden');
   }
   state.editConsentOriginal = r ? (r.consent_status || 'UNKNOWN') : 'UNKNOWN';
+  // Manual-consent note (required when hand-recording OPTED_IN). Reset + toggle.
+  $('#ef-consent-note').value = '';
+  toggleConsentNote();
   // "Status corrigeren" — only for existing testers, as an explicit exception.
   const statusRow = $('#edit-status-row');
   if (r) {
@@ -613,6 +622,15 @@ function openEdit(id) {
   }
   $('#edit-error').classList.add('hidden');
   $('#edit-modal').classList.remove('hidden');
+}
+
+// Show the "how was consent obtained?" note only when hand-recording a NEW
+// OPTED_IN (fail-closed provenance requirement). Not shown when it's already
+// OPTED_IN (no change) or for UNKNOWN/OPTED_OUT.
+function toggleConsentNote() {
+  const val = $('#ef-consent').value;
+  const need = val === 'OPTED_IN' && state.editConsentOriginal !== 'OPTED_IN';
+  $('#ef-consent-note-row').classList.toggle('hidden', !need);
 }
 
 async function saveEdit() {
@@ -638,14 +656,23 @@ async function saveEdit() {
       const created = await api('/api/invitations', { method: 'POST', body: JSON.stringify(payload) });
       targetId = created.invitation.id;
     }
-    // Consent change (independent dimension). OPTED_OUT needs explicit confirmation.
+    // Consent change (independent dimension). Hand-recording OPTED_IN requires a
+    // provenance note (fail-closed §1); OPTED_OUT is an explicit withdrawal.
     const newConsent = $('#ef-consent').value;
     if (targetId && newConsent && newConsent !== state.editConsentOriginal) {
+      const body = { consent_status: newConsent, consent_source: 'manual' };
       let go = true;
-      if (newConsent === 'OPTED_OUT') {
-        go = confirm('Deze tester wordt uitgesloten van uitnodigingen en publicatie naar Maculis. Wil je deze keuze registreren?');
+      if (newConsent === 'OPTED_IN') {
+        const note = $('#ef-consent-note').value.trim();
+        if (!note) {
+          throw new Error('Handmatige toestemming vereist een korte notitie: hoe is de expliciete toestemming verkregen?');
+        }
+        body.consent_note = note;
       }
-      if (go) await api(`/api/invitations/${targetId}/consent`, { method: 'POST', body: JSON.stringify({ consent_status: newConsent }) });
+      if (newConsent === 'OPTED_OUT') {
+        go = confirm('Toestemming intrekken: deze tester wordt geblokkeerd voor uitnodigingen en publicatie naar Maculis. Registreren?');
+      }
+      if (go) await api(`/api/invitations/${targetId}/consent`, { method: 'POST', body: JSON.stringify(body) });
     }
     closeModal('#edit-modal');
     await refresh();
@@ -945,6 +972,7 @@ function wireEvents() {
   $('#btn-add').addEventListener('click', () => openEdit(null));
   $('#btn-empty-add').addEventListener('click', () => openEdit(null));
   $('#btn-save-edit').addEventListener('click', saveEdit);
+  $('#ef-consent').addEventListener('change', toggleConsentNote);
 
   $('#btn-wa-open').addEventListener('click', openWaCurrent);
   $('#btn-wa-sent').addEventListener('click', confirmWaSent);

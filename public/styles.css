@@ -470,6 +470,10 @@ input[type="checkbox"] { accent-color: var(--primary); }
 .et-step.on { background: var(--primary); border-color: var(--primary); }
 .et-consent { flex: 0 0 auto; font-size: 11px; }
 
+/* ---- manual-consent note ---- */
+.consent-note .req { color: var(--danger); }
+.consent-note input { width: 100%; }
+
 /* ---- provenance (read-only in edit modal) ---- */
 .provenance { display: flex; align-items: baseline; gap: 10px; }
 .prov-val { font-weight: 600; color: var(--text); }
