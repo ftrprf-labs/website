@@ -26,22 +26,29 @@ services:
         value: /var/data       # = the persistent disk mount above
       # --- Secrets: set these BY HAND in Render (Environment tab). sync:false
       #     keeps them out of git and out of this file. ---
-      - key: ADMIN_PASSWORD    # admin login password (required in production) — you choose this
+      # The ONLY value you must choose at deploy: the admin login password.
+      - key: ADMIN_PASSWORD    # required in production — you type this once at Apply
         sync: false
       - key: AUTH_SECRET       # keeps logins valid across deploys — Render generates it for you
         generateValue: true
-      - key: MACULIS_PUBLIC_URL # the PUBLIC https URL of the Journey (tester link)
+      # Public + internal URL of the EXISTING Maculis Journey service (not secret).
+      # Pre-filled so you don't have to type it. Change here if the Journey URL changes.
+      - key: MACULIS_PUBLIC_URL
+        value: https://maculis-first-five.onrender.com
+      - key: MACULIS_HOST
+        value: https://maculis-first-five.onrender.com
+      # OPTIONAL — only needed for the live "Evaluaties" view (pull) and "Publiceer
+      # naar Maculis" (push). Leave blank to deploy now; add later by copying the
+      # matching values from the Journey service's Environment tab. sync:false so
+      # they are never committed.
+      - key: MACULIS_EXPORT_KEY # = the Journey's MACULIS_EXPORT_KEY (for the pull)
         sync: false
-      - key: MACULIS_HOST      # internal server-to-server base (usually = the Journey URL)
+      - key: MACULIS_SYNC_KEY  # = the Journey's MACULIS_SYNC_KEY (for publish; optional)
         sync: false
-      - key: MACULIS_SYNC_KEY  # must match the Journey's MACULIS_SYNC_KEY
-        sync: false
-      - key: MACULIS_EXPORT_KEY # must match the Journey's MACULIS_EXPORT_KEY
-        sync: false
-      # --- E-mail via Resend (optional at first; invites can be WhatsApp-only) ---
+      # --- E-mail via Resend (OPTIONAL; you can invite by WhatsApp without this) ---
       - key: MAIL_TRANSPORT
         value: resend
-      - key: MAIL_API_KEY      # Resend API key
+      - key: MAIL_API_KEY      # Resend API key (leave blank until you have one)
         sync: false
-      - key: MAIL_FROM         # verified Resend sender, e.g. "Maculis <hello@maculis.nl>"
+      - key: MAIL_FROM         # verified Resend sender (leave blank until you have one)
         sync: false
