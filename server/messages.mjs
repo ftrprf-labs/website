@@ -17,7 +17,9 @@ export function render(template, record) {
     last_name: record.last_name || '',
     company_name: record.company_name || '',
     domain: record.domain || '',
-    personal_url: personalUrl(config.maculisHost, record.token),
+    // The tester opens this on their phone → it must be the PUBLIC Journey URL,
+    // never the internal server-to-server host and never localhost (§3).
+    personal_url: personalUrl(config.maculisPublicUrl, record.token),
   };
   return String(template).replace(/\{(\w+)\}/g, (m, key) =>
     key in vars ? vars[key] : m

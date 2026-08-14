@@ -309,6 +309,43 @@ test('mailer contract: only a real transport delivers; mock/unset never deliver'
   config.mailTransport = prev; config.mailApiUrl = prevUrl;
 });
 
+test('mailer: resend transport needs key AND from; unconfigured never delivers (no network)', async () => {
+  const { sendEmail, mailDelivers, mailConfigured } = await import('../server/mailer.mjs');
+  const { config } = await import('../server/config.mjs');
+  const prev = { t: config.mailTransport, k: config.mailApiKey, f: config.mailFrom };
+
+  config.mailTransport = 'resend';
+  config.mailApiKey = ''; config.mailFrom = '';
+  assert.equal(mailDelivers(), false, 'no key/from → not a delivering transport');
+  assert.equal(mailConfigured(), false);
+  // Fail-closed: without credentials it returns not_configured WITHOUT a network call.
+  assert.deepEqual(await sendEmail({ to: 'a@b.example', subject: 's', body: 'b' }), { ok: false, delivered: false, reason: 'not_configured' });
+
+  config.mailApiKey = 'test_key'; config.mailFrom = 'Maculis <hi@maculis.example>';
+  assert.equal(mailDelivers(), true, 'key + from → delivering transport');
+  assert.equal(mailConfigured(), true);
+  // An empty recipient is rejected before any transport work.
+  assert.equal((await sendEmail({ to: '', subject: 's', body: 'b' })).reason, 'no_email');
+
+  config.mailTransport = prev.t; config.mailApiKey = prev.k; config.mailFrom = prev.f;
+});
+
+test('public URL split: personal link uses MACULIS_PUBLIC_URL, message renders it', async () => {
+  const { personalUrl } = await import('../server/tokens.mjs');
+  const { render } = await import('../server/messages.mjs');
+  const { config } = await import('../server/config.mjs');
+  const prev = config.maculisPublicUrl;
+  config.maculisPublicUrl = 'https://journey.example';
+  try {
+    // personalUrl is host-arg based (pure); render() must pull the PUBLIC url.
+    assert.equal(personalUrl(config.maculisPublicUrl, 'TOK'), 'https://journey.example/?p=TOK');
+    const text = render('link: {personal_url}', { first_name: 'x', token: 'TOK' });
+    assert.equal(text, 'link: https://journey.example/?p=TOK');   // never the internal host, never localhost
+  } finally {
+    config.maculisPublicUrl = prev;
+  }
+});
+
 test('buildWhatsApp yields a wa.me deep link with encoded text', () => {
   const rec = { first_name: 'Edwin', token: 'TOK', mobile: '+31612345678' };
   const wa = buildWhatsApp({ whatsapp: 'Hoi {first_name} {personal_url}' }, rec);

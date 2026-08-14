@@ -1,0 +1,47 @@
+# FTRLABS Invitation Manager (Testerbeheer) — Render Blueprint (Docker web service).
+#
+# One-click-ish deploy: Render reads this file + the Dockerfile. Public HTTPS is
+# automatic. PORT is injected by Render and read by the server. This app holds
+# PII, so it is NEVER publicly open: ADMIN_PASSWORD + AUTH_SECRET are required in
+# production (the server refuses to start without them) and are entered by hand
+# in the Render dashboard (sync:false) — never committed here.
+services:
+  - type: web
+    name: ftrlabs-testerbeheer
+    runtime: docker
+    region: frankfurt          # EU (closest to NL); AVG/GDPR data residency
+    plan: starter              # always-on (survives after your Mac closes)
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz  # server returns { ok: true } here
+    autoDeploy: true           # redeploys on every push to the connected branch
+    # Persistent disk for the JSON store (data survives restarts/redeploys).
+    disk:
+      name: testerbeheer-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data       # = the persistent disk mount above
+      # --- Secrets: set these BY HAND in Render (Environment tab). sync:false
+      #     keeps them out of git and out of this file. ---
+      - key: ADMIN_PASSWORD    # admin login password (required in production)
+        sync: false
+      - key: AUTH_SECRET       # long random string; keeps logins valid across deploys
+        sync: false
+      - key: MACULIS_PUBLIC_URL # the PUBLIC https URL of the Journey (tester link)
+        sync: false
+      - key: MACULIS_HOST      # internal server-to-server base (usually = the Journey URL)
+        sync: false
+      - key: MACULIS_SYNC_KEY  # must match the Journey's MACULIS_SYNC_KEY
+        sync: false
+      - key: MACULIS_EXPORT_KEY # must match the Journey's MACULIS_EXPORT_KEY
+        sync: false
+      # --- E-mail via Resend (optional at first; invites can be WhatsApp-only) ---
+      - key: MAIL_TRANSPORT
+        value: resend
+      - key: MAIL_API_KEY      # Resend API key
+        sync: false
+      - key: MAIL_FROM         # verified Resend sender, e.g. "Maculis <hello@maculis.nl>"
+        sync: false

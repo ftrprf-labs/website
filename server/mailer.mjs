@@ -22,9 +22,17 @@
 
 import { config } from './config.mjs';
 
+// Resend's transactional-email API endpoint (fixed; only the key/from vary).
+const RESEND_ENDPOINT = 'https://api.resend.com/emails';
+
 // True only when a REAL delivering transport is configured. mock and unset are
 // NOT "configured" for lifecycle/UI purposes — nothing is actually delivered.
+//   resend → needs an API key AND a verified from-address.
+//   http   → needs a POST endpoint.
 export function mailDelivers() {
+  if (config.mailTransport === 'resend') {
+    return Boolean(config.mailApiKey) && Boolean(config.mailFrom);
+  }
   return config.mailTransport === 'http' && Boolean(config.mailApiUrl);
 }
 
@@ -44,6 +52,28 @@ export async function sendEmail({ to, subject, body }) {
     // Test transport: offline, NEVER delivers. Sentinel addresses model a bounce.
     if (/^bounce@/i.test(to) || /@fail\./i.test(to)) return { ok: false, delivered: false, reason: 'bounce' };
     return { ok: true, delivered: false, reason: 'mock' };
+  }
+
+  if (transport === 'resend') {
+    // Real transactional send via Resend. Requires a verified from-address and
+    // an API key (both env vars, never in code). A confirmed 2xx → delivered.
+    if (!config.mailApiKey || !config.mailFrom) return { ok: false, delivered: false, reason: 'not_configured' };
+    try {
+      const res = await fetch(RESEND_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${config.mailApiKey}`,
+        },
+        // Resend contract: { from, to, subject, text }. Plain text only (the body
+        // already carries the personal link); no HTML, no tracking pixels.
+        body: JSON.stringify({ from: config.mailFrom, to, subject, text: body }),
+      });
+      if (res.ok) return { ok: true, delivered: true };
+      return { ok: false, delivered: false, reason: `resend_${res.status}` };
+    } catch {
+      return { ok: false, delivered: false, reason: 'network' };
+    }
   }
 
   if (transport === 'http') {

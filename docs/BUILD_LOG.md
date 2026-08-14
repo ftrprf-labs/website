@@ -5,6 +5,51 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-14 — Online-acceptatie: deploybaar, beveiligd, fail-closed
+
+**Doel.** Van lokale acceptatie naar een gecontroleerde ONLINE acceptatieomgeving
+op Render (altijd-aan containers, geen localhost/Mac). Geen productlogica-wijziging;
+uitsluitend deploybaarheid + online hardening.
+
+**Wijzigingen (Testerbeheer, `ftrprf-labs/website`):**
+- **Deploy:** `Dockerfile` (node:22-slim, `HOST=0.0.0.0`, `NODE_ENV=production`,
+  `CMD node server/index.mjs`), `.dockerignore`, `render.yaml` (Docker web service,
+  Frankfurt/EU, `plan: starter` always-on, persistente Disk op `/var/data`,
+  `healthCheckPath /healthz`, secrets als `sync:false`). Nieuw `GET /healthz`.
+- **Datastore configureerbaar:** `DATA_DIR` stuurt de JSON-store naar de
+  persistente Disk (default `./data` lokaal). Geen datamodel-wijziging, geen migratie.
+- **Auth-hardening:** sessie-HMAC uit vaste `AUTH_SECRET` (env) i.p.v. per-restart
+  random → admin blijft ingelogd over redeploys. In productie **fail-closed**:
+  server weigert te starten zonder `ADMIN_PASSWORD`, zonder `AUTH_SECRET`, of met
+  een niet-https / localhost `MACULIS_PUBLIC_URL`.
+- **Publieke vs interne URL (§3):** nieuwe `MACULIS_PUBLIC_URL` voor de persoonlijke
+  tester-link (wat de tester op de telefoon opent); `MACULIS_HOST` blijft de interne
+  server-to-server basis. Uitnodigingen bevatten nooit meer localhost.
+- **Security headers op ALLE responses** (ook JSON-API) incl. **HSTS**.
+- **Resend-e-mailadapter:** `MAIL_TRANSPORT=resend` (POST api.resend.com/emails,
+  Bearer key, `{from,to,subject,text}`). Vereist key + geverifieerde afzender;
+  het "alleen echt afgeleverd → INVITED"-contract blijft intact.
+- **Lichte rate limiting** (in-memory, single-instance) op `/api/login` (10/5min)
+  en `/api/intake` (60/min) → 429.
+- `.env.example` gecorrigeerd/aangevuld (`MACULIS_EXPORT_KEY`, `MACULIS_PUBLIC_URL`,
+  `AUTH_SECRET`, `DATA_DIR`, `NODE_ENV`, Resend).
+
+**Journey (`ftrprf-labs/maculis-first-five.`, branch `claude/journey-consent-v1`):**
+additieve baseline security-headers (HSTS, nosniff, X-Frame-Options SAMEORIGIN,
+Referrer-Policy) — géén CSP (frozen inline scripts/video ongemoeid). Deploy-config
+(Dockerfile/render.yaml) bestond al.
+
+**Getest (fictief):** 19/19 unit; **online-acceptatie A–T 42/42** (beide echte
+servers, productie-config, publieke/interne URL-split, s2s-auth beide richtingen,
+consent fail-closed, lifecycle DRAFT→INVITED→STARTED→COMPLETED, e-mail
+delivered-contract, WhatsApp 0629538336→31629538336, security-headers, rate-limit,
+geen PII/secret in logs); prod-fail-closed startup 5/5; Journey selftest 8/8;
+volledige bestaande regressie groen (wa 30/30 + 16/16 + 13/13, lifecycle 12/12,
+fail-closed 22/22, intake 41/41, journey-pull 8/8, eval-UX 38/38, consent 34/34,
+browser 18/18 + 16/16). Geen deployment uitgevoerd; geen productielogica gewijzigd.
+
+---
+
 ## 2026-08-14 — E-mail lifecycle fix (INVITED = aantoonbaar verzonden)
 
 **Blocker uit handmatige acceptatietest.** Een tester kon op INVITED komen

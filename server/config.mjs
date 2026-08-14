@@ -31,14 +31,27 @@ function loadDotEnv() {
 }
 loadDotEnv();
 
+// Are we running in a real (non-local) deployment? Managed platforms (Render)
+// set NODE_ENV=production. This flips several fail-closed safety checks on.
+const PRODUCTION = process.env.NODE_ENV === 'production';
+
 export const config = {
   port: Number(process.env.PORT || 4321),
   host: process.env.HOST || '127.0.0.1',
-  // Single source of truth for the Maculis host. Personal links, e-mail,
-  // WhatsApp, publish and session-export all derive from this one value.
-  // Override per environment via MACULIS_HOST (e.g. http://localhost:8137 for
-  // local testing); the canonical production host is the default below.
+  production: PRODUCTION,
+  // INTERNAL server-to-server base for Maculis (publish PUT, session-export GET).
+  // Override per environment via MACULIS_HOST. In a single-URL deployment this is
+  // the same public HTTPS URL as the Journey; the split below lets them differ.
   maculisHost: (process.env.MACULIS_HOST || 'https://www.maculis.nl').replace(/\/+$/, ''),
+  // PUBLIC base URL for the tester's personal Journey link ({base}/?p=<token>).
+  // This is what a tester opens on their phone, so it must be a browser-reachable
+  // HTTPS URL and must NEVER be localhost in production (fail-closed at startup).
+  // Falls back to MACULIS_HOST when MACULIS_PUBLIC_URL is not set.
+  maculisPublicUrl: (process.env.MACULIS_PUBLIC_URL || process.env.MACULIS_HOST || 'https://www.maculis.nl').replace(/\/+$/, ''),
+  // Server session-signing secret (admin cookie HMAC). MUST be set in production
+  // so admin sessions survive restarts/redeploys; local runs fall back to a
+  // per-process random secret (see auth.mjs).
+  authSecret: process.env.AUTH_SECRET || '',
   // Shared server-to-server key for publishing participants to Maculis
   // (PUT {MACULIS_HOST}/api/participants). Empty → publish is not configured.
   maculisSyncKey: process.env.MACULIS_SYNC_KEY || '',
@@ -52,15 +65,20 @@ export const config = {
   adminPassword: process.env.ADMIN_PASSWORD || '',
 
   // E-mail sending contract (see server/mailer.mjs). No credentials in code:
-  //   MAIL_TRANSPORT = ''    → not configured; the app never fake-sends.
-  //   MAIL_TRANSPORT = http  → POST each mail to MAIL_API_URL (Bearer MAIL_API_KEY).
-  //   MAIL_TRANSPORT = mock  → deterministic TEST transport (local verification only).
+  //   MAIL_TRANSPORT = ''      → not configured; the app never fake-sends.
+  //   MAIL_TRANSPORT = resend  → transactional send via Resend (MAIL_API_KEY +
+  //                              MAIL_FROM). Recommended for online acceptance.
+  //   MAIL_TRANSPORT = http    → POST each mail to MAIL_API_URL (Bearer MAIL_API_KEY).
+  //   MAIL_TRANSPORT = mock    → deterministic TEST transport (local verification only).
   mailTransport: (process.env.MAIL_TRANSPORT || '').toLowerCase(),
   mailApiUrl: process.env.MAIL_API_URL || '',
   mailApiKey: process.env.MAIL_API_KEY || '',
   mailFrom: process.env.MAIL_FROM || '',
-  dataDir: join(ROOT, 'data'),
-  dbFile: join(ROOT, 'data', 'invitations.json'),
+  // Where the JSON store lives. Defaults to ./data for local runs; in a managed
+  // deployment point DATA_DIR at a PERSISTENT disk mount (e.g. /var/data on
+  // Render) so tester data survives restarts and redeploys.
+  dataDir: process.env.DATA_DIR || join(ROOT, 'data'),
+  dbFile: join(process.env.DATA_DIR || join(ROOT, 'data'), 'invitations.json'),
   // The only campaign this MVP builds for (see brief §12).
   campaign: 'MACULIS_FIRST_FIVE',
 };

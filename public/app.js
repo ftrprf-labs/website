@@ -89,7 +89,9 @@ function toast(msg) {
 }
 
 function personalUrl(token) {
-  return `${state.cfg.maculisHost}/?p=${encodeURIComponent(token)}`;
+  // Show the PUBLIC Journey URL (what the tester opens), matching server links.
+  const base = state.cfg.maculisPublicUrl || state.cfg.maculisHost;
+  return `${base}/?p=${encodeURIComponent(token)}`;
 }
 
 // ---- bootstrap -----------------------------------------------------------

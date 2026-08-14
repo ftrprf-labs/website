@@ -39,6 +39,8 @@ function json(res, status, data, extraHeaders = {}) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
+    // Security headers apply to API responses too, not just static assets.
+    ...securityHeaders,
     ...extraHeaders,
   });
   res.end(body);
@@ -68,6 +70,33 @@ async function readJson(req) {
   return JSON.parse(buf.toString('utf8'));
 }
 
+// Client IP for rate limiting. Behind a managed platform (Render) the real
+// client is the first hop in X-Forwarded-For; fall back to the socket address.
+function clientIp(req) {
+  const xff = req.headers['x-forwarded-for'];
+  if (typeof xff === 'string' && xff.length) return xff.split(',')[0].trim();
+  return req.socket?.remoteAddress || 'unknown';
+}
+
+// Minimal in-memory sliding-window rate limiter (single-instance deployment).
+// Not a DDoS shield — a baseline against brute-force / intake abuse (§15). Keyed
+// by bucket+IP; keeps only timestamps inside the window. No PII is stored.
+const rateBuckets = new Map();
+function rateLimit(bucket, ip, max, windowMs) {
+  const key = `${bucket}:${ip}`;
+  const now = Date.now();
+  const hits = (rateBuckets.get(key) || []).filter((t) => now - t < windowMs);
+  hits.push(now);
+  rateBuckets.set(key, hits);
+  // Opportunistic cleanup so the map cannot grow unbounded.
+  if (rateBuckets.size > 5000) {
+    for (const [k, v] of rateBuckets) {
+      if (!v.some((t) => now - t < windowMs)) rateBuckets.delete(k);
+    }
+  }
+  return { limited: hits.length > max, retryMs: windowMs };
+}
+
 // Human reason for a fail-closed contact block — distinguishes an explicit
 // refusal/withdrawal (OPTED_OUT) from merely-absent consent (UNKNOWN).
 function contactBlockReason(rec, channel) {
@@ -92,6 +121,9 @@ const securityHeaders = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'no-referrer',
+  // Force HTTPS for two years incl. subdomains. Browsers ignore this header when
+  // received over plain HTTP (local dev), so it is safe to always send.
+  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains',
   // Self-contained app: no third-party origins may be contacted from the page,
   // so PII cannot be exfiltrated by an injected resource.
   'Content-Security-Policy':
@@ -136,10 +168,17 @@ async function serveStatic(req, res, urlPath) {
 async function handleApi(req, res, pathname) {
   const method = req.method;
 
+  // Health check for the managed platform (Render pings this). No auth, no PII.
+  if (pathname === '/healthz' && method === 'GET') {
+    return json(res, 200, { ok: true, service: 'ftrlabs-invitation-manager' });
+  }
+
   // Public endpoints (no admin gate).
   if (pathname === '/api/config' && method === 'GET') {
     return json(res, 200, {
       maculisHost: config.maculisHost,
+      // Public base the client shows for personal links (matches server-built links).
+      maculisPublicUrl: config.maculisPublicUrl,
       campaign: config.campaign,
       statuses: store.STATUSES,
       consentStatuses: store.CONSENT,
@@ -158,6 +197,9 @@ async function handleApi(req, res, pathname) {
   }
 
   if (pathname === '/api/login' && method === 'POST') {
+    // Baseline brute-force protection: max 10 attempts / 5 min per IP.
+    const rl = rateLimit('login', clientIp(req), 10, 5 * 60 * 1000);
+    if (rl.limited) return json(res, 429, { error: 'Te veel inlogpogingen. Probeer het over enkele minuten opnieuw.' });
     const body = await readJson(req);
     if (checkPassword(body.password)) {
       return json(res, 200, { ok: true }, { 'Set-Cookie': cookieHeaderFor(true) });
@@ -186,6 +228,9 @@ async function handleApi(req, res, pathname) {
   // admin gate — guarded by its own INTAKE_KEY. No key configured → disabled
   // (503). Never a public unauthenticated intake. Body is never logged.
   if (pathname === '/api/intake' && method === 'POST') {
+    // Baseline abuse/enumeration protection: max 60 intakes / min per IP.
+    const rl = rateLimit('intake', clientIp(req), 60, 60 * 1000);
+    if (rl.limited) return json(res, 429, { ok: false, error: 'Te veel intake-verzoeken. Probeer het later opnieuw.' });
     if (!config.intakeKey) return json(res, 503, { ok: false, error: 'Intake niet geconfigureerd (INTAKE_KEY ontbreekt).' });
     if (req.headers['x-intake-key'] !== config.intakeKey) return json(res, 403, { ok: false, error: 'Intake-sleutel geweigerd.' });
     const body = await readJson(req);
@@ -494,7 +539,7 @@ const server = createServer(async (req, res) => {
   });
 
   try {
-    if (pathname.startsWith('/api/')) {
+    if (pathname.startsWith('/api/') || pathname === '/healthz') {
       await handleApi(req, res, pathname);
     } else {
       await serveStatic(req, res, pathname);
@@ -509,13 +554,36 @@ const server = createServer(async (req, res) => {
 
 const bindHost = config.host;
 const nonLoopback = bindHost !== '127.0.0.1' && bindHost !== 'localhost';
+
+function isLocalUrl(u) {
+  return /localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]/i.test(String(u || ''));
+}
+
+// Fail-closed guard: never expose an unauthenticated admin tool on the network.
 if (nonLoopback && !authRequired()) {
   console.error(
     '\n[SECURITY] HOST is not loopback but ADMIN_PASSWORD is empty.\n' +
       'Refusing to expose an unauthenticated admin tool to the network.\n' +
-      'Set ADMIN_PASSWORD in .env, or bind to 127.0.0.1.\n'
+      'Set ADMIN_PASSWORD, or bind to 127.0.0.1.\n'
   );
   process.exit(1);
+}
+
+// Production (managed deployment) fail-closed checks (§3, §5, §10).
+if (config.production) {
+  const problems = [];
+  // 1. The admin gate is mandatory online (this app holds PII).
+  if (!authRequired()) problems.push('ADMIN_PASSWORD is not set — the admin UI would be publicly open.');
+  // 2. Admin sessions must survive restarts/redeploys.
+  if (!config.authSecret) problems.push('AUTH_SECRET is not set — admin logins would break on every restart/redeploy.');
+  // 3. The public Journey link must be a real HTTPS URL, never localhost.
+  if (!/^https:\/\//i.test(config.maculisPublicUrl) || isLocalUrl(config.maculisPublicUrl)) {
+    problems.push(`MACULIS_PUBLIC_URL must be a public https:// URL (got "${config.maculisPublicUrl}") — invitations may not contain localhost.`);
+  }
+  if (problems.length) {
+    console.error('\n[SECURITY] Refusing to start in production:\n' + problems.map((p) => '  - ' + p).join('\n') + '\n');
+    process.exit(1);
+  }
 }
 
 server.listen(config.port, bindHost, () => {
@@ -524,7 +592,8 @@ server.listen(config.port, bindHost, () => {
   console.log(`  Campaign : ${config.campaign}`);
   console.log(`  Admin UI : ${url}`);
   console.log(`  Data file: ${config.dbFile}`);
-  console.log(`  Maculis  : ${config.maculisHost}/?p=<token>`);
+  console.log(`  Maculis (intern) : ${config.maculisHost}`);
+  console.log(`  Persoonlijke link: ${config.maculisPublicUrl}/?p=<token>`);
   if (!authRequired()) {
     console.log(
       `  Auth     : OPEN (loopback-only). Set ADMIN_PASSWORD in .env for a login gate.`

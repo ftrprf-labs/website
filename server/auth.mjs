@@ -16,7 +16,13 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { config } from './config.mjs';
 
-const SECRET = randomBytes(32); // rotates every restart — fine for local admin
+// Session-signing secret. In a real deployment AUTH_SECRET is set (as an env
+// var, never in code) so admin login cookies stay valid across restarts and
+// redeploys. Without it we fall back to a per-process random secret — fine for
+// a single local run, but it rotates on restart (all sessions invalidated).
+const SECRET = config.authSecret
+  ? Buffer.from(config.authSecret, 'utf8')
+  : randomBytes(32);
 const COOKIE = 'im_session';
 const TTL_MS = 12 * 60 * 60 * 1000; // 12h
 
