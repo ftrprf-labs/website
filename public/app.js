@@ -367,7 +367,7 @@ async function startEmailInvite() {
   const warn = $('#email-warn');
   if (!state.cfg.mailConfigured) {
     warn.textContent =
-      'E-mailverzending is niet geconfigureerd op de server. Er wordt niets verzonden en niemand komt op INVITED totdat een mailtransport is ingesteld.';
+      'In deze omgeving wordt e-mail niet echt verzonden (geen verzendend mailtransport). Er wordt niets verstuurd en niemand komt op INVITED.';
     warn.classList.remove('hidden');
   } else {
     warn.classList.add('hidden');
@@ -391,8 +391,11 @@ async function sendEmailInvites() {
     await refresh();
     const blocked = (res.results || []).filter((x) => x.reason === 'opted_out' || x.reason === 'no_consent').length;
     const noEmail = (res.results || []).filter((x) => x.reason === 'no_email').length;
-    if (!res.configured) {
-      toast('E-mailverzending niet geconfigureerd — niets verzonden' + (blocked ? ` · ${blocked} geblokkeerd (geen toestemming)` : ''));
+    if (!res.delivers) {
+      // No real delivering transport (mock/unset): nothing was actually sent and
+      // NOBODY was moved to INVITED — say so honestly.
+      toast('E-mail niet echt verzonden (geen verzendend transport) — niemand op INVITED' +
+        (blocked ? ` · ${blocked} geblokkeerd (geen toestemming)` : ''));
     } else {
       const parts = [`${res.sent} verzonden`];
       if (noEmail) parts.push(`${noEmail} zonder e-mail`);

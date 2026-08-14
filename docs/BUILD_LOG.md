@@ -5,6 +5,41 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-14 — E-mail lifecycle fix (INVITED = aantoonbaar verzonden)
+
+**Blocker uit handmatige acceptatietest.** Een tester kon op INVITED komen
+zonder aantoonbare verzending: het `mock`-transport fake'te succes. (De
+WhatsApp-variant — openen zette direct INVITED — was al opgelost met de
+tweestaps-bevestiging in `aad394c`; die zit in deze branch.)
+
+**Fix.** Alleen een **echt verzendend transport met bevestigd succes** zet
+INVITED.
+
+- `mailer.mjs`: elk resultaat draagt nu een expliciete `delivered`-vlag.
+  `mock` → `delivered:false` (reason `mock`), niet-geconfigureerd →
+  `delivered:false`. Alleen `http` met een 2xx-respons → `delivered:true`.
+  `mailConfigured()`/nieuwe `mailDelivers()` betekenen "een echt verzendend
+  transport" (mock/leeg → false).
+- `index.mjs` e-mailroute: zet INVITED + `invited_at` + `invitation_sent`
+  **uitsluitend** bij `delivered === true`. `mock`/niet-geconfigureerd →
+  blijft DRAFT, géén event, geteld als `notSent`. Een échte mislukte
+  verzending → `invitation_failed`, DRAFT.
+- `app.js`: eerlijke melding wanneer er geen verzendend transport is
+  ("E-mail niet echt verzonden — niemand op INVITED").
+
+**Regel bevestigd:** create / consent / publish / persoonlijke link / preview
+/ modal openen zetten **nooit** zelfstandig INVITED. Alleen een expliciete
+WhatsApp-verzendbevestiging of een echt geslaagde e-mailverzending doet dat.
+
+**Tests toegevoegd/aangepast:** nieuwe lifecycle-E2E (A–K + geen-losse-INVITED,
+12/12) met een echt HTTP-mailtransport (fake endpoint 2xx/5xx) voor de
+succes/faal-paden; mailer-unittest herschreven op het `delivered`-contract.
+Volledige regressie groen (17/17 unit, 12/12 lifecycle, 22/22 fail-closed,
+30/30 WhatsApp, Step 3, 41/41 intake, 8/8 journey-pull, 38/38 eval-UX,
+18/18 + 16/16 browser). Geen PII/keys in logs.
+
+---
+
 ## 2026-08-14 — Journey-consent afronding (consent_version uit sessie)
 
 **Feature (IM-kant van een cross-repo wijziging).** De Maculis-journey stempelt

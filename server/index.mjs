@@ -383,7 +383,7 @@ async function handleApi(req, res, pathname) {
     if (ids.length === 0) return json(res, 400, { ok: false, reason: 'empty' });
     const template = store.getTemplate();
     const results = [];
-    let sent = 0, failed = 0, skipped = 0;
+    let sent = 0, failed = 0, skipped = 0, notSent = 0;
     for (const id of ids) {
       const rec = store.getInvitation(id);
       if (!rec) { results.push({ id, ok: false, reason: 'not_found' }); skipped++; continue; }
@@ -398,18 +398,26 @@ async function handleApi(req, res, pathname) {
       }
       const mail = buildEmail(template, rec);
       const outcome = await sendEmail({ to: mail.to, subject: mail.subject, body: mail.body });
-      if (outcome.ok) {
-        store.setStatus(id, 'INVITED');   // status only after a successful send
+      if (outcome.delivered) {
+        // ONLY a real, confirmed delivery is proof of an invitation (INVITED).
+        store.setStatus(id, 'INVITED');
         store.addEvent(id, 'invitation_sent', { channel: 'email', result: 'success' });
         results.push({ id, ok: true });
         sent++;
+      } else if (outcome.reason === 'mock' || outcome.reason === 'not_configured') {
+        // No real send happened (test/unconfigured transport): stay DRAFT, log
+        // NOTHING as sent, and report it honestly. Never a fake INVITED.
+        results.push({ id, ok: false, reason: outcome.reason });
+        notSent++;
       } else {
+        // A real send was attempted and failed (bounce / http error / network).
         store.addEvent(id, 'invitation_failed', { channel: 'email', result: 'failed' });
         results.push({ id, ok: false, reason: outcome.reason });
         failed++;
       }
     }
-    return json(res, 200, { ok: sent > 0, sent, failed, skipped, configured: mailConfigured(), results });
+    // `delivers` = a real delivering transport is configured (mock/unset → false).
+    return json(res, 200, { ok: sent > 0, sent, failed, skipped, notSent, delivers: mailConfigured(), results });
   }
 
   // Evaluatieresultaten (Optie B): live read-only pull uit Maculis, gejoined op

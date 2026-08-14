@@ -263,22 +263,31 @@ test('buildEmail renders subject + body with the personal link, no PII in keys',
   assert.equal(buildEmail(tpl, { token: 'T' }).hasEmail, false);
 });
 
-test('mailer contract: not-configured never fake-sends; mock succeeds/bounces', async () => {
-  const { sendEmail, mailConfigured } = await import('../server/mailer.mjs');
+test('mailer contract: only a real transport delivers; mock/unset never deliver', async () => {
+  const { sendEmail, mailConfigured, mailDelivers } = await import('../server/mailer.mjs');
   const { config } = await import('../server/config.mjs');
-  const prev = config.mailTransport;
+  const prev = config.mailTransport, prevUrl = config.mailApiUrl;
 
   config.mailTransport = '';           // default: nothing configured
   assert.equal(mailConfigured(), false);
-  assert.deepEqual(await sendEmail({ to: 'a@b.example', subject: 's', body: 'b' }), { ok: false, reason: 'not_configured' });
+  assert.equal(mailDelivers(), false);
+  assert.deepEqual(await sendEmail({ to: 'a@b.example', subject: 's', body: 'b' }), { ok: false, delivered: false, reason: 'not_configured' });
 
-  config.mailTransport = 'mock';       // test transport
-  assert.equal(mailConfigured(), true);
-  assert.equal((await sendEmail({ to: 'ok@b.example', subject: 's', body: 'b' })).ok, true);
-  assert.equal((await sendEmail({ to: 'bounce@b.example', subject: 's', body: 'b' })).ok, false);
+  config.mailTransport = 'mock';       // TEST transport — never delivers, never INVITED
+  assert.equal(mailConfigured(), false, 'mock is not a delivering transport');
+  const m = await sendEmail({ to: 'ok@b.example', subject: 's', body: 'b' });
+  assert.equal(m.delivered, false, 'mock never delivers');
+  assert.equal(m.reason, 'mock');
+  assert.equal((await sendEmail({ to: 'bounce@b.example', subject: 's', body: 'b' })).delivered, false);
   assert.equal((await sendEmail({ to: '', subject: 's', body: 'b' })).reason, 'no_email');
 
-  config.mailTransport = prev;
+  config.mailTransport = 'http';       // real transport requires a URL to deliver
+  config.mailApiUrl = '';
+  assert.equal(mailDelivers(), false);
+  config.mailApiUrl = 'https://mail.example/send';
+  assert.equal(mailDelivers(), true);
+
+  config.mailTransport = prev; config.mailApiUrl = prevUrl;
 });
 
 test('buildWhatsApp yields a wa.me deep link with encoded text', () => {
