@@ -24,10 +24,11 @@ export function render(template, record) {
   );
 }
 
-// wa.me needs digits only, no '+', no spaces.
+// wa.me needs a digits-only INTERNATIONAL recipient (no '+'). This delegates to
+// the single normalisation choke point, which converts Dutch national numbers
+// (0X…) to international (31X…) and rejects implausible numbers (returns '').
 export function waNumber(mobile) {
-  const norm = normaliseMobile(mobile || '');
-  return norm.replace(/[^\d]/g, '');
+  return normaliseMobile(mobile || '');
 }
 
 // Build the full WhatsApp payload for a record.

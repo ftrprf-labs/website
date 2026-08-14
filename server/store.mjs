@@ -186,11 +186,28 @@ export function findDuplicate(candidate, pool = null) {
   );
 }
 
+// Robust phone normalisation to a digits-only INTERNATIONAL recipient id (no '+').
+// This is the single choke point for both the WhatsApp recipient and dedup, so
+// every Dutch input variant maps to the same identifier:
+//   0629538336 / 06 2953 8336 / 06-29538336 / +31 6 2953 8336 /
+//   0031 6 2953 8336 / 31629538336   ->  31629538336
+// Dutch national numbers (leading 0) get the NL country code. Numbers that are
+// not a plausible international length return '' (fail-closed: no broken link).
+const DEFAULT_COUNTRY = '31'; // NL — MACULIS_FIRST_FIVE is a Dutch campaign
 export function normaliseMobile(raw) {
   if (!raw) return '';
-  let s = String(raw).replace(/[\s().-]/g, '');
-  if (s.startsWith('00')) s = '+' + s.slice(2);
-  return s;
+  const hasPlus = String(raw).trim().startsWith('+');
+  let s = String(raw).replace(/\D/g, ''); // keep digits only
+  if (!s) return '';
+  if (hasPlus) {
+    // +<country><number> — already international
+  } else if (s.startsWith('00')) {
+    s = s.slice(2);                        // 00<country> -> <country>
+  } else if (s.startsWith('0')) {
+    s = DEFAULT_COUNTRY + s.slice(1);      // national 0X… -> 31X…
+  }
+  // else: no 0/00/+ prefix -> assume already international (e.g. 31629538336)
+  return /^\d{8,15}$/.test(s) ? s : '';    // fail-closed on implausible numbers
 }
 
 export function createInvitation(data) {

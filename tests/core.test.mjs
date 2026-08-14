@@ -74,9 +74,28 @@ test('message rendering fills placeholders, no leftover PII in url', () => {
   assert.ok(text.includes('/?p=TOK'));
 });
 
-test('waNumber is digits-only, no plus/spaces', () => {
+test('waNumber normalises every NL notation to one intl recipient (31…), fail-closed on junk', () => {
+  // The bug: 06… national numbers reached wa.me verbatim (wa.me/0629538336),
+  // which WhatsApp rejects. Every Dutch input form must land on 31629538336.
+  const CANON = '31629538336';
+  assert.equal(waNumber('0629538336'), CANON);          // plain national
+  assert.equal(waNumber('06 29 53 83 36'), CANON);      // national + spaces
+  assert.equal(waNumber('06-29538336'), CANON);         // national + dash
+  assert.equal(waNumber('(06) 29538336'), CANON);       // national + parens
+  assert.equal(waNumber('+31629538336'), CANON);        // international +31
+  assert.equal(waNumber('+31 6 29 53 83 36'), CANON);   // +31 with spaces
+  assert.equal(waNumber('0031629538336'), CANON);       // 0031 prefix
+  assert.equal(waNumber('0031 6 29 53 83 36'), CANON);  // 0031 with spaces
+  assert.equal(waNumber('31629538336'), CANON);         // already international
+  // Regression: the older sample number, all forms → one recipient.
   assert.equal(waNumber('+31 6 12345678'), '31612345678');
-  assert.equal(waNumber('06-23 45 67 89'), '0623456789');
+  assert.equal(waNumber('06-12 34 56 78'), '31612345678');
+  // Fail-closed: implausible/ambiguous input yields '' (no broken wa.me link).
+  assert.equal(waNumber(''), '');
+  assert.equal(waNumber('abc'), '');
+  assert.equal(waNumber('06123'), '');                  // far too short
+  assert.equal(waNumber('0'), '');
+  assert.equal(waNumber('++31'), '');
 });
 
 test('name normalization: person names — capitalise first letter, preserve compound', async () => {
