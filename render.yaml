@@ -26,10 +26,10 @@ services:
         value: /var/data       # = the persistent disk mount above
       # --- Secrets: set these BY HAND in Render (Environment tab). sync:false
       #     keeps them out of git and out of this file. ---
-      - key: ADMIN_PASSWORD    # admin login password (required in production)
+      - key: ADMIN_PASSWORD    # admin login password (required in production) — you choose this
         sync: false
-      - key: AUTH_SECRET       # long random string; keeps logins valid across deploys
-        sync: false
+      - key: AUTH_SECRET       # keeps logins valid across deploys — Render generates it for you
+        generateValue: true
       - key: MACULIS_PUBLIC_URL # the PUBLIC https URL of the Journey (tester link)
         sync: false
       - key: MACULIS_HOST      # internal server-to-server base (usually = the Journey URL)
