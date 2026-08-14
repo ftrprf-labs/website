@@ -117,6 +117,21 @@ function publicContext(record) {
   };
 }
 
+// Best-effort participant sync to Maculis so the tester is greeted by name and
+// their company is already known BEFORE they open the personal link. Fires
+// automatically whenever a personal link goes out (WhatsApp payload build /
+// e-mail send), so the admin never has to click "Publiceer naar Maculis" per
+// tester. NEVER blocks or fails the invite: if MACULIS_SYNC_KEY is unset or
+// Maculis is unreachable, the invite proceeds and the opening falls back to
+// generic. Only counts/outcomes are recorded — never PII or the payload.
+async function autoPublishParticipant(rec) {
+  if (!rec || !config.maculisSyncKey) return; // sync not configured → silent no-op
+  try {
+    const result = await publishToMaculis([rec]);
+    if (result && result.ok) store.recordEventOnce(rec.id, 'published_to_maculis', { result: 'success' });
+  } catch { /* best-effort: an invite must never fail because sync failed */ }
+}
+
 const securityHeaders = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
@@ -352,6 +367,9 @@ async function handleApi(req, res, pathname) {
       store.addEvent(waMatch[1], 'invitation_blocked', { channel: 'whatsapp', result: 'blocked' });
       return json(res, 403, { error: contactBlockReason(rec, 'WhatsApp') });
     }
+    // Auto-sync this participant to Maculis so the personal link greets them by
+    // name the moment they open it (no manual "Publiceer" step). Best-effort.
+    await autoPublishParticipant(rec);
     return json(res, 200, buildWhatsApp(store.getTemplate(), rec));
   }
   const mailMatch = pathname.match(/^\/api\/invitations\/([^/]+)\/mailto$/);
@@ -441,6 +459,8 @@ async function handleApi(req, res, pathname) {
         store.addEvent(id, 'invitation_skipped', { channel: 'email', result: 'skipped' });
         results.push({ id, ok: false, reason: 'no_email' }); skipped++; continue;
       }
+      // Auto-sync to Maculis so the emailed personal link greets by name. Best-effort.
+      await autoPublishParticipant(rec);
       const mail = buildEmail(template, rec);
       const outcome = await sendEmail({ to: mail.to, subject: mail.subject, body: mail.body });
       if (outcome.delivered) {
