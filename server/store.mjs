@@ -14,9 +14,23 @@ import { config, DEFAULT_TEMPLATE } from './config.mjs';
 import { generateId, generateToken } from './tokens.mjs';
 import { normalizePersonName, normalizeCompany } from './normalize.mjs';
 
-const STATUSES = ['DRAFT', 'INVITED', 'STARTED', 'COMPLETED', 'DECLINED', 'ERROR'];
+// Lifecycle model (definitief): DRAFT → SENT → OPENED → COMPLETED.
+//   DRAFT     = tester bestaat, uitnodiging nog niet verzonden.
+//   SENT      = uitnodiging daadwerkelijk verzonden (WhatsApp of e-mail).
+//   OPENED    = de persoonlijke ?p=<token>-link is minimaal één keer echt geopend (echt event).
+//   COMPLETED = de volledige First Five Journey is afgerond (echt session_completed-event).
+// DECLINED/ERROR blijven administratieve terminale toestanden buiten de ladder.
+const STATUSES = ['DRAFT', 'SENT', 'OPENED', 'COMPLETED', 'DECLINED', 'ERROR'];
+// Legacy → nieuw. Records geschreven vóór dit model dragen INVITED/STARTED; die
+// mappen we bij load() forward-safe (additief, nooit terugval): INVITED→SENT, STARTED→OPENED.
+const LEGACY_STATUS = { INVITED: 'SENT', STARTED: 'OPENED' };
 // Consent is a THIRD, independent dimension — never mixed with lifecycle status.
 const CONSENT = ['UNKNOWN', 'OPTED_IN', 'OPTED_OUT'];
+// How a manual OPTED_IN was obtained — STABLE machine values for consistent
+// registration/audit/reporting (the UI shows Dutch labels). OTHER carries a short
+// free-text toelichting in consent_note. Legacy records keep their free-text
+// consent_note with consent_method = null (backwards compatible).
+const CONSENT_METHODS = ['VERBAL', 'PHONE', 'EMAIL', 'WHATSAPP', 'WRITTEN', 'OTHER'];
 
 // Provenance (brief §6). Only real sources; `pass_the_lens` is RESERVED for the
 // future intake — no intake is built in Step 3. `unknown` is used for legacy
@@ -73,6 +87,10 @@ function emptyRecord() {
     // How a manual/admin consent was obtained (the lawful basis note, brief §1).
     // Required when an admin records OPTED_IN by hand. No sensitive data.
     consent_note: null,
+    // Standardised machine value for the manual-consent method (VERBAL/PHONE/EMAIL/
+    // WHATSAPP/WRITTEN/OTHER). null for legacy free-text-only records. OTHER keeps its
+    // short toelichting in consent_note.
+    consent_method: null,
     source: 'manual',
     // Stable identity of the PERSON (not the session token, brief §7). Derived
     // from normalised e-mail (primary) or mobile, scoped by campaign.
@@ -115,6 +133,8 @@ function load() {
     // Forward-safe defaults for records written by an older version. Additive
     // only — no existing field is ever removed or reset (brief §16).
     for (const r of invitations) {
+      // Forward-safe status-migratie (additief, nooit terugval): INVITED→SENT, STARTED→OPENED.
+      if (r.status && LEGACY_STATUS[r.status]) r.status = LEGACY_STATUS[r.status];
       if (r.consent_status === undefined) r.consent_status = 'UNKNOWN';
       if (r.consent_at === undefined) r.consent_at = null;
       // History defaults to empty. We do NOT back-fill synthetic events for
@@ -127,6 +147,8 @@ function load() {
       if (r.consent_source === undefined) r.consent_source = null;
       if (r.consent_version === undefined) r.consent_version = null;
       if (r.consent_note === undefined) r.consent_note = null;
+      // Legacy records predate the standardised method: keep their free-text note, method null.
+      if (r.consent_method === undefined) r.consent_method = null;
       // Backfill the person key from the record's own contact data (safe,
       // deterministic — derived, not invented).
       if (r.person_key === undefined) r.person_key = personKey(r, r.campaign);
@@ -298,8 +320,10 @@ export function setStatus(id, status) {
   if (!r) return null;
   r.status = status;
   const now = new Date().toISOString();
-  if (status === 'INVITED' && !r.invited_at) r.invited_at = now;
-  if (status === 'STARTED' && !r.started_at) r.started_at = now;
+  // invited_at/started_at behouden hun veldnaam (backward-compatible), maar dragen nu de
+  // SENT- resp. OPENED-timestamp. completed_at ongewijzigd.
+  if (status === 'SENT' && !r.invited_at) r.invited_at = now;
+  if (status === 'OPENED' && !r.started_at) r.started_at = now;
   if (status === 'COMPLETED' && !r.completed_at) r.completed_at = now;
   persist();
   return { ...r };
@@ -308,14 +332,16 @@ export function setStatus(id, status) {
 // Monotonic lifecycle upgrade from Maculis session facts (system-driven).
 // Only moves FORWARD along DRAFT→INVITED→STARTED→COMPLETED, and never touches
 // administrative/terminal states outside that ladder (e.g. DECLINED, ERROR).
-const LADDER = ['DRAFT', 'INVITED', 'STARTED', 'COMPLETED'];
+const LADDER = ['DRAFT', 'SENT', 'OPENED', 'COMPLETED'];
 export function applySessionStatus(id, started, completed) {
   const r = ready().invitations.find((x) => x.id === id);
   if (!r) return null;
   if (!LADDER.includes(r.status)) return { ...r }; // leave DECLINED/ERROR/etc. as-is
   const rank = (s) => LADDER.indexOf(s);
   let target = r.status;
-  if (started && rank('STARTED') > rank(target)) target = 'STARTED';
+  // `started` = the personal link was really opened (session captured) → OPENED.
+  // `completed` = the Journey was really finished → COMPLETED. Monotone: forward only.
+  if (started && rank('OPENED') > rank(target)) target = 'OPENED';
   if (completed && rank('COMPLETED') > rank(target)) target = 'COMPLETED';
   if (target !== r.status) return setStatus(id, target);
   return { ...r };
@@ -337,6 +363,7 @@ export function setConsent(id, consent, opts = {}) {
   if (opts.source !== undefined) r.consent_source = opts.source || null;
   if (opts.version !== undefined) r.consent_version = opts.version || null;
   if (opts.note !== undefined) r.consent_note = opts.note || null;
+  if (opts.method !== undefined) r.consent_method = opts.method || null;
   // History records the change; it does NOT drive consent (brief §10, §20).
   r.history.push(historyEntry(firstConsent ? 'consent_recorded' : 'consent_changed',
     { at, result: consent.toLowerCase(), source: opts.source || null }));
@@ -384,6 +411,7 @@ export function getHistory(id) {
     consent_at: r.consent_at,
     consent_source: r.consent_source || null,
     consent_version: r.consent_version || null,
+    consent_method: r.consent_method || null,
     created_at: r.created_at,
     invited_at: r.invited_at,
     started_at: r.started_at,
@@ -412,7 +440,7 @@ export function isOptedOut(idOrRecord) {
   return Boolean(r && r.consent_status === 'OPTED_OUT');
 }
 
-export { CONSENT };
+export { CONSENT, CONSENT_METHODS };
 
 export function deleteInvitation(id) {
   const list = ready().invitations;

@@ -234,8 +234,8 @@ input[type="checkbox"] { accent-color: var(--primary); }
 .consent-OPTED_IN { color: var(--ok); }
 .consent-OPTED_OUT { color: var(--danger); }
 .status-DRAFT { color: var(--muted); }
-.status-INVITED { color: var(--primary); }
-.status-STARTED { color: #7c3aed; }
+.status-SENT { color: var(--primary); }
+.status-OPENED { color: #7c3aed; }
 .status-COMPLETED { color: var(--ok); }
 .status-DECLINED { color: var(--danger); }
 .status-ERROR { color: var(--danger); }

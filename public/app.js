@@ -18,6 +18,8 @@ const ICON = {
 
 // Dutch UI labels for the consent enum (internal values stay English).
 const CONSENT_LABEL = { UNKNOWN: 'ONBEKEND', OPTED_IN: 'TOEGESTAAN', OPTED_OUT: 'AFGEWEZEN' };
+// Dutch labels for the standardised consent-method machine values (audit/reporting).
+const METHOD_LABEL = { VERBAL: 'Mondeling', PHONE: 'Telefonisch', EMAIL: 'Per e-mail', WHATSAPP: 'Via WhatsApp', WRITTEN: 'Schriftelijk', OTHER: 'Anders' };
 
 // Dutch UI labels for the history layer (internal event/values stay English).
 const EVENT_LABEL = {
@@ -473,8 +475,8 @@ function openWaCurrent() {
 async function confirmWaSent() {
   const id = $('#btn-wa-sent').dataset.id;
   try {
-    await api(`/api/invitations/${id}/status`, { method: 'POST', body: JSON.stringify({ status: 'INVITED', channel: 'whatsapp' }) });
-    toast('Uitnodiging geregistreerd — INVITED');
+    await api(`/api/invitations/${id}/status`, { method: 'POST', body: JSON.stringify({ status: 'SENT', channel: 'whatsapp' }) });
+    toast('Uitnodiging geregistreerd — SENT');
   } catch (e) { toast(e.message); }
   advanceWa();
 }
@@ -604,15 +606,21 @@ function openEdit(id) {
   const prov = $('#ef-consent-prov');
   if (r && r.consent_source) {
     const src = SOURCE_LABEL[r.consent_source] || r.consent_source;
-    prov.textContent = `Toestemming via ${src}${r.consent_at ? ' · ' + fmtTs(r.consent_at) : ''}` +
+    // Method label (new machine value) or the legacy free-text note, whichever is present.
+    const wijze = r.consent_method
+      ? (METHOD_LABEL[r.consent_method] || r.consent_method) + (r.consent_method === 'OTHER' && r.consent_note ? ` — ${r.consent_note}` : '')
+      : (r.consent_note || '');
+    prov.textContent = `Toestemming via ${src}${wijze ? ' · ' + wijze : ''}${r.consent_at ? ' · ' + fmtTs(r.consent_at) : ''}` +
       (r.consent_version ? ` · versie ${r.consent_version}` : '');
     prov.classList.remove('hidden');
   } else {
     prov.classList.add('hidden');
   }
   state.editConsentOriginal = r ? (r.consent_status || 'UNKNOWN') : 'UNKNOWN';
-  // Manual-consent note (required when hand-recording OPTED_IN). Reset + toggle.
-  $('#ef-consent-note').value = '';
+  // Manual-consent method (required when hand-recording OPTED_IN). Reset + toggle.
+  $('#ef-consent-method').value = '';
+  $('#ef-consent-other').value = '';
+  $('#ef-consent-other-row').classList.add('hidden');
   toggleConsentNote();
   // "Status corrigeren" — only for existing testers, as an explicit exception.
   const statusRow = $('#edit-status-row');
@@ -636,6 +644,18 @@ function toggleConsentNote() {
   const val = $('#ef-consent').value;
   const need = val === 'OPTED_IN' && state.editConsentOriginal !== 'OPTED_IN';
   $('#ef-consent-note-row').classList.toggle('hidden', !need);
+  if (!need) {
+    // Row hidden (Onbekend / Geen toestemming / al OPTED_IN) → reset, geen dropdown tonen.
+    $('#ef-consent-method').value = '';
+    $('#ef-consent-other').value = '';
+    $('#ef-consent-other-row').classList.add('hidden');
+  } else {
+    toggleConsentOther();
+  }
+}
+// "Anders" (OTHER) → toon een klein verplicht toelichtingsveld.
+function toggleConsentOther() {
+  $('#ef-consent-other-row').classList.toggle('hidden', $('#ef-consent-method').value !== 'OTHER');
 }
 
 async function saveEdit() {
@@ -668,11 +688,17 @@ async function saveEdit() {
       const body = { consent_status: newConsent, consent_source: 'manual' };
       let go = true;
       if (newConsent === 'OPTED_IN') {
-        const note = $('#ef-consent-note').value.trim();
-        if (!note) {
-          throw new Error('Handmatige toestemming vereist een korte notitie: hoe is de expliciete toestemming verkregen?');
+        const methodEl = $('#ef-consent-method');
+        const method = methodEl ? methodEl.value : '';
+        if (!method) {
+          throw new Error('Kies hoe de toestemming is verkregen (mondeling/telefonisch/e-mail/WhatsApp/schriftelijk/anders).');
         }
-        body.consent_note = note;
+        body.consent_method = method;
+        if (method === 'OTHER') {
+          const other = $('#ef-consent-other').value.trim();
+          if (!other) throw new Error('Kies "Anders": geef een korte toelichting op de toestemmingswijze.');
+          body.consent_note = other;
+        }
       }
       if (newConsent === 'OPTED_OUT') {
         go = confirm('Toestemming intrekken: deze tester wordt geblokkeerd voor uitnodigingen en publicatie naar Maculis. Registreren?');
@@ -757,7 +783,7 @@ function renderEvaluations() {
 
   // Campaign-wide funnel counts (factual status data only).
   const total = rows.length;
-  const invited = rows.filter((r) => ['INVITED', 'STARTED', 'COMPLETED'].includes(r.lifecycle)).length;
+  const invited = rows.filter((r) => ['SENT', 'OPENED', 'COMPLETED'].includes(r.lifecycle)).length;
   const started = rows.filter((r) => r.started).length;
   const evalStarted = rows.filter((r) => r.eval_status !== 'NOT_STARTED').length;
   const evalComplete = rows.filter((r) => r.eval_status === 'COMPLETED').length;
@@ -845,7 +871,7 @@ function renderEvaluations() {
           ? `<span class="status-badge consent-${consent} et-consent">${CONSENT_LABEL[consent]}</span>` : '';
         // Steps reached, using ONLY real status (never mark a step done that isn't).
         const steps = [
-          ['Uitgenodigd', ['INVITED', 'STARTED', 'COMPLETED'].includes(r.lifecycle)],
+          ['Uitgenodigd', ['SENT', 'OPENED', 'COMPLETED'].includes(r.lifecycle)],
           ['Gestart', r.started],
           ['Evaluatie', r.eval_status !== 'NOT_STARTED'],
           ['Compleet', r.eval_status === 'COMPLETED'],
@@ -978,6 +1004,7 @@ function wireEvents() {
   $('#btn-empty-add').addEventListener('click', () => openEdit(null));
   $('#btn-save-edit').addEventListener('click', saveEdit);
   $('#ef-consent').addEventListener('change', toggleConsentNote);
+  $('#ef-consent-method').addEventListener('change', toggleConsentOther);
 
   $('#btn-wa-open').addEventListener('click', openWaCurrent);
   $('#btn-wa-sent').addEventListener('click', confirmWaSent);

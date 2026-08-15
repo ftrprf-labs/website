@@ -132,6 +132,33 @@ async function autoPublishParticipant(rec) {
   } catch { /* best-effort: an invite must never fail because sync failed */ }
 }
 
+// Pull real Maculis session facts and apply them to the store: monotone lifecycle
+// (DRAFT→SENT→OPENED→COMPLETED, never regresses), history milestones and journey-derived
+// consent. Shared by BOTH the invitations list and the evaluations view, so the visible
+// status is refreshed from real events on every read and never sticks on a stale DRAFT/SENT.
+// OPENED comes from a real session_started (link actually opened); COMPLETED from a real
+// session_completed. On a pull failure the store keeps its last known status (fail-safe).
+async function syncLifecycleFromMaculis() {
+  const pull = await pullSessions();
+  if (!pull.ok) return { ok: false, reason: pull.reason, byToken: new Map() };
+  const byToken = deriveByToken(pull.sessions);
+  for (const inv of store.listInvitations()) {
+    const d = byToken.get(inv.token);
+    if (!d) continue;
+    store.applySessionStatus(inv.id, d.started, d.completed);
+    if (d.started) store.recordEventOnce(inv.id, 'journey_started', { at: d.started_at || null });
+    if (d.eval_status !== 'NOT_STARTED') store.recordEventOnce(inv.id, 'evaluation_started', { at: d.started_at || null });
+    if (d.eval_status === 'COMPLETED') store.recordEventOnce(inv.id, 'evaluation_completed', { at: d.completed_at || d.started_at || null });
+    if (d.consent === 'OPTED_IN') {
+      const before = store.getInvitation(inv.id);
+      if (before && before.consent_status !== 'OPTED_IN') {
+        store.setConsent(inv.id, 'OPTED_IN', { source: 'pass_the_lens', version: d.consent_version || null, at: d.consent_at || undefined });
+      }
+    }
+  }
+  return { ok: true, byToken };
+}
+
 const securityHeaders = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
@@ -272,6 +299,9 @@ async function handleApi(req, res, pathname) {
   if (!isAuthed(req)) return json(res, 401, { error: 'Niet ingelogd' });
 
   if (pathname === '/api/invitations' && method === 'GET') {
+    // Refresh lifecycle from real Maculis events BEFORE returning the list, so the main
+    // table shows live OPENED/COMPLETED instead of a stale DRAFT/SENT (best-effort).
+    await syncLifecycleFromMaculis();
     return json(res, 200, { invitations: store.listInvitations() });
   }
 
@@ -309,12 +339,24 @@ async function handleApi(req, res, pathname) {
     const status = body.consent_status;
     const source = body.consent_source || 'manual';
     const note = typeof body.consent_note === 'string' ? body.consent_note.trim() : '';
-    // A hand-recorded opt-in must be backed by a real, documented basis.
-    if (status === 'OPTED_IN' && source === 'manual' && !note) {
-      return json(res, 400, { error: 'Handmatige toestemming vereist een korte notitie: hoe is de expliciete toestemming verkregen (bv. mondeling/e-mail)?' });
+    const method = typeof body.consent_method === 'string' ? body.consent_method.trim().toUpperCase() : '';
+    // A hand-recorded opt-in must be backed by a documented, standardised basis. The new
+    // UI sends a machine method (VERBAL/PHONE/…); OTHER additionally needs a short toelichting.
+    // Legacy callers that send only a free-text note stay accepted (backwards compatible).
+    if (status === 'OPTED_IN' && source === 'manual') {
+      if (method) {
+        if (!store.CONSENT_METHODS.includes(method)) {
+          return json(res, 400, { error: 'Onbekende toestemmingswijze.' });
+        }
+        if (method === 'OTHER' && !note) {
+          return json(res, 400, { error: 'Kies "Anders": geef een korte toelichting op de toestemmingswijze.' });
+        }
+      } else if (!note) {
+        return json(res, 400, { error: 'Handmatige toestemming vereist een toestemmingswijze (mondeling/telefonisch/e-mail/WhatsApp/schriftelijk/anders).' });
+      }
     }
     try {
-      const updated = store.setConsent(consentMatch[1], status, { source, note: note || null });
+      const updated = store.setConsent(consentMatch[1], status, { source, method: method || null, note: note || null });
       if (!updated) return json(res, 404, { error: 'Niet gevonden' });
       return json(res, 200, { invitation: updated });
     } catch (e) {
@@ -333,10 +375,10 @@ async function handleApi(req, res, pathname) {
   const statusMatch = pathname.match(/^\/api\/invitations\/([^/]+)\/status$/);
   if (statusMatch && method === 'POST') {
     const body = await readJson(req);
-    // Fail-closed (brief §1): becoming INVITED requires an explicit OPTED_IN.
+    // Fail-closed (brief §1): becoming SENT requires an explicit OPTED_IN.
     // UNKNOWN and OPTED_OUT are both blocked — for the WhatsApp/e-mail flow and
     // any direct/administrative call. Other lifecycle corrections are unaffected.
-    if (body.status === 'INVITED' && !store.mayContact(statusMatch[1])) {
+    if (body.status === 'SENT' && !store.mayContact(statusMatch[1])) {
       if (body.channel === 'whatsapp' || body.channel === 'email') {
         store.addEvent(statusMatch[1], 'invitation_blocked', { channel: body.channel, result: 'blocked' });
       }
@@ -348,7 +390,7 @@ async function handleApi(req, res, pathname) {
       // A WhatsApp invitation was actually sent (client opened wa.me + confirmed).
       // A channel-less status POST is an administrative correction — not logged
       // as an invitation. History observes real actions only (brief §8, §20).
-      if (body.status === 'INVITED' && body.channel === 'whatsapp') {
+      if (body.status === 'SENT' && body.channel === 'whatsapp') {
         store.addEvent(statusMatch[1], 'invitation_sent', { channel: 'whatsapp', result: 'success' });
       }
       return json(res, 200, { invitation: updated });
@@ -464,8 +506,8 @@ async function handleApi(req, res, pathname) {
       const mail = buildEmail(template, rec);
       const outcome = await sendEmail({ to: mail.to, subject: mail.subject, body: mail.body });
       if (outcome.delivered) {
-        // ONLY a real, confirmed delivery is proof of an invitation (INVITED).
-        store.setStatus(id, 'INVITED');
+        // ONLY a real, confirmed delivery is proof of an invitation (SENT).
+        store.setStatus(id, 'SENT');
         store.addEvent(id, 'invitation_sent', { channel: 'email', result: 'success' });
         results.push({ id, ok: true });
         sent++;
@@ -489,30 +531,11 @@ async function handleApi(req, res, pathname) {
   // participant-token. Maculis blijft source of truth; geen tweede evaluatie-DB.
   // Geen token/PII in de output; server-side joinen en filteren.
   if (pathname === '/api/evaluations' && method === 'GET') {
-    const pull = await pullSessions();
-    const byToken = pull.ok ? deriveByToken(pull.sessions) : new Map();
+    // Same real-event sync as the list (monotone lifecycle + milestones + journey consent).
+    const sync = await syncLifecycleFromMaculis();
+    const byToken = sync.byToken;
     const rows = store.listInvitations().map((inv) => {
       const d = byToken.get(inv.token) || null;
-      // STARTED/COMPLETED alleen uit echte Maculis-sessiedata (monotone upgrade).
-      if (d) {
-        store.applySessionStatus(inv.id, d.started, d.completed);
-        // History milestones, derived ONLY from real Maculis facts (brief §11).
-        // Idempotent: recorded once, at the real Maculis timestamp when known.
-        if (d.started) store.recordEventOnce(inv.id, 'journey_started', { at: d.started_at || null });
-        if (d.eval_status !== 'NOT_STARTED') store.recordEventOnce(inv.id, 'evaluation_started', { at: d.started_at || null });
-        if (d.eval_status === 'COMPLETED') store.recordEventOnce(inv.id, 'evaluation_completed', { at: d.completed_at || d.started_at || null });
-        // Consent from the Maculis journey's inner-circle opt-in (brief §1/§3).
-        // ONLY an explicit affirmative opt-in maps to OPTED_IN; "Nog niet" and a
-        // mere completion stay UNKNOWN (fail-closed). Applied idempotently.
-        // consent_version stays null until the formal V1 journey text is live.
-        if (d.consent === 'OPTED_IN') {
-          const before = store.getInvitation(inv.id);
-          if (before && before.consent_status !== 'OPTED_IN') {
-            // Record the consent version the journey actually presented (D).
-            store.setConsent(inv.id, 'OPTED_IN', { source: 'pass_the_lens', version: d.consent_version || null, at: d.consent_at || undefined });
-          }
-        }
-      }
       const cur = store.getInvitation(inv.id) || inv;
       return {
         id: inv.id,
@@ -529,7 +552,7 @@ async function handleApi(req, res, pathname) {
         completed_at: d ? d.completed_at : null,
       };
     });
-    return json(res, 200, { ok: pull.ok, reason: pull.ok ? undefined : pull.reason, questions: EVAL_QUESTIONS, evaluations: rows });
+    return json(res, 200, { ok: sync.ok, reason: sync.ok ? undefined : sync.reason, questions: EVAL_QUESTIONS, evaluations: rows });
   }
 
   if (pathname === '/api/template' && method === 'GET') {

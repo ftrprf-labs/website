@@ -212,7 +212,19 @@
             </p>
             <div id="ef-consent-note-row" class="consent-note hidden" style="margin-top:8px">
               <label>Hoe is de toestemming verkregen? <span class="req">*</span></label>
-              <input id="ef-consent-note" type="text" placeholder="bv. mondeling akkoord 14-08, of per e-mail" />
+              <select id="ef-consent-method">
+                <option value="">Selecteer wijze...</option>
+                <option value="VERBAL">Mondeling</option>
+                <option value="PHONE">Telefonisch</option>
+                <option value="EMAIL">Per e-mail</option>
+                <option value="WHATSAPP">Via WhatsApp</option>
+                <option value="WRITTEN">Schriftelijk</option>
+                <option value="OTHER">Anders</option>
+              </select>
+              <div id="ef-consent-other-row" class="hidden" style="margin-top:8px">
+                <label>Toelichting <span class="req">*</span></label>
+                <input id="ef-consent-other" type="text" placeholder="korte toelichting op de wijze" />
+              </div>
               <p class="muted small" style="margin-top:4px">
                 Verplicht bij handmatig registreren van toestemming — leg de aantoonbare grondslag vast.
               </p>
