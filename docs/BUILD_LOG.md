@@ -5,6 +5,41 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-15 — Maculis Next Lenses: strategie, research en productarchitectuur (werkdocument)
+
+**Wat het is.** Een duurzaam Lens Strategy Masterplan voor de volgende generatie Maculis lenzen na de
+First Five pilot. Vastgelegd onder `docs/lens-strategy/` zodat de strategie niet afhankelijk is van
+één chat. Geen wijziging aan de huidige First Five productieflow; uitsluitend strategie, research,
+architectuur en beslismodellen.
+
+**Grondslag (read-only inspectie).** Frozen Reveal Engine (`maculis-first-five.` `src/engine`:
+observations, de vier relatiefamilies CONTRADICTION/TELLING_ABSENCE/MISCAST/DRIFT, de Gate, SILENCE als
+first-class uitkomst, bounded LLM, recognition), de live pipeline (`src/live`), de Communication en
+Relationship Layer in dit repo, en de governance SSoT (`ftrlabs-docs`). Bevinding: de lens-woordenschat
+staat nog niet in de SSoT; dat is een governance-handoff (zie orchestrator playbook).
+
+**Inhoud (`docs/lens-strategy/`).** `00-masterplan.md` (volledige masterplan), `01-lens-architecture.md`
+(gedeelde engine), `02-connector-architecture.md` (gedeelde connectorlaag, file-ingestion als connector),
+`03-prioritization-model.md` (expliciet gewogen scoringsmodel en ranking), `04-orchestrator-playbook.md`
+(decompositie van lensopdrachten, SSoT-handoff), en `research/` (drie bronvermelde artefacten: finance
+integration landscape, marketing en outside-in evidence, concurrentie en differentiatie).
+
+**Kernaanbeveling met tegengas.** Lens 1 continu verdiepen (zonder rapport te worden). Lens 2 =
+Reputation en Reception (outside-in cross-lens, behoudt de zero-integration magie, bewijst cross-lens
+goedkoop). Lens 3 = Finance via Bring Your Data (de moat en de betalingsbereidheid, na opgebouwd
+vertrouwen). Lens 4 = Dependency en Resilience (bouwt op Finance plus Relationship Intelligence). Finance
+is nadrukkelijk niet Lens 2, ondanks de hoogste waarde, omdat dat de zero-integration vertrouwenscurve en
+het hoogste privacy/security-risico te vroeg zou inzetten.
+
+**HUMAN ACTIONS (geparkeerd, niet blokkerend).** Outside-in evidence ToS (Places/SSL Labs/Trustpilot),
+KVK API-sleutel, Exact App Center review, Open Banking aggregator-keuze, marketing-approvals, DPIA/ROPA
+voor Finance en connected Marketing, en de SSoT-promotie via reviewed PRs in `ftrlabs-docs`.
+
+**Schrijfregel.** Zichtbare copy en voorbeeld-reveals zonder streepjes als stijlmiddel; ook de interne
+strategiedocumenten volgen de regel.
+
+---
+
 ## 2026-08-15 — Pass the Lens: productie-acceptatie (functioneel geaccepteerd, gesloten)
 
 **Status: in productie werkend en functioneel geaccepteerd.** Bevestigd via een echte
