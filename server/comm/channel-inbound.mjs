@@ -45,11 +45,11 @@ export async function receiveChannelInbound({ tenantId, channel, from, to = null
     let convId;
     if (conv) {
       convId = conv.id;
-      await client.query("update conversation set status=case when status in ('CLOSED','RESOLVED') then 'OPEN'::conv_status else 'NEW'::conv_status end, last_message_at=now(), updated_at=now() where id=$1", [convId]);
+      await client.query("update conversation set status=case when status in ('CLOSED','RESOLVED') then 'OPEN'::conv_status else 'NEW'::conv_status end, last_message_at=now(), last_inbound_at=now(), updated_at=now() where id=$1", [convId]);
     } else {
       const ins = await client.query(
-        `insert into conversation(tenant_id, organization_id, contact_id, channel, is_privacy, status, thread_key, match_confidence, last_message_at)
-         values ($1,$2,$3,$4,false,'NEW',$5,$6, now()) returning id`,
+        `insert into conversation(tenant_id, organization_id, contact_id, channel, is_privacy, status, thread_key, match_confidence, last_message_at, last_inbound_at)
+         values ($1,$2,$3,$4,false,'NEW',$5,$6, now(), now()) returning id`,
         [tid, organizationId, contactId, channel, `id:${value}`, contactId ? 'linked' : 'unlinked']);
       convId = ins.rows[0].id;
     }

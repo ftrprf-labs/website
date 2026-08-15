@@ -16,6 +16,7 @@ import { recordAudit } from './audit.mjs';
 import { contactTimeline } from './activity.mjs';
 import { getRelationship, relationshipTimeline, listRelationships, contactByInvitation } from './relationship.mjs';
 import { inboxConversations, inboxSummary } from './inbox.mjs';
+import { attentionOverview, markConversationRead } from './attention.mjs';
 import * as drafts from './drafts.mjs';
 import * as ai from './ai/service.mjs';
 import { createFollowUp, updateFollowUp, listFollowUps } from './followups.mjs';
@@ -78,6 +79,15 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
     const conversations = await inboxConversations(tenantId, { box, filter: u.searchParams.get('filter') || 'all' });
     const summary = await inboxSummary(tenantId);
     json(res, 200, { conversations, summary });
+    return true;
+  }
+
+  // ---- Attention Cockpit (§ ATTENTION COCKPIT) -----------------------------------------------
+  // One channel-agnostic answer for "wat vraagt vandaag mijn aandacht?": aggregate summary + the
+  // act-now queue + row-indicator maps (by email/contact) so opening Testerbeheer shows within ~1s
+  // where new communication needs attention. Derived, tenant-scoped, privacy excluded.
+  if (pathname === '/api/comm/attention' && method === 'GET') {
+    json(res, 200, await attentionOverview(tenantId));
     return true;
   }
 
@@ -144,7 +154,18 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
         where conversation_id=$1 and status='proposed' order by created_at desc limit 1`, [id])).rows[0] || null;
     const consent = conv.contact_id ? await channelConsentState(tenantId, conv.contact_id) : null;
     if (conv.status === 'NEW') await query("update conversation set status='OPEN' where id=$1 and status='NEW'", [id]);
+    // A human opened the conversation — this is the ONLY signal that marks it read. Moving the
+    // watermark to now() is idempotent (it only advances) and clears the unread/attention state.
+    await markConversationRead(tenantId, id, { userId: null });
     json(res, 200, { conversation: conv, messages, notes, ai_draft: draft, consent });
+    return true;
+  }
+
+  // Explicit mark-read (watermark) — used when a conversation is opened without a full fetch
+  // (e.g. an in-place preview). Idempotent and tenant-scoped.
+  const readMatch = pathname.match(new RegExp(`^/api/comm/conversations/${UUID}/read$`));
+  if (readMatch && method === 'POST') {
+    json(res, 200, await markConversationRead(tenantId, readMatch[1], { userId: null }));
     return true;
   }
 
