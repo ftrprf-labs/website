@@ -38,6 +38,7 @@ const MANIFEST = [
   { chain: 'SMS round-trip E2E (inbound→AI→approval→delivery)', critical: true, needsDb: true, files: ['tests/comm-sms-e2e.test.mjs'] },
   { chain: 'Telephony click-to-call (consent/call-record/outcome)', critical: true, needsDb: false, files: ['tests/comm-calls.test.mjs'] },
   { chain: 'Observability PII-safety (no personal data in logs)', critical: true, needsDb: false, files: ['tests/comm-obs.test.mjs'] },
+  { chain: 'Data-quality diagnostic (duplicates/splits, read-only)', critical: true, needsDb: true, files: ['tests/comm-data-quality.test.mjs'] },
 ];
 
 const EXTERNAL = [
