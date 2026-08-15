@@ -1,0 +1,80 @@
+{
+  "$schema": "https://maculis.dev/schemas/project.v1.json",
+  "schemaVersion": "1.0",
+  "name": "ftrlabs-testerbeheer",
+  "repo": "ftrprf-labs/website",
+  "summary": "Maculis Testerbeheer / Invitation Manager + Communication Layer (relationship-oriented, omnichannel, AI-first, human-approved outbound).",
+  "language": "javascript",
+  "runtime": { "node": ">=18", "type": "module" },
+  "entrypoint": "server/index.mjs",
+  "commands": {
+    "install": "npm install",
+    "start": "npm start",
+    "test": "npm test",
+    "test_full": "npm run test:comm",
+    "quality_gate": "npm run quality-gate",
+    "quality_gate_deploy": "npm run quality-gate:deploy",
+    "quality_gate_json": "node scripts/quality-gate.mjs --json"
+  },
+  "qualityGate": {
+    "runner": "scripts/quality-gate.mjs",
+    "manifestDoc": "docs/QUALITY_GATE.md",
+    "deployableSignal": "run `node scripts/quality-gate.mjs --require-db --json` and require `.deployable === true`; a non-zero exit code blocks deploy.",
+    "coverageLevels": {
+      "offline": "no DATABASE_URL — pure/unit chains run, DB chains skip; NOT sufficient for a deploy decision",
+      "full": "DATABASE_URL + COMM_LAYER_ENABLED set — every chain including real-DB round trips runs"
+    }
+  },
+  "database": {
+    "engine": "postgres",
+    "required_for_full_coverage": true,
+    "envForTests": ["DATABASE_URL", "COMM_LAYER_ENABLED=1", "RESEND_WEBHOOK_SECRET (any whsec_ value; the e-mail E2E signs with it)"],
+    "migrations": "server/comm/migrations/*.sql, applied idempotently at boot and by runMigrations() in tests; additive/non-destructive only."
+  },
+  "deploy": {
+    "platform": "render",
+    "config": "render.yaml",
+    "service": "ftrlabs-testerbeheer",
+    "kind": "docker web service",
+    "region": "frankfurt",
+    "healthCheckPath": "/healthz",
+    "dataDir": "persistent disk (DATA_DIR)",
+    "secretsPolicy": "all secrets are Render env vars with sync:false; never committed. No secret is ever printed in logs, commits, or docs.",
+    "verifyAfterDeploy": "GET /healthz returns { ok: true }; then run the quality gate against the deploy's database before calling the deploy successful."
+  },
+  "rollback": {
+    "strategy": "Render keeps prior deploys; roll back by redeploying the previous successful image. Database migrations are additive/non-destructive, so a code rollback does not require a schema rollback.",
+    "notes": "Never run a destructive migration or delete production data as part of a rollback."
+  },
+  "channels": {
+    "EMAIL": { "status": "live-connectable", "provider": "resend", "inbound": "/api/comm/inbound/resend (Svix-signed)", "activation": "human-action" },
+    "WHATSAPP": { "status": "built-waiting-account", "provider": "meta-cloud-api", "inbound": "/api/comm/inbound/whatsapp (x-hub-signature-256)", "activation": "human-action" },
+    "SMS": { "status": "built-waiting-account", "provider": "twilio", "inbound": "/api/comm/inbound/sms (x-twilio-signature)", "activation": "human-action" },
+    "PHONE": { "status": "phase1-live-clicktocall", "provider": "click_to_call (tel: URI, iPhone/Apple Continuity over KPN)", "phase2": "twilio-voice (designed)", "activation": "phase1 none; phase2 human-action" }
+  },
+  "envCapabilities": {
+    "comm_layer": ["COMM_LAYER_ENABLED", "DATABASE_URL"],
+    "email_inbound": ["RESEND_WEBHOOK_SECRET", "COMM_MAILBOXES", "MAIL_API_KEY"],
+    "whatsapp": ["WHATSAPP_PROVIDER", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_ACCESS_TOKEN", "WHATSAPP_APP_SECRET", "WHATSAPP_WEBHOOK_VERIFY_TOKEN"],
+    "sms": ["SMS_PROVIDER", "SMS_ACCOUNT_SID", "SMS_API_KEY", "SMS_ORIGINATOR", "SMS_WEBHOOK_SECRET"],
+    "ai_copilot": ["COMM_AI_PROVIDER", "COMM_AI_API_KEY", "COMM_AI_MODEL"]
+  },
+  "agentBoundaries": {
+    "mayAutonomously": ["inspect", "analyze", "edit files", "add backwards-compatible migrations", "write tests/fixtures/mocks/adapters", "run tests", "security & performance fixes", "observability", "documentation", "branches/commits/pushes", "safe rebases", "normal deployments when the quality gate is green", "post-deploy verification"],
+    "mustNotAutonomously": ["activate a paid service", "purchase or port a phone number", "change DNS/MX/domain settings", "delete production data", "run a destructive migration", "send real external messages to real people for a test without explicit permission", "print any secret", "lower a security or privacy gate", "redesign the Journey or make a major UX/brand change without a product decision"],
+    "onBlockingHumanAction": "record a single `HUMAN ACTION: …`, park only that item, and continue with other unblocked work."
+  },
+  "security": {
+    "webhooks": "every inbound webhook is signature-authenticated and fail-closed without its secret; replay is defended by provider_message_id idempotency; media is referenced, never fetched, in the webhook path (no SSRF).",
+    "consent": "server-side per-channel consent gate on every outbound; opt-out is first-class and always wins.",
+    "outbound": "AI never sends; only an explicit human-approved action sends external text.",
+    "logging": "PII-safe by construction (server/comm/obs.mjs); no personal data, content, or secrets in logs.",
+    "knownFindings": [
+      "xlsx@0.18.5 (SheetJS) has a high-severity advisory with no npm fix; import path is admin-only. Documented, not silently repackaged. Revisit when a safe backwards-compatible fix exists."
+    ]
+  },
+  "externalRepos": [
+    { "repo": "ftrprf-labs/maculis-first-five", "owns": ["First Five journey", "Technical Signals evidence gate", "Pass the Lens journey side"], "note": "runs its own quality gate; a federated gate can aggregate the --json verdicts." }
+  ],
+  "writingRule": "public-facing copy uses no hyphens or dashes as a stylistic device; use a period, comma, colon, or a new sentence. Technical identifiers, URLs, code, filenames and quoted external text are exempt."
+}
