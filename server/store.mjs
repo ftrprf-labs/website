@@ -51,6 +51,9 @@ const EVENTS = [
   'consent_recorded',
   'consent_changed',
   'published_to_maculis',
+  // Pass the Lens: an existing tester/relation introduced this person. Observation
+  // only; never drives status/consent. The introducer link lives in `introductions`.
+  'pass_the_lens_introduction',
 ];
 
 // A single history entry: { at, event, channel?, result? }. No PII, no bodies,
@@ -92,6 +95,11 @@ function emptyRecord() {
     // short toelichting in consent_note.
     consent_method: null,
     source: 'manual',
+    // Pass the Lens provenance (append-only). Each entry records that an existing
+    // tester/relation introduced this person: { at, by_id, by_name, by_company,
+    // source_journey }. A list so a repeat introduction is visible, never a silent
+    // overwrite (brief §8). No secrets/tokens; by_id links to the introducer record.
+    introductions: [],
     // Stable identity of the PERSON (not the session token, brief §7). Derived
     // from normalised e-mail (primary) or mobile, scoped by campaign.
     person_key: null,
@@ -140,6 +148,8 @@ function load() {
       // History defaults to empty. We do NOT back-fill synthetic events for
       // records that predate history — their past is genuinely unknown.
       if (!Array.isArray(r.history)) r.history = [];
+      // Pass the Lens introductions default to empty (additive, never invented).
+      if (!Array.isArray(r.introductions)) r.introductions = [];
       // Provenance: we cannot reliably tell how a legacy record was created,
       // so we record `unknown` rather than inventing a source (brief §16).
       if (r.source === undefined) r.source = 'unknown';
@@ -307,6 +317,23 @@ export function intake(payload) {
     created = true;
     rec = createInvitation({ ...contact, campaign, source: 'pass_the_lens' });
   }
+  // Provenance (brief §3/§5/§9): record WHO introduced this person, resolved from
+  // the introducer's own token against our store (the referrer never re-enters their
+  // details). Append-only so a repeat introduction is visible (§8), never a silent
+  // overwrite. by_id links to the introducer record; by_name/by_company are a
+  // denormalised convenience for the admin view. Only meaningful for a real referral.
+  if (payload.introducer_token || payload.introducer_name) {
+    const introducer = payload.introducer_token ? getByToken(payload.introducer_token) : null;
+    recordIntroduction(rec.id, {
+      by_id: introducer ? introducer.id : null,
+      by_name: introducer
+        ? [introducer.first_name, introducer.last_name].filter(Boolean).join(' ').trim() || null
+        : (payload.introducer_name || null),
+      by_company: introducer ? (introducer.company_name || null) : (payload.introducer_company || null),
+      source_journey: payload.source_journey || 'first_five',
+    });
+    rec = getInvitation(rec.id);
+  }
   // Consent: only OPTED_IN / OPTED_OUT is an explicit choice. UNKNOWN never
   // overwrites an existing choice and is never treated as an opt-in (§3, §10).
   let consentApplied = false;
@@ -407,6 +434,27 @@ export function recordEventOnce(id, event, opts = {}) {
   return { ...r };
 }
 
+// Record a Pass the Lens introduction (brief §3/§8/§9): append the introducer link
+// to `introductions` (never overwrite → a repeat referral stays visible) and add one
+// observational history event. Never touches lifecycle or consent. `intro` carries
+// { by_id, by_name, by_company, source_journey } — no tokens/secrets.
+export function recordIntroduction(id, intro = {}) {
+  const r = ready().invitations.find((x) => x.id === id);
+  if (!r) return null;
+  if (!Array.isArray(r.introductions)) r.introductions = [];
+  const entry = {
+    at: new Date().toISOString(),
+    by_id: intro.by_id || null,
+    by_name: intro.by_name || null,
+    by_company: intro.by_company || null,
+    source_journey: intro.source_journey || 'first_five',
+  };
+  r.introductions.push(entry);
+  r.history.push(historyEntry('pass_the_lens_introduction', { source: 'pass_the_lens' }));
+  persist();
+  return { ...r };
+}
+
 // Read-only dossier for one tester: provenance + the current dimension values
 // + the full chronological history. No PII beyond what the admin list holds.
 export function getHistory(id) {
@@ -425,6 +473,7 @@ export function getHistory(id) {
     invited_at: r.invited_at,
     started_at: r.started_at,
     completed_at: r.completed_at,
+    introductions: (r.introductions || []).map((i) => ({ ...i })),
     history: (r.history || []).map((h) => ({ ...h })),
   };
 }

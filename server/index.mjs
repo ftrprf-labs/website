@@ -23,6 +23,7 @@ import {
 import { handleComm } from './comm/routes.mjs';
 import { migrateOnBoot } from './comm/migrate.mjs';
 import { commEnabled } from './comm/db.mjs';
+import { bridgePassTheLens } from './comm/pass-the-lens.mjs';
 
 const PUBLIC = join(ROOT, 'public');
 
@@ -294,6 +295,14 @@ async function handleApi(req, res, pathname) {
     }
     const result = store.intake(body);
     const inv = result.invitation;
+    // Best-effort: mirror the introduction into the relationship graph when the
+    // Communication Layer is on (brief §9/§15). Fully guarded + no-op when off;
+    // never blocks or fails the intake. Awaited so a managed DB write completes.
+    if (body.introducer_token || body.introducer_name) {
+      const latest = (inv.introductions && inv.introductions.length)
+        ? inv.introductions[inv.introductions.length - 1] : {};
+      try { await bridgePassTheLens(inv, latest); } catch { /* observational only */ }
+    }
     // Minimal, PII-free response: no token, no e-mail. Just what the caller needs.
     return json(res, result.created ? 201 : 200, {
       ok: true,

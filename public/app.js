@@ -34,6 +34,7 @@ const EVENT_LABEL = {
   consent_recorded: 'Toestemming vastgelegd',
   consent_changed: 'Toestemming gewijzigd',
   published_to_maculis: 'Gepubliceerd naar Maculis',
+  pass_the_lens_introduction: 'Aangedragen via Pass the Lens',
 };
 const CHANNEL_LABEL = { whatsapp: 'WhatsApp', email: 'E-mail' };
 const RESULT_LABEL = {
@@ -213,6 +214,14 @@ function rowHtml(r) {
   const contact = [r.email, r.mobile].filter(Boolean);
   const url = personalUrl(r.token);
   const checked = state.selection.has(r.id) ? 'checked' : '';
+  // Pass the Lens candidate marker: a quiet tag + the referrer, so the admin sees at a
+  // glance that this is a controlled introduction (brief §5). Latest introduction shown.
+  const intros = Array.isArray(r.introductions) ? r.introductions : [];
+  const lastIntro = intros.length ? intros[intros.length - 1] : null;
+  const ptlVia = lastIntro && lastIntro.by_name ? ' · via ' + esc(lastIntro.by_name) : '';
+  const ptlTag = (r.source === 'pass_the_lens')
+    ? `<div class="ptl-tag" title="Aangedragen via Pass the Lens${lastIntro && lastIntro.at ? ' op ' + esc(fmtTs(lastIntro.at)) : ''}${intros.length > 1 ? ' (' + intros.length + '×)' : ''}">Pass the Lens${ptlVia}</div>`
+    : '';
   // Fail-closed: contact is only allowed with an explicit OPTED_IN. UNKNOWN and
   // OPTED_OUT both disable the WhatsApp/e-mail actions.
   const noContact = r.consent_status !== 'OPTED_IN';
@@ -223,7 +232,7 @@ function rowHtml(r) {
     <td class="col-check" data-label="">
       <input type="checkbox" data-check="${r.id}" ${checked} />
     </td>
-    <td data-label="Naam"><button class="name-main link-name" data-rel="${r.id}" title="Open relatie (Communicatie, Journey, Historie)">${esc(name)}</button></td>
+    <td data-label="Naam"><button class="name-main link-name" data-rel="${r.id}" title="Open relatie (Communicatie, Journey, Historie)">${esc(name)}</button>${ptlTag}</td>
     <td data-label="Bedrijf"><button class="link-name link-dim" data-rel="${r.id}" title="Open relatie">${esc(r.company_name || '—')}</button></td>
     <td data-label="Contact">
       <div>${esc(contact[0] || '—')}</div>
@@ -950,8 +959,17 @@ async function openHistory(id) {
   const lastInvite = [...entries].reverse().find((e) => e.event === 'invitation_sent');
   const lastActivity = entries.length ? entries[entries.length - 1] : null;
 
+  // Pass the Lens provenance: who introduced this candidate, when, and from which journey.
+  // Most recent first; a repeat introduction stays visible (brief §8).
+  const intros = Array.isArray(h.introductions) ? h.introductions.slice().reverse() : [];
+  const introRows = intros.map((i) => {
+    const who = i.by_name ? esc(i.by_name) + (i.by_company ? ' (' + esc(i.by_company) + ')' : '') : 'Onbekende verwijzer';
+    return `Aangedragen door ${who} · ${esc(fmtTs(i.at))}`;
+  });
+
   $('#history-summary').innerHTML = [
     ['Bron', SOURCE_LABEL[h.source] || h.source],
+    ...(introRows.length ? [['Aangedragen door', introRows.join(' · daarnaast: ')]] : []),
     ['Aangemaakt', fmtTs(h.created_at)],
     ['Laatste uitnodiging', lastInvite
       ? fmtTs(lastInvite.at) + (lastInvite.channel ? ' · ' + (CHANNEL_LABEL[lastInvite.channel] || lastInvite.channel) : '')

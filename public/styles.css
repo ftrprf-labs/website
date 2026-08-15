@@ -205,6 +205,13 @@ input[type="checkbox"] { accent-color: var(--primary); }
 .link-name:hover { color: var(--amber, #c8894a); text-decoration: underline; }
 .link-name.link-dim { color: var(--dim, #9aa0ac); font-weight: 400; }
 .contact-line { font-size: 12.5px; color: var(--muted); }
+/* Pass the Lens candidate marker: a quiet gold tag with the referrer. */
+.ptl-tag {
+  display: inline-block; margin-top: 3px; font-size: 11px; letter-spacing: .02em;
+  color: var(--amber, #c8894a); border: 1px solid rgba(200,137,74,.32);
+  border-radius: 999px; padding: 1px 8px; white-space: nowrap; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis;
+}
 
 .link-cell { display: flex; align-items: center; gap: 6px; max-width: 220px; }
 .link-cell code {
