@@ -24,6 +24,13 @@ npm run quality-gate:deploy
 The runner exits non-zero when any critical chain is red, or (under `--require-db`) when a
 DB-backed chain was skipped. Wire that exit code into the deploy step.
 
+## CI (hard delivery gate)
+
+`.github/workflows/quality-gate.yml` runs the gate at FULL coverage (`--require-db`) on every push
+and pull request, against a real `postgres:16` service container. A red critical chain fails the job,
+so new communication code cannot be treated as done while the gate is red. The workflow uses a fixed
+test `RESEND_WEBHOOK_SECRET` (not a production secret) so runs are reproducible.
+
 ## Coverage levels
 
 - **offline** (no `DATABASE_URL`): the pure/unit chains run fully; the DB-backed E2E chains report
