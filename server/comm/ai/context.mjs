@@ -60,11 +60,19 @@ export async function buildRelationshipContext(tenantId, { conversationId = null
     `select channel, value, verified, is_primary from channel_identity where tenant_id=$1 and contact_id=$2`,
     [tenantId, cId])).rows : [];
 
+  // Relationship Memory — CONFIRMED facts/agreements only feed the model as fact; proposed AI items
+  // are excluded from generation context (they are suggestions for a human, not established truth).
+  const memory = cId ? (await query(
+    `select id, kind, content from relationship_memory
+      where tenant_id=$1 and contact_id=$2 and superseded_at is null and confidence='confirmed'
+        and (valid_until is null or valid_until > now()) order by created_at desc limit 8`, [tenantId, cId])).rows : [];
+  for (const m of memory) add('memory', m.id, m.content);
+
   return {
     tenantId, isPrivacy,
     contact, org, journey,
     conversation: conv ? { id: conv.id, subject: conv.subject, status: conv.status, channel: conv.channel } : null,
-    recent, followUps, prefs, identities,
+    recent, followUps, prefs, identities, memory,
     refs,
   };
 }
@@ -76,10 +84,12 @@ export function renderContextForModel(ctx) {
   const stage = (ctx.org && ctx.org.relationship_stage) || (ctx.contact && ctx.contact.relationship_stage) || null;
   const history = ctx.recent.map((m) => `${m.direction === 'INBOUND' ? 'ZIJ' : 'MACULIS'} (${m.channel}): ${(m.body_text || '').slice(0, 400)}`).join('\n');
   const fu = ctx.followUps.map((f) => `- ${f.title}${f.due_at ? ' (uiterlijk ' + new Date(f.due_at).toLocaleDateString('nl-NL') + ')' : ''}`).join('\n');
+  const mem = (ctx.memory || []).map((m) => `- [${m.kind}] ${m.content}`).join('\n');
   return [
     `CONTACT: ${who}`,
     `ORGANISATIE: ${org}${stage ? ` (relatie: ${stage})` : ''}`,
     ctx.journey ? `FIRST FIVE: ${ctx.journey.status || 'onbekend'}` : null,
+    mem ? `VASTGELEGDE AFSPRAKEN EN FEITEN:\n${mem}` : null,
     `RECENTE COMMUNICATIE:\n${history || '(geen eerdere berichten)'}`,
     fu ? `OPEN FOLLOW-UPS:\n${fu}` : null,
   ].filter(Boolean).join('\n\n');

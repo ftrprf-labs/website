@@ -14,10 +14,12 @@ async function resolveContact() {
   if (qs.get('contact')) return qs.get('contact');
   const inv = qs.get('invitation'); const tok = qs.get('token');
   if (inv || tok) {
-    const r = await api('/api/comm/relationship?' + (inv ? ('invitation=' + encodeURIComponent(inv)) : ('token=' + encodeURIComponent(tok))));
-    if (r.status === 200) return r.body.contact?.id || null;
+    // Prefer the bridge when Testerbeheer stashed the record — it migrates-or-returns the Contact
+    // in one call, avoiding a benign 404 probe on the not-yet-migrated case.
     const rec = sessionStorage.getItem('rel:' + (inv || tok));
     if (rec) { const b = await api('/api/comm/relationship/from-invitation', { method: 'POST', body: rec }); if (b.status === 200) return b.body.contactId; }
+    const r = await api('/api/comm/relationship?' + (inv ? ('invitation=' + encodeURIComponent(inv)) : ('token=' + encodeURIComponent(tok))));
+    if (r.status === 200) return r.body.contact?.id || null;
   }
   return null;
 }
@@ -126,12 +128,23 @@ function renderJourney(v) {
 function renderInzichten(v) {
   const rel = STATE.rel;
   const consent = Object.entries(rel.consent || {}).map(([ch, st]) => `<div class="kv"><div class="k">${ch}</div><div>${st.allowed ? '<span style="color:var(--ok)">toegestaan</span>' : '<span style="color:var(--warn)">niet toegestaan (' + esc(st.reason) + ')</span>'}</div></div>`).join('');
+  const mem = (rel.memory || []);
+  const memRows = mem.map((m) => {
+    const proposed = m.confidence === 'proposed';
+    return `<div class="list-item"><div class="li-t">${esc(m.content)} <span class="att ${proposed ? 'ai_ready' : ''}">${proposed ? 'AI-voorstel' : m.kind}</span></div>
+      ${proposed ? `<div class="li-s"><button class="btn" data-act="confirmMemory" data-id="${m.id}">Bevestigen</button> <button class="btn" data-act="dismissMemory" data-id="${m.id}">Verwerpen</button></div>` : `<div class="li-s">vastgelegd${m.valid_until ? ' · tot ' + fmtd(m.valid_until) : ''}</div>`}</div>`;
+  }).join('') || '<div class="empty">Nog geen vastgelegde afspraken. Maculis stelt ze voor vanuit gesprekken; jij bevestigt.</div>';
   v.innerHTML = `<h2 class="sec">Inzichten</h2>
+    <div class="card"><h2 class="sec">Relatiegeheugen — afspraken en feiten</h2>${memRows}
+      <p class="aihint">AI-voorstellen worden pas een vastgelegd feit nadat jij ze bevestigt. Bevestigde afspraken helpen Maculis bij toekomstige concepten.</p>
+    </div>
     <div class="card"><h2 class="sec">Toestemming per kanaal</h2>${consent || '<div class="empty">Geen contact gekoppeld.</div>'}</div>
     <div class="card"><h2 class="sec">Maculis-lenses</h2>
       <p class="aihint">First Five, Reveal en Technical Signals verschijnen hier zodra ze aan deze relatie gekoppeld zijn. De evaluatie-inzichten staan in Testerbeheer → Evaluaties (Maculis blijft de bron).</p>
     </div>`;
 }
+async function confirmMemory(id) { const r = await api('/api/comm/memory/' + id + '/confirm', { method: 'POST' }); if (r.status === 200) { toast('Bevestigd'); await loadRel(); selectTab('inzichten'); } }
+async function dismissMemory(id) { const r = await api('/api/comm/memory/' + id, { method: 'DELETE' }); if (r.status === 200) { toast('Verworpen'); await loadRel(); selectTab('inzichten'); } }
 
 async function renderCommunicatie(v) {
   v.innerHTML = '<div class="comm"><div class="convs" id="convs"></div><div class="thread" id="thread"><div class="empty" style="padding:24px">Kies een gesprek of start een nieuw bericht.</div></div></div>';
@@ -248,7 +261,7 @@ async function quickFollowUp() {
 }
 
 // ---- one delegated click handler (CSP-safe) ----
-const ACTIONS = { tab: (ds) => selectTab(ds.tab), goComm: (ds) => goComm(ds.id), openConv: (ds) => openConv(ds.id), switchChannel: (ds) => switchChannel(ds.ch), sendChat, approveSend, saveEdit, quickFollowUp };
+const ACTIONS = { tab: (ds) => selectTab(ds.tab), goComm: (ds) => goComm(ds.id), openConv: (ds) => openConv(ds.id), switchChannel: (ds) => switchChannel(ds.ch), sendChat, approveSend, saveEdit, quickFollowUp, confirmMemory: (ds) => confirmMemory(ds.id), dismissMemory: (ds) => dismissMemory(ds.id) };
 document.addEventListener('click', (e) => {
   const t = e.target.closest('[data-act]'); if (!t) return;
   const fn = ACTIONS[t.dataset.act]; if (fn) fn(t.dataset, t, e);

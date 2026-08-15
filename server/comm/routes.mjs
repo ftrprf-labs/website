@@ -19,6 +19,7 @@ import { inboxConversations, inboxSummary } from './inbox.mjs';
 import * as drafts from './drafts.mjs';
 import * as ai from './ai/service.mjs';
 import { createFollowUp, updateFollowUp, listFollowUps } from './followups.mjs';
+import { addMemory, confirmMemory, dismissMemory, listMemory } from './memory.mjs';
 import { channelConsentState, setPreference, listPreferences } from './consent.mjs';
 import { channelStatusBoard, SENDABLE_CHANNELS } from './providers/index.mjs';
 import { receiveChannelInbound, linkConversationToContact } from './channel-inbound.mjs';
@@ -240,9 +241,26 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
     if (op === 'summary') { json(res, 200, await ai.summarizeConversation({ tenantId, conversationId: id })); return true; }
     if (op === 'suggest') { json(res, 200, await ai.suggestNextAction({ tenantId, conversationId: id })); return true; }
     if (op === 'followups') { json(res, 200, await ai.extractFollowUps({ tenantId, conversationId: id })); return true; }
+    if (op === 'memory') { json(res, 200, await ai.extractMemory({ tenantId, conversationId: id })); return true; }
     if (op === 'explain') { const b = await readJson(req) || {}; json(res, 200, await ai.explain({ tenantId, conversationId: id, question: b.question })); return true; }
     json(res, 404, { error: 'unknown_ai_op' }); return true;
   }
+
+  // ---- Relationship Memory (§RELATIONSHIP MEMORY) --------------------------------------------
+  if (pathname === '/api/comm/memory' && method === 'GET') {
+    json(res, 200, { memory: await listMemory(tenantId, { contactId: u.searchParams.get('contact'), organizationId: u.searchParams.get('org') }) });
+    return true;
+  }
+  if (pathname === '/api/comm/memory' && method === 'POST') {
+    const body = await readJson(req) || {};
+    const result = await addMemory(tenantId, { contactId: body.contactId, organizationId: body.organizationId, conversationId: body.conversationId, kind: body.kind, content: body.content, source: body.source || 'human', validUntil: body.validUntil, sourceRef: body.sourceRef });
+    json(res, result.ok ? 201 : 400, result);
+    return true;
+  }
+  const memConfirm = pathname.match(new RegExp(`^/api/comm/memory/${UUID}/confirm$`));
+  if (memConfirm && method === 'POST') { json(res, 200, await confirmMemory(tenantId, memConfirm[1])); return true; }
+  const memId = pathname.match(new RegExp(`^/api/comm/memory/${UUID}$`));
+  if (memId && method === 'DELETE') { json(res, 200, await dismissMemory(tenantId, memId[1])); return true; }
 
   // ---- Follow-ups (§34) ----------------------------------------------------------------------
   if (pathname === '/api/comm/followups' && method === 'GET') {

@@ -161,6 +161,26 @@ export async function extractFollowUps({ tenantId, conversationId }) {
   return { followUps: out, refs: ctx.refs };
 }
 
+// Propose Relationship Memory items from the latest inbound (§RELATIONSHIP MEMORY). Deterministic
+// offline recognition of agreements / preferences / reminders. Everything is returned as a PROPOSAL
+// (confidence 'proposed') — a human confirms before it becomes a hard fact. Never auto-committed.
+export async function extractMemory({ tenantId, conversationId }) {
+  const ctx = await buildRelationshipContext(tenantId, { conversationId });
+  if (ctx.isPrivacy) return { memory: [], reason: 'privacy_excluded' };
+  const lastInbound = [...ctx.recent].reverse().find((m) => m.direction === 'INBOUND');
+  const t = (lastInbound?.body_text || '');
+  const lc = t.toLowerCase();
+  const out = [];
+  const months = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
+  if (/na de vakantie|volgende week|later contact|opnieuw spreken|na de zomer/.test(lc)) out.push({ kind: 'agreement', content: 'Later opnieuw contact opnemen (afspraak uit het gesprek).' });
+  if (/offerte|voorstel|prijsopgave/.test(lc)) out.push({ kind: 'agreement', content: 'Offerte/voorstel is besproken.' });
+  if (/telefonisch|liever bellen|voorkeur.*bellen|bel me/.test(lc)) out.push({ kind: 'preference', content: 'Voorkeur voor telefonisch contact.' });
+  if (/wacht(en)? op.*(goedkeuring|akkoord|intern)/.test(lc)) out.push({ kind: 'fact', content: 'Wacht op interne goedkeuring aan hun kant.' });
+  const notBefore = lc.match(/niet.*(?:vóór|voor|before)\s+(\w+)/);
+  if (notBefore && months.includes(notBefore[1])) out.push({ kind: 'reminder', content: `Niet opnieuw benaderen vóór ${notBefore[1]}.` });
+  return { memory: out.map((m) => ({ ...m, source: 'ai', confidence: 'proposed' })), refs: ctx.refs };
+}
+
 // Transparency (§AI TRANSPARANTIE): explain a suggestion in useful terms, not chain-of-thought.
 export async function explain({ tenantId, conversationId, question }) {
   const ctx = await buildRelationshipContext(tenantId, { conversationId });
