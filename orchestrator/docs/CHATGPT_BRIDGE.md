@@ -20,17 +20,25 @@ automation, no DOM scripting, no cookie reuse (brief §80).
   wired.
 - The same operations over **MCP** (`mcp/server.mjs`) for MCP-capable clients.
 
-## The ONE remaining step (only you can do it — account-level, brief §48/§49)
-1. Deploy the orchestrator so it has a public HTTPS URL and set `MACULIS_PUBLIC_URL`
-   to it (see `render.yaml`). Mint `MACULIS_API_TOKEN` (`openssl rand -hex 24`).
-2. In ChatGPT → **Create a GPT → Configure → Actions → Create new action**:
-   - **Import** the schema from `https://<your-url>/openapi.json` (or paste it).
-   - **Authentication → API Key → Bearer**, value = `MACULIS_API_TOKEN`.
-3. Save. ChatGPT now shows the six Maculis tools. That is the whole bridge.
+## Live now
+- Orchestrator: **https://maculis-orchestrator.onrender.com** (deployed, running).
+- OpenAPI: **https://maculis-orchestrator.onrender.com/openapi.json**
+- Auth: bearer `MACULIS_API_TOKEN` (set on Render; the value is delivered to the
+  owner in chat, never committed).
 
-We do NOT register this for you: creating/authorising a GPT Action lives inside
-your ChatGPT account and cannot be done from code (brief §48 — no fake "bridge
-live"). Everything up to that click is done.
+## The remaining step (only you can do it — ChatGPT account, brief §48/§49)
+Creating/authorising a GPT Action lives inside your ChatGPT account and cannot be
+done from code (no fake "bridge live"). Click-by-click:
+1. ChatGPT → left sidebar **Explore GPTs → Create** (or edit an existing GPT) → **Configure** tab.
+2. Scroll to **Actions → Create new action**.
+3. **Schema → Import from URL**: `https://maculis-orchestrator.onrender.com/openapi.json`.
+4. **Authentication → API Key**, Auth Type **Bearer**, paste the `MACULIS_API_TOKEN` value.
+5. **Save**. The GPT now shows the Maculis tools (submit / get / list / cancel /
+   approve / list human actions).
+6. Test prompt: *"Controleer in First Five waar de herkenning van Herken je dit
+   wordt opgeslagen en rapporteer alleen de relevante bestanden en functies. Wijzig niets."*
+   → the GPT calls `submit_maculis_task`, returns a `MAC-…` id; then `get_maculis_task`
+   returns the routed domain + status.
 
 ## The intended experience (brief §68)
 > You: "Los HEMA Nog een lens op."

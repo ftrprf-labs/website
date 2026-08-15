@@ -96,6 +96,7 @@ const AGENTS = [
   {
     agent_id: 'relationship',
     name: 'Relationship',
+    public: true,               // ftrprf-labs/website is a public repo → cloneable without a git token
     description:
       'Relationship Workspace: testerbeheer, organization, contact, communication ' +
       'layer, inbox, AI communication (email/WhatsApp/SMS/telephony/social), consent, ' +

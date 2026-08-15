@@ -77,8 +77,10 @@ function existingCheckout(repo) {
 // Whether a repo can be provisioned right now (registry-allowed AND either an
 // existing checkout, a public repo, or a git token is configured).
 export function canProvision(repo) {
-  if (!getAgentByRepo(repo)) return false;
-  return Boolean(existingCheckout(repo) || config.workspace.gitToken);
+  const agent = getAgentByRepo(repo);
+  if (!agent) return false;
+  // Public repos clone without auth; private repos need an existing checkout or a token.
+  return Boolean(existingCheckout(repo) || config.workspace.gitToken || agent.public);
 }
 
 // Ensure the base clone exists and is fetched; return { baseDir, defaultBranch, head }.

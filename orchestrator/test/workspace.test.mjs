@@ -79,3 +79,16 @@ test('branch names are sanitised; only registry repos provision', () => {
   assert.equal(sanitizeBranch('Orchestrator/MAC 1 · héllo!!'), 'orchestrator/mac-1-h-llo');
   assert.equal(canProvision('evil/not-in-registry'), false);
 });
+
+test('public repo provisions tokenless; private repo needs a checkout or token', () => {
+  const savedCheckouts = config.runner.checkouts, savedToken = config.workspace.gitToken;
+  config.runner.checkouts = {}; config.workspace.gitToken = '';
+  try {
+    assert.equal(canProvision('ftrprf-labs/website'), true);              // public → yes, no token
+    assert.equal(canProvision('ftrprf-labs/maculis-first-five.'), false); // private, no token/checkout → no
+    config.workspace.gitToken = 'ghp_x';
+    assert.equal(canProvision('ftrprf-labs/maculis-first-five.'), true);  // token present → yes
+  } finally {
+    config.runner.checkouts = savedCheckouts; config.workspace.gitToken = savedToken;
+  }
+});
