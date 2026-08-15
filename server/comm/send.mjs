@@ -17,6 +17,17 @@ import { recordAudit } from './audit.mjs';
 import { recordActivity } from './activity.mjs';
 import { getDefaultTenantId } from './tenant.mjs';
 
+// PII-safe outbound diagnostics: channel + provider mode + delivery/reason + attempt count only.
+// Never a recipient, body or subject. Silenced in tests. Mirrors the inbound logger (§48).
+function logOutbound(stage, extra = {}) {
+  if (process.env.NODE_ENV === 'test') return;
+  try {
+    const safe = Object.entries(extra).map(([k, v]) => `${k}=${v}`).join(' ');
+    // eslint-disable-next-line no-console
+    console.log(`[comm/outbound] ${stage}${safe ? ' ' + safe : ''}`);
+  } catch { /* logging must never break send */ }
+}
+
 function mailboxDomain() {
   const first = config.commMailboxes[0] || 'hello@maculis.nl';
   return first.slice(first.indexOf('@') + 1) || 'maculis.nl';
@@ -145,6 +156,7 @@ export async function sendOnChannel({
     contactId: effContact, organizationId: effOrg, conversationId: result.convId, actorUserId: userId,
     meta: { messageId: result.messageId, to, provider: prov.name, mode: prov.mode } });
 
+  logOutbound(sent.ok ? 'sent' : 'failed', { channel, mode: prov.mode, delivery, attempts: sent.attempts || 1, ...(sent.ok ? {} : { reason: sent.reason || 'send_failed' }) });
   if (!sent.ok) return { ok: false, reason: sent.reason || 'send_failed', messageId: result.messageId, delivery, consent };
   return { ok: true, messageId: result.messageId, conversationId: result.convId, delivery, providerMode: prov.mode, consent, rfcMessageId: threading.messageId };
 }

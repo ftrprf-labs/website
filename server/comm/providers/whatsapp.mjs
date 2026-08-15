@@ -8,6 +8,7 @@
 import { config } from '../../config.mjs';
 import { makeMockChannel } from './mock-channel.mjs';
 import { normalizeWhatsAppPayload } from './whatsapp-webhook.mjs';
+import { postJsonWithRetry } from './http.mjs';
 
 const CAPS = {
   inbound: true, outbound: true, delivery_receipts: true, read_receipts: true,
@@ -30,21 +31,24 @@ export function whatsappProvider() {
     name: 'whatsapp-cloud', channel: 'WHATSAPP', mode: 'live',
     capabilities() { return CAPS; },
     requiredConfig() { return []; },
-    async send({ to, text, template, mediaUrl }) {
+    async send({ to, text, template, mediaUrl, fetchImpl }) {
+      if (!to) return { ok: false, reason: 'no_recipient' };
       const url = `https://graph.facebook.com/v21.0/${config.whatsappPhoneId}/messages`;
       const payload = template
         ? { messaging_product: 'whatsapp', to, type: 'template', template }
         : { messaging_product: 'whatsapp', to, type: 'text', text: { body: text } };
       if (mediaUrl) { payload.type = 'image'; payload.image = { link: mediaUrl }; }
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${config.whatsappToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+      // Timeout + bounded retry (429/5xx/network only; never a 4xx) so a transient blip does not
+      // lose the message and a permanent error is not retried into a duplicate.
+      const res = await postJsonWithRetry({
+        url,
+        headers: { Authorization: `Bearer ${config.whatsappToken}` },
+        body: payload,
+        ...(fetchImpl ? { fetchImpl } : {}),
       });
-      if (!res.ok) return { ok: false, reason: `whatsapp_${res.status}` };
-      const body = await res.json().catch(() => ({}));
-      const id = body.messages && body.messages[0] && body.messages[0].id;
-      return { ok: true, providerMessageId: id || null, delivery: 'SENT' };
+      if (!res.ok) return { ok: false, reason: `whatsapp_${res.error || res.status}`, attempts: res.attempts };
+      const id = res.json && res.json.messages && res.json.messages[0] && res.json.messages[0].id;
+      return { ok: true, providerMessageId: id || null, delivery: 'SENT', attempts: res.attempts };
     },
     // Single source of truth for Meta payload parsing: the shared normalizer (also used by the
     // signature-authed webhook). Returns the first message for the legacy single-message shape.

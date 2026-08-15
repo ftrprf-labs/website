@@ -6,6 +6,7 @@
 
 import { config } from '../../config.mjs';
 import { makeMockChannel } from './mock-channel.mjs';
+import { postJsonWithRetry } from './http.mjs';
 
 const CAPS = {
   inbound: true, outbound: true, delivery_receipts: true, read_receipts: false,
@@ -27,15 +28,16 @@ export function smsProvider() {
     name: `sms-${config.smsProvider}`, channel: 'SMS', mode: 'live',
     capabilities() { return CAPS; },
     requiredConfig() { return []; },
-    async send({ to, text }) {
-      const res = await fetch(config.smsApiUrl || 'https://rest.messagebird.com/messages', {
-        method: 'POST',
-        headers: { Authorization: `AccessKey ${config.smsApiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ originator: config.smsOriginator, recipients: [to], body: text }),
+    async send({ to, text, fetchImpl }) {
+      if (!to) return { ok: false, reason: 'no_recipient' };
+      const res = await postJsonWithRetry({
+        url: config.smsApiUrl || 'https://rest.messagebird.com/messages',
+        headers: { Authorization: `AccessKey ${config.smsApiKey}` },
+        body: { originator: config.smsOriginator, recipients: [to], body: text },
+        ...(fetchImpl ? { fetchImpl } : {}),
       });
-      if (!res.ok) return { ok: false, reason: `sms_${res.status}` };
-      const body = await res.json().catch(() => ({}));
-      return { ok: true, providerMessageId: body.id || null, delivery: 'SENT' };
+      if (!res.ok) return { ok: false, reason: `sms_${res.error || res.status}`, attempts: res.attempts };
+      return { ok: true, providerMessageId: (res.json && res.json.id) || null, delivery: 'SENT', attempts: res.attempts };
     },
     normalizeInbound(payload = {}) {
       return { channel: 'SMS', provider: `sms-${config.smsProvider}`, providerMessageId: payload.id, from: payload.originator || payload.from, to: payload.recipient || payload.to, text: payload.body || '', media: [], at: payload.createdDatetime };

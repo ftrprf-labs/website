@@ -38,10 +38,11 @@ export function handleWhatsAppChallenge({ mode, token, challenge }) {
 export async function processWhatsAppWebhook({
   headers = {}, rawBody = '',
   receive = receiveChannelInbound, applyStatus = applyDeliveryStatus, tenantId = null,
+  appSecret = config.whatsappAppSecret,
 }) {
   // 1) signature (untrusted input) — fail-closed.
   const sig = verifyMetaSignature({
-    appSecret: config.whatsappAppSecret,
+    appSecret,
     rawBody,
     signatureHeader: headers['x-hub-signature-256'],
   });
