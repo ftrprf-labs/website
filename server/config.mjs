@@ -101,6 +101,23 @@ export const config = {
   // Sender identity for invitations (personalises {sender_first_name}); falls back per-request
   // to the logged-in user. Never hardcoded to a name.
   senderFirstName: process.env.SENDER_FIRST_NAME || '',
+
+  // ---- Omnichannel provider adapters (§14-18, §66) ------------------------------------------
+  // No secrets in code. When a channel's credentials are absent the adapter runs in MOCK mode and
+  // reports exactly what is missing; the internal chain stays fully testable. Real providers are
+  // official routes only (WhatsApp Business Cloud API, EU SMS/voice) — never scraping/automation.
+  whatsappProvider: (process.env.WHATSAPP_PROVIDER || '').toLowerCase(),
+  whatsappPhoneId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
+  whatsappToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
+  whatsappAppSecret: process.env.WHATSAPP_APP_SECRET || '',
+  whatsappVerifyToken: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || '',
+  smsProvider: (process.env.SMS_PROVIDER || '').toLowerCase(),
+  smsApiKey: process.env.SMS_API_KEY || '',
+  smsApiUrl: process.env.SMS_API_URL || '',
+  smsOriginator: process.env.SMS_ORIGINATOR || '',
+  phoneProvider: (process.env.PHONE_PROVIDER || '').toLowerCase(),
+  phoneApiKey: process.env.PHONE_API_KEY || '',
+  phoneNumber: process.env.PHONE_NUMBER || '',
 };
 
 // Default WhatsApp/e-mail message template (brief §6). Editable at runtime through the settings

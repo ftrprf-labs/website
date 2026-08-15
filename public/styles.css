@@ -200,6 +200,10 @@ input[type="checkbox"] { accent-color: var(--primary); }
 .col-check { width: 34px; }
 .col-actions { width: 1%; }
 .name-main { font-weight: 600; }
+/* Name/company open the Relationship Workspace (the client is the primary entry point). */
+.link-name { background: none; border: 0; padding: 0; font: inherit; color: var(--ink, #ece2d4); cursor: pointer; text-align: left; }
+.link-name:hover { color: var(--amber, #c8894a); text-decoration: underline; }
+.link-name.link-dim { color: var(--dim, #9aa0ac); font-weight: 400; }
 .contact-line { font-size: 12.5px; color: var(--muted); }
 
 .link-cell { display: flex; align-items: center; gap: 6px; max-width: 220px; }

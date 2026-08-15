@@ -661,9 +661,17 @@ server.listen(config.port, bindHost, () => {
   // Communication Layer: apply DB migrations on boot when enabled. Best-effort — never blocks the
   // Invitation Manager / First Five service if the database is briefly unreachable.
   if (commEnabled()) {
-    migrateOnBoot().then((r) => {
-      if (r.ok) console.log(`  Comm     : migrations ${r.ran && r.ran.length ? 'applied ' + r.ran.join(', ') : 'up to date'}`);
-      else if (!r.skipped) console.log(`  Comm     : migrations pending (${r.error})`);
+    migrateOnBoot().then(async (r) => {
+      if (r.ok) {
+        console.log(`  Comm     : migrations ${r.ran && r.ran.length ? 'applied ' + r.ran.join(', ') : 'up to date'}`);
+        // Bridge existing Testerbeheer invitations into permanent Contact/Organization rows so the
+        // Relationship Workspace has data from day one (§9). Idempotent, additive, best-effort.
+        try {
+          const { migrateInvitations } = await import('./comm/repo.mjs');
+          const res = await migrateInvitations(store.listInvitations());
+          console.log(`  Comm     : relaties ${res.contactsCreated} nieuw, ${res.contactsLinked} bijgewerkt`);
+        } catch (e) { console.log(`  Comm     : relatie-migratie uitgesteld (${e.message})`); }
+      } else if (!r.skipped) console.log(`  Comm     : migrations pending (${r.error})`);
     });
   }
 

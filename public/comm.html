@@ -3,129 +3,83 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Maculis — Communicatie</title>
+<meta name="robots" content="noindex, nofollow">
+<title>Maculis · Inbox</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23080503'/%3E%3Ctext x='16' y='22' font-size='18' text-anchor='middle' fill='%23c8894a' font-family='Georgia,serif' font-weight='700'%3EM%3C/text%3E%3C/svg%3E">
 <style>
-  :root{--bg:#0e0f12;--panel:#16181d;--panel2:#1c1f26;--line:#282c35;--ink:#ece2d4;--dim:#9aa0ac;--faint:#666d7a;--amber:#c8894a;--gold:#d7b36a;--in:#2b3a4a;--out:#2f2a1c;--priv:#3a2430}
-  *{box-sizing:border-box}
-  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);height:100vh;display:flex;flex-direction:column}
-  header{display:flex;align-items:center;gap:16px;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
-  header h1{font-size:15px;margin:0;letter-spacing:.14em;font-weight:600}
+  :root{--bg:#0b0c0f;--panel:#14161b;--panel2:#1b1e25;--panel3:#22262f;--line:#2a2e39;--line2:#343a47;--ink:#ece2d4;--dim:#9aa0ac;--faint:#6b7280;--amber:#c8894a;--gold:#d7b36a;--goldsoft:#e8cf97;--in:#26333f;--out:#2e2a1c}
+  *{box-sizing:border-box}html,body{margin:0;height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;background:var(--bg);color:var(--ink);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  a{color:var(--gold);text-decoration:none}
+  header{display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header .brand{font-size:13px;letter-spacing:.22em;font-weight:700;color:var(--goldsoft)}
+  header .tabs{display:flex;gap:4px}
+  header .tab{padding:5px 12px;border-radius:999px;background:transparent;border:1px solid var(--line);color:var(--dim);cursor:pointer;font-size:13px}
+  header .tab.on{background:var(--panel2);color:var(--ink);border-color:var(--amber)}
+  header .tab.priv.on{border-color:var(--priv,#8a3a63);color:#e79fc4}
   header .sp{flex:1}
-  header a{color:var(--dim);text-decoration:none;font-size:13px}
-  .tabs{display:flex;gap:4px}
-  .tab{padding:5px 12px;border-radius:999px;background:transparent;border:1px solid var(--line);color:var(--dim);cursor:pointer;font-size:13px}
-  .tab.on{background:var(--panel2);color:var(--ink);border-color:var(--amber)}
-  .tab.priv.on{border-color:#b06;color:#f2b}
+  header a.nav{color:var(--dim);font-size:13px;padding:6px 10px;border-radius:8px}
+  header a.nav:hover{background:var(--panel2);color:var(--ink)}
+  .attbar{display:flex;gap:6px;flex-wrap:wrap;padding:8px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .af{font-size:12px;color:var(--dim);background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:4px 11px;cursor:pointer}
+  .af.on{border-color:var(--amber);color:var(--goldsoft)}
+  .af b{color:var(--ink)}
   main{flex:1;display:grid;grid-template-columns:320px 1fr 300px;min-height:0}
   .col{overflow-y:auto;min-height:0}
   .list{border-right:1px solid var(--line)}
   .conv{padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
-  .conv:hover{background:var(--panel)}
-  .conv.on{background:var(--panel2)}
-  .conv .who{font-size:14px;font-weight:600}
-  .conv .org{font-size:12px;color:var(--dim)}
+  .conv:hover{background:var(--panel2)}.conv.on{background:var(--panel3)}
+  .conv .who{font-size:14px;font-weight:600}.conv .org{font-size:12px;color:var(--dim)}
   .conv .snip{font-size:12px;color:var(--faint);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .conv .badge{float:right;font-size:10px;letter-spacing:.06em;color:var(--faint);text-transform:uppercase}
-  .thread{display:flex;flex-direction:column;background:var(--bg)}
-  .msgs{flex:1;overflow-y:auto;padding:18px}
-  .msg{max-width:82%;margin:0 0 14px;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
-  .msg.in{background:var(--in);align-self:flex-start}
-  .msg.out{background:var(--out);align-self:flex-end}
-  .msg .meta{font-size:11px;color:var(--faint);margin-bottom:4px}
-  .ai{margin:0 18px 14px;padding:12px 14px;border:1px solid var(--gold);border-radius:12px;background:#1a1710}
-  .ai h4{margin:0 0 6px;font-size:12px;letter-spacing:.1em;color:var(--gold);text-transform:uppercase}
-  .ai .intent{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:#2a2415;color:var(--gold);margin-bottom:8px}
-  .ai .sum{font-size:13px;color:var(--dim);margin-bottom:8px}
-  .ai .acts{font-size:11px;color:var(--faint);margin-top:6px}
-  .compose{border-top:1px solid var(--line);padding:12px;background:var(--panel)}
-  textarea{width:100%;min-height:80px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:10px;font-size:14px;font-family:inherit;resize:vertical}
-  .row{display:flex;gap:8px;margin-top:8px;align-items:center}
-  button.primary{background:linear-gradient(180deg,#efd7a0,var(--gold) 60%,#b0894a);color:#241708;border:0;border-radius:999px;padding:8px 20px;font-weight:600;cursor:pointer}
-  button.ghost{background:transparent;border:1px solid var(--line);color:var(--dim);border-radius:999px;padding:8px 16px;cursor:pointer}
+  .att{display:inline-block;font-size:10px;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 7px;margin-left:6px}
+  .att.new{background:#2b3a4a;color:#9ec7e8}.att.waiting_on_us{background:#3a2f1a;color:var(--gold)}
+  .att.ai_ready{background:#2a2415;color:var(--goldsoft)}.att.unknown_contact{background:#3a2430;color:#e79fc4}
+  .att.delivery_problem{background:#3a1f1f;color:#e79a9a}.att.waiting_on_contact{background:#20262f;color:var(--dim)}
+  .thread{display:flex;flex-direction:column;background:var(--bg);min-width:0}
+  .msgs{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column}
+  .m{max-width:82%;margin-bottom:12px;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
+  .m.in{background:var(--in);align-self:flex-start}.m.out{background:var(--out);align-self:flex-end}
+  .m .meta{font-size:11px;color:var(--faint);margin-bottom:4px}
+  .aipanel{border:1px solid var(--gold);border-radius:12px;background:#171410;padding:11px 14px;margin:0 18px 12px}
+  .aipanel h4{margin:0 0 5px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+  .aipanel .sum{font-size:13px;color:var(--dim)}
+  .sug{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.sug .s{font-size:11px;color:var(--goldsoft);border:1px solid var(--line2);border-radius:999px;padding:3px 9px;cursor:pointer}
+  .composer{border-top:1px solid var(--line);background:var(--panel);padding:12px 14px}
+  .chrow{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  .chan{font-size:12px;border:1px solid var(--line2);color:var(--dim);border-radius:999px;padding:4px 11px;cursor:pointer;background:var(--panel2)}
+  .chan.on{border-color:var(--amber);color:var(--goldsoft)}.chan.blocked{opacity:.45;cursor:not-allowed;text-decoration:line-through}
+  textarea{width:100%;min-height:84px;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;color:var(--ink);padding:10px;font-size:14px;font-family:inherit;resize:vertical}
+  .aichat .log{max-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin:8px 0}
+  .cm{font-size:13px;padding:7px 11px;border-radius:10px;max-width:88%}
+  .cm.user{align-self:flex-end;background:var(--panel3)}.cm.assistant{align-self:flex-start;background:#191510;border:1px solid var(--line2);color:var(--dim)}
+  .aibar{display:flex;gap:8px}.aibar input{flex:1;background:var(--panel2);border:1px solid var(--line2);border-radius:999px;color:var(--ink);padding:9px 14px;font-size:13px}
+  .sendrow{display:flex;gap:8px;align-items:center;margin-top:10px}.note{font-size:11px;color:var(--faint)}
+  .btn{background:var(--panel2);border:1px solid var(--line2);color:var(--ink);border-radius:999px;padding:8px 15px;font-size:13px;cursor:pointer}
+  .btn:hover{border-color:var(--amber)}.btn:disabled{opacity:.4}
+  .btn.gold{background:linear-gradient(180deg,#efd7a0,var(--gold) 60%,#b0894a);color:#241708;border:0;font-weight:600}
   .ctx{border-left:1px solid var(--line);padding:16px;background:var(--panel)}
-  .ctx h3{font-size:12px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;margin:0 0 6px}
-  .ctx .k{font-size:12px;color:var(--faint)}
-  .ctx .v{font-size:14px;margin-bottom:10px}
-  .notes .note{font-size:13px;background:var(--panel2);border-radius:8px;padding:8px 10px;margin-bottom:6px;color:var(--dim)}
-  .empty{color:var(--faint);padding:30px;text-align:center;font-size:14px}
-  .muted{color:var(--faint);font-size:12px}
+  .ctx h3{font-size:11px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;margin:0 0 6px}
+  .ctx .k{font-size:12px;color:var(--faint)}.ctx .v{font-size:14px;margin-bottom:10px}
+  .empty{color:var(--faint);padding:28px;text-align:center;font-size:14px}
+  .aihint{font-size:11px;color:var(--faint);margin:6px 2px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel3);border:1px solid var(--line2);color:var(--ink);padding:10px 18px;border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}.toast.show{opacity:1}
+  @media(max-width:860px){main{grid-template-columns:1fr}.list{border-right:0;border-bottom:1px solid var(--line);max-height:34vh}.ctx{display:none}}
 </style>
 </head>
 <body>
 <header>
-  <h1>MACULIS · COMMUNICATIE</h1>
-  <div class="tabs">
-    <button class="tab on" id="tab-comm" onclick="setBox('communication')">Communicatie</button>
-    <button class="tab priv" id="tab-priv" onclick="setBox('privacy')">Privacy Inbox</button>
-  </div>
+  <span class="brand">MACULIS</span>
+  <div class="tabs"><button class="tab on" id="tab-comm" data-box="communication">Inbox</button><button class="tab priv" id="tab-priv" data-box="privacy">Privacy</button></div>
   <div class="sp"></div>
-  <a href="/">← Testerbeheer</a>
+  <a class="nav" href="/">Testerbeheer</a>
 </header>
+<div class="attbar" id="attbar"></div>
 <main>
   <div class="col list" id="list"><div class="empty">Laden…</div></div>
-  <div class="col thread" id="thread"><div class="empty">Kies een gesprek.</div></div>
+  <div class="col thread" id="thread"><div class="empty">Wat vraagt vandaag je aandacht? Kies links een gesprek.</div></div>
   <div class="col ctx" id="ctx"></div>
 </main>
-<script>
-const $=s=>document.querySelector(s);
-let box='communication', current=null;
-const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const api=(p,o)=>fetch(p,{...o,headers:{'Content-Type':'application/json',...(o&&o.headers)}}).then(r=>r.json());
-function setBox(b){ box=b; current=null;
-  $('#tab-comm').classList.toggle('on',b==='communication'); $('#tab-priv').classList.toggle('on',b==='privacy');
-  $('#thread').innerHTML='<div class="empty">Kies een gesprek.</div>'; $('#ctx').innerHTML=''; loadList(); }
-async function loadList(){
-  const {conversations}=await api('/api/comm/conversations?box='+box);
-  const el=$('#list');
-  if(!conversations||!conversations.length){ el.innerHTML='<div class="empty">Nog geen gesprekken.</div>'; return; }
-  el.innerHTML=conversations.map(c=>{
-    const who=[c.first_name,c.last_name].filter(Boolean).join(' ')||c.email||'Onbekend';
-    return `<div class="conv" data-id="${c.id}" onclick="openConv('${c.id}')">
-      <span class="badge">${esc(c.status)}</span>
-      <div class="who">${esc(who)}</div>
-      <div class="org">${esc(c.org||c.email||'')}</div>
-      <div class="snip">${esc((c.last_body||'').slice(0,80))}</div></div>`;
-  }).join('');
-}
-async function openConv(id){
-  current=id;
-  document.querySelectorAll('.conv').forEach(x=>x.classList.toggle('on',x.dataset.id===id));
-  const d=await api('/api/comm/conversations/'+id);
-  const c=d.conversation;
-  const who=[c.first_name,c.last_name].filter(Boolean).join(' ')||c.email||'Onbekend';
-  const msgs=(d.messages||[]).map(m=>`<div class="msg ${m.direction==='INBOUND'?'in':'out'}">
-     <div class="meta">${m.direction==='INBOUND'?esc(m.from_address||''):'Maculis'} · ${new Date(m.created_at).toLocaleString('nl-NL')}</div>${esc(m.body_text||'')}</div>`).join('');
-  const ai=d.ai_draft?`<div class="ai"><h4>AI Copilot-voorstel</h4>
-     <span class="intent">${esc(d.ai_draft.intent||'')}</span>
-     <div class="sum">${esc(d.ai_draft.summary||'')}</div>
-     <div class="muted">Voorgesteld antwoord — controleer en verstuur zelf:</div>
-     <div class="acts">Suggesties: ${esc((d.ai_draft.suggested_actions||[]).map(a=>a.type).join(', ')||'—')}</div></div>`:'';
-  $('#thread').innerHTML=`<div class="msgs">${msgs||'<div class="empty">Geen berichten.</div>'}${ai}</div>
-    <div class="compose"><textarea id="reply" placeholder="Schrijf een antwoord…">${esc(d.ai_draft?d.ai_draft.suggested_reply:'')}</textarea>
-      <div class="row"><button class="primary" onclick="send('${id}')">Verzenden</button>
-      <button class="ghost" onclick="addNote('${id}')">Interne notitie</button>
-      <span class="muted">Niets wordt automatisch verzonden. Jij beslist.</span></div></div>`;
-  const notes=(d.notes||[]).map(n=>`<div class="note">${esc(n.body)}</div>`).join('');
-  $('#ctx').innerHTML=`<h3>Contact</h3><div class="v">${esc(who)}</div>
-    <div class="k">E-mail</div><div class="v">${esc(c.email||'—')}</div>
-    <div class="k">Telefoon</div><div class="v">${esc(c.mobile||'—')}</div>
-    <h3>Organisatie</h3><div class="v">${esc(c.org||'—')}</div>
-    <div class="k">Domein</div><div class="v">${esc(c.primary_domain||'—')}</div>
-    <div class="k">Status</div><div class="v">${esc(c.status)}${c.is_privacy?' · PRIVACY':''}</div>
-    <h3>Interne notities</h3><div class="notes">${notes||'<div class="muted">Geen notities.</div>'}</div>`;
-  $('#thread .msgs').scrollTop=99999;
-}
-async function send(id){
-  const t=$('#reply').value.trim(); if(!t) return;
-  const r=await api('/api/comm/conversations/'+id+'/reply',{method:'POST',body:JSON.stringify({text:t})});
-  if(r.ok){ openConv(id); loadList(); } else alert('Verzenden mislukt: '+(r.reason||''));
-}
-async function addNote(id){
-  const t=prompt('Interne notitie (nooit extern verzonden):'); if(!t) return;
-  await api('/api/comm/conversations/'+id+'/notes',{method:'POST',body:JSON.stringify({body:t})});
-  openConv(id);
-}
-loadList();
-</script>
+<div id="toast" class="toast"></div>
+<script src="/comm.js" type="module"></script>
 </body>
 </html>

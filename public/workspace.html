@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Maculis · Relatie</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23080503'/%3E%3Ctext x='16' y='22' font-size='18' text-anchor='middle' fill='%23c8894a' font-family='Georgia,serif' font-weight='700'%3EM%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0b0c0f;--panel:#14161b;--panel2:#1b1e25;--panel3:#22262f;--line:#2a2e39;--line2:#343a47;
+    --ink:#ece2d4;--dim:#9aa0ac;--faint:#6b7280;--amber:#c8894a;--gold:#d7b36a;--goldsoft:#e8cf97;
+    --in:#26333f;--out:#2e2a1c;--ok:#4f8a5b;--warn:#c98a4a;--bad:#b45b5b;--priv:#8a3a63;
+    --r:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;background:var(--bg);color:var(--ink);display:flex;flex-direction:column;height:100vh;overflow:hidden}
+  a{color:var(--gold);text-decoration:none}
+  button{font-family:inherit}
+  header.top{display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
+  header.top .brand{font-size:13px;letter-spacing:.22em;font-weight:700;color:var(--goldsoft)}
+  header.top .sp{flex:1}
+  header.top a.nav{color:var(--dim);font-size:13px;padding:6px 10px;border-radius:8px}
+  header.top a.nav:hover{background:var(--panel2);color:var(--ink)}
+  .wrap{flex:1;display:grid;grid-template-columns:340px 1fr;min-height:0}
+  /* Left rail: the relationship identity + navigation */
+  .rail{border-right:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:20px 18px}
+  .org{font-size:22px;font-weight:600;letter-spacing:.01em;line-height:1.15}
+  .stage{display:inline-block;margin-top:8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);border:1px solid var(--line2);border-radius:999px;padding:3px 10px}
+  .person{margin-top:16px}
+  .person .name{font-size:16px;font-weight:600}
+  .person .role{font-size:13px;color:var(--dim)}
+  .ids{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+  .id{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--dim)}
+  .id .ch{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);width:64px}
+  .id .v{color:var(--ink)}
+  .next{margin-top:18px;padding:12px 14px;border:1px solid var(--line2);border-radius:var(--r);background:var(--panel2)}
+  .next .lab{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+  .next .val{font-size:14px;color:var(--goldsoft);margin-top:4px}
+  .chips{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px}
+  .chip{font-size:12px;color:var(--dim);background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+  .chip b{color:var(--ink)}
+  nav.tabs{margin-top:22px;display:flex;flex-direction:column;gap:2px}
+  nav.tabs button{text-align:left;background:transparent;border:0;color:var(--dim);font-size:14px;padding:9px 12px;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+  nav.tabs button:hover{background:var(--panel2);color:var(--ink)}
+  nav.tabs button.on{background:var(--panel3);color:var(--ink);box-shadow:inset 2px 0 0 var(--amber)}
+  nav.tabs .badge{font-size:11px;background:var(--amber);color:#1a1206;border-radius:999px;padding:1px 7px;font-weight:600}
+  /* Main content */
+  .main{overflow:hidden;display:flex;flex-direction:column;min-width:0}
+  .view{flex:1;overflow-y:auto;padding:24px 28px;display:none}
+  .view.on{display:block}
+  h2.sec{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:0 0 14px;font-weight:600}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;margin-bottom:16px}
+  .kv{display:grid;grid-template-columns:150px 1fr;gap:8px 16px;font-size:14px}
+  .kv .k{color:var(--faint)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .qa{display:flex;flex-wrap:wrap;gap:10px}
+  .btn{background:var(--panel2);border:1px solid var(--line2);color:var(--ink);border-radius:999px;padding:9px 16px;font-size:13px;cursor:pointer}
+  .btn:hover{border-color:var(--amber)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.gold{background:linear-gradient(180deg,#efd7a0,var(--gold) 60%,#b0894a);color:#241708;border:0;font-weight:600}
+  .empty{color:var(--faint);font-size:14px;padding:24px 0}
+  .list-item{padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .list-item:hover .li-t{color:var(--goldsoft)}
+  .li-t{font-size:14px;color:var(--ink)}
+  .li-s{font-size:12px;color:var(--faint);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .att{display:inline-block;font-size:10px;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:2px 8px;margin-left:6px}
+  .att.new{background:#2b3a4a;color:#9ec7e8}.att.waiting_on_us{background:#3a2f1a;color:var(--gold)}
+  .att.ai_ready{background:#2a2415;color:var(--goldsoft)}.att.unknown_contact{background:#3a2430;color:#e79fc4}
+  .att.delivery_problem{background:#3a1f1f;color:#e79a9a}.att.waiting_on_contact{background:#20262f;color:var(--dim)}
+  /* Communication: thread + composer */
+  .comm{display:grid;grid-template-columns:280px 1fr;gap:0;height:100%}
+  .comm .convs{border-right:1px solid var(--line);overflow-y:auto;padding:6px 0}
+  .comm .conv{padding:11px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+  .comm .conv:hover{background:var(--panel2)}.comm .conv.on{background:var(--panel3)}
+  .comm .conv .t{font-size:13px}.comm .conv .s{font-size:11px;color:var(--faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .thread{display:flex;flex-direction:column;min-width:0}
+  .msgs{flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column}
+  .m{max-width:80%;margin-bottom:12px;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word}
+  .m.in{background:var(--in);align-self:flex-start}.m.out{background:var(--out);align-self:flex-end}
+  .m .meta{font-size:11px;color:var(--faint);margin-bottom:4px}
+  .m .del{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+  /* composer */
+  .composer{border-top:1px solid var(--line);background:var(--panel);padding:12px 16px}
+  .composer .chrow{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  .chan{font-size:12px;border:1px solid var(--line2);color:var(--dim);border-radius:999px;padding:5px 12px;cursor:pointer;background:var(--panel2)}
+  .chan.on{border-color:var(--amber);color:var(--goldsoft)}
+  .chan.blocked{opacity:.45;cursor:not-allowed;text-decoration:line-through}
+  .composer textarea{width:100%;min-height:96px;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;color:var(--ink);padding:11px;font-size:14px;font-family:inherit;resize:vertical}
+  .aihint{font-size:11px;color:var(--faint);margin:6px 2px}
+  .aichat{margin-top:8px}
+  .aichat .log{max-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+  .aichat .cm{font-size:13px;padding:7px 11px;border-radius:10px;max-width:88%}
+  .aichat .cm.user{align-self:flex-end;background:var(--panel3);color:var(--ink)}
+  .aichat .cm.assistant{align-self:flex-start;background:#191510;border:1px solid var(--line2);color:var(--dim)}
+  .aibar{display:flex;gap:8px}
+  .aibar input{flex:1;background:var(--panel2);border:1px solid var(--line2);border-radius:999px;color:var(--ink);padding:9px 14px;font-size:13px}
+  .sendrow{display:flex;gap:8px;align-items:center;margin-top:10px}
+  .sendrow .note{font-size:11px;color:var(--faint)}
+  .aipanel{border:1px solid var(--gold);border-radius:12px;background:#171410;padding:12px 14px;margin:0 16px 12px}
+  .aipanel h4{margin:0 0 6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+  .aipanel .sum{font-size:13px;color:var(--dim)}
+  .sug{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .sug .s{font-size:11px;color:var(--goldsoft);border:1px solid var(--line2);border-radius:999px;padding:3px 9px;cursor:pointer}
+  .tl{position:relative;padding-left:18px}
+  .tl .ev{position:relative;padding:0 0 16px 14px;border-left:1px solid var(--line);}
+  .tl .ev:before{content:'';position:absolute;left:-4px;top:3px;width:7px;height:7px;border-radius:50%;background:var(--amber)}
+  .tl .ev .d{font-size:11px;color:var(--faint)}
+  .tl .ev .b{font-size:14px;margin-top:2px}
+  .banner{padding:16px 20px;background:var(--panel2);border:1px solid var(--line2);border-radius:12px;margin:24px;color:var(--dim)}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel3);border:1px solid var(--line2);color:var(--ink);padding:10px 18px;border-radius:999px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+  @media(max-width:900px){
+    .wrap{grid-template-columns:1fr}
+    .rail{border-right:0;border-bottom:1px solid var(--line);max-height:none}
+    .comm{grid-template-columns:1fr}
+    .comm .convs{max-height:180px;border-right:0;border-bottom:1px solid var(--line)}
+    nav.tabs{flex-direction:row;flex-wrap:wrap}
+    .grid2{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <span class="brand">MACULIS</span>
+  <a class="nav" href="/">← Testerbeheer</a>
+  <a class="nav" href="/comm.html">Inbox</a>
+  <div class="sp"></div>
+  <span id="mode" class="li-s"></span>
+</header>
+<div id="root" class="wrap"><div class="banner">Relatie laden…</div></div>
+<div id="toast" class="toast"></div>
+<script src="/workspace.js" type="module"></script>
+</body>
+</html>

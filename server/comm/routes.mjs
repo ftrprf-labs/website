@@ -1,22 +1,33 @@
 // Communication Layer — HTTP routes.
 //
 // Mounted ONLY when the layer is enabled (commEnabled). The webhook is authenticated by its Svix
-// signature (no admin session); everything else requires the admin session. Privacy-inbox access
-// is capability-gated and audited. All reads are tenant-scoped. Returns true if it handled the
-// request, so the main server can fall through to the existing routes otherwise.
+// signature (no admin session); everything else requires the admin session. Privacy-inbox access is
+// capability-gated and audited. All reads are tenant-scoped. API is RELATIONSHIP-oriented (§51):
+// relationships / conversations / drafts / follow-ups / consent — not one endpoint per vendor.
+// Returns true if it handled the request, so the main server falls through to existing routes.
 
 import { config } from '../config.mjs';
 import { commEnabled, query } from './db.mjs';
 import { processInbound } from './inbound.mjs';
 import { sendReply } from './outbound.mjs';
+import { sendOnChannel } from './send.mjs';
 import { getDefaultTenantId } from './tenant.mjs';
 import { recordAudit } from './audit.mjs';
 import { contactTimeline } from './activity.mjs';
+import { getRelationship, relationshipTimeline, listRelationships, contactByInvitation } from './relationship.mjs';
+import { inboxConversations, inboxSummary } from './inbox.mjs';
+import * as drafts from './drafts.mjs';
+import * as ai from './ai/service.mjs';
+import { createFollowUp, updateFollowUp, listFollowUps } from './followups.mjs';
+import { channelConsentState, setPreference, listPreferences } from './consent.mjs';
+import { channelStatusBoard, SENDABLE_CHANNELS } from './providers/index.mjs';
+import { receiveChannelInbound, linkConversationToContact } from './channel-inbound.mjs';
+
+const UUID = '([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})';
 
 function json(res, status, data) {
-  const body = JSON.stringify(data);
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-  res.end(body);
+  res.end(JSON.stringify(data));
 }
 function readRaw(req, limit = 5 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
@@ -26,24 +37,19 @@ function readRaw(req, limit = 5 * 1024 * 1024) {
     req.on('error', reject);
   });
 }
-function lowerHeaders(req) {
-  const h = {};
-  for (const [k, v] of Object.entries(req.headers)) h[k.toLowerCase()] = Array.isArray(v) ? v[0] : v;
-  return h;
-}
+async function readJson(req) { try { return JSON.parse(await readRaw(req) || '{}'); } catch { return null; } }
+function lowerHeaders(req) { const h = {}; for (const [k, v] of Object.entries(req.headers)) h[k.toLowerCase()] = Array.isArray(v) ? v[0] : v; return h; }
 const ipRefOf = (req) => (req.socket && req.socket.remoteAddress ? String(req.socket.remoteAddress).slice(0, 40) : null);
 
-// Capabilities for the current session. Single-tenant/single-admin today: the admin session holds
-// all capabilities. This is the seam where per-user app_user capabilities plug in later.
-function capabilities(/* req */) {
-  return { communication: true, privacy: true, admin: true };
-}
+// Capabilities for the current session. Single-admin today holds all; the seam for per-user
+// app_user capabilities (§44) plugs in here.
+function capabilities() { return { communication: true, privacy: true, admin: true }; }
 
-// Returns true if handled. `isAuthed` is passed in from the main server (admin gate).
 export async function handleComm(req, res, { pathname, method, isAuthed }) {
   if (!commEnabled() || !pathname.startsWith('/api/comm/')) return false;
+  const u = new URL(req.url, 'http://x');
 
-  // --- inbound webhook: signature-authenticated, NOT admin-gated -----------------------------
+  // --- inbound webhooks: signature-authenticated, NOT admin-gated ------------------------------
   if (pathname === '/api/comm/inbound/resend' && method === 'POST') {
     let rawBody;
     try { rawBody = await readRaw(req); } catch { json(res, 413, { ok: false }); return true; }
@@ -52,34 +58,73 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
     return true;
   }
 
-  // --- everything below requires the admin session -------------------------------------------
+  // --- everything below requires the admin session --------------------------------------------
   if (!isAuthed(req)) { json(res, 401, { error: 'Niet ingelogd' }); return true; }
   const caps = capabilities(req);
   const tenantId = await getDefaultTenantId();
 
-  // List conversations. box=communication|privacy ; filter=all|unread|open|waiting_us|waiting_contact|resolved
-  const listMatch = pathname === '/api/comm/conversations' && method === 'GET';
-  if (listMatch) {
-    const u = new URL(req.url, 'http://x');
-    const box = u.searchParams.get('box') === 'privacy' ? 'privacy' : 'communication';
-    if (box === 'privacy' && !caps.privacy) { json(res, 403, { error: 'Geen privacy-toegang' }); return true; }
-    if (box === 'privacy') await recordAudit({ tenantId, action: 'privacy_inbox_listed', entityType: 'mailbox', mailboxKind: 'PRIVACY', ipRef: ipRefOf(req) });
-    const isPrivacy = box === 'privacy';
-    const rows = (await query(
-      `select c.id, c.subject, c.status, c.is_privacy, c.last_message_at,
-              ct.first_name, ct.last_name, ct.email, o.name as org,
-              (select count(*) from message m where m.conversation_id=c.id and m.direction='INBOUND') as inbound_count,
-              (select body_text from message m where m.conversation_id=c.id order by created_at desc limit 1) as last_body
-         from conversation c
-         left join contact ct on ct.id=c.contact_id
-         left join organization o on o.id=c.organization_id
-        where c.tenant_id=$1 and c.deleted_at is null and c.is_privacy=$2
-        order by c.last_message_at desc nulls last limit 200`, [tenantId, isPrivacy])).rows;
-    json(res, 200, { conversations: rows });
+  // ---- channel + AI status board (what is LIVE vs MOCK, §48/§81) -----------------------------
+  if (pathname === '/api/comm/status' && method === 'GET') {
+    json(res, 200, { channels: channelStatusBoard(), ai: { available: ai.available() }, sendable: SENDABLE_CHANNELS });
     return true;
   }
 
-  const convMatch = pathname.match(/^\/api\/comm\/conversations\/([0-9a-f-]{36})$/);
+  // ---- Inbox (attention model, §22) ----------------------------------------------------------
+  if (pathname === '/api/comm/inbox' && method === 'GET') {
+    const box = u.searchParams.get('box') === 'privacy' ? 'privacy' : 'communication';
+    if (box === 'privacy' && !caps.privacy) { json(res, 403, { error: 'Geen privacy-toegang' }); return true; }
+    if (box === 'privacy') await recordAudit({ tenantId, action: 'privacy_inbox_listed', entityType: 'mailbox', mailboxKind: 'PRIVACY', ipRef: ipRefOf(req) });
+    const conversations = await inboxConversations(tenantId, { box, filter: u.searchParams.get('filter') || 'all' });
+    const summary = await inboxSummary(tenantId);
+    json(res, 200, { conversations, summary });
+    return true;
+  }
+
+  // ---- Relationship directory / search (§37) -------------------------------------------------
+  if (pathname === '/api/comm/relationships' && method === 'GET') {
+    json(res, 200, { relationships: await listRelationships(tenantId, { q: u.searchParams.get('q') || '' }) });
+    return true;
+  }
+
+  // ---- Aggregated relationship (§5, §6) — the Workspace entry point ---------------------------
+  if (pathname === '/api/comm/relationship' && method === 'GET') {
+    const contact = u.searchParams.get('contact');
+    const org = u.searchParams.get('org');
+    const invitation = u.searchParams.get('invitation');
+    const token = u.searchParams.get('token');
+    let contactId = contact || null;
+    if (!contactId && (invitation || token)) contactId = await contactByInvitation(tenantId, { legacyId: invitation, token });
+    const rel = await getRelationship(tenantId, { contactId, orgId: org });
+    if (!rel) { json(res, 404, { error: 'Relatie niet gevonden' }); return true; }
+    json(res, 200, rel);
+    return true;
+  }
+
+  // Bridge: migrate a Testerbeheer invitation into a permanent Contact and return its id (§9). The
+  // browser passes the minimal JSON record so an as-yet-unmigrated tester still opens instantly.
+  if (pathname === '/api/comm/relationship/from-invitation' && method === 'POST') {
+    const body = await readJson(req); if (!body) { json(res, 400, { error: 'bad_body' }); return true; }
+    const contactId = await contactByInvitation(tenantId, { legacyId: body.id, token: body.token, jsonRecord: body });
+    if (!contactId) { json(res, 404, { error: 'Kon relatie niet afleiden' }); return true; }
+    json(res, 200, { contactId });
+    return true;
+  }
+
+  const tlMatch = pathname.match(new RegExp(`^/api/comm/relationship/${UUID}/timeline$`));
+  if (tlMatch && method === 'GET') {
+    json(res, 200, { timeline: await relationshipTimeline(tenantId, tlMatch[1]) });
+    return true;
+  }
+
+  // ---- Conversations list (legacy shape, still used by the Inbox context pane) ---------------
+  if (pathname === '/api/comm/conversations' && method === 'GET') {
+    const box = u.searchParams.get('box') === 'privacy' ? 'privacy' : 'communication';
+    if (box === 'privacy' && !caps.privacy) { json(res, 403, { error: 'Geen privacy-toegang' }); return true; }
+    json(res, 200, { conversations: await inboxConversations(tenantId, { box, filter: u.searchParams.get('filter') || 'all' }) });
+    return true;
+  }
+
+  const convMatch = pathname.match(new RegExp(`^/api/comm/conversations/${UUID}$`));
   if (convMatch && method === 'GET') {
     const id = convMatch[1];
     const conv = (await query(
@@ -90,44 +135,158 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
     if (conv.is_privacy && !caps.privacy) { json(res, 403, { error: 'Geen privacy-toegang' }); return true; }
     if (conv.is_privacy) await recordAudit({ tenantId, action: 'privacy_conversation_read', entityType: 'conversation', entityId: id, mailboxKind: 'PRIVACY', ipRef: ipRefOf(req) });
     const messages = (await query(
-      `select id, direction, from_address, to_addresses, subject, body_text, body_html_sanitized, delivery, created_at
+      `select id, direction, channel, from_address, to_addresses, subject, body_text, body_html_sanitized, delivery, created_at
          from message where conversation_id=$1 order by created_at asc`, [id])).rows;
     const notes = (await query('select id, body, created_at from internal_note where conversation_id=$1 order by created_at asc', [id])).rows;
     const draft = conv.is_privacy ? null : (await query(
       `select id, summary, intent, suggested_reply, suggested_actions, status from ai_draft
         where conversation_id=$1 and status='proposed' order by created_at desc limit 1`, [id])).rows[0] || null;
-    // mark read
+    const consent = conv.contact_id ? await channelConsentState(tenantId, conv.contact_id) : null;
     if (conv.status === 'NEW') await query("update conversation set status='OPEN' where id=$1 and status='NEW'", [id]);
-    json(res, 200, { conversation: conv, messages, notes, ai_draft: draft });
+    json(res, 200, { conversation: conv, messages, notes, ai_draft: draft, consent });
     return true;
   }
 
-  const replyMatch = pathname.match(/^\/api\/comm\/conversations\/([0-9a-f-]{36})\/reply$/);
+  // Manual reply (email) — the AI-free fallback path (§FALLBACK). Human-in-the-loop.
+  const replyMatch = pathname.match(new RegExp(`^/api/comm/conversations/${UUID}/reply$`));
   if (replyMatch && method === 'POST') {
-    let body;
-    try { body = JSON.parse(await readRaw(req) || '{}'); } catch { json(res, 400, { error: 'bad_body' }); return true; }
-    // Human-in-the-loop send. AI never reaches here — only an explicit user action.
+    const body = await readJson(req); if (!body) { json(res, 400, { error: 'bad_body' }); return true; }
     const result = await sendReply({ conversationId: replyMatch[1], userId: null, text: body.text, html: body.html, ipRef: ipRefOf(req) });
     json(res, result.ok ? 200 : 400, result);
     return true;
   }
 
-  const noteMatch = pathname.match(/^\/api\/comm\/conversations\/([0-9a-f-]{36})\/notes$/);
+  // Send on an explicit channel (manual composer, non-email or channel-switched). Consent-gated.
+  const sendMatch = pathname.match(new RegExp(`^/api/comm/conversations/${UUID}/send$`));
+  if (sendMatch && method === 'POST') {
+    const body = await readJson(req); if (!body) { json(res, 400, { error: 'bad_body' }); return true; }
+    const result = await sendOnChannel({ tenantId, conversationId: sendMatch[1], channel: body.channel || 'EMAIL', subject: body.subject, text: body.text, html: body.html, purpose: body.purpose || 'service', ipRef: ipRefOf(req) });
+    json(res, result.ok ? 200 : 400, result);
+    return true;
+  }
+
+  const noteMatch = pathname.match(new RegExp(`^/api/comm/conversations/${UUID}/notes$`));
   if (noteMatch && method === 'POST') {
-    let body;
-    try { body = JSON.parse(await readRaw(req) || '{}'); } catch { json(res, 400, { error: 'bad_body' }); return true; }
+    const body = await readJson(req); if (!body) { json(res, 400, { error: 'bad_body' }); return true; }
     const text = (body.body || '').trim();
     if (!text) { json(res, 400, { error: 'empty' }); return true; }
-    // internal_note is a SEPARATE table — structurally it can never be sent externally.
     const ins = await query('insert into internal_note(tenant_id, conversation_id, body) values ($1,$2,$3) returning id', [tenantId, noteMatch[1], text]);
     await recordAudit({ tenantId, action: 'internal_note_created', entityType: 'conversation', entityId: noteMatch[1], ipRef: ipRefOf(req) });
     json(res, 201, { id: ins.rows[0].id });
     return true;
   }
 
-  const tlMatch = pathname.match(/^\/api\/comm\/contacts\/([0-9a-f-]{36})\/timeline$/);
-  if (tlMatch && method === 'GET') {
-    json(res, 200, { timeline: await contactTimeline(tenantId, tlMatch[1]) });
+  // Link an UNKNOWN conversation to a Contact (§20, §75).
+  const linkMatch = pathname.match(new RegExp(`^/api/comm/conversations/${UUID}/link$`));
+  if (linkMatch && method === 'POST') {
+    const body = await readJson(req); if (!body) { json(res, 400, { error: 'bad_body' }); return true; }
+    const result = await linkConversationToContact({ tenantId, conversationId: linkMatch[1], contactId: body.contactId, newContact: body.newContact });
+    json(res, result.ok ? 200 : 400, result);
+    return true;
+  }
+
+  // ---- AI-first drafts (§AI addendum) --------------------------------------------------------
+  // Open (or reuse) the working draft for a conversation. Body shared by composer + AI chat.
+  const draftOpenMatch = pathname.match(new RegExp(`^/api/comm/conversations/${UUID}/draft$`));
+  if (draftOpenMatch && method === 'POST') {
+    const body = await readJson(req) || {};
+    const result = await drafts.openDraft({ tenantId, conversationId: draftOpenMatch[1], channel: body.channel });
+    json(res, result.ok ? 200 : 400, result);
+    return true;
+  }
+
+  const draftIdMatch = pathname.match(new RegExp(`^/api/comm/drafts/${UUID}$`));
+  if (draftIdMatch && method === 'GET') { const s = await drafts.getDraftState(draftIdMatch[1]); json(res, s ? 200 : 404, s || { error: 'not_found' }); return true; }
+  if (draftIdMatch && method === 'PATCH') {
+    const body = await readJson(req) || {};
+    json(res, 200, await drafts.humanEdit({ draftId: draftIdMatch[1], body: body.body ?? '', subject: body.subject, channel: body.channel }));
+    return true;
+  }
+  if (draftIdMatch && method === 'DELETE') { json(res, 200, await drafts.discardDraft({ draftId: draftIdMatch[1] })); return true; }
+
+  const draftChatMatch = pathname.match(new RegExp(`^/api/comm/drafts/${UUID}/chat$`));
+  if (draftChatMatch && method === 'POST') {
+    const body = await readJson(req) || {};
+    if (!body.message) { json(res, 400, { error: 'no_message' }); return true; }
+    json(res, 200, await drafts.chat({ draftId: draftChatMatch[1], message: body.message, tenantId }));
+    return true;
+  }
+
+  const draftChannelMatch = pathname.match(new RegExp(`^/api/comm/drafts/${UUID}/channel$`));
+  if (draftChannelMatch && method === 'POST') {
+    const body = await readJson(req) || {};
+    json(res, 200, await drafts.setChannel({ draftId: draftChannelMatch[1], channel: body.channel, adapt: body.adapt !== false }));
+    return true;
+  }
+
+  // Approve + send the draft (the last human step). Consent-gated inside sendOnChannel.
+  const draftSendMatch = pathname.match(new RegExp(`^/api/comm/drafts/${UUID}/send$`));
+  if (draftSendMatch && method === 'POST') {
+    const state = await drafts.getDraftState(draftSendMatch[1]);
+    if (!state) { json(res, 404, { error: 'not_found' }); return true; }
+    const d = state.draft;
+    if (d.status !== 'draft') { json(res, 400, { error: 'already_' + d.status }); return true; }
+    await query("update comm_draft set status='approved', approved_at=now() where id=$1", [d.id]);
+    const result = await sendOnChannel({ tenantId, conversationId: d.conversation_id, contactId: d.contact_id, organizationId: d.organization_id, channel: d.channel, subject: d.subject, text: d.body, draftId: d.id, ipRef: ipRefOf(req) });
+    if (!result.ok) await query("update comm_draft set status='draft', approved_at=null where id=$1", [d.id]); // let the user retry
+    json(res, result.ok ? 200 : 400, result);
+    return true;
+  }
+
+  // On-demand AI helpers on a conversation (summary / next-action / follow-up extraction).
+  const aiMatch = pathname.match(new RegExp(`^/api/comm/conversations/${UUID}/ai/([a-z_]+)$`));
+  if (aiMatch && method === 'POST') {
+    const [, id, op] = aiMatch;
+    if (op === 'summary') { json(res, 200, await ai.summarizeConversation({ tenantId, conversationId: id })); return true; }
+    if (op === 'suggest') { json(res, 200, await ai.suggestNextAction({ tenantId, conversationId: id })); return true; }
+    if (op === 'followups') { json(res, 200, await ai.extractFollowUps({ tenantId, conversationId: id })); return true; }
+    if (op === 'explain') { const b = await readJson(req) || {}; json(res, 200, await ai.explain({ tenantId, conversationId: id, question: b.question })); return true; }
+    json(res, 404, { error: 'unknown_ai_op' }); return true;
+  }
+
+  // ---- Follow-ups (§34) ----------------------------------------------------------------------
+  if (pathname === '/api/comm/followups' && method === 'GET') {
+    json(res, 200, { followUps: await listFollowUps(tenantId, { contactId: u.searchParams.get('contact'), organizationId: u.searchParams.get('org'), status: u.searchParams.get('status') || 'open' }) });
+    return true;
+  }
+  if (pathname === '/api/comm/followups' && method === 'POST') {
+    const body = await readJson(req) || {};
+    const result = await createFollowUp(tenantId, { contactId: body.contactId, organizationId: body.organizationId, conversationId: body.conversationId, title: body.title, note: body.note, channelHint: body.channelHint, dueAt: body.dueAt });
+    json(res, result.ok ? 201 : 400, result);
+    return true;
+  }
+  const fuMatch = pathname.match(new RegExp(`^/api/comm/followups/${UUID}$`));
+  if (fuMatch && method === 'PATCH') {
+    const body = await readJson(req) || {};
+    json(res, 200, await updateFollowUp(tenantId, fuMatch[1], { status: body.status, dueAt: body.dueAt, title: body.title, note: body.note }));
+    return true;
+  }
+
+  // ---- Consent per channel (§27/§28/§74) -----------------------------------------------------
+  const consentGet = pathname.match(new RegExp(`^/api/comm/contacts/${UUID}/consent$`));
+  if (consentGet && method === 'GET') {
+    json(res, 200, { state: await channelConsentState(tenantId, consentGet[1]), preferences: await listPreferences(tenantId, consentGet[1]) });
+    return true;
+  }
+  if (consentGet && method === 'POST') {
+    const body = await readJson(req) || {};
+    if (!body.channel || typeof body.allowed !== 'boolean') { json(res, 400, { error: 'channel + allowed required' }); return true; }
+    await setPreference(tenantId, consentGet[1], { channel: body.channel, purpose: body.purpose || 'service', allowed: body.allowed, source: body.source || 'manual', legalBasis: body.legalBasis, evidence: body.evidence });
+    await recordAudit({ tenantId, action: 'consent_changed', entityType: 'contact', entityId: consentGet[1], ipRef: ipRefOf(req), meta: { channel: body.channel, allowed: body.allowed } });
+    json(res, 200, { ok: true, state: await channelConsentState(tenantId, consentGet[1]) });
+    return true;
+  }
+
+  // Legacy contact timeline (activity rows only) — kept for backward compatibility.
+  const legacyTl = pathname.match(new RegExp(`^/api/comm/contacts/${UUID}/timeline$`));
+  if (legacyTl && method === 'GET') { json(res, 200, { timeline: await contactTimeline(tenantId, legacyTl[1]) }); return true; }
+
+  // ---- Channel inbound SIMULATOR (admin-gated) — drives mock WhatsApp/SMS/social inbound for
+  //      the multi-channel Inbox demo + E2E. Real providers use signature-authed webhooks (§19).
+  if (pathname === '/api/comm/inbound/simulate' && method === 'POST') {
+    const body = await readJson(req) || {};
+    const result = await receiveChannelInbound({ tenantId, channel: body.channel, from: body.from, to: body.to, text: body.text, providerMessageId: body.providerMessageId });
+    json(res, result.ok ? 200 : 400, result);
     return true;
   }
 

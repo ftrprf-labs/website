@@ -5,6 +5,53 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-15 — Relationship Workspace + AI-first omnichannel Communication Layer
+
+**Product.** De relatie is het productobject. Testerbeheer → klik op naam/bedrijf →
+**Relationship Workspace** (Overzicht / Journey / Inzichten / Communicatie / Activiteit).
+Communicatie zit IN de klant, niet in een los tabblad. De **centrale Inbox** (`/comm.html`)
+is de tweede ingang: een rustig aandachtsmodel (Nieuw / Wacht op mij / AI-voorstel /
+Onbekend / Levering / Follow-ups) op exact dezelfde data. AI is de primaire werklaag:
+elk inbound bericht krijgt een conceptantwoord dat je conversationeel met Maculis verfijnt.
+
+**Backend (additief op 001/002; migratie `003_drafts_followups_channels.sql`):**
+- **Provider-abstractie** `server/comm/providers/*` — één neutrale interface
+  (`send/capabilities/normalizeInbound/requiredConfig`). EMAIL is LIVE via Resend zodra
+  geconfigureerd; WHATSAPP/SMS/PHONE/SOCIAL draaien als volledige MOCK-adapters (officiële
+  routes: WhatsApp Business Cloud API, EU SMS/voice; nooit scraping) en melden exact welke
+  credentials nog nodig zijn.
+- **Unified outbound** `send.mjs` — één verzendpad voor alle kanalen met **consent-gate**
+  (`consent.mjs`, per kanaal/doel, opt-out first-class), persist OUTBOUND message,
+  `delivery_event`, activity + audit. AI verzendt nooit; alleen expliciete human-approval.
+- **AI-first drafts** `drafts.mjs` + AI-serviceboundary `ai/service.mjs`
+  (`summarize/classifyIntent/draftReply/reviseDraft/suggestNextAction/extractFollowUps/explain`)
+  + bounded **Context Engine** `ai/context.mjs`. Composer en AI-chat delen dezelfde draft;
+  `reviseDraft` rebaset op de HUIDIGE tekst → **menselijke wijzigingen worden nooit
+  overschreven** (versiehistorie `comm_draft_version`). Deterministische offline-modus +
+  fallback: communiceren werkt óók zonder AI.
+- **Relationship aggregation** `relationship.mjs` (parallelle queries), **Inbox** `inbox.mjs`
+  (attention model), **omnichannel inbound + identity resolution** `channel-inbound.mjs`
+  (unknown-contact veilig, handmatig koppelen), **follow-ups** `followups.mjs`.
+- Boot bridget bestaande Testerbeheer-invitations idempotent naar permanente Contact/Organization.
+- Relationship-georiënteerde API onder `/api/comm/*` (relationship / inbox / drafts / followups /
+  consent / status). Alles tenant-scoped; privacy-inbox blijft gescheiden en zonder auto-AI.
+
+**Getest (fictieve data):** volledige suite **30/30** tegen een echte Postgres; zonder DB
+skippen de comm-tests netjes (24 pass / 5 skip → productie-pariteit, laag blijft dormant).
+Nieuwe E2E `comm-workspace.test.mjs`: inbound → Contact/Org → AI-voorstel → draft warmer/korter
+→ **menselijke edit** → AI "voeg dinsdag toe" behoudt de edit → goedkeuren/verzenden →
+delivery_event + audit → WhatsApp inbound (unknown) → koppelen → consent-blokkade →
+opt-in → verzenden via mock; SMS onafhankelijk geblokkeerd. **Browser (Playwright,
+desktop 1280 + mobiel 390):** login → naam klikken → Workspace (OCA) → Communicatie →
+AI-chat past body aan → human edit behouden → verzenden → Inbox-aandachtsmodel; 0 console-errors.
+CSP intact (externe JS, geen inline handlers; nooit `unsafe-inline` toegevoegd).
+
+**Kanaalstatus (eerlijk, §81):** EMAIL architecture-ready + provider-connectable (Resend);
+WHATSAPP/SMS/PHONE/SOCIAL architecture-ready + **MOCK E2E verified**, provider-connected =
+nee (credentials ontbreken — zie ALLEEN DOOR LUD).
+
+---
+
 ## 2026-08-14 — Online-acceptatie: deploybaar, beveiligd, fail-closed
 
 **Doel.** Van lokale acceptatie naar een gecontroleerde ONLINE acceptatieomgeving

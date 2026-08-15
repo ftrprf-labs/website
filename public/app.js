@@ -194,6 +194,9 @@ function render() {
   $$('#tester-rows [data-history]').forEach((b) => {
     b.addEventListener('click', () => openHistory(b.dataset.history));
   });
+  $$('#tester-rows [data-rel]').forEach((b) => {
+    b.addEventListener('click', () => openRelationship(b.dataset.rel));
+  });
   $$('#tester-rows [data-edit]').forEach((b) => {
     b.addEventListener('click', () => openEdit(b.dataset.edit));
   });
@@ -220,8 +223,8 @@ function rowHtml(r) {
     <td class="col-check" data-label="">
       <input type="checkbox" data-check="${r.id}" ${checked} />
     </td>
-    <td data-label="Naam"><span class="name-main">${esc(name)}</span></td>
-    <td data-label="Bedrijf">${esc(r.company_name || '—')}</td>
+    <td data-label="Naam"><button class="name-main link-name" data-rel="${r.id}" title="Open relatie (Communicatie, Journey, Historie)">${esc(name)}</button></td>
+    <td data-label="Bedrijf"><button class="link-name link-dim" data-rel="${r.id}" title="Open relatie">${esc(r.company_name || '—')}</button></td>
     <td data-label="Contact">
       <div>${esc(contact[0] || '—')}</div>
       ${contact[1] ? `<div class="contact-line">${esc(contact[1])}</div>` : ''}
@@ -241,6 +244,7 @@ function rowHtml(r) {
     </td>
     <td class="col-actions" data-label="Acties">
       <div class="row-actions">
+        <button data-rel="${r.id}" title="Open relatie (Relationship Workspace)" aria-label="Open relatie">${ICON.relation || '🗂'}</button>
         <button class="act-wa" data-wa="${r.id}" title="${noContact ? blockTitle : 'Via WhatsApp uitnodigen'}" aria-label="Via WhatsApp uitnodigen" ${noContact ? 'disabled' : ''}>${ICON.whatsapp}</button>
         <button data-mail="${r.id}" title="${noContact ? blockTitle : 'E-mail uitnodigen'}" aria-label="E-mail uitnodigen" ${noContact ? 'disabled' : ''}>${ICON.email}</button>
         <button data-history="${r.id}" title="Historie bekijken" aria-label="Historie bekijken">${ICON.history}</button>
@@ -248,6 +252,18 @@ function rowHtml(r) {
         <button data-del="${r.id}" title="Verwijderen" aria-label="Verwijderen">${ICON.del}</button>
       </div>
     </td>`;
+}
+
+// Open the Relationship Workspace for a tester. The client is the primary entry point (Ingang A):
+// name/company open the full relationship (Overzicht, Journey, Inzichten, Communicatie, Activiteit).
+// We stash the minimal record so the workspace can bridge it into a permanent Contact even if the
+// Communication Layer has not migrated this tester yet (§9).
+function openRelationship(id) {
+  const r = state.invitations.find((x) => x.id === id);
+  if (!r) return;
+  const minimal = { id: r.id, token: r.token, first_name: r.first_name, last_name: r.last_name, email: r.email, mobile: r.mobile, company_name: r.company_name, domain: r.domain, campaign: r.campaign, status: r.status };
+  try { sessionStorage.setItem('rel:' + r.id, JSON.stringify(minimal)); if (r.token) sessionStorage.setItem('rel:' + r.token, JSON.stringify(minimal)); } catch { /* ignore */ }
+  window.location.href = '/workspace.html?invitation=' + encodeURIComponent(r.id);
 }
 
 function renderStats() {
