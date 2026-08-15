@@ -1,0 +1,5 @@
+# Orchestrator runtime state (task store + audit). Never commit — may contain
+# free-text task requests. Regenerated on first run.
+data/*.json
+data/*.tmp
+node_modules/

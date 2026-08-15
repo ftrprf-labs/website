@@ -1,0 +1,15 @@
+{
+  "name": "maculis-dev-orchestrator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "One central development orchestrator for the Maculis Website, First Five and Relationship Workspace domains.",
+  "engines": { "node": ">=18" },
+  "bin": { "maculis-dev": "bin/maculis-dev.mjs" },
+  "scripts": {
+    "start": "node bin/maculis-dev.mjs serve",
+    "cli": "node bin/maculis-dev.mjs",
+    "mcp": "node mcp/server.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
+}

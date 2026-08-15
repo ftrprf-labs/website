@@ -1,0 +1,23 @@
+{
+  "$comment": "Claude Code permission profile: NORMAL_ENGINEERING. Autonomous read/edit/test/build; risky git/secrets denied. Generated to match src/permissions.mjs.",
+  "permissions": {
+    "allow": [
+      "Read", "Grep", "Glob", "Edit", "MultiEdit", "Write", "NotebookEdit",
+      "Bash(npm run lint:*)", "Bash(npm test:*)", "Bash(npm run test:*)",
+      "Bash(npm run typecheck:*)", "Bash(npm run build:*)", "Bash(npm ci:*)", "Bash(npm install:*)",
+      "Bash(node --test:*)", "Bash(node --test)", "Bash(pnpm *:*)", "Bash(yarn *:*)",
+      "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git fetch:*)",
+      "Bash(git show:*)", "Bash(git branch:*)", "Bash(ls:*)", "Bash(cat:*)", "Bash(rg:*)"
+    ],
+    "ask": ["Bash(git push:*)", "WebFetch"],
+    "deny": [
+      "Bash(git push --force:*)", "Bash(git push -f:*)", "Bash(git push --force-with-lease:*)",
+      "Bash(git push * main*)", "Bash(git push * master*)",
+      "Bash(git reset --hard origin/main:*)", "Bash(git filter-branch:*)", "Bash(git rebase:*)",
+      "Bash(rm -rf:*)", "Bash(dropdb:*)", "Bash(psql * DROP*)", "Bash(* DROP DATABASE*)",
+      "Bash(cat .env)", "Bash(cat *.env)", "Bash(printenv:*)", "Bash(env)",
+      "Read(./.env)", "Read(./.env.*)", "Read(**/.env)", "Read(**/secrets*)",
+      "Bash(vercel * --prod:*)", "Bash(render deploy:*)"
+    ]
+  }
+}
