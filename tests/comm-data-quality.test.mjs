@@ -18,14 +18,15 @@ test('data-quality detects duplicates and cross-channel splits, merges nothing',
     await query('truncate message, conversation, contact, organization, mailbox, webhook_event, attachment, comm_draft, comm_draft_version, draft_chat_message, follow_up, delivery_event, activity, channel_identity, communication_preference, ai_draft, call_record, internal_note, relationship_memory cascade');
     const tid = await getDefaultTenantId();
 
-    // Clean baseline: one contact, one reachable identity.
+    const byName = (res) => Object.fromEntries(res.findings.map((f) => [f.check, f.count]));
+
+    // Baseline: one contact, one reachable identity. Capture counts as a baseline (assert deltas,
+    // not absolute zeros, so residual state can never make this flake).
     const a = (await query(`insert into contact(tenant_id, first_name, last_name, email, mobile, identity_key) values ($1,'Kim','A','kim@oca.nl','31611110000','email:kim@oca.nl') returning id`, [tid])).rows[0].id;
     await query(`insert into channel_identity(tenant_id, contact_id, channel, value, source) values ($1,$2,'WHATSAPP','31611110000','seed')`, [tid, a]);
     let r = await runDataQualityChecks({});
-    assert.equal(r.ok, true, 'clean baseline has no hard violations');
-    const byName = (res) => Object.fromEntries(res.findings.map((f) => [f.check, f.count]));
-    assert.equal(byName(r).duplicate_email, 0);
-    assert.equal(byName(r).cross_channel_number_split, 0);
+    assert.equal(r.ok, true, 'baseline has no hard integrity violations');
+    const base = byName(r);
 
     // Seed a SECOND contact reachable via the SAME phone number through contact.mobile (contact A
     // holds the WhatsApp channel_identity for that number; a value is unique per channel by
@@ -36,9 +37,9 @@ test('data-quality detects duplicates and cross-channel splits, merges nothing',
 
     r = await runDataQualityChecks({});
     const counts = byName(r);
-    assert.ok(counts.cross_channel_number_split >= 1, 'cross-channel number split detected');
-    assert.ok(counts.duplicate_mobile >= 1, 'duplicate mobile detected');
-    assert.ok(counts.duplicate_email >= 1, 'duplicate email detected');
+    assert.ok(counts.cross_channel_number_split > base.cross_channel_number_split, 'cross-channel number split newly detected');
+    assert.ok(counts.duplicate_mobile > base.duplicate_mobile, 'duplicate mobile newly detected');
+    assert.ok(counts.duplicate_email > base.duplicate_email, 'duplicate email newly detected');
 
     // Read-only guarantee: the number of contacts is unchanged (nothing merged/deleted).
     const n = (await query('select count(*)::int n from contact')).rows[0].n;
