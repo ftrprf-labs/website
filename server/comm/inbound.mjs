@@ -24,6 +24,18 @@ export function parseAddress(v) {
   return (m ? m[1] : String(v)).trim().toLowerCase();
 }
 
+// PII-safe inbound diagnostics: makes "where did the chain stop?" visible in production logs
+// WITHOUT ever logging sender/body/subject. Only the stage, a reason, and the (Maculis-owned,
+// non-PII) mailbox/kind are emitted. Silenced in tests.
+function logInbound(stage, extra = {}) {
+  if (process.env.NODE_ENV === 'test') return;
+  try {
+    const safe = Object.entries(extra).map(([k, v]) => `${k}=${v}`).join(' ');
+    // eslint-disable-next-line no-console
+    console.log(`[comm/inbound] ${stage}${safe ? ' ' + safe : ''}`);
+  } catch { /* logging must never break inbound */ }
+}
+
 // Which allowlisted mailbox (if any) is this addressed to, and is it the privacy mailbox?
 function routeRecipient(recipients) {
   const privacy = config.commMailboxes.find((a) => a.startsWith('privacy@'));
@@ -49,7 +61,7 @@ async function ensureMailboxId(tenantId, address, kind) {
 export async function processInbound({ headers, rawBody, fetchEmail = fetchInboundEmail, now = Date.now() }) {
   // 1) signature (untrusted input)
   const v = verifyWebhook({ headers, rawBody, secret: config.resendWebhookSecret, now });
-  if (!v.ok) return { ok: false, status: 401, reason: v.reason };
+  if (!v.ok) { logInbound('rejected', { reason: v.reason }); return { ok: false, status: 401, reason: v.reason }; }
 
   let event;
   try { event = JSON.parse(rawBody); } catch { return { ok: false, status: 400, reason: 'bad_json' }; }
@@ -71,6 +83,9 @@ export async function processInbound({ headers, rawBody, fetchEmail = fetchInbou
     const recipients = Array.isArray(data.to) ? data.to : [data.to].filter(Boolean);
     const route = routeRecipient(recipients);
     if (!route) {
+      // The receiving address is not on COMM_MAILBOXES. This is the single most common reason a
+      // real inbound "does not appear": the Resend receiving address must match one of these.
+      logInbound('ignored', { reason: 'recipient_not_allowlisted', allowlist: config.commMailboxes.length });
       await query(`update webhook_event set status='processed', processed_at=now() where provider_event_id=$1`, [eventId]);
       return { ok: true, status: 200, ignored: true, reason: 'recipient_not_allowlisted' };
     }
@@ -136,6 +151,7 @@ export async function processInbound({ headers, rawBody, fetchEmail = fetchInbou
       meta: { mailbox: route.address, messageId: result.messageId },
     });
     await query(`update webhook_event set status='processed', processed_at=now() where provider_event_id=$1`, [eventId]);
+    logInbound('stored', { kind: route.kind, conversation: result.conversationId, contact_matched: result.contactMatched });
 
     // AI runs AFTER persistence and only for the COMMUNICATION mailbox — privacy@ is never
     // auto-analysed (§33). Fire-and-forget: the webhook returns immediately; a copilot failure
@@ -147,6 +163,7 @@ export async function processInbound({ headers, rawBody, fetchEmail = fetchInbou
   } catch (err) {
     // The webhook_event row stays 'received' with the error; Resend will retry, and idempotency
     // means a successful retry proceeds while a duplicate of an ALREADY-processed one no-ops.
+    logInbound('error', { reason: 'processing_error', detail: String(err.message || err).slice(0, 80) });
     await query(`update webhook_event set status='failed', error=$2 where provider_event_id=$1`, [eventId, String(err.message || err)]).catch(() => {});
     return { ok: false, status: 500, reason: 'processing_error', error: String(err.message || err) };
   }

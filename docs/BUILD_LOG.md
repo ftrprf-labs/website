@@ -5,6 +5,47 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-15 — Inbound e-mail end to end: zichtbaar bij de klant + AI-verwerking
+
+**Gerichte afrondingsbug.** Inkomende e-mail verscheen niet bij Klant → Communicatie.
+
+**Root cause (config, geen codebug).** De keten stopt bij de voordeur: de Communication
+Layer staat in productie UIT (`Comm : off`; `/api/comm/status → 404`), want
+`COMM_LAYER_ENABLED` + `DATABASE_URL` zijn niet gezet op de service. De inbound-route
+`/api/comm/inbound/resend` is daardoor inert; er wordt niets opgeslagen of getoond.
+De inbound-code zelf is geverifieerd tegen de actuele officiële Resend-documentatie en
+klopt: `email.received` is metadata-only, de body wordt via de Receiving API
+(`GET /emails/receiving/{id}`, identiek aan `resend.emails.receiving.get`) opgehaald,
+Svix-handtekening (whsec_, base64 HMAC-SHA256). Tweede meest voorkomende oorzaak in de
+praktijk: het ontvangstadres moet exact op `COMM_MAILBOXES` staan, anders wordt de mail
+genegeerd.
+
+**Wijzigingen (in scope, geen nieuwe onderdelen):**
+- PII-veilige inbound-diagnostiek (`[comm/inbound] rejected|ignored|stored|error …`) zonder
+  afzender/inhoud/onderwerp, zodat in productie zichtbaar is wáár de keten stopt (o.a.
+  `recipient_not_allowlisted`).
+- De automatische AI-copilot bouwt zijn voorstel nu op de bounded Relationship Context
+  Engine: recente + eerdere communicatie, First Five-status, open follow-ups én BEVESTIGDE
+  Relationship Memory. Kanaal is metadata; dezelfde pipeline verwerkt later WhatsApp/SMS.
+- `.env.example`: `COMM_MAILBOXES` toelichting bevestigd als het ontvangstadres.
+
+**Getest (echte keten op een echte Postgres, fictieve data):** suite **32/32**; zonder DB
+skippen de comm-tests netjes. Nieuwe E2E `comm-inbound-visibility` (echte Svix-webhook →
+juiste klant → zichtbaar in Communicatie → juiste afzender/onderwerp/inhoud/tijd → refresh
+blijft → reply-threading → onbekende afzender veilig → duplicate/ongeldige-signature/HTML/
+plain/geen-onderwerp/lange-mail → verkeerd ontvangstadres genegeerd). Nieuwe E2E
+`comm-inbound-ai-acceptance` (inbound → AUTOMATISCH AI-voorstel zonder knop, context met
+bevestigde memory → mens past aan, edit blijft behouden → goedkeuren + verzenden → uitgaand
+in dezelfde conversation, audit toont AI-draft + human approval → klant antwoordt → threadt
+terug → AI stelt volgende stap voor; AI verzendt nooit zelf).
+
+**Resterende human action (extern, alleen Lud):** de laag activeren (link
+`maculis-relationship-db` → `DATABASE_URL` + `COMM_LAYER_ENABLED=1`) en Resend inbound
+opzetten (MX-record op ontvangstdomein, inbound-webhook naar
+`/api/comm/inbound/resend`, `RESEND_WEBHOOK_SECRET`, ontvangstadres = `COMM_MAILBOXES`).
+
+---
+
 ## 2026-08-15 — Relationship Workspace + AI-first omnichannel Communication Layer
 
 **Product.** De relatie is het productobject. Testerbeheer → klik op naam/bedrijf →
