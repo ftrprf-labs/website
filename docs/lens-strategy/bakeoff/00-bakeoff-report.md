@@ -1,5 +1,9 @@
 # Lens 2 Prototype Bake-off: Epic Report
 
+> STATUS: BAKE-OFF DONE / IMPLEMENTATION PARKED PENDING REAL PILOT EVIDENCE (see `STATUS.md`). The Lens 2
+> choice is provisional, not final. The section 7 "next Epic scope" below is a preserved plan, NOT an
+> authorisation to build; no production implementation starts until an explicit owner instruction.
+>
 > The deliverable of the Lens 2 Prototype Bake-off Epic. It compares three lens candidates against the
 > same quality bar, on a runnable harness built on a faithful port of the frozen Reveal Engine, and
 > reaches an evidence-based decision. It integrates six workstreams (this report plus

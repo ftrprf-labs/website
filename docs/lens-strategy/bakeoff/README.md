@@ -1,5 +1,10 @@
 # Lens 2 Prototype Bake-off (analysis and decision)
 
+> STATUS: BAKE-OFF DONE / IMPLEMENTATION PARKED PENDING REAL PILOT EVIDENCE. No production build starts
+> from this. Reputation and Reception is the provisional Lens 2 candidate; Finance and Dependency are
+> retained; none is production-ready now. The workstream is stopped until an explicit owner instruction.
+> See [`STATUS.md`](STATUS.md).
+
 This folder holds the analysis and the decision for the Lens 2 Prototype Bake-off Epic. The runnable
 harness that produced the evidence lives in `../../../lens-bakeoff/` (code, case-set, generated
 artifacts). Start with the report.

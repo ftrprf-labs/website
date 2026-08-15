@@ -5,6 +5,20 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-15 — Lens 2 status: BAKE-OFF DONE / IMPLEMENTATION PARKED
+
+**Beslissing (eigenaar).** De bake-off is geaccepteerd als afgeronde research- en prototypefase. Alle
+commits en artefacten blijven behouden. Er start nu GEEN productie-implementatie van welke lens dan ook.
+Reputation & Reception blijft de voorlopige Lens 2-kandidaat; Finance blijft sterke volgende kandidaat;
+Dependency blijft voor later. Geen van de drie wordt nu productierijp gebouwd. Reden: het beslissende
+bewijs (echte herkenning en WOW bij ondernemers) is synthetisch niet te leveren. De komende echte First
+Five-pilot verzamelt recognition-data (vooral confirmed-new) om de keuze aan te scherpen; dat is
+dataverzameling binnen een bestaande pilot, geen nieuwe build. Geen nieuwe Epic, geen features, geen
+productiecode tot expliciete opdracht. Vastgelegd in `docs/lens-strategy/bakeoff/STATUS.md`. Workstream
+gestopt.
+
+---
+
 ## 2026-08-15 — Lens 2 Prototype Bake-off (Epic, empirisch, geen productiebuild)
 
 **Wat het is.** Een empirische bake-off die drie lenskandidaten tegen dezelfde kwaliteitslat test op een
