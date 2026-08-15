@@ -1,0 +1,83 @@
+// OpenAPI 3.1 spec for the ChatGPT bridge (brief §19, §20, §24, §44).
+//
+// This is the supported, official integration path: a ChatGPT custom GPT
+// "Action" (or any OpenAPI client) points at GET /openapi.json, authenticates
+// with the bearer token, and gets the SMALL Maculis tool surface — no browser
+// automation, no DOM scripting. The same operations are also exposed over MCP.
+
+import { config } from './config.mjs';
+
+export function openApiSpec() {
+  const server = config.api.publicUrl || `http://${config.api.host}:${config.api.port}`;
+  return {
+    openapi: '3.1.0',
+    info: {
+      title: 'Maculis Development Orchestrator',
+      description: 'Submit one free-text development task; it is routed to the right Maculis domain (Website / First Five / Relationship), built by a real coding agent, verified, and delivered. Poll task status for the outcome.',
+      version: '2.0.0',
+    },
+    servers: [{ url: server }],
+    security: [{ bearerAuth: [] }],
+    components: {
+      securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer' } },
+      schemas: {
+        TaskRef: {
+          type: 'object',
+          properties: {
+            task_id: { type: 'string' }, status: { type: 'string' },
+            selected_agent: { type: 'string' }, repository: { type: 'string' },
+            task_type: { type: 'string' }, risk_level: { type: 'string' },
+            routing_reason: { type: 'string' }, result_summary: { type: 'string' },
+            commit_sha: { type: 'string' }, deploy_url: { type: 'string' },
+          },
+        },
+      },
+    },
+    paths: {
+      '/tasks': {
+        post: {
+          operationId: 'submit_maculis_task',
+          summary: 'Submit a development task (routes automatically).',
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: {
+              type: 'object', required: ['request'],
+              properties: {
+                request: { type: 'string', description: 'The development task in natural language.' },
+                priority: { type: 'string', enum: ['LOW', 'NORMAL', 'HIGH', 'URGENT'] },
+                preferred_agent: { type: 'string', enum: ['website', 'first_five', 'relationship'] },
+                deploy_required: { type: 'boolean' },
+              },
+            } } },
+          },
+          responses: { 202: { description: 'Task accepted', content: { 'application/json': { schema: { $ref: '#/components/schemas/TaskRef' } } } } },
+        },
+        get: { operationId: 'list_maculis_tasks', summary: 'List tasks.', responses: { 200: { description: 'OK' } } },
+      },
+      '/tasks/{id}': {
+        get: {
+          operationId: 'get_maculis_task', summary: 'Get one task by id.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'OK', content: { 'application/json': { schema: { $ref: '#/components/schemas/TaskRef' } } } }, 404: { description: 'Not found' } },
+        },
+      },
+      '/tasks/{id}/cancel': {
+        post: {
+          operationId: 'cancel_maculis_task', summary: 'Cancel a task.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'Cancelled' } },
+        },
+      },
+      '/human-actions': { get: { operationId: 'list_maculis_human_actions', summary: 'List open human actions (things only the human can do).', responses: { 200: { description: 'OK' } } } },
+      '/approvals/{id}': {
+        post: {
+          operationId: 'approve_maculis_action', summary: 'Approve or reject a pending approval.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', properties: { approve: { type: 'boolean' } }, required: ['approve'] } } } },
+          responses: { 200: { description: 'OK' } },
+        },
+      },
+      '/agents': { get: { operationId: 'list_maculis_agents', summary: 'List development domains.', responses: { 200: { description: 'OK' } } } },
+    },
+  };
+}

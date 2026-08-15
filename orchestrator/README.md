@@ -110,11 +110,40 @@ All via env (see `src/config.mjs`): `MACULIS_DATA_DIR`, `MACULIS_API_TOKEN`,
 Secrets are read from the environment only — never stored, logged, or put in
 prompts/PRs/summaries.
 
+## Phase 2 — operational (real execution, isolation, delivery, bridge)
+
+- **Real runner + workspace manager** (`src/workspace.mjs`): every write task gets
+  its own **git worktree** on a task branch from the current default base, so all
+  three domains work in parallel without corrupting each other. Git is the source
+  of truth — fetch before work and before push; concurrent work is integrated by
+  rebase, never force-pushed (`deliver()`). Verified against the real repos.
+- **Capability manifests + real checks**: the orchestrator runs each repo's *real*
+  commands (First Five: tsx engine regression / selftest / technical; Website:
+  next lint/build; Relationship: `npm test`) and installs deps first, as CI does.
+  Check results are orchestrator-owned, not agent self-reported.
+- **Deployment policy per repo** (`src/deploy.mjs`, verified): Website→Vercel,
+  First Five & Relationship→Render autoDeploy; autonomous production only when
+  green + integrated + normal-risk; real **live verification** of the production
+  URL before COMPLETED; rollback reference recorded.
+- **Async worker** with heartbeat/lease + **stuck-task recovery**; **agent
+  disable** (`maculis-dev disable <agent>`), cancellation, idempotency, duplicate
+  detection.
+- **ChatGPT bridge**: OpenAPI 3.1 at `GET /openapi.json` (bearer auth) — import it
+  as a ChatGPT GPT Action. See `docs/CHATGPT_BRIDGE.md`.
+- **Always-on**: `Dockerfile` + `render.yaml` (own service, persistent disk).
+  See `docs/OPERATIONS.md`.
+
+Real-execution config: `MACULIS_RUNNER=real`, plus either operator checkouts in
+`runner.checkouts` or `MACULIS_GIT_TOKEN` to clone the private repos, and
+`ANTHROPIC_API_KEY` for the headless CLI.
+
 ## Test
 
 ```bash
-npm test        # 27 tests: routing, permissions, concurrency, sessions,
-                # acceptance, end-to-end slice, API auth
+npm test        # 43 tests: routing, permissions, concurrency, sessions,
+                # acceptance, end-to-end slice, API auth, workspace/worktree +
+                # divergence-safe delivery, deploy policy + live verify, async
+                # worker + stuck recovery + agent disable, ChatGPT bridge/OpenAPI
 ```
 
 ## Recover after a crash

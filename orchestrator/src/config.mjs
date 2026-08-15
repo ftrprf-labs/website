@@ -40,6 +40,9 @@ export const config = {
     // Optional webhook the orchestrator POSTs task lifecycle events to.
     webhookUrl: env('MACULIS_WEBHOOK_URL', ''),
     webhookSecret: env('MACULIS_WEBHOOK_SECRET', ''),
+    // Public HTTPS base URL where ChatGPT / MCP clients reach this API (for the
+    // OpenAPI `servers` block). Set on the always-on host.
+    publicUrl: env('MACULIS_PUBLIC_URL', ''),
   },
 
   // Runner. 'mock' produces a deterministic structured result without invoking
@@ -62,9 +65,27 @@ export const config = {
     },
   },
 
+  // Workspace manager (Phase 2). Where repos are cloned and per-task worktrees
+  // are created. Kept OUTSIDE the orchestrator repo so product code is never
+  // nested inside it. Private repos need a git credential on the host: set
+  // MACULIS_GIT_TOKEN (a GitHub PAT / installation token) — it is injected into
+  // the clone URL and NEVER logged.
+  workspace: {
+    root: resolve(env('MACULIS_WORKSPACE_ROOT', join(ORCH_ROOT, '..', '.maculis-workspaces'))),
+    gitToken: env('MACULIS_GIT_TOKEN', ''),        // never logged
+    gitHost: env('MACULIS_GIT_HOST', 'github.com'),
+    cloneTimeoutMs: Number(env('MACULIS_CLONE_TIMEOUT_MS', String(4 * 60_000))),
+  },
+
   // Concurrency: how many write tasks may run at once (per repo it is always 1;
   // this bounds the whole pool).
   maxConcurrentAgents: Number(env('MACULIS_MAX_AGENTS', '3')),
+
+  // Async worker: heartbeat/lease so a task cannot stay RUNNING after a crash.
+  worker: {
+    leaseMs: Number(env('MACULIS_LEASE_MS', String(45 * 60_000))),   // stuck after 45m no beat
+    pollMs: Number(env('MACULIS_WORKER_POLL_MS', '2000')),
+  },
 
   // Session freshness thresholds (see sessions.mjs).
   session: {

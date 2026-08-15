@@ -33,6 +33,8 @@ const TOOLS = [
   { name: 'list_maculis_tasks', description: 'List tasks, optionally filtered by status or agent.', inputSchema: { type: 'object', properties: { status: { type: 'string' }, agent: { type: 'string' } } } },
   { name: 'cancel_maculis_task', description: 'Cancel a task by id.', inputSchema: { type: 'object', properties: { task_id: { type: 'string' } }, required: ['task_id'] } },
   { name: 'approve_maculis_action', description: 'Approve or reject a pending approval.', inputSchema: { type: 'object', properties: { approval_id: { type: 'string' }, approve: { type: 'boolean' } }, required: ['approval_id', 'approve'] } },
+  { name: 'list_maculis_human_actions', description: 'List open human actions (things only the human can do: credentials, DNS, billing, verification).', inputSchema: { type: 'object', properties: {} } },
+  { name: 'get_maculis_task_log', description: 'Get the audit trail for one task.', inputSchema: { type: 'object', properties: { task_id: { type: 'string' } }, required: ['task_id'] } },
 ];
 
 function ok(result) { return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }; }
@@ -48,6 +50,8 @@ async function callTool(name, a = {}) {
     case 'list_maculis_tasks': return ok(listTasks({ status: a.status, agent: a.agent }).map((t) => ({ task_id: t.task_id, status: t.status, agent: t.selected_agent, title: t.title })));
     case 'cancel_maculis_task': { const t = engine.cancel(a.task_id); return ok(t || { error: 'not found' }); }
     case 'approve_maculis_action': { const r = engine.resolveApproval(a.approval_id, Boolean(a.approve)); return ok(r || { error: 'not found' }); }
+    case 'list_maculis_human_actions': return ok(engine.listHumanActions());
+    case 'get_maculis_task_log': { const { tail } = await import('../src/audit.mjs'); return ok(getTask(a.task_id) ? { task_id: a.task_id, log: tail(200, a.task_id) } : { error: 'not found' }); }
     default: throw new Error(`unknown tool ${name}`);
   }
 }

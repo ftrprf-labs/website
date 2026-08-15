@@ -1,0 +1,44 @@
+# Maculis Development Orchestrator — Render Blueprint (always-on worker + API).
+#
+# Separate from the product services (brief §72/§73): deploying the orchestrator
+# never touches product deployments. Persistence uses a mounted disk so task
+# state + workspaces survive restarts/redeploys (the JSON store is enough for V1;
+# brief §22). Secrets are entered by hand in the Render dashboard (sync:false) —
+# never committed here (brief §23, §49, §58).
+services:
+  - type: web
+    name: maculis-orchestrator
+    runtime: docker
+    region: frankfurt           # EU (AVG/GDPR), same as the products
+    plan: starter               # always-on
+    dockerfilePath: ./orchestrator/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    disk:
+      name: orchestrator-state
+      mountPath: /var/data      # = MACULIS_DATA_DIR (JSON task store + audit)
+      sizeGB: 1
+    envVars:
+      - key: MACULIS_API_HOST
+        value: 0.0.0.0
+      - key: MACULIS_DATA_DIR
+        value: /var/data
+      - key: MACULIS_WORKSPACE_ROOT
+        value: /var/workspaces
+      # Runner: 'mock' works out of the box. Set to 'real' only once the CLI auth
+      # + a git token are configured (below).
+      - key: MACULIS_RUNNER
+        value: mock
+      # --- Secrets (set by hand in Render → Environment; sync:false) ---
+      - key: MACULIS_API_TOKEN        # bearer token for the API + ChatGPT bridge
+        sync: false
+      - key: MACULIS_PUBLIC_URL       # public HTTPS URL (for the OpenAPI servers block)
+        sync: false
+      - key: MACULIS_WEBHOOK_SECRET   # optional: HMAC secret for outbound webhooks
+        sync: false
+      # For MACULIS_RUNNER=real only:
+      - key: MACULIS_GIT_TOKEN        # GitHub token to clone the private repos (least privilege)
+        sync: false
+      - key: ANTHROPIC_API_KEY        # Claude Code CLI auth for the headless runner
+        sync: false

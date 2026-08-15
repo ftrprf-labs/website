@@ -23,6 +23,7 @@ const EMPTY = () => ({
   approvals: {},                    // approval_id -> approval record
   humanActions: {},                 // action_id -> human action record
   idempotency: {},                  // key -> task_id
+  disabledAgents: {},               // agent_id -> { reason, at } (brief §71)
   audit: [],                        // append-only audit events (capped)
 });
 

@@ -34,15 +34,24 @@ const AGENTS = [
     ],
     // Domain names / entities that appear in public-website reports.
     entities: ['vanegmond.nl', 'vanegmond', 'maculis.nl'],
-    test_commands: { lint: null, unit: null, build: 'npm run build', e2e: 'npm run test:e2e' },
+    // Real capability manifest (verified from the repo's package.json).
+    test_commands: { lint: 'npm run lint', typecheck: 'npx tsc --noEmit', unit: null, build: 'npm run build', e2e: null },
     build_commands: ['npm run build'],
-    deploy_strategy: 'auto-on-merge',       // static/site host redeploys on merge
+    // Real deployment (verified: Next.js 14 App Router, no vercel.json → Vercel
+    // git integration; production = default branch; verify with Lighthouse).
+    deploy: {
+      provider: 'vercel', production_branch: 'main', auto_deploy: true,
+      preview: true, health_path: '/', production_url: 'https://maculis.nl',
+      verify: 'lighthouse', rollback: 'vercel-redeploy-previous',
+    },
     deploy_targets: ['NO_DEPLOY', 'STAGING', 'PRODUCTION'],
-    permission_profile: 'normal-engineering',
+    permission_profile: 'agent-worktree',
     system_instructions:
-      'You own the PUBLIC Maculis website. Optimise for WOW, micro-reveal quality, ' +
-      'SEO and Core Web Vitals. Never leak private/tester data into public pages. ' +
-      'Public privacy and consent copy is load-bearing — do not weaken it.',
+      'You own the PUBLIC Maculis website (Next.js 14 App Router). Optimise for WOW, ' +
+      'micro-reveal quality (precision over recall, evidence-bound), SEO and Core Web ' +
+      'Vitals; mobile-first. Maculis copy is restrained — no free audit. NEVER leak ' +
+      'private/tester data into public pages; privacy/consent copy is load-bearing. ' +
+      'In visible public copy use no hyphen/dash as a stylistic pause (repo copy rule).',
   },
   {
     agent_id: 'first_five',
@@ -62,16 +71,27 @@ const AGENTS = [
     ],
     // Named testers/customers that show up in First Five journey reports.
     entities: ['hema', 'nog een lens'],
-    test_commands: { lint: 'npm run lint', unit: 'npm test', build: 'npm run build', e2e: 'npm run test:e2e' },
-    build_commands: ['npm run build'],
-    deploy_strategy: 'auto-on-merge',
+    // Real capability manifest (verified: TypeScript + tsx, Node >=20; the "tests"
+    // are the engine regression + selftest + technical-signals live test).
+    test_commands: { lint: null, typecheck: 'npx tsc --noEmit', unit: 'npm run engine:regression', build: 'npm run selftest', e2e: 'npm run test:technical' },
+    build_commands: [],
+    // Real deployment (verified from render.yaml): Render Docker, frankfurt,
+    // autoDeploy on push, health /healthz.
+    deploy: {
+      provider: 'render', production_branch: 'main', auto_deploy: true,
+      preview: false, health_path: '/healthz', production_url: 'https://maculis-first-five.onrender.com',
+      verify: 'healthz+journey', rollback: 'render-rollback-previous-deploy',
+    },
     deploy_targets: ['NO_DEPLOY', 'STAGING', 'PRODUCTION'],
-    permission_profile: 'normal-engineering',
+    permission_profile: 'agent-worktree',
     system_instructions:
-      'You own the First Five Journey. The Journey is a state machine; every step ' +
-      '(First Impression → Reveal → Recognition → Technical Signals → "Nog een lens" ' +
-      '→ Aandacht → Deepen) must be reproduced with a REAL personal invitation token ' +
-      'before you claim a fix. Negative controls must stay closed.',
+      'You own the First Five Journey (TypeScript, tsx). The Journey is a state machine; ' +
+      'reproduce every bug with a REAL personal invitation token before claiming a fix. ' +
+      'Steps: First Impression → Reveal → Recognition ("Herken je dit" gate) → Technical ' +
+      'Signals (a SEPARATE lens) → "Nog een lens" → Aandacht → Deepen. Fail-closed: ' +
+      'negative controls stay closed. Reveal stays grounded/evidence-bound; no score ' +
+      'dashboard. Run the engine regression + technical test for critical journey changes. ' +
+      'In visible public copy use no hyphen/dash as a stylistic pause (repo copy rule).',
   },
   {
     agent_id: 'relationship',
@@ -92,16 +112,27 @@ const AGENTS = [
     ],
     // Customer/organisation names that appear in relationship tasks.
     entities: ['oca', 'ftrprf', 'ftrlabs'],
-    test_commands: { lint: null, unit: 'npm test', build: null, e2e: null },
+    // Real capability manifest (verified: Node ESM, node --test).
+    test_commands: { lint: null, typecheck: null, unit: 'npm test', build: null, e2e: null },
     build_commands: [],
-    deploy_strategy: 'render-auto',       // Render autoDeploy on push to connected branch
+    // Real deployment (verified from render.yaml): Render Docker, frankfurt,
+    // autoDeploy on push, health /healthz, persistent disk for the JSON store.
+    deploy: {
+      provider: 'render', production_branch: 'main', auto_deploy: true,
+      preview: false, health_path: '/healthz', production_url: 'https://ftrlabs-testerbeheer.onrender.com',
+      verify: 'healthz+workspace', rollback: 'render-rollback-previous-deploy',
+    },
     deploy_targets: ['NO_DEPLOY', 'STAGING', 'PRODUCTION'],
-    permission_profile: 'normal-engineering',
+    permission_profile: 'agent-worktree',
     system_instructions:
-      'You own the Relationship Workspace / Invitation Manager (this repo). It holds ' +
-      'PII: never put names, e-mail, mobile, tokens or secrets in logs, prompts, PRs or ' +
-      'summaries. Consent is fail-closed (OPTED_IN only). Communication is AI-first but ' +
-      'human-in-the-loop — never auto-send on a customer\'s behalf without an explicit gate.',
+      'You own the Relationship Workspace / Invitation Manager (this repo, Node ESM). ' +
+      'The client/organisation is the primary navigation object; communication lives inside ' +
+      'the relationship context with one history across channels and an AI-first composer ' +
+      'with human override. It holds PII: never put names, e-mail, mobile, tokens or secrets ' +
+      'in logs, prompts, PRs or summaries. Consent is fail-closed (OPTED_IN only). Channel ' +
+      'providers are abstracted; missing provider credentials become a central human action, ' +
+      'never a faked "live connected" result. Auditability matters. ' +
+      'In visible public copy use no hyphen/dash as a stylistic pause (repo copy rule).',
   },
 ];
 

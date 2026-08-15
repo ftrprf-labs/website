@@ -15,6 +15,8 @@ import { route } from './router.mjs';
 import * as engine from './engine.mjs';
 import { getTask, listTasks } from './tasks.mjs';
 import { tail } from './audit.mjs';
+import { openApiSpec } from './openapi.mjs';
+import { ready } from './store.mjs';
 
 const rate = new Map(); // key -> { count, resetAt }
 
@@ -56,8 +58,19 @@ export function createApiServer() {
     const path = url.pathname;
     const ip = req.socket.remoteAddress || 'unknown';
 
-    // Health is public.
-    if (path === '/healthz') return send(res, 200, { ok: true, service: 'maculis-orchestrator' });
+    // Health is public (brief §61) — minimal info, no internal paths/secrets.
+    if (path === '/healthz') {
+      let stateOk = true;
+      try { ready(); } catch { stateOk = false; }
+      return send(res, 200, {
+        ok: stateOk, service: 'maculis-orchestrator',
+        worker: engine.isWorkerRunning ? engine.isWorkerRunning() : undefined,
+        state_backend: stateOk, runner: config.runner.mode, registry_loaded: getAgents().length,
+      });
+    }
+    // The OpenAPI spec is public so a ChatGPT Action can import it; the operations
+    // it describes still require the bearer token.
+    if (path === '/openapi.json') return send(res, 200, openApiSpec());
 
     // Auth + rate limit on everything else.
     if (!authed(req)) return send(res, 401, { error: 'unauthorized' });
@@ -71,7 +84,7 @@ export function createApiServer() {
       // POST /route  (dry-run routing, no task created)
       if (req.method === 'POST' && path === '/route') {
         const body = await readJson(req);
-        if (!body.request || typeof body.request !== 'string') return send(res, 400, { error: 'request (string) required' });
+        if (!body.request || typeof body.request !== 'string' || body.request.length > 4000) return send(res, 400, { error: 'request (string, <=4000 chars) required' });
         return send(res, 200, route(body.request));
       }
       // POST /tasks
@@ -103,6 +116,19 @@ export function createApiServer() {
         if (!t) return send(res, 404, { error: 'not found' });
         if (m[2] === '/cancel' && req.method === 'POST') return send(res, 200, { task: publicTask(engine.cancel(id)) });
         if (req.method === 'GET') return send(res, 200, { task: publicTask(t), audit: tail(50, id) });
+      }
+      // GET /tasks/:id/log  (task audit trail for get_maculis_task_log)
+      const ml = /^\/tasks\/([A-Za-z0-9-]+)\/log$/.exec(path);
+      if (ml && req.method === 'GET') {
+        if (!getTask(ml[1])) return send(res, 404, { error: 'not found' });
+        return send(res, 200, { task_id: ml[1], log: tail(200, ml[1]) });
+      }
+      // POST /agents/:id/disable | /enable  (brief §71)
+      const md = /^\/agents\/([A-Za-z0-9_]+)\/(disable|enable)$/.exec(path);
+      if (md && req.method === 'POST') {
+        if (!getAgents().some((a) => a.agent_id === md[1])) return send(res, 404, { error: 'no such agent' });
+        if (md[2] === 'disable') { const body = await readJson(req).catch(() => ({})); return send(res, 200, { disabled: engine.disableAgent(md[1], body.reason || 'via API') }); }
+        return send(res, 200, { enabled: engine.enableAgent(md[1]) });
       }
       // GET /queue  /approvals  /human-actions
       if (req.method === 'GET' && path === '/queue') return send(res, 200, { queue: engine.queueSnapshot().map(publicTask) });

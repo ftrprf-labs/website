@@ -139,8 +139,28 @@ async function main() {
       console.log(done.length ? `Processed: ${done.join(', ')}` : 'Nothing runnable.');
       break;
     }
+    case 'worker': {
+      engine.startWorker();
+      console.log('Worker started (heartbeat + stuck-task recovery). Ctrl-C to stop.');
+      break;
+    }
+    case 'disable': {
+      const id = args[0];
+      if (!id) return fail('usage: maculis-dev disable <agent_id> [reason]');
+      engine.disableAgent(id, args.slice(1).join(' ') || 'via CLI');
+      console.log(`Agent ${id} disabled (no new write tasks will start).`);
+      break;
+    }
+    case 'enable': {
+      const id = args[0];
+      if (!id) return fail('usage: maculis-dev enable <agent_id>');
+      engine.enableAgent(id);
+      console.log(`Agent ${id} enabled.`);
+      break;
+    }
     case 'serve': {
       startApi();
+      engine.startWorker();   // API + async worker in one process (single authoritative worker)
       break;
     }
     default:

@@ -45,7 +45,28 @@ const HARD_DENY_RULES = [
   'Bash(vercel * --prod:*)', 'Bash(render deploy:*)',
 ];
 
+// Extra allows for typecheck (added in Phase 2 capability manifests).
+const TYPECHECK = ['Bash(npx tsc:*)', 'Bash(tsc:*)', 'Bash(npm run engine:regression:*)',
+  'Bash(npm run selftest:*)', 'Bash(npm run test:technical:*)', 'Bash(next lint:*)', 'Bash(next build:*)'];
+
+// Commit but NOT push: the agent commits inside its isolated worktree; the
+// orchestrator performs the divergence-safe push/deliver (brief §31). Push is in
+// the deny list here so the agent cannot bypass that.
+const COMMIT_NO_PUSH = ['Bash(git add:*)', 'Bash(git commit:*)', 'Bash(git checkout -b:*)', 'Bash(git switch -c:*)'];
+
 export const PROFILES = {
+  'agent-worktree': {
+    name: 'agent-worktree',
+    description: 'Real-runner default: read/edit/test/lint/typecheck/build + commit in an isolated worktree. Push/deploy handled by the orchestrator.',
+    settings: {
+      permissions: {
+        allow: [...READ_AND_BUILD, ...TYPECHECK, ...COMMIT_NO_PUSH],
+        ask: [],
+        deny: [...HARD_DENY_RULES, 'Bash(git push:*)'],
+      },
+    },
+    permissionMode: 'acceptEdits',
+  },
   'normal-engineering': {
     name: 'normal-engineering',
     description: 'Autonomous normal development: read, edit, test, lint, typecheck, build, safe git reads.',

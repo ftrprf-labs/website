@@ -17,6 +17,11 @@ import { config } from './config.mjs';
 function norm(s) {
   return String(s || '').toLowerCase();
 }
+// Hyphen/space-insensitive form so "herken-je-dit" matches the keyword
+// "herken je dit" and "micro-reveal" matches "micro reveal".
+function flat(s) {
+  return norm(s).replace(/[-\s]+/g, ' ');
+}
 
 // Count non-overlapping keyword hits, longer phrases weighted higher (a 2-word
 // phrase like "micro reveal" is a stronger signal than the bare word "reveal").
@@ -24,7 +29,7 @@ function scoreKeywords(text, keywords) {
   let score = 0;
   const hits = [];
   for (const kw of keywords) {
-    const k = norm(kw);
+    const k = flat(kw);
     if (!k) continue;
     if (text.includes(k)) {
       const weight = 1 + k.split(/\s+/).length * 0.5; // phrase bonus
@@ -39,7 +44,7 @@ function scoreEntities(text, entities) {
   let score = 0;
   const hits = [];
   for (const e of entities) {
-    const k = norm(e);
+    const k = flat(e);
     if (k && text.includes(k)) { score += 2.5; hits.push(e); } // named entity = strong
   }
   return { score, hits };
@@ -50,16 +55,24 @@ function scoreEntities(text, entities) {
 // so they are regexes rather than plain substring checks.
 const BUG_PATTERNS = [
   /\bbug\b/, /\bfout(en)?\b/, /werkt niet/, /\bfaalt\b/, /\bkapot\b/, /\bbroken\b/,
-  /toont (niet|geen)/, /verschijnt (niet|geen)/, /\bgeen\b.*\b(lens|zichtbaar|reveal)\b/,
-  /niet zichtbaar/, /nog steeds (niet|geen)/, /\blos (dit|het)\b.*\bop\b/, /\berror\b/,
+  /toont (niet|geen)/, /verschijnt (niet|geen)/,
+  // "geen … lens/reveal" only counts as a bug when they are close together (same
+  // clause) — otherwise "geen wijzigingen … lens" false-matches (a read-only ask).
+  /\bgeen\b[^.,;!?]{0,25}\b(lens|zichtbaar|reveal)\b/,
+  /niet zichtbaar/, /nog steeds (niet|geen)/, /\blos (dit|het)\b[^.]{0,40}\bop\b/, /\berror\b/,
   /\bcrash/, /regressie/, /\bdefect\b/, /not showing/, /does ?n[o']t/, /niet scherp/,
 ];
+// Explicit read-only markers force analysis regardless of other words (the ask
+// forbids changes, so it can never be a bug-fix or feature build).
+const READ_ONLY = /\b(read[- ]?only|alleen lezen|geen wijzigingen|niet wijzigen|zonder wijzigingen|diagnose|diagnostic)\b/;
 const FEATURE_WORDS = ['bouw', 'build', 'voeg toe', 'add', 'nieuwe', 'implementeer', 'implement',
   'maak', 'create', 'feature', 'ondersteun', 'support', 'integratie', 'koppel'];
 const ANALYSIS_WORDS = ['onderzoek', 'analyse', 'analyseer', 'investigate', 'research',
-  'controleer', 'audit', 'review'];
+  'controleer', 'audit', 'review', 'diagnose', 'diagnostisch', 'read-only', 'read only',
+  'alleen lezen', 'inspecteer', 'rapporteer', 'diagnostic'];
 
 function classifyTaskType(text) {
+  if (READ_ONLY.test(text)) return 'analysis';   // explicit "no changes" wins
   if (BUG_PATTERNS.some((re) => re.test(text))) return 'bug';
   if (FEATURE_WORDS.some((w) => text.includes(w))) return 'feature';
   if (ANALYSIS_WORDS.some((w) => text.includes(w))) return 'analysis';
@@ -78,9 +91,12 @@ function classifyRisk(text, taskType) {
 
 // --- Required checks per task type (per-repo test config refines this) ------
 function requiredChecks(agent, taskType) {
+  // Read-only analysis / diagnostics never run the build pipeline.
+  if (taskType === 'analysis') return [];
   const t = agent.test_commands || {};
   const checks = [];
   if (t.lint) checks.push('lint');
+  if (t.typecheck) checks.push('typecheck');
   if (t.unit) checks.push('unit');
   if (taskType === 'bug') {
     checks.push('regression');
@@ -93,7 +109,7 @@ function requiredChecks(agent, taskType) {
 
 // Score every agent, return them sorted best-first with the signal breakdown.
 export function scoreAgents(request) {
-  const text = norm(request);
+  const text = flat(request);
   return getAgents()
     .map((agent) => {
       const kw = scoreKeywords(text, agent.keywords || []);
@@ -113,7 +129,7 @@ export function scoreAgents(request) {
 export function route(request, { classifier = null } = {}) {
   const ranked = scoreAgents(request);
   const [top, second] = ranked;
-  const text = norm(request);
+  const text = flat(request);
   const taskType = classifyTaskType(text);
   const riskLevel = classifyRisk(text, taskType);
 
