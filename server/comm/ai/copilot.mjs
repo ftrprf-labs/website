@@ -11,6 +11,13 @@ import { query } from '../db.mjs';
 import { getProvider } from './provider.mjs';
 import { recordActivity } from '../activity.mjs';
 import { buildRelationshipContext, renderContextForModel } from './context.mjs';
+import { obs } from '../obs.mjs';
+
+// PII-safe AI-stage diagnostics via the shared obs() formatter: makes the AUTOMATIC proposal visible
+// in production logs (proposed / skipped / error) so the "AI probleem" class is distinguishable,
+// WITHOUT ever logging the summary, reply text or any message content. intent is a fixed vocabulary,
+// conversation is a UUID, mode is the provider name.
+function logAi(stage, extra = {}) { obs('comm/ai', stage, extra); }
 
 // Extensible intent vocabulary. Unknown labels from the model fall back to 'information'.
 export const INTENTS = ['question', 'interest', 'meeting', 'commercial_opportunity', 'objection', 'information', 'action_requested', 'no_action'];
@@ -56,8 +63,8 @@ function parseModel(text) {
 export async function runCopilot({ conversationId, messageId }) {
   try {
     const conv = (await query('select tenant_id, is_privacy from conversation where id=$1', [conversationId])).rows[0];
-    if (!conv) return { ok: false, reason: 'no_conversation' };
-    if (conv.is_privacy) return { ok: false, reason: 'privacy_excluded' };   // §33 — never auto-AI privacy
+    if (!conv) { logAi('skipped', { reason: 'no_conversation' }); return { ok: false, reason: 'no_conversation' }; }
+    if (conv.is_privacy) { logAi('skipped', { reason: 'privacy_excluded', conversation: conversationId }); return { ok: false, reason: 'privacy_excluded' }; }   // §33 — never auto-AI privacy
 
     const ctx = await buildRelationshipContext(conv.tenant_id, { conversationId });
     const current = (await query('select body_text from message where id=$1', [messageId])).rows[0];
@@ -85,6 +92,7 @@ export async function runCopilot({ conversationId, messageId }) {
       await recordActivity({ tenantId: conv.tenant_id, type: 'ai_draft_created', channel: 'EMAIL',
         conversationId, meta: { intent: parsed.intent, draftId: ins.rows[0].id } });
     }
+    logAi(error ? 'error' : 'proposed', { conversation: conversationId, mode: provider.name, ...(error ? { reason: error } : { intent: parsed.intent }) });
 
     // Proactively PROPOSE relationship-memory items (agreements/preferences/reminders) from this
     // message. Stored as source='ai', confidence='proposed' — never a hard fact until a human
@@ -106,6 +114,7 @@ export async function runCopilot({ conversationId, messageId }) {
     return { ok: !error, draftId: ins.rows[0].id, intent: parsed?.intent, error };
   } catch (e) {
     // Absolute guarantee: AI never breaks the pipeline.
+    logAi('error', { reason: 'copilot_failed' });
     return { ok: false, reason: 'copilot_failed', error: String(e.message || e) };
   }
 }
