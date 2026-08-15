@@ -45,14 +45,14 @@ re-run with a more specific canonical text (the Orchestrator can re-decompose it
 | --- | --- | --- | --- | --- | --- | --- |
 | MAC-101 | First Five — `maculis-first-five.` | analysis | — | WS-A (parallel) | DONE | `research/01-first-five-next-lenses.md` |
 | MAC-102 | Relationship — `website` | analysis | — | WS-B (parallel) | DONE | `research/02-relationship-intelligence-layer.md` |
-| MAC-103 | Relationship — `website` | analysis | MAC-102 | WS-B (seq) | RUNNING | `research/03-provider-api-research.md` |
+| MAC-103 | Relationship — `website` | analysis | MAC-102 | WS-B (seq) | DONE | `research/03-provider-api-research.md` |
 | MAC-104 | Website — `groeiplatform-website` | analysis | — | WS-C (parallel) | DONE | `research/04-website-presentation.md` |
 | MAC-105 | Relationship — `website` | analysis | MAC-103 | WS-B (seq) | DONE | `research/05-data-strategy-architecture.md` |
-| MAC-106 | (routing review) | analysis | — | WS-D (synthesis) | PENDING (awaits MAC-103) | `masterplan.md` |
+| MAC-106 | (routing review) | analysis | — | WS-D (synthesis) | DONE | `masterplan.md` |
 
-> Checkpoint: this commit stores the finished workstreams durably. MAC-103 (provider
-> deep research) is still running and MAC-106 (masterplan synthesis) follows it; both
-> land in the finalising commit. This is a durable checkpoint, not the final state.
+> Complete: all six sub-tasks executed to durable deliverables. The consolidated
+> masterplan is [`masterplan.md`](./masterplan.md). Remaining items are the genuine
+> HUMAN ACTIONS below; the task graph is otherwise fully worked.
 
 - **3 repositories:** `maculis-first-five.`, `website`, `groeiplatform-website`.
 - **Parallel workstreams:** WS-A (First Five), WS-B (Relationship chain
