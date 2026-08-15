@@ -161,6 +161,27 @@ async function main() {
     case 'serve': {
       startApi();
       engine.startWorker();   // API + async worker in one process (single authoritative worker)
+      // Optional one-shot boot self-test (diagnostic, brief §4/§6 online verification).
+      // When MACULIS_BOOT_SELFTEST is set, submit exactly one task on startup, run
+      // it, and log the outcome (runner mode, status, cost) so an operator can prove
+      // the live runner end-to-end from the host log stream. Never blocks serving;
+      // errors are caught. Unset the env var after verifying so it does not re-run.
+      if (process.env.MACULIS_BOOT_SELFTEST) {
+        const request = process.env.MACULIS_BOOT_SELFTEST.length > 3
+          ? process.env.MACULIS_BOOT_SELFTEST
+          : 'Read-only diagnose (geen wijzigingen) in Testerbeheer: welk bestand bevat de fail-closed consent gate mayContact en op welke consent status staat die? Alleen bestandsnaam en voorwaarde.';
+        setImmediate(async () => {
+          try {
+            console.log('[selftest] submitting boot self-test task…');
+            const { task } = engine.submit(request);
+            console.log(`[selftest] ${task.task_id} routed=${task.selected_agent} repo=${task.repository} type=${task.task_type}`);
+            await engine.drain();
+            const f = getTask(task.task_id);
+            console.log(`[selftest] RESULT ${f.task_id} status=${f.status} mode=${f.mode || 'n/a'} turns=${f.num_turns || 'n/a'} cost_usd=${f.cost_usd || 'n/a'} commit=${f.commit_sha || 'none'}`);
+            console.log(`[selftest] summary: ${(f.result_summary || '').slice(0, 240)}`);
+          } catch (e) { console.log('[selftest] error: ' + e.message); }
+        });
+      }
       break;
     }
     default:
