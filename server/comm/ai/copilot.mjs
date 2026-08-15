@@ -10,6 +10,7 @@
 import { query } from '../db.mjs';
 import { getProvider } from './provider.mjs';
 import { recordActivity } from '../activity.mjs';
+import { buildRelationshipContext, renderContextForModel } from './context.mjs';
 
 // Extensible intent vocabulary. Unknown labels from the model fall back to 'information'.
 export const INTENTS = ['question', 'interest', 'meeting', 'commercial_opportunity', 'objection', 'information', 'action_requested', 'no_action'];
@@ -22,30 +23,16 @@ const SYSTEM = [
   'geldige JSON: {"summary": string, "intent": string, "suggested_reply": string, "suggested_actions": array}.',
 ].join(' ');
 
-// Assemble a compact relationship context (§31 — never dump the whole history).
-async function buildContext(conversationId, messageId) {
-  const conv = (await query(
-    `select c.id, c.subject, c.is_privacy, ct.first_name, ct.last_name, ct.email, o.name as org
-       from conversation c
-       left join contact ct on ct.id = c.contact_id
-       left join organization o on o.id = c.organization_id
-      where c.id = $1`, [conversationId])).rows[0];
-  const recent = (await query(
-    `select direction, from_address, body_text, created_at from message
-      where conversation_id=$1 order by created_at desc limit 6`, [conversationId])).rows.reverse();
-  const current = (await query('select body_text from message where id=$1', [messageId])).rows[0];
-  return { conv, recent, currentText: current ? current.body_text : '' };
-}
-
-function buildPrompt(ctx) {
-  const who = [ctx.conv?.first_name, ctx.conv?.last_name].filter(Boolean).join(' ') || ctx.conv?.email || 'onbekend';
-  const org = ctx.conv?.org || 'onbekende organisatie';
-  const history = ctx.recent.map((m) => `${m.direction === 'INBOUND' ? 'ZIJ' : 'MACULIS'}: ${(m.body_text || '').slice(0, 500)}`).join('\n');
+// Build the prompt from the bounded Relationship Context Engine so the AUTOMATIC proposal is
+// genuinely relationship-aware: recent conversation, earlier communication, First Five status,
+// open follow-ups and CONFIRMED Relationship Memory — never a database dump, never privacy@ (§31,
+// PRIVACY EN AI). The channel is metadata; the same assembly serves e-mail/WhatsApp/SMS inbound.
+function buildPrompt(ctx, currentText) {
   return [
-    `CONTACT: ${who}`, `ORGANISATIE: ${org}`,
-    `RECENTE COMMUNICATIE:\n${history || '(geen eerdere berichten)'}`,
-    `LAATSTE BERICHT:\n${(ctx.currentText || '').slice(0, 2000)}`,
-    'Geef summary, intent (kies uit: ' + INTENTS.join(', ') + '), suggested_reply en suggested_actions.',
+    renderContextForModel(ctx),
+    `LAATSTE BERICHT:\n${(currentText || '').slice(0, 2000)}`,
+    'Geef summary (feitelijke kern van wat de afzender schrijft), intent (kies uit: ' + INTENTS.join(', ') + '), ' +
+    'suggested_reply (concept, mens controleert) en suggested_actions. Presenteer onzekerheid niet als feit.',
   ].join('\n\n');
 }
 
@@ -72,11 +59,13 @@ export async function runCopilot({ conversationId, messageId }) {
     if (!conv) return { ok: false, reason: 'no_conversation' };
     if (conv.is_privacy) return { ok: false, reason: 'privacy_excluded' };   // §33 — never auto-AI privacy
 
-    const ctx = await buildContext(conversationId, messageId);
+    const ctx = await buildRelationshipContext(conv.tenant_id, { conversationId });
+    const current = (await query('select body_text from message where id=$1', [messageId])).rows[0];
+    const currentText = current ? current.body_text : '';
     const provider = getProvider();
     let parsed = null; let error = null;
     try {
-      const raw = await provider.generate({ system: SYSTEM, prompt: buildPrompt(ctx) });
+      const raw = await provider.generate({ system: SYSTEM, prompt: buildPrompt(ctx, currentText) });
       parsed = parseModel(raw);
       if (!parsed) error = 'unparseable_model_output';
     } catch (e) {
