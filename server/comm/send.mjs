@@ -17,10 +17,11 @@ import { recordAudit } from './audit.mjs';
 import { recordActivity } from './activity.mjs';
 import { getDefaultTenantId } from './tenant.mjs';
 
-// PII-safe outbound diagnostics via the shared obs() formatter: channel + provider mode +
-// delivery/reason + attempt count only. Never a recipient, body or subject (§48).
+// PII-safe outbound diagnostics via the shared obs() formatter (redacts by construction): shows the
+// REAL provider mode + result so a silent mock or a provider rejection is never mistaken for a
+// delivered message. Never a recipient, body or subject (§48).
 import { obs } from './obs.mjs';
-function logOutbound(stage, extra = {}) { obs('comm/outbound', stage, extra); }
+function logSend(extra = {}) { obs('comm/send', extra.ok ? 'sent' : 'failed', extra); }
 
 function mailboxDomain() {
   const first = config.commMailboxes[0] || 'hello@maculis.nl';
@@ -114,6 +115,7 @@ export async function sendOnChannel({
   const safeHtml = html ? sanitizeHtml(html) : '';
 
   const sent = await prov.send({ tenantId: tid, from: fromAddress, to, subject: subj, text, html: safeHtml || null, threading });
+  logSend({ channel, mode: prov.mode, provider: prov.name, ok: !!sent.ok, delivery: sent.ok ? (sent.delivery || 'SENT') : 'FAILED', attempts: sent.attempts || 1, provider_msg: sent.providerMessageId || 'none', reason: sent.ok ? '-' : (sent.reason || 'send_failed') });
 
   // Persist the outbound message either way. A real failure is stored FAILED so it is ACTIONABLE (§41).
   const delivery = sent.ok ? (sent.delivery || 'SENT') : 'FAILED';
@@ -150,7 +152,6 @@ export async function sendOnChannel({
     contactId: effContact, organizationId: effOrg, conversationId: result.convId, actorUserId: userId,
     meta: { messageId: result.messageId, to, provider: prov.name, mode: prov.mode } });
 
-  logOutbound(sent.ok ? 'sent' : 'failed', { channel, mode: prov.mode, delivery, attempts: sent.attempts || 1, ...(sent.ok ? {} : { reason: sent.reason || 'send_failed' }) });
   if (!sent.ok) return { ok: false, reason: sent.reason || 'send_failed', messageId: result.messageId, delivery, consent };
   return { ok: true, messageId: result.messageId, conversationId: result.convId, delivery, providerMode: prov.mode, consent, rfcMessageId: threading.messageId };
 }

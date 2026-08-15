@@ -29,6 +29,36 @@ export function parseAddress(v) {
 import { obs } from './obs.mjs';
 function logInbound(stage, extra = {}) { obs('comm/inbound', stage, extra); }
 
+// Resend OUTBOUND delivery events → our msg_delivery vocabulary. This turns "we handed it to Resend"
+// (SENT/accepted) into provider-confirmed truth (DELIVERED / BOUNCED / FAILED), so the app never
+// claims delivery Resend did not confirm (the incident this addresses).
+const DELIVERY_STATES = {
+  'email.sent': 'SENT',
+  'email.delivered': 'DELIVERED',
+  'email.delivery_delayed': 'DELIVERING',
+  'email.bounced': 'BOUNCED',
+  'email.failed': 'FAILED',
+  'email.complained': 'FAILED',
+};
+const POS_RANK = { QUEUED: 0, DELIVERING: 1, SENT: 2, DELIVERED: 3, READ: 4 };
+
+// Update the OUTBOUND message this event refers to (by provider_message_id). Never regresses a
+// stronger positive state on an out-of-order event; a bounce/failure always surfaces. Returns
+// whether a matching outbound message was found.
+async function applyDeliveryStatus(providerMsgId, type, state) {
+  if (!providerMsgId) return false;
+  const msg = (await query("select id, tenant_id, delivery from message where provider_message_id=$1 and direction='OUTBOUND' limit 1", [providerMsgId])).rows[0];
+  if (!msg) return false;
+  const negative = state === 'BOUNCED' || state === 'FAILED';
+  if (negative || (POS_RANK[state] ?? 0) >= (POS_RANK[msg.delivery] ?? 0)) {
+    await query('update message set delivery=$2::msg_delivery where id=$1', [msg.id, state]);
+  }
+  await query(
+    "insert into delivery_event(tenant_id, message_id, channel, provider, provider_message_id, state, detail) values ($1,$2,'EMAIL','resend',$3,$4::msg_delivery,$5)",
+    [msg.tenant_id, msg.id, providerMsgId, state, type]);
+  return true;
+}
+
 // Which allowlisted mailbox (if any) is this addressed to, and is it the privacy mailbox?
 function routeRecipient(recipients) {
   const privacy = config.commMailboxes.find((a) => a.startsWith('privacy@'));
@@ -58,18 +88,45 @@ export async function processInbound({ headers, rawBody, fetchEmail = fetchInbou
 
   let event;
   try { event = JSON.parse(rawBody); } catch { return { ok: false, status: 400, reason: 'bad_json' }; }
-  if (event.type && event.type !== 'email.received') return { ok: true, status: 200, ignored: true, reason: 'event_type' };
+  const type = event.type || 'email.received';
   const data = event.data || event;
   const emailId = data.email_id || data.id;
   const eventId = headers['svix-id'] || emailId;
   if (!eventId) return { ok: false, status: 400, reason: 'no_event_id' };
 
-  // 2/3) idempotency — record the event; a duplicate is a no-op success.
-  const dup = await query(
+  // 2/3) idempotency — record the event. Only a SUCCESSFULLY processed event is a true duplicate;
+  // a prior attempt that failed (or never finished) MUST be retried, otherwise a transient error
+  // (e.g. a missing key) would permanently lose the mail once Resend redelivers the same event
+  // (§19/§42 retry-safe, no lost messages).
+  const ins = await query(
     `insert into webhook_event(provider, provider_event_id, svix_id) values ('resend',$1,$2)
      on conflict (provider, provider_event_id) do nothing returning id`,
     [eventId, headers['svix-id'] || null]);
-  if (dup.rows.length === 0) return { ok: true, status: 200, duplicate: true };
+  if (ins.rows.length === 0) {
+    const prior = (await query("select status from webhook_event where provider='resend' and provider_event_id=$1", [eventId])).rows[0];
+    if (prior && prior.status === 'processed') return { ok: true, status: 200, duplicate: true };
+    // A previously failed/unfinished event: reset and reprocess on this redelivery.
+    await query("update webhook_event set status='received', error=null where provider='resend' and provider_event_id=$1", [eventId]);
+  }
+
+  // 3b) OUTBOUND delivery events (Resend confirms what happened to a message we sent).
+  if (DELIVERY_STATES[type]) {
+    try {
+      const matched = await applyDeliveryStatus(emailId, type, DELIVERY_STATES[type]);
+      await query("update webhook_event set status='processed', processed_at=now() where provider_event_id=$1", [eventId]);
+      logInbound('delivery', { type, state: DELIVERY_STATES[type], matched });
+      return { ok: true, status: 200, deliveryUpdated: matched, state: DELIVERY_STATES[type] };
+    } catch (err) {
+      logInbound('error', { reason: 'delivery_update_failed', detail: String(err.message || err).slice(0, 80) });
+      await query("update webhook_event set status='failed', error=$2 where provider_event_id=$1", [eventId, String(err.message || err)]).catch(() => {});
+      return { ok: false, status: 500, reason: 'delivery_update_failed' };
+    }
+  }
+  // Any other non-received event type: acknowledged, nothing to store.
+  if (type !== 'email.received') {
+    await query("update webhook_event set status='processed', processed_at=now() where provider_event_id=$1", [eventId]);
+    return { ok: true, status: 200, ignored: true, reason: 'event_type' };
+  }
 
   try {
     // 4) recipient allowlist — unknown @maculis.nl addresses are NOT processed as communication.
@@ -92,6 +149,10 @@ export async function processInbound({ headers, rawBody, fetchEmail = fetchInbou
 
     // 6) persist Message + Conversation + match — all in one transaction (persistence first).
     const result = await withTransaction(async (client) => {
+      // Idempotency guard: if this exact inbound message was already stored on an earlier attempt
+      // (post-commit failure, then a Resend retry), do not insert it twice.
+      const already = await client.query("select id, conversation_id from message where provider_message_id=$1 and direction='INBOUND' limit 1", [emailId]);
+      if (already.rows[0]) return { conversationId: already.rows[0].conversation_id, messageId: already.rows[0].id, contactMatched: false, contactId: null, organizationId: null, reprocessed: true };
       // Match sender to a permanent Contact (never for privacy auto-org; here we only identify
       // the person from the From address — org linkage stays conservative).
       const contact = await resolveContactTx(client, tenantId, { email: fromAddr });

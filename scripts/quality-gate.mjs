@@ -33,6 +33,7 @@ const MANIFEST = [
   { chain: 'SMS webhook (signature/normalize, fail-closed)', critical: true, needsDb: false, files: ['tests/comm-sms-webhook.test.mjs'] },
   { chain: 'Comm foundation (db/identity/inbound/AI copilot)', critical: true, needsDb: true, files: ['tests/comm-db.test.mjs', 'tests/comm-identity.test.mjs', 'tests/comm-inbound.test.mjs', 'tests/comm-ai.test.mjs'] },
   { chain: 'Inbound e-mail E2E (visibility + AI approval)', critical: true, needsDb: true, files: ['tests/comm-inbound-visibility.test.mjs', 'tests/comm-inbound-ai-acceptance.test.mjs'] },
+  { chain: 'Outbound e-mail delivery truth (real send + Resend status)', critical: true, needsDb: true, files: ['tests/comm-outbound-delivery.test.mjs'] },
   { chain: 'Relationship Workspace + omnichannel + memory', critical: true, needsDb: true, files: ['tests/comm-workspace.test.mjs'] },
   { chain: 'WhatsApp round-trip E2E (inbound→AI→approval→delivery)', critical: true, needsDb: true, files: ['tests/comm-whatsapp-e2e.test.mjs'] },
   { chain: 'SMS round-trip E2E (inbound→AI→approval→delivery)', critical: true, needsDb: true, files: ['tests/comm-sms-e2e.test.mjs'] },

@@ -106,6 +106,18 @@ test('inbound e-mail is visible under the right customer in Communicatie + usabl
     // --- 11) wrong receiving address -> ignored (the #1 real-world "does not appear" cause) ----
     const wrong = await processInbound({ ...hook({ email_id: 'e7', from: 'kim@oca.nl', to: ['info@somewhere-else.nl'], subject: 'x' }, 'svx-7'), fetchEmail: body({ id: 'e7' }) });
     assert.equal(wrong.reason, 'recipient_not_allowlisted', '11: non-allowlisted receiving address is ignored (diagnosable)');
+
+    // --- 12) transient failure then Resend retry: the SAME event reprocesses, mail is NOT lost --
+    const failFetch = async () => { throw new Error('MAIL_API_KEY not set — cannot fetch inbound message.'); };
+    const a1 = await processInbound({ ...hook({ email_id: 'e8', from: 'kim@oca.nl', to: ['hello@maculis.nl'], subject: 'Retry' }, 'svx-8'), fetchEmail: failFetch });
+    assert.equal(a1.status, 500, '12: first attempt fails transiently');
+    assert.equal((await query("select count(*)::int n from message where provider_message_id='e8'")).rows[0].n, 0, '12: nothing stored on failure');
+    const a2 = await processInbound({ ...hook({ email_id: 'e8', from: 'kim@oca.nl', to: ['hello@maculis.nl'], subject: 'Retry' }, 'svx-8'), fetchEmail: body({ id: 'e8', mid: '<m8@oca.nl>', text: 'na een tijdelijke fout' }) });
+    assert.equal(a2.stored, true, '12: retry of a FAILED event reprocesses and stores (not deduped away)');
+    // a further retry after success is now a true duplicate.
+    const a3 = await processInbound({ ...hook({ email_id: 'e8', from: 'kim@oca.nl', to: ['hello@maculis.nl'], subject: 'Retry' }, 'svx-8'), fetchEmail: body({ id: 'e8', mid: '<m8@oca.nl>' }) });
+    assert.equal(a3.duplicate, true, '12: retry after success is a true duplicate');
+    assert.equal((await query("select count(*)::int n from message where provider_message_id='e8'")).rows[0].n, 1, '12: exactly one message stored');
   } finally {
     await closePool();
   }
