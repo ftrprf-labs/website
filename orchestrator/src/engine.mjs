@@ -116,6 +116,18 @@ export async function process(taskId) {
   if (!task || task.status !== 'QUEUED') return task;
   if (isAgentDisabled(task.selected_agent)) return setStatusSafe(taskId, 'BLOCKED', { result_summary: 'Agent disabled.' });
 
+  // Atomically CLAIM the task before any await, so two concurrent drains (e.g. the
+  // async worker and a direct drain() call) can never both process the same task.
+  // JS is single-threaded, so this check-and-set is atomic.
+  const claimed = tx((db) => {
+    const t = db.tasks[taskId];
+    if (!t || t.status !== 'QUEUED') return false;
+    t.status = 'RUNNING'; t.updated_at = new Date().toISOString();
+    t.history.push({ at: t.updated_at, status: 'RUNNING' });
+    return true;
+  });
+  if (!claimed) return getTask(taskId);
+
   const agent = getAgent(task.selected_agent);
   const lock = tryAcquire(taskId, reposFor(task));
   if (!lock.acquired) { audit('task_lock_wait', { task_id: taskId, blockers: lock.blockers }); return task; }
@@ -147,7 +159,7 @@ export async function process(taskId) {
       audit('workspace_provisioned', { task_id: taskId, repo: task.repository, branch: provisioned.branch, base_sha: baseSha });
     }
 
-    setStatus(taskId, 'RUNNING', { pre_change_sha: baseSha, mode: real ? 'real' : 'mock', last_heartbeat: new Date().toISOString() });
+    update(taskId, { pre_change_sha: baseSha, mode: real ? 'real' : 'mock', last_heartbeat: new Date().toISOString() });
     dispatchWebhook('task.running', getTask(taskId));
 
     const sess = decideSession(agent.agent_id, baseSha);

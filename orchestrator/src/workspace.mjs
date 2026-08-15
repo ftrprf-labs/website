@@ -133,6 +133,10 @@ export async function provisionWorktree(repo, taskId, branchName) {
   const branch = sanitizeBranch(branchName);
   const path = worktreePath(taskId);
   if (existsSync(path)) await removeWorktree(repo, taskId).catch(() => {});
+  // Idempotent on retry: prune stale worktree registrations and drop a leftover
+  // task branch from a previous attempt so `worktree add -b` cannot collide.
+  await git(baseDir, ['worktree', 'prune']).catch(() => {});
+  await git(baseDir, ['branch', '-D', branch]).catch(() => {});
   // Branch from the freshly-fetched default base (brief §7).
   await git(baseDir, ['worktree', 'add', '--quiet', '-b', branch, path, `origin/${defaultBranch}`]);
   return { path, branch, baseSha: head, defaultBranch };

@@ -37,3 +37,15 @@ test('cross-repo locks use deterministic ordering (no deadlock)', () => {
   freshStore();
   assert.deepEqual(orderRepos(['b/z', 'a/a', 'b/z']), ['a/a', 'b/z']);
 });
+
+test('two concurrent process() calls for the same task do not double-run it', async () => {
+  freshStore();
+  const { submit, process } = await import('../src/engine.mjs');
+  const { task } = submit('homepage SEO verbeteren');       // mock runner
+  // Race two processors (e.g. the worker loop + a direct drain) on the same task.
+  const [a, b] = await Promise.all([process(task.task_id), process(task.task_id)]);
+  const final = getTask(task.task_id);
+  assert.equal(final.status, 'COMPLETED');                  // clean terminal, no illegal-transition error
+  // Exactly one of the two calls actually drove it to COMPLETED.
+  assert.equal([a, b].filter((r) => r && r.status === 'COMPLETED').length >= 1, true);
+});

@@ -175,8 +175,13 @@ async function main() {
             console.log('[selftest] submitting boot self-test task…');
             const { task } = engine.submit(request);
             console.log(`[selftest] ${task.task_id} routed=${task.selected_agent} repo=${task.repository} type=${task.task_type}`);
-            await engine.drain();
-            const f = getTask(task.task_id);
+            // The async worker (startWorker) drains it — just poll to terminal.
+            const terminal = new Set(['COMPLETED', 'FAILED', 'CANCELLED', 'WAITING_FOR_HUMAN', 'BLOCKED']);
+            let f = getTask(task.task_id);
+            for (let i = 0; i < 240 && !terminal.has(f.status); i++) {
+              await new Promise((r) => setTimeout(r, 1000));
+              f = getTask(task.task_id);
+            }
             console.log(`[selftest] RESULT ${f.task_id} status=${f.status} mode=${f.mode || 'n/a'} turns=${f.num_turns || 'n/a'} cost_usd=${f.cost_usd || 'n/a'} commit=${f.commit_sha || 'none'}`);
             console.log(`[selftest] summary: ${(f.result_summary || '').slice(0, 240)}`);
           } catch (e) { console.log('[selftest] error: ' + e.message); }
