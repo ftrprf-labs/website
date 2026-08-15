@@ -13,6 +13,7 @@ import { sanitizeHtml } from './sanitize.mjs';
 import { sendThreadedEmail } from './resend.mjs';
 import { buildReferences } from './threading.mjs';
 import { recordAudit } from './audit.mjs';
+import { recordActivity } from './activity.mjs';
 
 function mailboxDomain() {
   const first = config.commMailboxes[0] || 'hello@maculis.nl';
@@ -60,23 +61,26 @@ export async function sendReply({ conversationId, userId, toAddress, text, html,
 
   if (!sent.ok) return { ok: false, reason: sent.reason || 'send_failed' };
 
+  const tenantId = (await query('select tenant_id from conversation where id=$1', [conversationId])).rows[0].tenant_id;
   const messageId = await withTransaction(async (client) => {
     const msg = await client.query(
-      `insert into message(conversation_id, direction, from_address, to_addresses, subject,
+      `insert into message(tenant_id, conversation_id, direction, from_address, to_addresses, subject,
           body_text, body_html_sanitized, transport_meta, provider, provider_message_id,
           rfc_message_id, delivery, sent_by, sent_at)
-       values ($1,'OUTBOUND',$2,$3::jsonb,$4,$5,$6,$7::jsonb,'resend',$8,$9,'SENT',$10, now())
+       values ($11,$1,'OUTBOUND',$2,$3::jsonb,$4,$5,$6,$7::jsonb,'resend',$8,$9,'SENT',$10, now())
        returning id`,
       [conversationId, fromAddress, JSON.stringify([to]), subject, text, safeHtml || null,
        JSON.stringify({ rfc_message_id: ourMessageId, in_reply_to: inReplyTo, references }),
-       sent.id || null, ourMessageId, userId || null]);
+       sent.id || null, ourMessageId, userId || null, tenantId]);
     await client.query(
       `update conversation set status='ANSWERED', last_message_at=now(), updated_at=now() where id=$1`,
       [conversationId]);
     return msg.rows[0].id;
   });
 
-  await recordAudit({ actorUserId: userId, action: 'message_sent', entityType: 'conversation',
+  await recordAudit({ tenantId, actorUserId: userId, action: 'message_sent', entityType: 'conversation',
     entityId: conversationId, mailboxKind: ctx.mailbox_kind, ipRef, meta: { messageId } });
+  await recordActivity({ tenantId, type: 'message_sent', channel: 'EMAIL', actorUserId: userId,
+    contactId: null, conversationId, meta: { messageId, to } });
   return { ok: true, messageId, rfcMessageId: ourMessageId };
 }

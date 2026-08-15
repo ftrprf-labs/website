@@ -5,13 +5,15 @@
 // mailbox access is ALWAYS audited (§14).
 
 import { query } from './db.mjs';
+import { getDefaultTenantId } from './tenant.mjs';
 
-export async function recordAudit({ actorUserId = null, action, entityType = null, entityId = null, mailboxKind = null, ipRef = null, meta = {} }) {
+export async function recordAudit({ tenantId = null, actorUserId = null, action, entityType = null, entityId = null, mailboxKind = null, ipRef = null, meta = {} }) {
   try {
+    const tid = tenantId || await getDefaultTenantId();
     await query(
-      `insert into audit_event(actor_user_id, action, entity_type, entity_id, mailbox_kind, ip_ref, meta)
-       values ($1,$2,$3,$4,$5,$6,$7::jsonb)`,
-      [actorUserId, action, entityType, entityId ? String(entityId) : null, mailboxKind, ipRef, JSON.stringify(meta || {})]);
+      `insert into audit_event(tenant_id, actor_user_id, action, entity_type, entity_id, mailbox_kind, ip_ref, meta)
+       values ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)`,
+      [tid, actorUserId, action, entityType, entityId ? String(entityId) : null, mailboxKind, ipRef, JSON.stringify(meta || {})]);
   } catch { /* auditing must never break the primary action */ }
 }
 

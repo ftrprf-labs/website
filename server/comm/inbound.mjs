@@ -14,6 +14,8 @@ import { resolveContactTx } from './repo.mjs';
 import { resolveConversationTx } from './threading.mjs';
 import { sanitizeHtml, htmlToText } from './sanitize.mjs';
 import { fetchInboundEmail } from './resend.mjs';
+import { tenantForMailbox } from './tenant.mjs';
+import { recordActivity } from './activity.mjs';
 
 export function parseAddress(v) {
   if (!v) return '';
@@ -32,12 +34,12 @@ function routeRecipient(recipients) {
   return null;
 }
 
-async function ensureMailboxId(address, kind) {
+async function ensureMailboxId(tenantId, address, kind) {
   const found = await query('select id from mailbox where address=$1', [address]);
   if (found.rows[0]) return found.rows[0].id;
   const ins = await query(
-    'insert into mailbox(address, kind) values ($1,$2) on conflict (address) do update set kind=excluded.kind returning id',
-    [address, kind]);
+    'insert into mailbox(tenant_id, address, kind) values ($1,$2,$3) on conflict (address) do update set kind=excluded.kind returning id',
+    [tenantId, address, kind]);
   return ins.rows[0].id;
 }
 
@@ -75,15 +77,16 @@ export async function processInbound({ headers, rawBody, fetchEmail = fetchInbou
     // 5) fetch the full message (headers/body/attachments)
     const full = await fetchEmail(emailId);
     const fromAddr = parseAddress(full.from || data.from);
-    const mailboxId = await ensureMailboxId(route.address, route.kind);
+    const tenantId = await tenantForMailbox(route.address);
+    const mailboxId = await ensureMailboxId(tenantId, route.address, route.kind);
     const isPrivacy = route.kind === 'PRIVACY';
 
     // 6) persist Message + Conversation + match — all in one transaction (persistence first).
     const result = await withTransaction(async (client) => {
       // Match sender to a permanent Contact (never for privacy auto-org; here we only identify
       // the person from the From address — org linkage stays conservative).
-      const contact = await resolveContactTx(client, { email: fromAddr });
-      const conv = await resolveConversationTx(client, {
+      const contact = await resolveContactTx(client, tenantId, { email: fromAddr });
+      const conv = await resolveConversationTx(client, tenantId, {
         rfcMessageId: full.headers.message_id,
         inReplyTo: full.headers.in_reply_to,
         references: full.headers.references,
@@ -102,15 +105,15 @@ export async function processInbound({ headers, rawBody, fetchEmail = fetchInbou
       const bodyHtml = full.html ? sanitizeHtml(full.html) : '';
       const bodyText = full.text || (full.html ? htmlToText(full.html) : '');
       const msg = await client.query(
-        `insert into message(conversation_id, direction, from_address, to_addresses, cc_addresses,
+        `insert into message(tenant_id, conversation_id, direction, from_address, to_addresses, cc_addresses,
             subject, body_text, body_html_sanitized, transport_meta, provider, provider_message_id,
             rfc_message_id, delivery, received_at)
-         values ($1,'INBOUND',$2,$3::jsonb,$4::jsonb,$5,$6,$7,$8::jsonb,'resend',$9,$10,'RECEIVED', now())
+         values ($11,$1,'INBOUND',$2,$3::jsonb,$4::jsonb,$5,$6,$7,$8::jsonb,'resend',$9,$10,'RECEIVED', now())
          returning id`,
         [conv.id, fromAddr, JSON.stringify(recipients.map(parseAddress)), JSON.stringify(full.cc || []),
          full.subject || null, bodyText || null, bodyHtml || null,
          JSON.stringify({ rfc_message_id: full.headers.message_id, in_reply_to: full.headers.in_reply_to, references: full.headers.references }),
-         emailId, full.headers.message_id || null]);
+         emailId, full.headers.message_id || null, tenantId]);
       const messageId = msg.rows[0].id;
       for (const a of full.attachments || []) {
         await client.query(
@@ -122,9 +125,15 @@ export async function processInbound({ headers, rawBody, fetchEmail = fetchInbou
         `update conversation set status = case when status='CLOSED' then 'OPEN'::conv_status else 'NEW'::conv_status end,
            subject = coalesce(subject,$2), last_message_at = now(), updated_at = now() where id = $1`,
         [conv.id, full.subject || null]);
-      return { conversationId: conv.id, messageId, contactMatched: !!contact };
+      return { conversationId: conv.id, messageId, contactMatched: !!contact, contactId: contact ? contact.id : null, organizationId: contact ? contact.organization_id : null };
     });
 
+    // Unified timeline: a received message is an Activity (persistence already done; best-effort).
+    await recordActivity({
+      tenantId, type: 'message_received', channel: 'EMAIL',
+      contactId: result.contactId, organizationId: result.organizationId, conversationId: result.conversationId,
+      meta: { mailbox: route.address, messageId: result.messageId },
+    });
     await query(`update webhook_event set status='processed', processed_at=now() where provider_event_id=$1`, [eventId]);
     return { ok: true, status: 200, stored: true, mailboxKind: route.kind, isPrivacy, ...result };
   } catch (err) {

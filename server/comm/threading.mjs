@@ -7,7 +7,7 @@
 // weak subject/sender fallback is deliberately NOT used to auto-merge — it would cross wires.
 
 // Resolve or create the conversation for an inbound message. Runs inside a caller transaction.
-export async function resolveConversationTx(client, {
+export async function resolveConversationTx(client, tenantId, {
   rfcMessageId, inReplyTo, references, mailboxId, isPrivacy, contactId, organizationId, subject,
 }) {
   const q = (t, p) => client.query(t, p);
@@ -25,10 +25,10 @@ export async function resolveConversationTx(client, {
   }
   // No header link → new conversation, anchored by the inbound Message-ID.
   const ins = await q(
-    `insert into conversation(organization_id, contact_id, mailbox_id, is_privacy, subject,
+    `insert into conversation(tenant_id, organization_id, contact_id, mailbox_id, is_privacy, subject,
         status, thread_key, match_confidence, last_message_at)
-     values ($1,$2,$3,$4,$5,'NEW',$6,$7, now()) returning id`,
-    [organizationId || null, contactId || null, mailboxId || null, !!isPrivacy, subject || null,
+     values ($1,$2,$3,$4,$5,$6,'NEW',$7,$8, now()) returning id`,
+    [tenantId, organizationId || null, contactId || null, mailboxId || null, !!isPrivacy, subject || null,
      rfcMessageId || null, contactId ? 'linked' : 'unlinked']);
   return { id: ins.rows[0].id, created: true };
 }
