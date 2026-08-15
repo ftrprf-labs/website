@@ -46,14 +46,15 @@
     "strategy": "Render keeps prior deploys; roll back by redeploying the previous successful image. Database migrations are additive/non-destructive, so a code rollback does not require a schema rollback.",
     "notes": "Never run a destructive migration or delete production data as part of a rollback."
   },
+  "commLayer": { "status": "PRODUCTION-LIVE", "verifiedAt": "2026-08-15", "note": "COMM_LAYER_ENABLED=1 + DATABASE_URL set and verified on ftrlabs-testerbeheer; Resend inbound MX + webhook + RESEND_WEBHOOK_SECRET + MAIL_API_KEY configured." },
   "channels": {
-    "EMAIL": { "status": "live-connectable", "provider": "resend", "inbound": "/api/comm/inbound/resend (Svix-signed)", "activation": "human-action" },
-    "WHATSAPP": { "status": "built-waiting-account", "provider": "meta-cloud-api", "inbound": "/api/comm/inbound/whatsapp (x-hub-signature-256)", "activation": "human-action" },
-    "SMS": { "status": "built-waiting-account", "provider": "twilio", "inbound": "/api/comm/inbound/sms (x-twilio-signature)", "activation": "human-action" },
-    "PHONE": { "status": "phase1-live-clicktocall", "provider": "click_to_call (tel: URI, iPhone/Apple Continuity over KPN)", "phase2": "twilio-voice (designed)", "activation": "phase1 none; phase2 human-action" }
+    "EMAIL": { "status": "PRODUCTION-VERIFIED", "provider": "resend", "inbound": "/api/comm/inbound/resend (Svix-signed)", "evidence": "prod Render logs 2026-08-15: inbound stored + contact_matched=true, human-approved outbound send -> 200; retry-safe reprocessing recovered a transient MAIL_API_KEY failure." },
+    "WHATSAPP": { "status": "TESTED-IN-SANDBOX", "provider": "meta-cloud-api", "inbound": "/api/comm/inbound/whatsapp (x-hub-signature-256)", "activation": "human-action (Meta account); status stays sandbox until real external E2E" },
+    "SMS": { "status": "TESTED-IN-SANDBOX", "provider": "twilio", "inbound": "/api/comm/inbound/sms (x-twilio-signature)", "activation": "human-action (Twilio account); status stays sandbox until real external E2E" },
+    "PHONE": { "status": "PHASE1-LIVE-CLICKTOCALL", "provider": "click_to_call (tel: URI, iPhone/Apple Continuity over KPN)", "phase2": "twilio-voice (designed only)", "activation": "phase1 none; phase2 human-action + product decision" }
   },
   "envCapabilities": {
-    "comm_layer": ["COMM_LAYER_ENABLED", "DATABASE_URL"],
+    "comm_layer": ["COMM_LAYER_ENABLED (set in prod)", "DATABASE_URL (set in prod)"],
     "email_inbound": ["RESEND_WEBHOOK_SECRET", "COMM_MAILBOXES", "MAIL_API_KEY"],
     "whatsapp": ["WHATSAPP_PROVIDER", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_ACCESS_TOKEN", "WHATSAPP_APP_SECRET", "WHATSAPP_WEBHOOK_VERIFY_TOKEN"],
     "sms": ["SMS_PROVIDER", "SMS_ACCOUNT_SID", "SMS_API_KEY", "SMS_ORIGINATOR", "SMS_WEBHOOK_SECRET"],

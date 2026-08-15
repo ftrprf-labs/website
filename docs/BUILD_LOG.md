@@ -5,6 +5,53 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-15 — Communication Layer LIVE in productie + e-mailketen PRODUCTION VERIFIED
+
+**Status: Communication Layer PRODUCTION-LIVE; e-mail PRODUCTION VERIFIED.** `COMM_LAYER_ENABLED=1`
+en `DATABASE_URL` staan en zijn geverifieerd op `ftrlabs-testerbeheer`; Resend inbound MX + webhook +
+`RESEND_WEBHOOK_SECRET` + `MAIL_API_KEY` zijn ingesteld. De eerdere HUMAN ACTION "laag activeren" is
+AFGEROND.
+
+**Productiebewijs (Render-logs, 2026-08-15).** Geverifieerd via de PII-veilige `[comm/inbound]`- en
+`[comm/send]`-diagnostiek die we eerder bouwden:
+- 13:50 tot 13:52: `[comm/inbound] error reason=processing_error detail=MAIL_API_KEY not set` →
+  webhook 500. Root cause: `MAIL_API_KEY` nog niet gezet, dus de inbound body-fetch faalde.
+- na het zetten van de key + redeploy (14:00): 14:02:02 `[comm/inbound] stored kind=COMMUNICATION
+  conversation=642a2e44… contact_matched=true` → webhook 200. Echte inbound e-mail opgehaald,
+  gepersisteerd, aan de juiste Contact gekoppeld; de retry-safe reprocessing herstelde de eerder
+  gefaalde levering.
+- 14:02 tot 14:18: de conversation is in de UI verwerkt: automatisch AI-voorstel, menselijke edit
+  (`PATCH /drafts`), goedkeuren + echte outbound reply (`POST /api/comm/drafts/…/send → 200`).
+- Geen fouten meer na 14:00. De keten inbound → webhook → signature → body fetch → persistence →
+  Contact/Org → Communicatie → AI-voorstel → human approval → outbound is in productie bewezen.
+
+**Merge: productie-e-mailhardening geïntegreerd in de nachtrun-branch.** De deploy-branch
+(`claude/invitation-manager-mvp-d5r5h8`) bevatte productiefixes die mijn omnichannel-branch nog niet
+had. Geïntegreerd (nooit parallel werk overschreven; deploy-branch onaangeraakt):
+- inbound **retry-safe reprocessing**: alleen een `status='processed'`-event is een echte duplicaat;
+  een gefaald/onafgemaakt event wordt gereset en heropgepakt bij Resend-herlevering, zodat een
+  transiente fout nooit definitief e-mail verliest. Plus een message-level dedup-guard.
+- **Resend outbound delivery events** (`email.sent/delivered/bounced/failed/complained`) →
+  `message.delivery` (forward-only) + `delivery_event`: de app claimt nooit een levering die Resend
+  niet bevestigde.
+- `email.mjs`: in productie **nooit fake-send**; zonder echt transport faalt de send luid (`ok:false`)
+  in plaats van een valse SENT.
+- Conflictresolutie (inbound.mjs, send.mjs): beide kanten behouden. Mijn `obs.mjs` PII-veilige logging
+  én de retry-safe/delivery-logica. De twee outbound-loglijnen samengevoegd tot één obs-geroute
+  `[comm/send]`-lijn (redigeert by construction) met provider-mode, resultaat en attempts.
+
+**Tests.** Volledige suite **102/102** tegen echte Postgres (serieel), 87 pass + 12 skip offline,
+0 fail. Quality Gate **GREEN** (14/14 kritieke ketens, `--require-db`), incl. de nieuwe keten
+"Outbound e-mail delivery truth".
+
+**Nog te bewijzen met echte productie-testdata (niet-blokkerend):** de volledige reply-loop
+(klantantwoord → threading naar dezelfde conversation → nieuw automatisch AI-voorstel) in productie.
+De inbound-threading en het automatische AI-voorstel zijn in sandbox bewezen; productiebevestiging
+volgt zodra een klantantwoord binnenkomt of ik een gecontroleerde testmail mag insturen zonder de
+live UI-test te verstoren.
+
+---
+
 ## 2026-08-15 — Maculis Quality Gate (overkoepelende regressiegate + deploy-policy)
 
 Autonome nachtmodus, prioriteit 4. Eén gate over de kritieke productketens in deze repo
