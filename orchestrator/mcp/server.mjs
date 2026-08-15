@@ -38,12 +38,16 @@ const TOOLS = [
         request: { type: 'string', description: 'The full assignment in natural language (numbered/bulleted steps welcome).' },
         priority: { type: 'string', enum: ['LOW', 'NORMAL', 'HIGH', 'URGENT'] },
         deploy_required: { type: 'boolean' },
+        origin: { type: 'object', description: 'Where this came from (type/id/project/correlation_id/return_destination) so its result returns to the right specialist context.' },
       },
       required: ['request'],
     },
   },
   { name: 'plan_maculis_assignment', description: 'Dry-run: show how a large assignment would be split and routed into sub-tasks, without creating anything.', inputSchema: { type: 'object', properties: { request: { type: 'string' } }, required: ['request'] } },
   { name: 'get_maculis_epic', description: 'Get one decomposed epic with its sub-tasks and rollup status.', inputSchema: { type: 'object', properties: { epic_id: { type: 'string' } }, required: ['epic_id'] } },
+  { name: 'get_maculis_epic_completion', description: 'Retrieve the structured completion record for an epic (status, commits, result refs, human actions, delivery state).', inputSchema: { type: 'object', properties: { epic_id: { type: 'string' } }, required: ['epic_id'] } },
+  { name: 'acknowledge_maculis_epic', description: 'Acknowledge receipt of a completed epic from its origin context; only then is delivery marked delivered. Fails if not yet terminal.', inputSchema: { type: 'object', properties: { epic_id: { type: 'string' }, correlation_id: { type: 'string' } }, required: ['epic_id'] } },
+  { name: 'get_maculis_cockpit', description: 'Compact cockpit view: one line per epic (origin, phase, tasks, commits, delivery state).', inputSchema: { type: 'object', properties: {} } },
   { name: 'get_maculis_governance', description: 'Read the durable Lead Engineering / Autonomous Night Run governance framework applied to every task.', inputSchema: { type: 'object', properties: {} } },
   { name: 'get_maculis_task', description: 'Get one task by id.', inputSchema: { type: 'object', properties: { task_id: { type: 'string' } }, required: ['task_id'] } },
   { name: 'list_maculis_tasks', description: 'List tasks, optionally filtered by status or agent.', inputSchema: { type: 'object', properties: { status: { type: 'string' }, agent: { type: 'string' } } } },
@@ -63,14 +67,19 @@ async function callTool(name, a = {}) {
       return ok({ task_id: out.task.task_id, routed_to: out.task.selected_agent, repository: out.task.repository, status: out.task.status, reason: out.task.routing_reason, deduped: out.deduped || null });
     }
     case 'submit_maculis_epic': {
-      const out = engine.submitEpic(a.request, { priority: a.priority, deployRequired: Boolean(a.deploy_required) });
+      // MCP callers are identified as the 'mcp' client unless they declare a project.
+      const out = engine.submitEpic(a.request, { priority: a.priority, deployRequired: Boolean(a.deploy_required),
+        origin: { type: 'mcp', ...(a.origin || {}) }, submittedBy: (a.origin && a.origin.project) ? `mcp:${a.origin.project}` : 'mcp' });
       setImmediate(() => engine.drain().catch(() => {}));
       return ok({
-        epic_id: out.epic?.epic_id || null, is_epic: out.is_epic,
+        epic_id: out.epic?.epic_id || null, is_epic: out.is_epic, origin: out.origin || null,
         subtasks: (out.tasks || []).map((t) => ({ task_id: t.task_id, routed_to: t.selected_agent, repository: t.repository, depends_on: t.dependencies })),
         repositories: out.plan?.repositories || [], needs_routing_review: out.plan?.needs_routing_review || false,
       });
     }
+    case 'get_maculis_epic_completion': { const c = engine.getEpicCompletion(a.epic_id); return ok(c || { error: 'not found' }); }
+    case 'acknowledge_maculis_epic': return ok(engine.acknowledgeEpic(a.epic_id, { correlationId: a.correlation_id || null, by: 'mcp' }));
+    case 'get_maculis_cockpit': return ok(engine.cockpitView());
     case 'plan_maculis_assignment': {
       const { decompose } = await import('../src/decompose.mjs');
       const plan = decompose(a.request);

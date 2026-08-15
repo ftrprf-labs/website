@@ -36,6 +36,11 @@ export const config = {
     // loopback-only and refuses to start on a non-loopback host (fail-closed,
     // same discipline as the product server).
     token: env('MACULIS_API_TOKEN', ''),
+    // Optional named-client registry for caller identity/scoping. JSON array of
+    // { id, token, scopes? }. When set, each bearer token resolves to a client id
+    // (submitted_by) so callers are distinguishable and origin cannot be forged.
+    // The single MACULIS_API_TOKEN above still works (resolves to client 'default').
+    clientsRaw: env('MACULIS_API_CLIENTS', ''),
     // Simple fixed-window rate limit per token/ip.
     rateLimit: { windowMs: 60_000, max: Number(env('MACULIS_API_RATE', '120')) },
     // Optional webhook the orchestrator POSTs task lifecycle events to.

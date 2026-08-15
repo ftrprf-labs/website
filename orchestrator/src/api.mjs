@@ -8,8 +8,8 @@
 // same discipline as the product server).
 
 import { createServer } from 'node:http';
-import { timingSafeEqual } from 'node:crypto';
 import { config, isLoopback } from './config.mjs';
+import { resolveCaller, authRequired } from './identity.mjs';
 import { getAgents } from './registry.mjs';
 import { route } from './router.mjs';
 import * as engine from './engine.mjs';
@@ -30,13 +30,12 @@ function rateLimited(key) {
   return w.count > config.api.rateLimit.max;
 }
 
-function authed(req) {
-  if (!config.api.token) return true; // loopback-only mode (guarded at startup)
+// Resolve the caller identity from the bearer token. Returns { id, scopes } or null.
+// In loopback-only mode (no clients configured) the caller is 'loopback'.
+function caller(req) {
   const h = req.headers['authorization'] || '';
   const m = /^Bearer\s+(.+)$/i.exec(h);
-  if (!m) return false;
-  const a = Buffer.from(m[1]); const b = Buffer.from(config.api.token);
-  return a.length === b.length && timingSafeEqual(a, b);
+  return resolveCaller(m ? m[1] : '');
 }
 
 function send(res, code, obj) {
@@ -74,9 +73,12 @@ export function createApiServer() {
     // it describes still require the bearer token.
     if (path === '/openapi.json') return send(res, 200, openApiSpec());
 
-    // Auth + rate limit on everything else.
-    if (!authed(req)) return send(res, 401, { error: 'unauthorized' });
-    if (rateLimited(config.api.token ? 'token' : ip)) return send(res, 429, { error: 'rate limited' });
+    // Auth + rate limit on everything else. The resolved caller id becomes the
+    // authenticated submitted_by (anti-forgery: the body cannot set it).
+    const who = caller(req);
+    if (authRequired() && !who) return send(res, 401, { error: 'unauthorized' });
+    if (rateLimited(who?.id || ip)) return send(res, 429, { error: 'rate limited' });
+    const submittedBy = who?.id || 'loopback';
 
     try {
       // GET /agents
@@ -103,20 +105,39 @@ export function createApiServer() {
         const body = await readJson(req);
         if (!body.request || typeof body.request !== 'string' || body.request.length > 8000) return send(res, 400, { error: 'request (string, <=8000 chars) required' });
         const idempotencyKey = req.headers['idempotency-key'] || body.idempotency_key || null;
-        const out = engine.submitEpic(body.request, { priority: body.priority, deployRequired: Boolean(body.deploy_required), idempotencyKey });
+        // Origin is caller-declared context; submitted_by is server-authenticated.
+        const out = engine.submitEpic(body.request, {
+          priority: body.priority, deployRequired: Boolean(body.deploy_required), idempotencyKey,
+          origin: body.origin || null, submittedBy,
+        });
         setImmediate(() => engine.drain().catch(() => {}));
         return send(res, 202, {
-          epic: out.epic, is_epic: out.is_epic, deduped: out.deduped || null,
+          epic: publicEpic(out.epic), is_epic: out.is_epic, deduped: out.deduped || null, origin: out.origin || null,
           tasks: (out.tasks || []).map(publicTask),
           plan: out.plan ? { count: out.plan.count, repositories: out.plan.repositories, needs_routing_review: out.plan.needs_routing_review } : null,
         });
       }
+      // GET /cockpit  (compact calm-cockpit view — one line per epic, no content)
+      if (req.method === 'GET' && path === '/cockpit') return send(res, 200, { cockpit: engine.cockpitView() });
       // GET /epics  and  GET /epics/:id
       if (req.method === 'GET' && path === '/epics') return send(res, 200, { epics: engine.listEpics().map(publicEpic) });
       const me = /^\/epics\/([A-Za-z0-9-]+)$/.exec(path);
       if (me && req.method === 'GET') {
         const e = engine.getEpic(me[1]);
         return e ? send(res, 200, { epic: publicEpic(e) }) : send(res, 404, { error: 'not found' });
+      }
+      // GET /epics/:id/completion  (structured completion record — origin retrieval)
+      const mc = /^\/epics\/([A-Za-z0-9-]+)\/completion$/.exec(path);
+      if (mc && req.method === 'GET') {
+        const c = engine.getEpicCompletion(mc[1]);
+        return c ? send(res, 200, { completion: c }) : send(res, 404, { error: 'not found' });
+      }
+      // POST /epics/:id/ack  { correlation_id }  (origin acknowledges receipt → delivered)
+      const mk = /^\/epics\/([A-Za-z0-9-]+)\/ack$/.exec(path);
+      if (mk && req.method === 'POST') {
+        const body = await readJson(req).catch(() => ({}));
+        const r = engine.acknowledgeEpic(mk[1], { correlationId: body.correlation_id || null, by: submittedBy });
+        return send(res, r.ok ? 200 : (r.reason === 'not_found' ? 404 : 409), r);
       }
       // POST /tasks
       if (req.method === 'POST' && path === '/tasks') {

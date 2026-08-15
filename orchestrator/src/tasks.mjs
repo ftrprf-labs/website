@@ -27,7 +27,7 @@ function nextTaskId(db) {
 
 // Create a fully-formed task from a routing decision.
 export function createTask({ request, routing, priority = 'NORMAL', acceptance = [],
-  deployRequired = false, idempotencyKey = null, epicId = null, dependsOn = [] }) {
+  deployRequired = false, idempotencyKey = null, epicId = null, dependsOn = [], origin = null }) {
   return tx((db) => {
     const id = nextTaskId(db);
     const now = new Date().toISOString();
@@ -63,6 +63,11 @@ export function createTask({ request, routing, priority = 'NORMAL', acceptance =
       epic_id: epicId || null,
       dependencies: Array.isArray(dependsOn) ? [...dependsOn] : [],
       blocked_by: Array.isArray(dependsOn) ? [...dependsOn] : [],
+      // Origin provenance (Origin & Return architecture). Inherited from the epic
+      // for sub-tasks; null for legacy records (never invented). correlation_id is
+      // denormalised for fast cross-record tracing/filtering.
+      origin: origin || null,
+      correlation_id: origin?.correlation_id || null,
       // Results.
       human_action_required: false,
       result_summary: null,

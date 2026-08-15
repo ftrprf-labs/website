@@ -39,4 +39,10 @@ GitHub as the code-history source of truth. It is NOT one of the three products.
 - `src/decompose.mjs` — split a large assignment into ordered, routed sub-tasks;
   `engine.submitEpic()` runs them as a dependency-gated epic. See
   `docs/LEAD_ENGINEERING.md`.
+- `src/origin.mjs` + `src/identity.mjs` — origin envelope (provenance, inheritance,
+  return destination) and caller identity (named-client registry). Epics carry
+  origin; the store is authoritative for completion/delivery. See
+  `docs/ORIGIN_AND_RETURN.md`. Specialist workstreams submit with an `origin`, then
+  retrieve + acknowledge (`getEpicCompletion`/`acknowledgeEpic`); `cockpitView()` is
+  the calm one-line-per-epic surface.
 - `bin/maculis-dev.mjs` — the CLI.

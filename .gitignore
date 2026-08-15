@@ -7,3 +7,4 @@ data/*.json
 # Local environment / secrets
 .env
 .env.local
+.maculis-workspaces/

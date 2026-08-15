@@ -12,6 +12,7 @@
 import { config } from './config.mjs';
 import { route } from './router.mjs';
 import { decompose } from './decompose.mjs';
+import { makeOrigin, inheritOrigin, readOrigin } from './origin.mjs';
 import { getAgent } from './registry.mjs';
 import { createTask, getTask, setStatus, update, listTasks, normalize, isTerminal } from './tasks.mjs';
 import { deriveAcceptance, verifyAcceptance } from './acceptance.mjs';
@@ -24,7 +25,7 @@ import { parseResult } from './resultParser.mjs';
 import { classifyAction } from './permissions.mjs';
 import { audit } from './audit.mjs';
 import { tx, ready } from './store.mjs';
-import { dispatchWebhook } from './webhook.mjs';
+import { dispatchWebhook, dispatchCompletionWebhook } from './webhook.mjs';
 import * as ws from './workspace.mjs';
 import { planDeployment, liveVerify, rollbackRef } from './deploy.mjs';
 
@@ -38,7 +39,7 @@ export function isAgentDisabled(agentId) { return Boolean(ready().disabledAgents
 // ---- Submit ---------------------------------------------------------------
 export function submit(request, { priority = 'NORMAL', preferredAgent = null,
   deployRequired = false, idempotencyKey = null, acceptance = null,
-  epicId = null, dependsOn = [] } = {}) {
+  epicId = null, dependsOn = [], origin = null } = {}) {
   if (idempotencyKey) {
     const existingId = ready().idempotency[idempotencyKey];
     if (existingId && getTask(existingId)) return { task: getTask(existingId), deduped: 'idempotency' };
@@ -60,7 +61,7 @@ export function submit(request, { priority = 'NORMAL', preferredAgent = null,
   }
 
   const task = createTask({
-    request, routing, priority, deployRequired, idempotencyKey, epicId, dependsOn,
+    request, routing, priority, deployRequired, idempotencyKey, epicId, dependsOn, origin,
     acceptance: acceptance || deriveAcceptance(request, routing),
   });
   audit('task_submitted', { task_id: task.task_id, agent: task.selected_agent, repository: task.repository, confidence: task.routing_confidence });
@@ -87,17 +88,20 @@ export function submit(request, { priority = 'NORMAL', preferredAgent = null,
 // ordering word) are chained; independent repos run in parallel. Returns the epic
 // record + the created tasks. This is the ChatGPT → Orchestrator handoff for the
 // Autonomous Night Run working method.
-export function submitEpic(request, { priority = 'NORMAL', deployRequired = false, idempotencyKey = null } = {}) {
+export function submitEpic(request, { priority = 'NORMAL', deployRequired = false, idempotencyKey = null,
+  origin = null, submittedBy = 'unknown' } = {}) {
   if (idempotencyKey) {
     const existing = ready().idempotency[idempotencyKey];
     if (existing && ready().epics[existing]) return { epic: ready().epics[existing], deduped: 'idempotency', tasks: epicTasks(existing) };
   }
+  // Canonical, anti-forgery origin envelope (submitted_by is server-authenticated).
+  const originEnvelope = makeOrigin(origin || {}, { submittedBy });
   const plan = decompose(request);
 
-  // A single, indivisible instruction is just a task — do not manufacture an epic.
+  // A single, indivisible instruction is just a task — but it still carries origin.
   if (!plan.is_epic) {
-    const out = submit(request, { priority, deployRequired });
-    return { epic: null, is_epic: false, plan, tasks: [out.task] };
+    const out = submit(request, { priority, deployRequired, origin: originEnvelope });
+    return { epic: null, is_epic: false, plan, tasks: [out.task], origin: originEnvelope };
   }
 
   const epicId = tx((db) => { db.epicCounter += 1; return `EPIC-${db.epicCounter}`; });
@@ -106,7 +110,8 @@ export function submitEpic(request, { priority = 'NORMAL', deployRequired = fals
   for (const step of plan.steps) {
     const dependsOn = (step.depends_on_index || []).map((i) => idByIndex[i]).filter(Boolean);
     const preferred = step.selected_agent && step.selected_agent !== 'NEEDS_ROUTING_REVIEW' ? step.selected_agent : null;
-    const out = submit(step.text, { priority, deployRequired, epicId, dependsOn, preferredAgent: preferred });
+    // Sub-tasks inherit the epic origin (same correlation_id, marked inherited).
+    const out = submit(step.text, { priority, deployRequired, epicId, dependsOn, preferredAgent: preferred, origin: inheritOrigin(originEnvelope) });
     idByIndex[step.index] = out.task.task_id;
     taskIds.push(out.task.task_id);
   }
@@ -114,18 +119,22 @@ export function submitEpic(request, { priority = 'NORMAL', deployRequired = fals
   const epic = tx((db) => {
     db.epics[epicId] = {
       epic_id: epicId,
-      request,
+      request,                                   // immutable provenance
+      origin: originEnvelope,                    // first-class origin envelope
       created_at: new Date().toISOString(),
       task_ids: taskIds,
       repositories: plan.repositories,
       truncated: plan.truncated,
       needs_routing_review: plan.needs_routing_review,
+      completion_delivery_state: 'not_ready',    // becomes pending at terminal, delivered on ack
+      delivery: { attempts: [], acknowledged_at: null },
     };
     if (idempotencyKey) db.idempotency[idempotencyKey] = epicId;
     return db.epics[epicId];
   });
-  audit('epic_submitted', { epic_id: epicId, subtasks: taskIds.length, repositories: plan.repositories });
-  return { epic, is_epic: true, plan, tasks: taskIds.map((id) => getTask(id)) };
+  audit('epic_submitted', { epic_id: epicId, subtasks: taskIds.length, repositories: plan.repositories,
+    origin_type: originEnvelope.type, origin_project: originEnvelope.project, submitted_by: originEnvelope.submitted_by, correlation_id: originEnvelope.correlation_id });
+  return { epic, is_epic: true, plan, tasks: taskIds.map((id) => getTask(id)), origin: originEnvelope };
 }
 
 function epicTasks(epicId) {
@@ -147,11 +156,133 @@ export function getEpic(epicId) {
   const anyHuman = tasks.some((t) => t.status === 'WAITING_FOR_HUMAN' || t.human_action_required);
   const anyFailed = tasks.some((t) => t.status === 'FAILED' || t.status === 'BLOCKED');
   const rollup = anyHuman ? 'WAITING_FOR_HUMAN' : allSettled ? (anyFailed ? 'FAILED' : 'COMPLETED') : 'IN_PROGRESS';
-  return { ...e, rollup, by_status: byStatus, tasks };
+  return { ...e, origin: readOrigin(e), rollup, by_status: byStatus, tasks };
 }
 
 export function listEpics() {
   return Object.keys(ready().epics).map((id) => getEpic(id)).filter(Boolean);
+}
+
+// ---- Structured completion record (authoritative, derived from the store) -----
+// The completion record is COMPUTED from persisted task state — it can never claim
+// more than the store actually holds (guards against false COMPLETED). It stores
+// references (commits / result artefacts), not duplicated content.
+export function getEpicCompletion(epicId) {
+  const e = getEpic(epicId);
+  if (!e) return null;
+  const tasks = e.tasks;
+  const terminalStates = tasks.map((t) => t.status);
+  const started = tasks.map((t) => t.created_at).filter(Boolean).sort()[0] || e.created_at;
+  const completedStamps = tasks.map((t) => t.updated_at).filter(Boolean).sort();
+  const commits = tasks.map((t) => t.commit_sha).filter(Boolean);
+  const humanActions = listHumanActions().filter((h) => e.task_ids.includes(h.task_id));
+  const cost = tasks.reduce((s, t) => s + (Number(t.cost_usd) || 0), 0);
+  const turns = tasks.reduce((s, t) => s + (Number(t.num_turns) || 0), 0);
+  const settled = e.rollup === 'COMPLETED' || e.rollup === 'FAILED';
+  return {
+    epic_id: e.epic_id,
+    origin: e.origin,
+    correlation_id: e.origin?.correlation_id || null,
+    return_destination: e.origin?.return_destination || { kind: 'none' },
+    status: e.rollup,
+    by_status: e.by_status,
+    repositories: e.repositories,
+    request_ref: `epic:${e.epic_id}`,          // immutable request lives on the epic record
+    result_refs: commits.map((c) => ({ kind: 'commit', ref: c })),
+    commits,
+    tests: tasks.map((t) => ({ task_id: t.task_id, required_checks: t.required_checks || [], status: t.status })),
+    runner_modes: [...new Set(tasks.map((t) => t.mode).filter(Boolean))],
+    cost_usd: cost || null,
+    num_turns: turns || null,
+    human_actions: humanActions.map((h) => ({ id: h.id, kind: h.kind, task_id: h.task_id, title: h.title })),
+    tasks: tasks.map((t) => ({ task_id: t.task_id, status: t.status, repository: t.repository, agent: t.selected_agent, commit_sha: t.commit_sha || null, result_summary: t.result_summary || null })),
+    started_at: started,
+    completed_at: settled ? (completedStamps[completedStamps.length - 1] || null) : null,
+    completion_delivery_state: e.completion_delivery_state || 'not_ready',
+    delivery: e.delivery || { attempts: [], acknowledged_at: null },
+  };
+}
+
+// Move an epic to delivery 'pending' once it is genuinely terminal, and attempt a
+// signed completion webhook when the origin asked for one. Idempotent; safe to call
+// after every drain tick. Never sets 'delivered' — only an acknowledgement does.
+export function refreshEpicDelivery(epicId) {
+  const e = getEpic(epicId);
+  if (!e) return null;
+  const settled = e.rollup === 'COMPLETED' || e.rollup === 'FAILED';
+  if (!settled) return e.completion_delivery_state || 'not_ready';
+  if ((e.completion_delivery_state || 'not_ready') !== 'not_ready') return e.completion_delivery_state;
+  tx((db) => { const r = db.epics[epicId]; if (r && (r.completion_delivery_state || 'not_ready') === 'not_ready') r.completion_delivery_state = 'pending'; });
+  audit('epic_completion_ready', { epic_id: epicId, status: e.rollup, correlation_id: e.origin?.correlation_id });
+  const rd = e.origin?.return_destination;
+  if (rd?.kind === 'webhook' && rd.ref) {
+    const completion = getEpicCompletion(epicId);
+    const ok = dispatchCompletionWebhook(rd.ref, e.origin, completion);   // returns a promise of success
+    Promise.resolve(ok).then((delivered) => {
+      tx((db) => {
+        const r = db.epics[epicId]; if (!r) return;
+        r.delivery = r.delivery || { attempts: [], acknowledged_at: null };
+        r.delivery.attempts.push({ at: new Date().toISOString(), kind: 'webhook', ok: Boolean(delivered) });
+        if (delivered) { r.completion_delivery_state = 'delivered'; r.delivery.acknowledged_at = new Date().toISOString(); }
+      });
+      audit('epic_delivery_attempt', { epic_id: epicId, kind: 'webhook', ok: Boolean(delivered) });
+    }).catch(() => {});
+  }
+  return 'pending';
+}
+function refreshAllEpicDeliveries() {
+  for (const id of Object.keys(ready().epics)) refreshEpicDelivery(id);
+}
+
+// Explicit acknowledgement from the origin (poll/mcp retrieval). This is the ONLY
+// path to 'delivered' for non-webhook returns, and it enforces the authoritative
+// guard: an epic cannot be acknowledged while any sub-task is still QUEUED/RUNNING.
+export function acknowledgeEpic(epicId, { correlationId = null, by = 'unknown' } = {}) {
+  const e = getEpic(epicId);
+  if (!e) return { ok: false, reason: 'not_found' };
+  const state = e.completion_delivery_state || 'not_ready';
+  if (state === 'delivered') return { ok: true, completion_delivery_state: 'delivered', completion: getEpicCompletion(epicId) }; // idempotent
+  // AUTHORITATIVE GUARD: only a settled epic that refreshEpicDelivery marked 'pending'
+  // can be acknowledged. A still-running epic (tasks QUEUED/RUNNING) is never 'pending',
+  // so a false COMPLETED can never be acknowledged as delivered.
+  if (state !== 'pending') return { ok: false, reason: 'not_ready', status: e.rollup, completion_delivery_state: state };
+  const expected = e.origin?.correlation_id || null;
+  if (expected && correlationId && correlationId !== expected) return { ok: false, reason: 'correlation_mismatch' };
+  const rec = tx((db) => {
+    const r = db.epics[epicId];
+    r.completion_delivery_state = 'delivered';
+    r.delivery = r.delivery || { attempts: [], acknowledged_at: null };
+    r.delivery.acknowledged_at = new Date().toISOString();
+    r.delivery.attempts.push({ at: r.delivery.acknowledged_at, kind: 'ack', by, ok: true });
+    return r;
+  });
+  audit('epic_delivered', { epic_id: epicId, correlation_id: expected, by });
+  return { ok: true, completion_delivery_state: rec.completion_delivery_state, completion: getEpicCompletion(epicId) };
+}
+
+// Compact cockpit view — one line per epic, no bulky content (brief: calm cockpit).
+export function cockpitView() {
+  return listEpics().map((e) => {
+    const o = e.origin || {};
+    const phase = e.rollup === 'IN_PROGRESS'
+      ? (e.by_status?.RUNNING ? 'RUNNING' : 'ROUTED')
+      : (e.rollup === 'WAITING_FOR_HUMAN' ? 'HUMAN ACTION' : 'COMPLETED');
+    return {
+      epic_id: e.epic_id,
+      phase,
+      origin_project: o.project || null,
+      origin_type: o.type || 'unspecified',
+      submitted_by: o.submitted_by || 'unknown',
+      correlation_id: o.correlation_id || null,
+      tasks: e.task_ids.length,
+      by_status: e.by_status,
+      repositories: e.repositories,
+      commits: e.tasks.map((t) => t.commit_sha).filter(Boolean).length,
+      status: e.rollup,
+      delivery: e.completion_delivery_state || 'not_ready',
+      return_kind: o.return_destination?.kind || 'none',
+    };
+  });
 }
 
 function findActiveDuplicate(request) {
@@ -375,6 +506,7 @@ export async function drain() {
     cascadeDependencyBlocks();  // a just-finished dep may unblock or block dependents
     if (processed.length > 100) break;
   }
+  refreshAllEpicDeliveries();   // move settled epics to delivery 'pending' (+ webhook)
   return processed;
 }
 

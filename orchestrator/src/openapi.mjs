@@ -80,13 +80,40 @@ export function openApiSpec() {
                 request: { type: 'string', description: 'The full multi-step engineering assignment in natural language (numbered/bulleted steps welcome).' },
                 priority: { type: 'string', enum: ['LOW', 'NORMAL', 'HIGH', 'URGENT'] },
                 deploy_required: { type: 'boolean' },
+                origin: {
+                  type: 'object',
+                  description: 'Where this assignment came from, so its result can return to the right specialist context. submitted_by is set from your API key, not this object.',
+                  properties: {
+                    type: { type: 'string', enum: ['specialist-chat', 'api', 'mcp', 'cli', 'system', 'unspecified'] },
+                    id: { type: 'string', description: 'Opaque origin identifier (e.g. a thread id).' },
+                    project: { type: 'string', description: 'Workstream, e.g. first-five, communication-layer, finance.' },
+                    correlation_id: { type: 'string', description: 'Your id to correlate the completion; generated if omitted.' },
+                    return_destination: { type: 'object', properties: { kind: { type: 'string', enum: ['poll', 'webhook', 'mcp', 'none'] }, ref: { type: 'string' } } },
+                  },
+                },
               },
             } } },
           },
-          responses: { 202: { description: 'Epic accepted; returns the epic id and its sub-tasks.' } },
+          responses: { 202: { description: 'Epic accepted; returns the epic id, its sub-tasks, and the registered origin.' } },
         },
         get: { operationId: 'list_maculis_epics', summary: 'List decomposed epics and their rollup status.', responses: { 200: { description: 'OK' } } },
       },
+      '/epics/{id}/completion': {
+        get: {
+          operationId: 'get_maculis_epic_completion', summary: 'Retrieve the structured completion record for an epic (status, commits, result refs, human actions, delivery state).',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'OK' }, 404: { description: 'Not found' } },
+        },
+      },
+      '/epics/{id}/ack': {
+        post: {
+          operationId: 'acknowledge_maculis_epic', summary: 'Acknowledge receipt of a completed epic from the origin context. Only then is delivery marked delivered. Fails if the epic is not yet terminal.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: { required: false, content: { 'application/json': { schema: { type: 'object', properties: { correlation_id: { type: 'string' } } } } } },
+          responses: { 200: { description: 'Delivered' }, 409: { description: 'Not terminal or correlation mismatch' } },
+        },
+      },
+      '/cockpit': { get: { operationId: 'get_maculis_cockpit', summary: 'Compact cockpit: one line per epic (origin, phase, task count, commits, delivery state) — no bulky content.', responses: { 200: { description: 'OK' } } } },
       '/epics/{id}': {
         get: {
           operationId: 'get_maculis_epic', summary: 'Get one epic with its sub-tasks and rollup status.',
