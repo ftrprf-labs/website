@@ -16,17 +16,11 @@ import { config } from '../config.mjs';
 import { verifyMetaSignature, verifyChallenge, normalizeWhatsAppPayload } from './providers/whatsapp-webhook.mjs';
 import { receiveChannelInbound, applyDeliveryStatus } from './channel-inbound.mjs';
 import { getDefaultTenantId } from './tenant.mjs';
+import { obs } from './obs.mjs';
 
-// PII-safe diagnostics: stage + reason + non-PII counts only. Never a sender/number/body. Silenced
-// in tests. Mirrors the inbound e-mail logger so "where did the chain stop?" is visible in prod.
-function logWa(stage, extra = {}) {
-  if (process.env.NODE_ENV === 'test') return;
-  try {
-    const safe = Object.entries(extra).map(([k, v]) => `${k}=${v}`).join(' ');
-    // eslint-disable-next-line no-console
-    console.log(`[comm/whatsapp] ${stage}${safe ? ' ' + safe : ''}`);
-  } catch { /* logging must never break inbound */ }
-}
+// PII-safe diagnostics via the shared obs() formatter (redacts by construction): stage + non-PII
+// counts only, never a sender/number/body. Silenced in tests.
+function logWa(stage, extra = {}) { obs('comm/whatsapp', stage, extra); }
 
 // GET webhook verification (Meta subscribes the callback URL). Returns { ok, challenge } / reason.
 export function handleWhatsAppChallenge({ mode, token, challenge }) {

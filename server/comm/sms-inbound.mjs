@@ -19,15 +19,10 @@ import {
 } from './providers/sms-webhook.mjs';
 import { receiveChannelInbound, applyDeliveryStatus } from './channel-inbound.mjs';
 import { getDefaultTenantId } from './tenant.mjs';
+import { obs } from './obs.mjs';
 
-function logSms(stage, extra = {}) {
-  if (process.env.NODE_ENV === 'test') return;
-  try {
-    const safe = Object.entries(extra).map(([k, v]) => `${k}=${v}`).join(' ');
-    // eslint-disable-next-line no-console
-    console.log(`[comm/sms] ${stage}${safe ? ' ' + safe : ''}`);
-  } catch { /* logging must never break inbound */ }
-}
+// PII-safe diagnostics via the shared obs() formatter (redacts by construction).
+function logSms(stage, extra = {}) { obs('comm/sms', stage, extra); }
 
 // The exact URL Twilio signed. Prefer an explicitly configured webhook URL; else the public base
 // plus the request path (never a client-supplied Host header, which is spoofable).

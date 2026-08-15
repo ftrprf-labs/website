@@ -25,16 +25,9 @@ export function parseAddress(v) {
 }
 
 // PII-safe inbound diagnostics: makes "where did the chain stop?" visible in production logs
-// WITHOUT ever logging sender/body/subject. Only the stage, a reason, and the (Maculis-owned,
-// non-PII) mailbox/kind are emitted. Silenced in tests.
-function logInbound(stage, extra = {}) {
-  if (process.env.NODE_ENV === 'test') return;
-  try {
-    const safe = Object.entries(extra).map(([k, v]) => `${k}=${v}`).join(' ');
-    // eslint-disable-next-line no-console
-    console.log(`[comm/inbound] ${stage}${safe ? ' ' + safe : ''}`);
-  } catch { /* logging must never break inbound */ }
-}
+// WITHOUT ever logging sender/body/subject. The shared obs() formatter redacts by construction.
+import { obs } from './obs.mjs';
+function logInbound(stage, extra = {}) { obs('comm/inbound', stage, extra); }
 
 // Which allowlisted mailbox (if any) is this addressed to, and is it the privacy mailbox?
 function routeRecipient(recipients) {

@@ -17,16 +17,10 @@ import { recordAudit } from './audit.mjs';
 import { recordActivity } from './activity.mjs';
 import { getDefaultTenantId } from './tenant.mjs';
 
-// PII-safe outbound diagnostics: channel + provider mode + delivery/reason + attempt count only.
-// Never a recipient, body or subject. Silenced in tests. Mirrors the inbound logger (§48).
-function logOutbound(stage, extra = {}) {
-  if (process.env.NODE_ENV === 'test') return;
-  try {
-    const safe = Object.entries(extra).map(([k, v]) => `${k}=${v}`).join(' ');
-    // eslint-disable-next-line no-console
-    console.log(`[comm/outbound] ${stage}${safe ? ' ' + safe : ''}`);
-  } catch { /* logging must never break send */ }
-}
+// PII-safe outbound diagnostics via the shared obs() formatter: channel + provider mode +
+// delivery/reason + attempt count only. Never a recipient, body or subject (§48).
+import { obs } from './obs.mjs';
+function logOutbound(stage, extra = {}) { obs('comm/outbound', stage, extra); }
 
 function mailboxDomain() {
   const first = config.commMailboxes[0] || 'hello@maculis.nl';

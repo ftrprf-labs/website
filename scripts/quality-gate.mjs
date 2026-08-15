@@ -37,6 +37,7 @@ const MANIFEST = [
   { chain: 'WhatsApp round-trip E2E (inbound→AI→approval→delivery)', critical: true, needsDb: true, files: ['tests/comm-whatsapp-e2e.test.mjs'] },
   { chain: 'SMS round-trip E2E (inbound→AI→approval→delivery)', critical: true, needsDb: true, files: ['tests/comm-sms-e2e.test.mjs'] },
   { chain: 'Telephony click-to-call (consent/call-record/outcome)', critical: true, needsDb: false, files: ['tests/comm-calls.test.mjs'] },
+  { chain: 'Observability PII-safety (no personal data in logs)', critical: true, needsDb: false, files: ['tests/comm-obs.test.mjs'] },
 ];
 
 const EXTERNAL = [
