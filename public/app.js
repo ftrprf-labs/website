@@ -64,7 +64,17 @@ const state = {
   view: 'testers',
   evalData: null,
   evalFilter: '',
+  attention: null,
 };
+
+// Attention model — Dutch labels + a quiet colour per state. Kept in sync with server ATTENTION_STATES.
+const ATTN_LABEL = {
+  DELIVERY_PROBLEM: 'Levering mislukt', REPLY_READY: 'AI-antwoord klaar', NEW: 'Nieuw',
+  UNREAD: 'Ongelezen', NEEDS_ACTION: 'Wacht op jou', WAITING_FOR_CUSTOMER: 'Wacht op klant', RESOLVED: 'Afgerond',
+};
+// The chips the cockpit surfaces, most-urgent first (calm states are never a chip).
+const ATTN_CHIPS = ['DELIVERY_PROBLEM', 'REPLY_READY', 'NEW', 'UNREAD', 'NEEDS_ACTION'];
+const ATTN_CHANNEL = { EMAIL: 'E-mail', WHATSAPP: 'WhatsApp', SMS: 'SMS', PHONE: 'Telefoon', SOCIAL: 'Social' };
 
 // ---- tiny API layer ------------------------------------------------------
 async function api(path, opts = {}) {
@@ -141,6 +151,7 @@ async function startApp() {
   const t = await api('/api/template');
   state.template = t.template;
   await refresh();
+  loadAttention(); // best-effort, non-blocking — cockpit fills in as soon as attention data returns
 }
 
 async function refresh() {
@@ -232,7 +243,7 @@ function rowHtml(r) {
     <td class="col-check" data-label="">
       <input type="checkbox" data-check="${r.id}" ${checked} />
     </td>
-    <td data-label="Naam"><button class="name-main link-name" data-rel="${r.id}" title="Open relatie (Communicatie, Journey, Historie)">${esc(name)}</button>${ptlTag}</td>
+    <td data-label="Naam">${attnDot(r.email)}<button class="name-main link-name" data-rel="${r.id}" title="Open relatie (Communicatie, Journey, Historie)">${esc(name)}</button>${ptlTag}</td>
     <td data-label="Bedrijf"><button class="link-name link-dim" data-rel="${r.id}" title="Open relatie">${esc(r.company_name || '—')}</button></td>
     <td data-label="Contact">
       <div>${esc(contact[0] || '—')}</div>
@@ -283,6 +294,83 @@ function renderStats() {
   $('#stat-breakdown').textContent = Object.entries(counts)
     .map(([s, n]) => `${n} ${s}`)
     .join('  ·  ');
+}
+
+// ---- Attention Cockpit ---------------------------------------------------
+// One channel-agnostic glance above the table: is there new communication, how much, from whom, on
+// which channel, where an AI reply is ready. Read-state comes from the server watermark, so the badge
+// reflects real human interaction — not raw webhook/DB counts. One click deep-links into the exact
+// conversation in the Inbox. Fails silently (hidden) when the Communication Layer is not enabled.
+async function loadAttention() {
+  try {
+    const a = await api('/api/comm/attention');
+    state.attention = a;
+  } catch {
+    state.attention = null; // layer off / not authed — no cockpit, no noise
+  }
+  renderCockpit();
+  updateInboxBadge();
+  if (state.view === 'testers') render(); // refresh row indicators
+}
+
+function updateInboxBadge() {
+  const badge = $('#inbox-badge');
+  if (!badge) return;
+  const n = state.attention && state.attention.summary ? state.attention.summary.actionable : 0;
+  if (n > 0) { badge.textContent = n > 99 ? '99+' : String(n); badge.classList.remove('hidden'); }
+  else badge.classList.add('hidden');
+}
+
+function renderCockpit() {
+  const el = $('#attention-cockpit');
+  if (!el) return;
+  const a = state.attention;
+  if (!a || !a.summary) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  el.classList.remove('hidden');
+  const sum = a.summary;
+
+  if (!sum.actionable) {
+    // Calm empty state — never a fake KPI dashboard, just reassurance.
+    el.innerHTML = `<div class="cockpit-calm">✓ Alles bijgewerkt — geen communicatie wacht op je.</div>`;
+    return;
+  }
+
+  const chips = ATTN_CHIPS
+    .filter((s) => sum.states[s] > 0)
+    .map((s) => `<button class="attn-chip attn-${s}" data-attn-conv="" data-attn-state="${s}" title="${esc(ATTN_LABEL[s])}"><span class="dot"></span>${esc(ATTN_LABEL[s])}<b>${sum.states[s]}</b></button>`)
+    .join('');
+  const channels = Object.entries(sum.channels || {})
+    .map(([ch, n]) => `<span class="attn-ch">${esc(ATTN_CHANNEL[ch] || ch)} <b>${n}</b></span>`)
+    .join('');
+  const unknown = sum.unknownContact ? `<span class="attn-ch attn-unknown" title="Nog niet aan een relatie gekoppeld">Onbekend <b>${sum.unknownContact}</b></span>` : '';
+
+  // The act-now queue: most-urgent first; one click opens the exact conversation + AI proposal.
+  const queue = (a.queue || []).slice(0, 6).map((c) => `
+    <button class="attn-item" data-attn-conv="${c.id}" title="Open in Inbox — markeert als gelezen">
+      <span class="attn-badge attn-${c.state}">${esc(ATTN_LABEL[c.state] || c.state)}</span>
+      <span class="attn-who">${esc(c.name)}</span>
+      <span class="attn-meta">${esc(c.org || c.email || '')} · ${esc(ATTN_CHANNEL[c.channel] || c.channel)}${c.hasAiProposed ? ' · AI klaar' : ''}</span>
+    </button>`).join('');
+  const more = a.queue && a.queue.length > 6 ? `<a class="attn-more" href="/comm.html">+${a.queue.length - 6} meer in de Inbox →</a>` : '';
+
+  el.innerHTML = `
+    <div class="cockpit-top">
+      <div class="cockpit-title"><span class="cockpit-count">${sum.actionable}</span> vraagt je aandacht</div>
+      <div class="cockpit-chips">${chips}</div>
+      <div class="cockpit-channels">${channels}${unknown}</div>
+      <a class="cockpit-open" href="/comm.html">Open Inbox →</a>
+    </div>
+    <div class="cockpit-queue">${queue}${more}</div>`;
+}
+
+// A small attention dot on a Testerbeheer row, keyed by the tester's e-mail (the stable join to a
+// comm relationship). Only actionable states get a dot — calm/resolved rows stay quiet.
+function attnDot(email) {
+  const map = state.attention && state.attention.byEmail;
+  const key = (email || '').trim().toLowerCase();
+  const hit = map && key ? map[key] : null;
+  if (!hit) return '';
+  return `<span class="row-attn attn-${hit.state}" title="${esc(ATTN_LABEL[hit.state] || hit.state)} — open relatie voor het gesprek" data-attn-conv="${hit.conversationId}"></span>`;
 }
 
 function updateSelectionUi() {
@@ -767,7 +855,10 @@ function switchView(view) {
   $('.table-wrap').classList.toggle('hidden', onEval);
   $('.statusbar').classList.toggle('hidden', onEval);
   $('#view-evaluaties').classList.toggle('hidden', !onEval);
+  // The cockpit belongs to Testerbeheer; hide it on the Evaluaties view.
+  $('#attention-cockpit').classList.toggle('hidden', onEval || !state.attention || !state.attention.summary);
   if (onEval) loadEvaluations();
+  else loadAttention(); // refresh attention when returning to Testerbeheer
 }
 
 async function loadEvaluations() {
@@ -1018,7 +1109,20 @@ function wireEvents() {
     startWhatsAppSequence(ordered);
   });
 
-  $$('.tab').forEach((t) => t.addEventListener('click', () => switchView(t.dataset.view)));
+  $$('.tab[data-view]').forEach((t) => t.addEventListener('click', () => switchView(t.dataset.view)));
+
+  // Attention Cockpit — one delegated handler (CSP-safe, no inline onclick). Any element carrying a
+  // non-empty data-attn-conv deep-links into the exact conversation in the Inbox; the read watermark
+  // is set server-side when that conversation is opened.
+  $('#attention-cockpit').addEventListener('click', (e) => {
+    const el = e.target.closest('[data-attn-conv]');
+    if (el && el.dataset.attnConv) window.location.href = '/comm.html#conv=' + encodeURIComponent(el.dataset.attnConv);
+  });
+  // A row dot is also a one-click route to its conversation.
+  $('#tester-rows').addEventListener('click', (e) => {
+    const dot = e.target.closest('.row-attn[data-attn-conv]');
+    if (dot && dot.dataset.attnConv) { e.stopPropagation(); window.location.href = '/comm.html#conv=' + encodeURIComponent(dot.dataset.attnConv); }
+  });
   $('#btn-eval-refresh').addEventListener('click', loadEvaluations);
   $('#eval-filter').addEventListener('change', (e) => { state.evalFilter = e.target.value; renderEvaluations(); });
 

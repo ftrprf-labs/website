@@ -44,8 +44,12 @@
       <nav class="tabs">
         <button class="tab active" data-view="testers">Testerbeheer</button>
         <button class="tab" data-view="evaluaties">Evaluaties / Inzichten</button>
-        <a class="tab" href="/comm.html" style="text-decoration:none" title="Wat vraagt vandaag je aandacht?">Inbox</a>
+        <a class="tab" href="/comm.html" style="text-decoration:none" title="Wat vraagt vandaag je aandacht?">Inbox<span id="inbox-badge" class="inbox-badge hidden"></span></a>
       </nav>
+
+      <!-- Attention Cockpit — één rustige, kanaal-agnostische blik: wat vraagt vandaag aandacht?
+           Gevuld door app.js uit /api/comm/attention. Verborgen tot er data is. -->
+      <section id="attention-cockpit" class="cockpit hidden" aria-label="Communicatie — wat vraagt aandacht?"></section>
 
       <section class="controls">
         <div class="search-wrap">

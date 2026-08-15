@@ -5,26 +5,47 @@ import { wrapEmail, renderSignatureHtml, renderSignatureText, signatureConfig, s
 
 const from = 'hello@maculis.nl';
 
-test('signature carries only canonical data — no invented surname/title/phone/social', () => {
+test('signature carries only the canonical, authorised content — no corporate ballast', () => {
   const cfg = signatureConfig({ fromAddress: from });
   const html = renderSignatureHtml(cfg); const text = renderSignatureText(cfg);
   for (const s of [html, text]) {
     assert.ok(/Maculis/.test(s));
-    assert.ok(/Zag je dat\?/.test(s), 'payoff present');
+    assert.ok(/Kijk nog eens\./.test(s), 'definitive tagline present');
+    assert.ok(!/Zag je dat/.test(s), 'old tagline removed');
     assert.ok(/maculis\.nl/.test(s), 'canonical website present');
-    assert.ok(!/\+?\d[\d ()-]{7,}/.test(s), 'no invented phone number');
-    assert.ok(!/linkedin|instagram|twitter|x\.com|facebook/i.test(s), 'no invented social');
+    assert.ok(!/\+?\d[\d ()-]{7,}/.test(s), 'no phone number');
+    assert.ok(!/linkedin|instagram|twitter|x\.com|facebook/i.test(s), 'no social icons');
+    assert.ok(!/disclaimer|vertrouwelijk|confidential/i.test(s), 'no disclaimer ballast');
   }
-  // email is the real sending address, not invented.
-  assert.ok(html.includes('hello@maculis.nl'));
+  // canonical personal name + real sending address, nothing invented.
+  assert.ok(cfg.name === 'Ludwig van der Kuijl', 'definitive full name');
+  assert.ok(html.includes('Ludwig van der Kuijl'), 'name rendered');
+  assert.ok(html.includes('hello@maculis.nl'), 'real sending address');
 });
 
-test('unset sender name is omitted, never guessed', () => {
-  // SENDER_FIRST_NAME is unset in tests → name omitted; brand identity still present.
-  const cfg = signatureConfig({ fromAddress: from });
-  assert.equal(cfg.name, '');
+test('brand line reads exactly "Maculis · Kijk nog eens." and order is name → brand → contact', () => {
+  const html = renderSignatureHtml(signatureConfig({ fromAddress: from }));
+  // Visible-text hierarchy: the name comes before the brand line, which comes before the contact.
+  // (Maculis also appears in the image alt text, so anchor the brand line on the "· Kijk nog eens."
+  // tagline that only exists in the visible brand line.)
+  const iName = html.indexOf('Ludwig van der Kuijl');
+  const iBrandLine = html.indexOf('· Kijk nog eens.');
+  const iMail = html.indexOf('mailto:hello@maculis.nl');
+  assert.ok(iName >= 0 && iBrandLine > iName && iMail > iBrandLine, 'vertical hierarchy preserved');
+  // the brand + tagline compose the exact merkregel content, in order, on one line.
+  assert.ok(/Maculis\b[\s\S]{0,120}·[\s\S]{0,60}Kijk nog eens\./.test(html.slice(iName)), 'exact merkregel');
+});
+
+test('an explicitly empty sender name still falls back to the Maculis identity, never a fabricated one', () => {
+  const cfg = { ...signatureConfig({ fromAddress: from }), name: '' };
   const html = renderSignatureHtml(cfg);
   assert.ok(/>Maculis</.test(html), 'falls back to the Maculis identity, no fabricated person name');
+});
+
+test('mailto + website links are correct', () => {
+  const html = renderSignatureHtml(signatureConfig({ fromAddress: from }));
+  assert.ok(/href="mailto:hello@maculis\.nl"/.test(html), 'correct mailto link');
+  assert.ok(/href="https:\/\/maculis\.nl"/.test(html), 'correct https website link');
 });
 
 test('wrapEmail adds the signature EXACTLY ONCE (html marker + text delimiter)', () => {
@@ -34,6 +55,8 @@ test('wrapEmail adds the signature EXACTLY ONCE (html marker + text delimiter)',
   assert.ok(text.startsWith('Hoi Kim,'), 'body preserved');
   assert.ok(html.includes('maculis-eye.gif'), 'blink asset referenced');
   assert.ok(html.includes('alt="Maculis'), 'accessible alt text');
+  // plain-text fallback falls back logically to name / brand line / contact.
+  assert.ok(/Ludwig van der Kuijl\nMaculis\nKijk nog eens\.\nhello@maculis\.nl\nmaculis\.nl/.test(text), 'plain-text fallback content');
 });
 
 test('wrapEmail is idempotent — re-wrapping never doubles the signature', () => {

@@ -15,7 +15,11 @@ async function boot() {
   STATE.status = st.body;
   $('#tab-comm').addEventListener('click', () => setBox('communication'));
   $('#tab-priv').addEventListener('click', () => setBox('privacy'));
-  loadList();
+  await loadList();
+  // Deep link from the Attention Cockpit: /comm.html#conv=<id> opens that exact conversation (and,
+  // via the GET, marks it read + shows its AI proposal) in one click.
+  const m = (location.hash || '').match(/conv=([0-9a-f-]{36})/i);
+  if (m) openConv(m[1]);
 }
 const FILTERS = [['all', 'Alles'], ['new', 'Nieuw'], ['waiting_on_us', 'Wacht op mij'], ['ai_ready', 'AI-voorstel'], ['unknown_contact', 'Onbekend'], ['delivery_problem', 'Levering']];
 function renderAttbar(sum) {

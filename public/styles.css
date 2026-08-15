@@ -376,6 +376,80 @@ input[type="checkbox"] { accent-color: var(--primary); }
 .tabs .tab:hover { color: var(--text); }
 .tabs .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 
+/* Inbox tab badge — persistent attention count from the server watermark, not a raw feed count. */
+.inbox-badge {
+  display: inline-block; min-width: 16px; padding: 0 5px; margin-left: 6px;
+  font-size: 11px; font-weight: 700; line-height: 16px; text-align: center;
+  color: var(--primary-text); background: var(--primary); border-radius: 9px; vertical-align: middle;
+}
+
+/* ---- Attention Cockpit — calm, channel-agnostic "wat vraagt aandacht?" above the table ---- */
+.cockpit {
+  margin: 12px 20px 0; padding: 12px 14px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.cockpit-calm {
+  color: var(--muted); font-size: 13px; padding: 2px 2px; display: flex; align-items: center; gap: 8px;
+}
+.cockpit-top {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.cockpit-title { font-size: 14px; color: var(--text); font-weight: 600; white-space: nowrap; }
+.cockpit-count {
+  display: inline-block; min-width: 22px; padding: 1px 7px; margin-right: 4px;
+  font-size: 14px; font-weight: 700; text-align: center;
+  color: var(--primary-text); background: var(--primary); border-radius: 8px;
+}
+.cockpit-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.attn-chip {
+  display: inline-flex; align-items: center; gap: 6px; cursor: default;
+  border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--muted); font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 20px;
+}
+.attn-chip b { color: var(--text); font-weight: 700; }
+.attn-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.cockpit-channels { display: flex; gap: 10px; flex-wrap: wrap; margin-left: auto; }
+.attn-ch { font-size: 12px; color: var(--muted); }
+.attn-ch b { color: var(--text); }
+.attn-unknown b { color: var(--warn); }
+.cockpit-open, .attn-more {
+  font-size: 12px; font-weight: 600; color: var(--primary); text-decoration: none; white-space: nowrap;
+}
+.cockpit-open:hover, .attn-more:hover { color: var(--primary-hover); }
+.cockpit-queue { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+.attn-item {
+  display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer;
+  border: 1px solid transparent; background: transparent; border-radius: 8px; padding: 6px 8px;
+}
+.attn-item:hover, .attn-item:focus-visible { background: var(--surface-2); border-color: var(--border); }
+.attn-who { color: var(--text); font-size: 13px; font-weight: 600; }
+.attn-meta { color: var(--muted); font-size: 12px; }
+.attn-badge {
+  flex: 0 0 auto; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px;
+  color: var(--primary-text); background: var(--muted);
+}
+.attn-more { align-self: flex-start; padding: 4px 8px; }
+
+/* Per-state accent — one quiet colour language shared by chips, queue badges and row dots. */
+.attn-DELIVERY_PROBLEM .dot, .row-attn.attn-DELIVERY_PROBLEM { background: var(--danger); }
+.attn-badge.attn-DELIVERY_PROBLEM { background: var(--danger); color: #fff; }
+.attn-REPLY_READY .dot, .row-attn.attn-REPLY_READY { background: var(--primary); }
+.attn-badge.attn-REPLY_READY { background: var(--primary); }
+.attn-NEW .dot, .row-attn.attn-NEW { background: var(--primary-hover); }
+.attn-badge.attn-NEW { background: var(--primary-hover); }
+.attn-UNREAD .dot, .row-attn.attn-UNREAD { background: #6fb0d8; }
+.attn-badge.attn-UNREAD { background: #6fb0d8; color: #06202e; }
+.attn-NEEDS_ACTION .dot, .row-attn.attn-NEEDS_ACTION { background: var(--warn); }
+.attn-badge.attn-NEEDS_ACTION { background: var(--warn); color: #241606; }
+
+/* Row indicator — a small dot in the Naam cell, one click to its conversation. */
+.row-attn {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  margin-right: 8px; vertical-align: middle; cursor: pointer; background: var(--muted);
+}
+.row-attn:hover { transform: scale(1.25); }
+
 /* ---- evaluaties / inzichten ---- */
 .view-eval { padding: 18px 20px 40px; }
 .eval-head {
@@ -521,6 +595,12 @@ input[type="checkbox"] { accent-color: var(--primary); }
 
 /* ---- responsive: table becomes cards ---- */
 @media (max-width: 760px) {
+  /* Cockpit stacks: title + chips, channels below, queue full width. */
+  .cockpit { margin: 10px 10px 0; }
+  .cockpit-top { gap: 10px; }
+  .cockpit-channels { margin-left: 0; width: 100%; }
+  .cockpit-open { margin-left: auto; }
+  .attn-item { flex-wrap: wrap; gap: 6px; }
   .eval-head { flex-direction: column; align-items: stretch; }
   .dist-lbl { flex-basis: 90px; }
   .history-summary { grid-template-columns: 1fr; gap: 6px; }

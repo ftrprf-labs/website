@@ -200,7 +200,7 @@ export async function processInbound({ headers, rawBody, fetchEmail = fetchInbou
       }
       await client.query(
         `update conversation set status = case when status='CLOSED' then 'OPEN'::conv_status else 'NEW'::conv_status end,
-           subject = coalesce(subject,$2), last_message_at = now(), updated_at = now() where id = $1`,
+           subject = coalesce(subject,$2), last_message_at = now(), last_inbound_at = now(), updated_at = now() where id = $1`,
         [conv.id, full.subject || null]);
       return { conversationId: conv.id, messageId, contactMatched: !!contact, contactId: contact ? contact.id : null, organizationId: contact ? contact.organization_id : null };
     });
