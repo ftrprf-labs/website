@@ -22,6 +22,18 @@ function mailboxDomain() {
   return first.slice(first.indexOf('@') + 1) || 'maculis.nl';
 }
 
+// PII-safe outbound diagnostics: shows the REAL provider mode + result in production logs, so a
+// silent mock or a provider rejection is never mistaken for a delivered message. Never logs the
+// recipient, subject or body. Silenced in tests.
+function logSend(extra = {}) {
+  if (process.env.NODE_ENV === 'test') return;
+  try {
+    const safe = Object.entries(extra).map(([k, v]) => `${k}=${v}`).join(' ');
+    // eslint-disable-next-line no-console
+    console.log(`[comm/send] ${safe}`);
+  } catch { /* logging must never break a send */ }
+}
+
 // Find an open conversation for a contact on a channel, or create one (contact-initiated compose,
 // e.g. a first WhatsApp from the workspace with no prior thread).
 async function ensureConversation(client, tenantId, { conversationId, contactId, organizationId, channel, subject }) {
@@ -109,6 +121,7 @@ export async function sendOnChannel({
   const safeHtml = html ? sanitizeHtml(html) : '';
 
   const sent = await prov.send({ tenantId: tid, from: fromAddress, to, subject: subj, text, html: safeHtml || null, threading });
+  logSend({ channel, mode: prov.mode, provider: prov.name, ok: !!sent.ok, delivery: sent.ok ? (sent.delivery || 'SENT') : 'FAILED', provider_msg: sent.providerMessageId || 'none', reason: sent.ok ? '-' : (sent.reason || 'send_failed') });
 
   // Persist the outbound message either way. A real failure is stored FAILED so it is ACTIONABLE (§41).
   const delivery = sent.ok ? (sent.delivery || 'SENT') : 'FAILED';
