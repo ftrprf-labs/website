@@ -5,6 +5,55 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-15 — Pass the Lens: productie-acceptatie (functioneel geaccepteerd, gesloten)
+
+**Status: in productie werkend en functioneel geaccepteerd.** Bevestigd via een echte
+productietest: een bestaande tester is opnieuw door First Five gegaan, Pass the Lens verscheen
+op het juiste moment, een nieuwe ondernemer is ingevuld en die persoon kwam correct in
+Testerbeheer binnen. Geen verdere wijzigingen; alleen heropenen bij een concrete bevinding uit
+echte testdata.
+
+**Wat het is.** De eerste ingebouwde organische groeilus: een ondernemer die First Five heeft
+ervaren draagt aan het einde (na de Meaningful End én de evaluatie) een andere ondernemer aan
+("Aan wie zou jij deze lens doorgeven?"). De aangedragen ondernemer landt als KANDIDAAT in
+Testerbeheer; een beheerder beoordeelt en nodigt uit via de bestaande Invitation Manager.
+
+**Architectuur (bestaande entiteiten hergebruikt, geen parallel CRM).**
+- First Five is een dunne forwarder: `POST /api/pass-the-lens` → forwardt de 4 minimale velden
+  (voornaam, achternaam, bedrijf, e-mail) naar Testerbeheer `POST /api/intake` (server-to-server,
+  `INTAKE_KEY`). First Five bewaart niets over de derde persoon (privacy §10).
+- `store.intake()` (bestaand seam): dedup op person_key, `source:'pass_the_lens'`, lifecycle nooit
+  gereset. Provenance in append-only `record.introductions[]` = `{ at, by_id, by_name, by_company,
+  source_journey }`; de verwijzer wordt uit zijn eigen token opgelost (`getByToken`), voert zijn
+  gegevens niet opnieuw in, en geen token/secret wordt opgeslagen. Repeat-introductie wordt
+  toegevoegd (zichtbaar), nooit een stille duplicaat/merge. History-event
+  `pass_the_lens_introduction` (observatie; stuurt nooit status/consent).
+- HARDE REGEL §4: geen automatische uitnodiging. Kandidaat = DRAFT + consent UNKNOWN → de
+  fail-closed `mayContact()`-gate blokkeert elke automatische outbound. Uitnodigen loopt via de
+  ONGEWIJZIGDE bestaande consent-gated e-mail/WhatsApp-flow; status schuift door naar SENT →
+  COMPLETED.
+- Relatiehistorie (§9/§15): best-effort `server/comm/pass-the-lens.mjs` (`bridgePassTheLens`) legt,
+  wanneer de Comm Layer aan staat, een Contact + `pass_the_lens_introduction`-activity + een
+  bevestigde memory ("Geïntroduceerd via Pass the Lens door X") vast, zichtbaar voor de AI-context.
+  Volledig guarded/no-op wanneer uit. In productie staat de Comm Layer AAN, dus dit speelt mee.
+- UI: rustig "Pass the Lens · via \<verwijzer\>"-label op de kandidaatrij + "Aangedragen door" in de
+  Historie. Schrijfregel gerespecteerd (geen streepjes als stijlmiddel).
+
+**Config (productie).** `INTAKE_KEY` gedeeld op `ftrlabs-testerbeheer` én `maculis-first-five`;
+`TESTERBEHEER_INTAKE_URL=https://ftrlabs-testerbeheer.onrender.com/api/intake` op First Five. Het
+gedeelde geheim staat NIET in code/log/docs. Zonder deze config degradeert de feature zacht (geen
+kandidaat, geen kapotte UX).
+
+**Tests.** Unit `tests/pass-the-lens.test.mjs` 5/5 (DRAFT + UNKNOWN → geen auto-invite; token-
+provenance; dedup/repeat-append; onbekende verwijzer; dossier). core 19/19 ongewijzigd. Cross-service
+E2E (beide échte servers lokaal) 15/15. First Five: tsc schoon, technical 13/13, selftest 8/8.
+Analytics PII-vrij: `pass_the_lens_shown/_submitted/_skipped` (geen namen/e-mail).
+
+**Commits.** Testerbeheer `ed6a9b5` (feat: controlled referral intake + provenance). First Five
+`091c4de` (feat: the organic growth loop terminal beat). Beide live gedeployed en schoon geboot.
+
+---
+
 ## 2026-08-15 — Inbound e-mail end to end: zichtbaar bij de klant + AI-verwerking
 
 **Gerichte afrondingsbug.** Inkomende e-mail verscheen niet bij Klant → Communicatie.
