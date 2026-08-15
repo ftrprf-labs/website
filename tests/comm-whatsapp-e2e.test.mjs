@@ -135,6 +135,13 @@ test('WhatsApp round-trip: signed webhook -> AI draft -> approve+send -> deliver
     // --- 7) a status for an unknown provider_message_id is a safe no-op -------------------------
     const noop = await post(statusEnvelope('wamid.UNKNOWN', 'delivered'));
     assert.equal(noop.ok, true, 'unknown receipt does not error the webhook');
+
+    // --- 8) SECURITY: a receipt scoped to a DIFFERENT tenant cannot flip this message -----------
+    const { applyDeliveryStatus } = await import('../server/comm/channel-inbound.mjs');
+    const wrongTenant = '00000000-0000-0000-0000-000000000000';
+    const cross = await applyDeliveryStatus({ tenantId: wrongTenant, providerMessageId: pmid, state: 'FAILED', provider: 'whatsapp-cloud' });
+    assert.equal(cross.unknown, true, 'a foreign-tenant receipt is a no-op (tenant-scoped lookup)');
+    assert.equal((await query('select delivery from message where id=$1', [sent.messageId])).rows[0].delivery, 'READ', 'message state unchanged by a foreign-tenant receipt');
   } finally {
     await closePool();
   }

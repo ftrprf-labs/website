@@ -77,9 +77,12 @@ const DELIVERY_RANK = { QUEUED: 1, DELIVERING: 2, SENT: 3, DELIVERED: 4, READ: 5
 export async function applyDeliveryStatus({ tenantId = null, providerMessageId, state, detail = null, provider = null }) {
   if (!providerMessageId || !state) return { ok: false, reason: 'incomplete' };
   try {
+    // Tenant-scoped when a tenant is known (defense in depth): a signed receipt for one tenant must
+    // never be able to flip another tenant's message state, even on a provider_message_id collision.
     const msg = (await query(
-      `select id, tenant_id, channel, delivery from message where provider_message_id=$1 and direction='OUTBOUND' limit 1`,
-      [providerMessageId])).rows[0];
+      `select id, tenant_id, channel, delivery from message
+        where provider_message_id=$1 and direction='OUTBOUND' and ($2::uuid is null or tenant_id=$2) limit 1`,
+      [providerMessageId, tenantId])).rows[0];
     if (!msg) return { ok: true, unknown: true };
     const tid = tenantId || msg.tenant_id;
     await query(
