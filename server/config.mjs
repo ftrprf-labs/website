@@ -81,6 +81,26 @@ export const config = {
   dbFile: join(process.env.DATA_DIR || join(ROOT, 'data'), 'invitations.json'),
   // The only campaign this MVP builds for (see brief §12).
   campaign: 'MACULIS_FIRST_FIVE',
+
+  // ---- Communication / Relationship Layer (Build Phase 1) --------------------------------
+  // OFF unless BOTH the flag and a database are set, so the live Invitation Manager / First
+  // Five flow is unaffected until we deliberately switch it on. No secrets in code.
+  commLayerEnabled: /^(1|true|yes|on)$/i.test(process.env.COMM_LAYER_ENABLED || ''),
+  databaseUrl: process.env.DATABASE_URL || '',
+  // Resend inbound (Receiving). MAIL_API_KEY (already used for outbound) doubles as the
+  // Receiving-API key; the webhook signing secret is set AFTER the webhook is created in Resend.
+  resendWebhookSecret: process.env.RESEND_WEBHOOK_SECRET || '',
+  // Recipient allowlist: only these @maculis.nl addresses are processed; others are ignored.
+  commMailboxes: (process.env.COMM_MAILBOXES || 'hello@maculis.nl,privacy@maculis.nl')
+    .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
+  // AI Communication Copilot. Provider key is a human-provided secret; without it the copilot
+  // runs in mock mode (no external call) so the rest of the pipeline is fully testable.
+  aiProvider: (process.env.COMM_AI_PROVIDER || 'mock').toLowerCase(),
+  aiApiKey: process.env.COMM_AI_API_KEY || process.env.ANTHROPIC_API_KEY || '',
+  aiModel: process.env.COMM_AI_MODEL || 'claude-sonnet-5',
+  // Sender identity for invitations (personalises {sender_first_name}); falls back per-request
+  // to the logged-in user. Never hardcoded to a name.
+  senderFirstName: process.env.SENDER_FIRST_NAME || '',
 };
 
 // Default WhatsApp/e-mail message template (brief §6). Editable at runtime

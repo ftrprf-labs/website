@@ -227,7 +227,8 @@ test('history + provenance: append-only, source, migration-safe, no auto-status'
     assert.deepEqual(migrated.history, []);              // empty, NOT back-filled with fake events
     assert.equal(migrated.source, 'unknown');            // no invented provenance (§16)
     assert.equal(migrated.notes, 'behouden');            // existing fields intact
-    assert.equal(migrated.status, 'INVITED');
+    // Forward-safe lifecycle migration: legacy INVITED maps to the new SENT (never regresses).
+    assert.equal(migrated.status, 'SENT');
     assert.equal(migrated.consent_status, 'OPTED_IN');
 
     assert.deepEqual(store.SOURCES, ['manual', 'csv', 'xlsx', 'import', 'pass_the_lens', 'unknown']);
