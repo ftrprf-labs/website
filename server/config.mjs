@@ -103,9 +103,26 @@ export const config = {
   senderFirstName: process.env.SENDER_FIRST_NAME || '',
 };
 
-// Default WhatsApp/e-mail message template (brief §6). Editable at runtime
-// through the settings UI; this is the seed value.
+// Default WhatsApp/e-mail message template (brief §6). Editable at runtime through the settings
+// UI; this is the seed value. The recipient must immediately know WHO invites them, so the copy
+// uses a dynamic {sender_first_name} (from the sending user / explicit sender config) — never a
+// hardcoded name. Variables: {first_name} {company_name} {personal_url} {sender_first_name}.
+const INVITE_BODY =
+  'Hoi {first_name},\n\n' +
+  '{sender_first_name} hier. Ik wil je graag laten kennismaken met iets waar we aan werken: Maculis.\n\n' +
+  'Ik heb Maculis alvast naar {company_name} laten kijken. Niet van binnenuit, maar zoals iemand van buiten jouw organisatie kijkt.\n\n' +
+  'Ik ben benieuwd of jij ziet wat Maculis ziet.\n\n' +
+  'Jouw persoonlijke link:\n{personal_url}\n\n' +
+  'Groet,\n{sender_first_name}';
 export const DEFAULT_TEMPLATE = {
+  whatsapp: INVITE_BODY,
+  emailSubject: 'Een persoonlijke uitnodiging om Maculis te ervaren',
+  emailBody: INVITE_BODY,
+};
+
+// The PREVIOUS seed values. Used to upgrade a stored template to the new copy ONLY when the admin
+// never customised it (exact match) — a customised template is left untouched.
+export const PREVIOUS_DEFAULT_TEMPLATE = {
   whatsapp:
     'Hoi {first_name},\n\n' +
     'ik wil je graag laten kennismaken met iets waar we aan werken: Maculis.\n\n' +

@@ -10,7 +10,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
-import { config, DEFAULT_TEMPLATE } from './config.mjs';
+import { config, DEFAULT_TEMPLATE, PREVIOUS_DEFAULT_TEMPLATE } from './config.mjs';
 import { generateId, generateToken } from './tokens.mjs';
 import { normalizePersonName, normalizeCompany } from './normalize.mjs';
 
@@ -153,9 +153,18 @@ function load() {
       // deterministic — derived, not invented).
       if (r.person_key === undefined) r.person_key = personKey(r, r.campaign);
     }
+    // Upgrade an UNMODIFIED stored template to the new invitation copy (dynamic sender). If the
+    // admin customised a field, their version is kept; only fields still equal to the previous
+    // seed are replaced. Additive and non-destructive (brief §16).
+    const storedTpl = { ...(parsed.template || {}) };
+    for (const key of ['whatsapp', 'emailSubject', 'emailBody']) {
+      if (storedTpl[key] === undefined || storedTpl[key] === PREVIOUS_DEFAULT_TEMPLATE[key]) {
+        storedTpl[key] = DEFAULT_TEMPLATE[key];
+      }
+    }
     db = {
       invitations,
-      template: { ...DEFAULT_TEMPLATE, ...(parsed.template || {}) },
+      template: { ...DEFAULT_TEMPLATE, ...storedTpl },
       version: parsed.version || 1,
     };
   } catch (err) {

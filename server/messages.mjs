@@ -17,6 +17,10 @@ export function render(template, record) {
     last_name: record.last_name || '',
     company_name: record.company_name || '',
     domain: record.domain || '',
+    // Who sends the invitation. Per-send sender (the logged-in Maculis user) wins; otherwise the
+    // explicit SENDER_FIRST_NAME config. Never hardcoded to a person; a neutral fallback keeps the
+    // copy intact if neither is set.
+    sender_first_name: record.sender_first_name || config.senderFirstName || 'het Maculis-team',
     // The tester opens this on their phone → it must be the PUBLIC Journey URL,
     // never the internal server-to-server host and never localhost (§3).
     personal_url: personalUrl(config.maculisPublicUrl, record.token),
