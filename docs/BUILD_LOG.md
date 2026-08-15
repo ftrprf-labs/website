@@ -5,6 +5,27 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-15 — Maculis Quality Gate (overkoepelende regressiegate + deploy-policy)
+
+Autonome nachtmodus, prioriteit 4. Eén gate over de kritieke productketens in deze repo
+(Testerbeheer + Communication Layer), zodat een productie-deploy alleen "geslaagd" is als de
+relevante ketens groen zijn. **Geen deploy zolang een kritieke gate rood is.**
+
+- `scripts/quality-gate.mjs` + `npm run quality-gate` (offline) / `quality-gate:deploy`
+  (`--require-db`) / `--json` (Orchestrator, §13). Draait de verplichte suites per keten, geeft een
+  per-keten verdict, en exit non-zero bij een rode kritieke keten of (onder `--require-db`) een
+  overgeslagen DB-keten. Fail-closed: een DB-keten die niet kon draaien telt niet als pass; een keten
+  die alleen skips draaide telt niet als dekking.
+- Ketens: Testerbeheer core, Pass the Lens, outbound reliability, WhatsApp/SMS webhook, comm
+  foundation, inbound e-mail E2E, Relationship Workspace + omnichannel + memory, WhatsApp/SMS
+  round-trip E2E, telefonie click-to-call. First Five + Technical Signals draaien in
+  `maculis-first-five`; de gate benoemt ze expliciet als EXTERNAL (eerlijk over dekking).
+- Bewijs: **FULL run (echte Postgres, `--require-db`) → VERDICT GREEN, 11/11 kritieke ketens PASS,
+  exit 0**; offline run → GREEN met DB-ketens gemarkeerd als skip en een expliciete note.
+- `docs/QUALITY_GATE.md`: manifest, run-instructies, coverage-niveaus, principes.
+
+---
+
 ## 2026-08-15 — Omnichannel adapters: WhatsApp outbound hardening, SMS end to end, telefonie fase 1
 
 Autonome nachtmodus, prioriteit 1 tot en met 3. Alle kanalen zijn adapters op DEZELFDE
