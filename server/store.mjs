@@ -423,6 +423,36 @@ export function deleteInvitation(id) {
   return true;
 }
 
+// --- Retentie (privacy by design) --------------------------------------------
+// Conform de privacyverklaring bewaren we uitnodigings-/testergegevens niet langer
+// dan 12 maanden na afronding (COMPLETED) of intrekking (OPTED_OUT). Lopende records
+// (DRAFT/INVITED/STARTED) vallen niet onder deze termijn en blijven staan. We
+// verwijderen pas als de LAATSTE relevante gebeurtenis meer dan 12 maanden geleden is
+// (conservatief — nooit voortijdig). Verwijderen ontkoppelt tegelijk de bijbehorende
+// First Five-antwoorden: die zijn alleen via het token aan de persoon te herleiden.
+const RETENTION_MS = 365 * 24 * 60 * 60 * 1000; // ~12 maanden
+
+function retentionExpiry(r) {
+  const stamps = [];
+  if (r.status === 'COMPLETED' && r.completed_at) stamps.push(Date.parse(r.completed_at));
+  if (r.consent_status === 'OPTED_OUT' && r.consent_at) stamps.push(Date.parse(r.consent_at));
+  const valid = stamps.filter((n) => Number.isFinite(n));
+  return valid.length ? Math.max(...valid) : null;
+}
+
+// Verwijder verlopen records. Geen PII in de return — alleen het aantal verwijderd.
+export function pruneExpired({ now = Date.now() } = {}) {
+  const d = ready();
+  const before = d.invitations.length;
+  d.invitations = d.invitations.filter((r) => {
+    const expiry = retentionExpiry(r);
+    return expiry === null || now - expiry <= RETENTION_MS;
+  });
+  const removed = before - d.invitations.length;
+  if (removed > 0) persist();
+  return removed;
+}
+
 export function getTemplate() {
   return { ...ready().template };
 }

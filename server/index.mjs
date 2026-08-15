@@ -622,6 +622,20 @@ server.listen(config.port, bindHost, () => {
     console.log(`  Auth     : password gate ON`);
   }
   console.log('');
+
+  // Retentie (privacy by design): ruim bij start en daarna dagelijks records op die
+  // ouder zijn dan de bewaartermijn. Faalt nooit de server — alleen een telling gelogd.
+  const runRetention = () => {
+    try {
+      const removed = store.pruneExpired();
+      if (removed > 0) console.log(`  Retentie : ${removed} verlopen record(s) verwijderd`);
+    } catch (err) {
+      console.error('  Retentie : opschoning mislukt:', err.message);
+    }
+  };
+  runRetention();
+  const retentionTimer = setInterval(runRetention, 24 * 60 * 60 * 1000);
+  if (typeof retentionTimer.unref === 'function') retentionTimer.unref();
 });
 
 export { server };
