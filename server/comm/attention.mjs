@@ -11,6 +11,7 @@
 // the per-relationship row indicators, and the Inbox badge. Tenant-scoped throughout.
 
 import { query } from './db.mjs';
+import { stripForContext } from './signature.mjs';
 
 // The canonical attention states, most-urgent first. The order IS the priority: the first matching
 // state becomes a conversation's primary state.
@@ -68,6 +69,8 @@ export async function attentionOverview(tenantId, { limit = 500 } = {}) {
             ct.first_name, ct.last_name, lower(ct.email) as email, o.name as org,
             (select direction from message m where m.conversation_id=c.id and m.deleted_at is null
               order by created_at desc limit 1) as last_dir,
+            (select body_text from message m where m.conversation_id=c.id and m.direction='INBOUND' and m.deleted_at is null
+              order by created_at desc limit 1) as last_inbound_body,
             exists(select 1 from ai_draft a where a.conversation_id=c.id and a.status='proposed') as has_ai_proposed,
             exists(select 1 from message m where m.conversation_id=c.id and m.direction='OUTBOUND'
                      and m.delivery in ('FAILED','BOUNCED')) as has_delivery_problem
@@ -94,9 +97,12 @@ export async function attentionOverview(tenantId, { limit = 500 } = {}) {
       contact_id: c.contact_id,
     });
     const name = [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || 'Onbekend';
+    // A short, clean preview of what they last said (signature/quoted history stripped), so the
+    // cockpit shows meaning ("Dank je voor je bericht…") rather than a raw feed row.
+    const preview = stripForContext(c.last_inbound_body || '').replace(/\s+/g, ' ').trim().slice(0, 120);
     const item = {
       id: c.id, contactId: c.contact_id, organizationId: c.organization_id, email: c.email || null,
-      name, org: c.org || null, channel: c.channel,
+      name, org: c.org || null, channel: c.channel, preview: preview || null,
       subject: c.subject || null, lastMessageAt: c.last_message_at, lastInboundAt: c.last_inbound_at,
       state: att.state, unread: att.unread, actionable: att.actionable,
       unknownContact: att.unknownContact, hasAiProposed: att.hasAiProposed,
@@ -124,13 +130,18 @@ export async function attentionOverview(tenantId, { limit = 500 } = {}) {
     }
   }
 
+  const readyCount = stateCounts.REPLY_READY;
   return {
     summary: {
       actionable: actionableTotal,
+      readyCount,
       states: stateCounts,
       channels: channelActionable,
       unknownContact,
       oldestActionableAt: oldestActionableAt != null ? new Date(oldestActionableAt).toISOString() : null,
+      // Canonical, human headline — the ONE phrasing shared by the cockpit (server-computed so it can
+      // never drift from the count that drives the Inbox badge and the row indicators).
+      headline: attentionHeadline(actionableTotal, readyCount),
     },
     // The "act now" queue for the cockpit: only actionable, most-urgent first, then oldest inbound.
     queue: conversations
@@ -143,6 +154,30 @@ export async function attentionOverview(tenantId, { limit = 500 } = {}) {
     byEmail,
     byContact,
   };
+}
+
+// The canonical attention headline. Meaning over counts, grammatically correct singular/plural, and
+// an honest second line about what Maculis has ALREADY prepared (only ever states what is true — the
+// proposal count, never an invented signal). Pure + tenant-agnostic, so it is unit-testable.
+export function attentionHeadline(actionable, readyCount) {
+  if (!actionable) {
+    // Zero-state: calm, not "0 berichten", not a celebration. Maculis simply gives attention back.
+    return { primary: 'Je bent bij.', secondary: 'Voor nu hoeft er niets van je.', zero: true };
+  }
+  const primary = actionable === 1
+    ? '1 gesprek vraagt je aandacht'
+    : `${actionable} gesprekken vragen je aandacht`;
+  let secondary = null;
+  if (readyCount > 0 && readyCount === actionable) {
+    secondary = actionable === 1
+      ? 'Er staat al een antwoord voor je klaar.'
+      : `Voor alle ${actionable} staat al een antwoord klaar.`;
+  } else if (readyCount === 1) {
+    secondary = 'Voor één staat al een antwoord klaar.';
+  } else if (readyCount > 1) {
+    secondary = `Voor ${readyCount} staat al een antwoord klaar.`;
+  }
+  return { primary, secondary, zero: false };
 }
 
 // Move the human read watermark forward. Idempotent: now() only ever advances the watermark, so

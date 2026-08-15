@@ -4,7 +4,7 @@
 // aggregate summary, row-indicator maps, idempotency, tenant isolation and privacy exclusion.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deriveAttention, ATTENTION_STATES, ACTIONABLE_STATES } from '../server/comm/attention.mjs';
+import { deriveAttention, attentionHeadline, ATTENTION_STATES, ACTIONABLE_STATES } from '../server/comm/attention.mjs';
 
 const T0 = '2026-08-15T10:00:00.000Z';   // an inbound time
 const T1 = '2026-08-15T11:00:00.000Z';   // a later read time
@@ -83,6 +83,25 @@ test('14 priority ordering + actionable set are consistent', () => {
   assert.ok(ACTIONABLE_STATES.has('NEW') && ACTIONABLE_STATES.has('UNREAD') && ACTIONABLE_STATES.has('NEEDS_ACTION'));
 });
 
+// ---- canonical headline (meaning over counts, correct singular/plural, honest 'ready' line) -----
+test('H1 zero-state copy is calm, not "0 berichten"', () => {
+  const h = attentionHeadline(0, 0);
+  assert.equal(h.zero, true);
+  assert.equal(h.primary, 'Je bent bij.');
+  assert.equal(h.secondary, 'Voor nu hoeft er niets van je.');
+});
+test('H2 singular vs plural is grammatically correct', () => {
+  assert.equal(attentionHeadline(1, 0).primary, '1 gesprek vraagt je aandacht');
+  assert.equal(attentionHeadline(3, 0).primary, '3 gesprekken vragen je aandacht');
+});
+test('H3 "answer ready" second line only states what is true', () => {
+  assert.equal(attentionHeadline(2, 0).secondary, null, 'no proposals → no claim');
+  assert.equal(attentionHeadline(1, 1).secondary, 'Er staat al een antwoord voor je klaar.');
+  assert.equal(attentionHeadline(3, 3).secondary, 'Voor alle 3 staat al een antwoord klaar.');
+  assert.equal(attentionHeadline(3, 1).secondary, 'Voor één staat al een antwoord klaar.');
+  assert.equal(attentionHeadline(3, 2).secondary, 'Voor 2 staat al een antwoord klaar.');
+});
+
 // ---- 15..22 DB-backed (skipped without a real DATABASE_URL) ----------------------------------
 const HAS_DB = Boolean(process.env.DATABASE_URL) && /^(1|true|yes|on)$/i.test(process.env.COMM_LAYER_ENABLED || '');
 const dbopts = { skip: HAS_DB ? false : 'no DATABASE_URL — attention DB E2E skipped' };
@@ -123,6 +142,9 @@ test('attention DB E2E: watermark, summary, idempotency, isolation, privacy', db
     assert.equal(ov.byEmail['kim@oca.nl'].conversationId, conv, '15 byEmail maps the row');
     assert.equal(ov.byContact[contact].state, 'NEW', '15 byContact maps the row');
     assert.ok(ov.summary.actionable >= 1, '15 summary counts it');
+    assert.ok(ov.summary.headline && ov.summary.headline.primary, '15 canonical headline present');
+    assert.equal(typeof it.preview, 'string', '15 preview snippet present for the cockpit card');
+    assert.ok(/hoi/i.test(it.preview), '15 preview is the cleaned inbound body');
 
     // 16 — opening it (markConversationRead) clears UNREAD but NOT the reply obligation: NEW → NEEDS_ACTION
     const r1 = await markConversationRead(tenantId, conv, { userId: null });
