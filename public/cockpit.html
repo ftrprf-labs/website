@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Maculis Future Cockpit · prototype</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23140e08'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%23c8894a' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2.4' fill='%23c8894a'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/cockpit.css">
+</head>
+<body>
+  <!-- =====================================================================
+       PROTOTYPE. Isolated, additive design exploration for the future
+       Maculis "Vandaag" cockpit. All data here is PROTOTYPE DATA (fictional).
+       Nothing here touches production Testerbeheer, Inbox, mail or consent.
+       CSP-safe: no inline scripts, no inline handlers. Logic in /cockpit.js.
+       ===================================================================== -->
+
+  <div class="proto-flag">
+    <b>Prototype</b>
+    <span class="mobile-hide">Maculis Future Cockpit · fictieve gegevens</span>
+    <span class="spacer"></span>
+
+    <span class="ctrl mobile-hide">
+      <label id="dir-label">Richting</label>
+      <span class="seg" role="group" aria-labelledby="dir-label">
+        <button data-dir="A" aria-pressed="true">A · Deep</button>
+        <button data-dir="B" aria-pressed="false">B · Licht</button>
+        <button data-dir="C" aria-pressed="false">C · Reveal/Work</button>
+      </span>
+    </span>
+
+    <span class="ctrl">
+      <label id="scn-label" class="mobile-hide">Scenario</label>
+      <span class="seg" role="group" aria-labelledby="scn-label">
+        <button data-scn="quiet" aria-pressed="false" title="Rustige ochtend">1</button>
+        <button data-scn="comm" aria-pressed="true" title="Communicatie">2</button>
+        <button data-scn="reveal" aria-pressed="false" title="Relatie reveal">3</button>
+        <button data-scn="lens" aria-pressed="false" title="Lens reveal">4</button>
+        <button data-scn="scale" aria-pressed="false" title="Schaal">5</button>
+        <button data-scn="work" aria-pressed="false" title="Diep werk">6</button>
+      </span>
+    </span>
+  </div>
+
+  <div class="shell" data-direction="A" data-space="reveal" id="shell">
+    <div class="frame">
+      <!-- Calm left rail: few destinations, not a module dump -->
+      <aside class="rail" aria-label="Hoofdnavigatie">
+        <div class="brand">MACU<span>L</span>IS</div>
+        <div class="payoff">Kijk nog eens.</div>
+        <nav class="nav" id="nav">
+          <a href="#" data-nav="vandaag" aria-current="page"><span class="ico" aria-hidden="true">◐</span><span class="lbl">Vandaag</span><span class="count" id="nc-vandaag"></span></a>
+          <a href="#" data-nav="relaties"><span class="ico" aria-hidden="true">◇</span><span class="lbl">Relaties</span><span class="count" id="nc-relaties"></span></a>
+          <a href="#" data-nav="gesprekken"><span class="ico" aria-hidden="true">❯</span><span class="lbl">Gesprekken</span><span class="count" id="nc-gesprekken"></span></a>
+          <a href="#" data-nav="lenzen"><span class="ico" aria-hidden="true">○</span><span class="lbl">Lenzen</span></a>
+          <a href="#" data-nav="journeys"><span class="ico" aria-hidden="true">→</span><span class="lbl">Journeys</span></a>
+          <a href="#" data-nav="groei" class="later"><span class="ico" aria-hidden="true">✳</span><span class="lbl">Groei</span></a>
+          <a href="#" data-nav="beheer" class="later"><span class="ico" aria-hidden="true">≡</span><span class="lbl">Beheer</span></a>
+        </nav>
+        <div class="foot">
+          <div class="whoami"><span class="dot"></span> Ludwig · Maculis</div>
+          <div style="margin-top:8px">Prototype. Geen productie.</div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="view" id="view" aria-live="polite"></div>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="/cockpit.js"></script>
+</body>
+</html>
