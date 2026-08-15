@@ -5,6 +5,43 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-15 — Lens 2 Prototype Bake-off (Epic, empirisch, geen productiebuild)
+
+**Wat het is.** Een empirische bake-off die drie lenskandidaten tegen dezelfde kwaliteitslat test op een
+runbare harness, gebouwd op een getrouwe port van de frozen Reveal Engine. Doel: de Lens 2-keuze maken op
+prototype-bewijs, niet op strategie alleen, en actief proberen de bestaande ranking te falsifiëren. Geen
+productiebuild, geen provider geactiveerd, First Five-flow onaangeraakt. Alle 14 cases zijn synthetisch en
+gelabeld; geen echte persoons- of financiële data.
+
+**Harness (`lens-bakeoff/`).** Getrouwe `.mjs`-port van de engine (model, zevencheck-gate, selector,
+silence, recognition) met 8 slagende self-tests; drie lenzen als `observe`/`relate`-config (Reputation,
+Finance BYD, Dependency); 14 diverse cases met silence- en false-positive-traps; een reveal-scoremodel
+(scoort reveals, geen signalen) en een runner die onder frozen én extended gate draait. Genereert
+`out/results.json` en `out/reveal-gallery.md`.
+
+**Analyse (`docs/lens-strategy/bakeoff/`).** Epic-rapport (`00`), engine-compatibiliteitsbevinding (`01`),
+evaluatiemodel (`02`), plus vier parallelle workstreams: WOW/UX (`03`), GrowBrain en Relationship
+Intelligence (`04`), privacy/security (`05`), red-team/falsificatie (`06`), en de Epic-decompositie
+(`epic.md`).
+
+**Kernbevinding (gemeten).** Reputation reveal-rate 57% (breedste, laagste evidence strength, hoogste
+false-positive-risico); Finance 21% (meest selectief, hoogste surprise, laagste FP-risico, sterkste
+GrowBrain); Dependency 36% (hoogste WOW/non-trivialiteit, rijkste Relationship Intelligence). Twee
+verdedigbare wegingen geven tegengestelde winnaars: feasibility-geleid wint Reputation (82,2), value-geleid
+wint Finance (76,4) met Dependency vlak erachter.
+
+**Hypothesetest.** "Een nieuwe lens is configuratie op de engine, geen nieuw product" klopt voor Reputation
+(config-only, nul suppressies), breekt voor Finance (4 kwantitatieve kandidaten door de frozen gate
+onderdrukt op attention_worthy; nieuwe relatiefamilies plus numeriek gate-beleid nodig), en klopt voor
+Dependency alleen doordat concentratie als cross-lens contradictie is geformuleerd.
+
+**Beslissing.** Lens 2 = Reputation & Reception, bevestigd en voorwaardelijk, met één falsificatie-gate
+(head-to-head confirmed-new recognition versus Finance bij echte ondernemers). Finance uitgesteld naar
+Lens 3 (engine-extensie nu gescoped). Dependency naar Lens 4. Geen kandidaat gekilld. Volledige
+onderbouwing in `docs/lens-strategy/bakeoff/00-bakeoff-report.md`.
+
+---
+
 ## 2026-08-15 — Maculis Next Lenses: strategie, research en productarchitectuur (werkdocument)
 
 **Wat het is.** Een duurzaam Lens Strategy Masterplan voor de volgende generatie Maculis lenzen na de

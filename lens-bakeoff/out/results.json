@@ -1,0 +1,1243 @@
+{
+  "generatedFor": "lens-2-bakeoff",
+  "lenses": {
+    "reputation.reception": {
+      "name": "Reputation and Reception",
+      "frozen": [
+        {
+          "caseId": "atelier-noord",
+          "label": "Atelier Noord (meubelmaker, B2B/B2C)",
+          "outcome": "REVEAL",
+          "reveal": {
+            "family": "CONTRADICTION",
+            "cross_lens": true,
+            "wording": "De belofte \"persoonlijke aandacht\" komt niet terug in klanttaal, terwijl klanten vooral \"snelheid\", \"prijs\" benoemen.",
+            "why": "Raakt de vraag: is de kracht die ik claim de kracht die mijn klanten ervaren?",
+            "significance": "L3",
+            "basis": [
+              {
+                "surface": "website",
+                "value": "\"Bij ons staat persoonlijke aandacht altijd voorop.\"",
+                "method": "extraction"
+              },
+              {
+                "surface": "reviews",
+                "value": "84 reviews, thema-aandeel 34%",
+                "method": "aggregate"
+              },
+              {
+                "surface": "reviews",
+                "value": "84 reviews, thema-aandeel 28%",
+                "method": "aggregate"
+              }
+            ]
+          },
+          "scores": {
+            "evidenceStrength": 3,
+            "relationStrength": 5,
+            "confidence": 3,
+            "nonTriviality": 5,
+            "surprise": 4,
+            "personalRelevance": 5,
+            "comprehensibility": 5,
+            "actionRelevance": 3,
+            "curiosity": 5,
+            "wow": 4,
+            "falsePositiveRisk": 3
+          },
+          "suppressions": [],
+          "reason": "gate passed"
+        },
+        {
+          "caseId": "groenveld-installatie",
+          "label": "Groenveld Installatie (installateur, B2C)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [
+            {
+              "family": "CONTRADICTION",
+              "reason": "specificity: \"vakmanschap\" is sector wallpaper (true for almost everyone)."
+            }
+          ],
+          "reason": "candidates suppressed by gate"
+        },
+        {
+          "caseId": "datacleve",
+          "label": "DataCleve (B2B software, jong)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "kliniek-vitaal",
+          "label": "Kliniek Vitaal (fysio, healthcare)",
+          "outcome": "REVEAL",
+          "reveal": {
+            "family": "CONTRADICTION",
+            "cross_lens": true,
+            "wording": "Je site en je Google-profiel presenteren je onder een andere naam: \"Kliniek Vitaal\" tegenover \"Vitaal Fysio Centrum\".",
+            "why": "Raakt de vraag: kan wie mij zoekt mij eenduidig terugvinden?",
+            "significance": "L3",
+            "basis": [
+              {
+                "surface": "kvk",
+                "value": "Fysiotherapie Vitaal BV",
+                "method": "registry"
+              },
+              {
+                "surface": "website",
+                "value": "Kliniek Vitaal",
+                "method": "fetch"
+              },
+              {
+                "surface": "gbp",
+                "value": "Vitaal Fysio Centrum",
+                "method": "places"
+              }
+            ]
+          },
+          "scores": {
+            "evidenceStrength": 3,
+            "relationStrength": 5,
+            "confidence": 3,
+            "nonTriviality": 5,
+            "surprise": 4,
+            "personalRelevance": 5,
+            "comprehensibility": 5,
+            "actionRelevance": 3,
+            "curiosity": 5,
+            "wow": 4,
+            "falsePositiveRisk": 3
+          },
+          "suppressions": [],
+          "reason": "gate passed"
+        },
+        {
+          "caseId": "webshop-bloom",
+          "label": "Webshop Bloom (B2C ecommerce)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "oud-ijzer-bv",
+          "label": "Oud IJzer BV (B2B groothandel, gevestigd)",
+          "outcome": "REVEAL",
+          "reveal": {
+            "family": "ASYMMETRY",
+            "cross_lens": true,
+            "wording": "Je bent al 16 jaar gevestigd en goed beoordeeld, maar bijna onvindbaar voor wie je nog niet kent.",
+            "why": "Raakt de vraag: bereikt mijn reputatie ook de mensen die mij nog niet kennen?",
+            "significance": "L3",
+            "basis": [
+              {
+                "surface": "rdap",
+                "value": "domein 16 jaar",
+                "method": "registry"
+              },
+              {
+                "surface": "search",
+                "value": "140 non-branded impressies",
+                "method": "proxy"
+              }
+            ]
+          },
+          "scores": {
+            "evidenceStrength": 3,
+            "relationStrength": 4,
+            "confidence": 3,
+            "nonTriviality": 4,
+            "surprise": 4,
+            "personalRelevance": 4,
+            "comprehensibility": 5,
+            "actionRelevance": 3,
+            "curiosity": 4,
+            "wow": 4,
+            "falsePositiveRisk": 2
+          },
+          "suppressions": [],
+          "reason": "gate passed"
+        },
+        {
+          "caseId": "veilig-thuis-zorg",
+          "label": "Veilig Thuis Zorg (thuiszorg, B2C)",
+          "outcome": "REVEAL",
+          "reveal": {
+            "family": "CONTRADICTION",
+            "cross_lens": true,
+            "wording": "Je merk belooft \"vertrouwen en veiligheid\", maar je site mist basale beveiligingssignalen die vertrouwen dragen.",
+            "why": "Raakt de vraag: straalt mijn digitale voordeur dezelfde zorg uit als mijn belofte?",
+            "significance": "L3",
+            "basis": [
+              {
+                "surface": "website",
+                "value": "\"Zorg waar u met een gerust hart op vertrouwt.\"",
+                "method": "extraction"
+              },
+              {
+                "surface": "headers",
+                "value": "HSTS uit, score 1/5",
+                "method": "deterministic"
+              }
+            ]
+          },
+          "scores": {
+            "evidenceStrength": 3,
+            "relationStrength": 5,
+            "confidence": 3,
+            "nonTriviality": 5,
+            "surprise": 4,
+            "personalRelevance": 5,
+            "comprehensibility": 5,
+            "actionRelevance": 3,
+            "curiosity": 5,
+            "wow": 4,
+            "falsePositiveRisk": 3
+          },
+          "suppressions": [],
+          "reason": "gate passed"
+        },
+        {
+          "caseId": "flex-markt",
+          "label": "FlexMarkt (B2B diensten, divers en gezond)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "bouwmaat-groothandel",
+          "label": "Bouwmaat Groothandel (B2B product)",
+          "outcome": "REVEAL",
+          "reveal": {
+            "family": "CONTRADICTION",
+            "cross_lens": true,
+            "wording": "De belofte \"persoonlijk contact\" komt niet terug in klanttaal, terwijl klanten vooral \"prijs\", \"voorraad\" benoemen.",
+            "why": "Raakt de vraag: is de kracht die ik claim de kracht die mijn klanten ervaren?",
+            "significance": "L3",
+            "basis": [
+              {
+                "surface": "website",
+                "value": "\"Een vaste contactpersoon die u kent.\"",
+                "method": "extraction"
+              },
+              {
+                "surface": "reviews",
+                "value": "38 reviews, thema-aandeel 40%",
+                "method": "aggregate"
+              },
+              {
+                "surface": "reviews",
+                "value": "38 reviews, thema-aandeel 30%",
+                "method": "aggregate"
+              }
+            ]
+          },
+          "scores": {
+            "evidenceStrength": 3,
+            "relationStrength": 5,
+            "confidence": 3,
+            "nonTriviality": 5,
+            "surprise": 4,
+            "personalRelevance": 5,
+            "comprehensibility": 5,
+            "actionRelevance": 3,
+            "curiosity": 5,
+            "wow": 4,
+            "falsePositiveRisk": 3
+          },
+          "suppressions": [],
+          "reason": "gate passed"
+        },
+        {
+          "caseId": "studio-lumen",
+          "label": "Studio Lumen (creatief B2C, jong)",
+          "outcome": "REVEAL",
+          "reveal": {
+            "family": "CONTRADICTION",
+            "cross_lens": true,
+            "wording": "De belofte \"op maat gemaakt\" komt niet terug in klanttaal, terwijl klanten vooral \"snelheid\", \"prijs\" benoemen.",
+            "why": "Raakt de vraag: is de kracht die ik claim de kracht die mijn klanten ervaren?",
+            "significance": "L3",
+            "basis": [
+              {
+                "surface": "website",
+                "value": "\"Elk ontwerp volledig op maat.\"",
+                "method": "extraction"
+              },
+              {
+                "surface": "reviews",
+                "value": "26 reviews, thema-aandeel 40%",
+                "method": "aggregate"
+              },
+              {
+                "surface": "reviews",
+                "value": "26 reviews, thema-aandeel 30%",
+                "method": "aggregate"
+              }
+            ]
+          },
+          "scores": {
+            "evidenceStrength": 3,
+            "relationStrength": 5,
+            "confidence": 3,
+            "nonTriviality": 5,
+            "surprise": 4,
+            "personalRelevance": 5,
+            "comprehensibility": 5,
+            "actionRelevance": 3,
+            "curiosity": 5,
+            "wow": 4,
+            "falsePositiveRisk": 3
+          },
+          "suppressions": [],
+          "reason": "gate passed"
+        },
+        {
+          "caseId": "techno-parts",
+          "label": "Techno Parts (B2B product, groei)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "de-vries-advies",
+          "label": "De Vries Advies (solo consultant, B2B)",
+          "outcome": "REVEAL",
+          "reveal": {
+            "family": "CONTRADICTION",
+            "cross_lens": true,
+            "wording": "De belofte \"strategisch advies\" komt niet terug in klanttaal, terwijl klanten vooral \"deskundig\" benoemen.",
+            "why": "Raakt de vraag: is de kracht die ik claim de kracht die mijn klanten ervaren?",
+            "significance": "L3",
+            "basis": [
+              {
+                "surface": "website",
+                "value": "\"Strategisch advies dat blijft plakken.\"",
+                "method": "extraction"
+              },
+              {
+                "surface": "reviews",
+                "value": "8 reviews, thema-aandeel 50%",
+                "method": "aggregate"
+              }
+            ]
+          },
+          "scores": {
+            "evidenceStrength": 3,
+            "relationStrength": 5,
+            "confidence": 3,
+            "nonTriviality": 5,
+            "surprise": 4,
+            "personalRelevance": 5,
+            "comprehensibility": 5,
+            "actionRelevance": 3,
+            "curiosity": 5,
+            "wow": 4,
+            "falsePositiveRisk": 3
+          },
+          "suppressions": [],
+          "reason": "gate passed"
+        },
+        {
+          "caseId": "horeca-plein",
+          "label": "Horeca Plein (restaurant, B2C)",
+          "outcome": "REVEAL",
+          "reveal": {
+            "family": "TELLING_ABSENCE",
+            "cross_lens": true,
+            "wording": "Je belooft \"gastvrijheid en aandacht\", maar bijna geen enkele publieke review is beantwoord.",
+            "why": "Raakt de vraag: laat ik mijn belofte ook zien waar iedereen meekijkt?",
+            "significance": "L3",
+            "basis": [
+              {
+                "surface": "website",
+                "value": "\"Bij ons voelt u zich echt welkom, met aandacht voor elk detail.\"",
+                "method": "extraction"
+              },
+              {
+                "surface": "reviews",
+                "value": "responsgraad 2%",
+                "method": "aggregate"
+              }
+            ]
+          },
+          "scores": {
+            "evidenceStrength": 3,
+            "relationStrength": 4,
+            "confidence": 3,
+            "nonTriviality": 4,
+            "surprise": 3,
+            "personalRelevance": 5,
+            "comprehensibility": 5,
+            "actionRelevance": 3,
+            "curiosity": 5,
+            "wow": 3,
+            "falsePositiveRisk": 3
+          },
+          "suppressions": [],
+          "reason": "gate passed"
+        },
+        {
+          "caseId": "saas-metrics",
+          "label": "SaaS Metrics (digitaal, gezond)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        }
+      ],
+      "extended": [
+        {
+          "caseId": "atelier-noord",
+          "outcome": "REVEAL",
+          "family": "CONTRADICTION"
+        },
+        {
+          "caseId": "groenveld-installatie",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "datacleve",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "kliniek-vitaal",
+          "outcome": "REVEAL",
+          "family": "CONTRADICTION"
+        },
+        {
+          "caseId": "webshop-bloom",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "oud-ijzer-bv",
+          "outcome": "REVEAL",
+          "family": "ASYMMETRY"
+        },
+        {
+          "caseId": "veilig-thuis-zorg",
+          "outcome": "REVEAL",
+          "family": "CONTRADICTION"
+        },
+        {
+          "caseId": "flex-markt",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "bouwmaat-groothandel",
+          "outcome": "REVEAL",
+          "family": "CONTRADICTION"
+        },
+        {
+          "caseId": "studio-lumen",
+          "outcome": "REVEAL",
+          "family": "CONTRADICTION"
+        },
+        {
+          "caseId": "techno-parts",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "de-vries-advies",
+          "outcome": "REVEAL",
+          "family": "CONTRADICTION"
+        },
+        {
+          "caseId": "horeca-plein",
+          "outcome": "REVEAL",
+          "family": "TELLING_ABSENCE"
+        },
+        {
+          "caseId": "saas-metrics",
+          "outcome": "SILENCE",
+          "family": null
+        }
+      ],
+      "summary": {
+        "lensId": "reputation.reception",
+        "cases": 14,
+        "revealRate": 0.57,
+        "silenceRate": 0.43,
+        "insufficient": 0,
+        "failures": 0,
+        "reveals": 8,
+        "trivialReveals": 0,
+        "meanWow": 3.9,
+        "meanSurprise": 3.9,
+        "meanNonTriviality": 4.8,
+        "meanEvidenceStrength": 3,
+        "meanFalsePositiveRisk": 2.9,
+        "meanActionRelevance": 3,
+        "run": {
+          "timeToFirstValue": 5,
+          "userDataRequired": 5,
+          "integrationDependency": 4,
+          "costPerRun": 4,
+          "repeatability": 3
+        }
+      }
+    },
+    "finance.byd": {
+      "name": "Finance (Bring Your Data)",
+      "frozen": [
+        {
+          "caseId": "atelier-noord",
+          "label": "Atelier Noord (meubelmaker, B2B/B2C)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "groenveld-installatie",
+          "label": "Groenveld Installatie (installateur, B2C)",
+          "outcome": "REVEAL",
+          "reveal": {
+            "family": "CONTRADICTION",
+            "cross_lens": false,
+            "wording": "Je omzet groeide, je vrij beschikbare kas daalde. Het verschil zit in je debiteuren.",
+            "why": "Raakt de vraag: waar gaat mijn groei naartoe als het niet in mijn kas terechtkomt?",
+            "significance": "L4",
+            "basis": [
+              {
+                "surface": "upload:pl",
+                "value": "omzet 640000 -> 712000",
+                "method": "file"
+              },
+              {
+                "surface": "upload:balance",
+                "value": "kas 90000 -> 58000",
+                "method": "file"
+              },
+              {
+                "surface": "upload:aged-ar",
+                "value": "DSO 28 -> 49",
+                "method": "file"
+              }
+            ]
+          },
+          "scores": {
+            "evidenceStrength": 4,
+            "relationStrength": 5,
+            "confidence": 4,
+            "nonTriviality": 4,
+            "surprise": 5,
+            "personalRelevance": 4,
+            "comprehensibility": 5,
+            "actionRelevance": 5,
+            "curiosity": 3,
+            "wow": 4,
+            "falsePositiveRisk": 1
+          },
+          "suppressions": [],
+          "reason": "gate passed"
+        },
+        {
+          "caseId": "datacleve",
+          "label": "DataCleve (B2B software, jong)",
+          "outcome": "REVEAL",
+          "reveal": {
+            "family": "CONTRADICTION",
+            "cross_lens": false,
+            "wording": "Je omzet groeide, je vrij beschikbare kas daalde. Het verschil zit in je debiteuren.",
+            "why": "Raakt de vraag: waar gaat mijn groei naartoe als het niet in mijn kas terechtkomt?",
+            "significance": "L4",
+            "basis": [
+              {
+                "surface": "upload:pl",
+                "value": "omzet 300000 -> 420000",
+                "method": "file"
+              },
+              {
+                "surface": "upload:balance",
+                "value": "kas 80000 -> 70000",
+                "method": "file"
+              },
+              {
+                "surface": "upload:aged-ar",
+                "value": "DSO 40 -> 44",
+                "method": "file"
+              }
+            ]
+          },
+          "scores": {
+            "evidenceStrength": 4,
+            "relationStrength": 5,
+            "confidence": 4,
+            "nonTriviality": 4,
+            "surprise": 5,
+            "personalRelevance": 4,
+            "comprehensibility": 5,
+            "actionRelevance": 5,
+            "curiosity": 3,
+            "wow": 4,
+            "falsePositiveRisk": 1
+          },
+          "suppressions": [],
+          "reason": "gate passed"
+        },
+        {
+          "caseId": "kliniek-vitaal",
+          "label": "Kliniek Vitaal (fysio, healthcare)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "webshop-bloom",
+          "label": "Webshop Bloom (B2C ecommerce)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "oud-ijzer-bv",
+          "label": "Oud IJzer BV (B2B groothandel, gevestigd)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "veilig-thuis-zorg",
+          "label": "Veilig Thuis Zorg (thuiszorg, B2C)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "flex-markt",
+          "label": "FlexMarkt (B2B diensten, divers en gezond)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "bouwmaat-groothandel",
+          "label": "Bouwmaat Groothandel (B2B product)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [
+            {
+              "family": "TREND_DIVERGENCE",
+              "reason": "attention_worthy: contestable single-lens reading; a skeptic waves this away."
+            }
+          ],
+          "reason": "candidates suppressed by gate"
+        },
+        {
+          "caseId": "studio-lumen",
+          "label": "Studio Lumen (creatief B2C, jong)",
+          "outcome": "INSUFFICIENT",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no grounded observations"
+        },
+        {
+          "caseId": "techno-parts",
+          "label": "Techno Parts (B2B product, groei)",
+          "outcome": "REVEAL",
+          "reveal": {
+            "family": "CONTRADICTION",
+            "cross_lens": false,
+            "wording": "Je omzet groeide, je vrij beschikbare kas daalde. Het verschil zit in je debiteuren.",
+            "why": "Raakt de vraag: waar gaat mijn groei naartoe als het niet in mijn kas terechtkomt?",
+            "significance": "L4",
+            "basis": [
+              {
+                "surface": "upload:pl",
+                "value": "omzet 1800000 -> 2050000",
+                "method": "file"
+              },
+              {
+                "surface": "upload:balance",
+                "value": "kas 220000 -> 150000",
+                "method": "file"
+              },
+              {
+                "surface": "upload:aged-ar",
+                "value": "DSO 38 -> 55",
+                "method": "file"
+              }
+            ]
+          },
+          "scores": {
+            "evidenceStrength": 4,
+            "relationStrength": 5,
+            "confidence": 4,
+            "nonTriviality": 4,
+            "surprise": 5,
+            "personalRelevance": 4,
+            "comprehensibility": 5,
+            "actionRelevance": 5,
+            "curiosity": 3,
+            "wow": 4,
+            "falsePositiveRisk": 1
+          },
+          "suppressions": [],
+          "reason": "gate passed"
+        },
+        {
+          "caseId": "de-vries-advies",
+          "label": "De Vries Advies (solo consultant, B2B)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "horeca-plein",
+          "label": "Horeca Plein (restaurant, B2C)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "saas-metrics",
+          "label": "SaaS Metrics (digitaal, gezond)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        }
+      ],
+      "extended": [
+        {
+          "caseId": "atelier-noord",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "groenveld-installatie",
+          "outcome": "REVEAL",
+          "family": "CONTRADICTION"
+        },
+        {
+          "caseId": "datacleve",
+          "outcome": "REVEAL",
+          "family": "CONTRADICTION"
+        },
+        {
+          "caseId": "kliniek-vitaal",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "webshop-bloom",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "oud-ijzer-bv",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "veilig-thuis-zorg",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "flex-markt",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "bouwmaat-groothandel",
+          "outcome": "REVEAL",
+          "family": "TREND_DIVERGENCE"
+        },
+        {
+          "caseId": "studio-lumen",
+          "outcome": "INSUFFICIENT",
+          "family": null
+        },
+        {
+          "caseId": "techno-parts",
+          "outcome": "REVEAL",
+          "family": "CONTRADICTION"
+        },
+        {
+          "caseId": "de-vries-advies",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "horeca-plein",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "saas-metrics",
+          "outcome": "SILENCE",
+          "family": null
+        }
+      ],
+      "summary": {
+        "lensId": "finance.byd",
+        "cases": 14,
+        "revealRate": 0.21,
+        "silenceRate": 0.71,
+        "insufficient": 1,
+        "failures": 0,
+        "reveals": 3,
+        "trivialReveals": 0,
+        "meanWow": 4,
+        "meanSurprise": 5,
+        "meanNonTriviality": 4,
+        "meanEvidenceStrength": 4,
+        "meanFalsePositiveRisk": 1,
+        "meanActionRelevance": 5,
+        "run": {
+          "timeToFirstValue": 3,
+          "userDataRequired": 2,
+          "integrationDependency": 3,
+          "costPerRun": 4,
+          "repeatability": 5
+        }
+      }
+    },
+    "dependency.resilience": {
+      "name": "Dependency and Resilience",
+      "frozen": [
+        {
+          "caseId": "atelier-noord",
+          "label": "Atelier Noord (meubelmaker, B2B/B2C)",
+          "outcome": "REVEAL",
+          "reveal": {
+            "family": "CONTRADICTION",
+            "cross_lens": true,
+            "wording": "Je cijfers zien er gezond uit, en tegelijk hangt je bedrijf aan bijna elke klantrelatie die via jou persoonlijk loopt.",
+            "why": "Raakt de vraag: als dat ene wegvalt, hoeveel van mijn gezonde bedrijf valt dan mee weg?",
+            "significance": "L4",
+            "basis": [
+              {
+                "surface": "upload:pl",
+                "value": "omzetgroei 6.7%, resultaat 41000",
+                "method": "file"
+              },
+              {
+                "surface": "relationship-intelligence",
+                "value": "oprichter in 82% van relaties",
+                "method": "derived"
+              }
+            ]
+          },
+          "scores": {
+            "evidenceStrength": 4,
+            "relationStrength": 5,
+            "confidence": 4,
+            "nonTriviality": 5,
+            "surprise": 5,
+            "personalRelevance": 4,
+            "comprehensibility": 5,
+            "actionRelevance": 4,
+            "curiosity": 4,
+            "wow": 5,
+            "falsePositiveRisk": 2
+          },
+          "suppressions": [],
+          "reason": "gate passed"
+        },
+        {
+          "caseId": "groenveld-installatie",
+          "label": "Groenveld Installatie (installateur, B2C)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "datacleve",
+          "label": "DataCleve (B2B software, jong)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "kliniek-vitaal",
+          "label": "Kliniek Vitaal (fysio, healthcare)",
+          "outcome": "REVEAL",
+          "reveal": {
+            "family": "CONTRADICTION",
+            "cross_lens": true,
+            "wording": "Je cijfers zien er gezond uit, en tegelijk hangt je bedrijf aan bijna elke klantrelatie die via jou persoonlijk loopt.",
+            "why": "Raakt de vraag: als dat ene wegvalt, hoeveel van mijn gezonde bedrijf valt dan mee weg?",
+            "significance": "L4",
+            "basis": [
+              {
+                "surface": "upload:pl",
+                "value": "omzetgroei 5.4%, resultaat 63000",
+                "method": "file"
+              },
+              {
+                "surface": "relationship-intelligence",
+                "value": "oprichter in 75% van relaties",
+                "method": "derived"
+              }
+            ]
+          },
+          "scores": {
+            "evidenceStrength": 4,
+            "relationStrength": 5,
+            "confidence": 4,
+            "nonTriviality": 5,
+            "surprise": 5,
+            "personalRelevance": 4,
+            "comprehensibility": 5,
+            "actionRelevance": 4,
+            "curiosity": 4,
+            "wow": 5,
+            "falsePositiveRisk": 2
+          },
+          "suppressions": [],
+          "reason": "gate passed"
+        },
+        {
+          "caseId": "webshop-bloom",
+          "label": "Webshop Bloom (B2C ecommerce)",
+          "outcome": "REVEAL",
+          "reveal": {
+            "family": "CONTRADICTION",
+            "cross_lens": true,
+            "wording": "Je cijfers zien er gezond uit, en tegelijk hangt je bedrijf aan een kanaal dat 82% van je instroom brengt.",
+            "why": "Raakt de vraag: als dat ene wegvalt, hoeveel van mijn gezonde bedrijf valt dan mee weg?",
+            "significance": "L4",
+            "basis": [
+              {
+                "surface": "upload:pl",
+                "value": "omzetgroei 13.3%, resultaat 60000",
+                "method": "file"
+              },
+              {
+                "surface": "analytics-or-public",
+                "value": "82% via Google Ads",
+                "method": "proxy"
+              }
+            ]
+          },
+          "scores": {
+            "evidenceStrength": 4,
+            "relationStrength": 5,
+            "confidence": 4,
+            "nonTriviality": 5,
+            "surprise": 5,
+            "personalRelevance": 5,
+            "comprehensibility": 5,
+            "actionRelevance": 4,
+            "curiosity": 5,
+            "wow": 5,
+            "falsePositiveRisk": 2
+          },
+          "suppressions": [],
+          "reason": "gate passed"
+        },
+        {
+          "caseId": "oud-ijzer-bv",
+          "label": "Oud IJzer BV (B2B groothandel, gevestigd)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "veilig-thuis-zorg",
+          "label": "Veilig Thuis Zorg (thuiszorg, B2C)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "flex-markt",
+          "label": "FlexMarkt (B2B diensten, divers en gezond)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "bouwmaat-groothandel",
+          "label": "Bouwmaat Groothandel (B2B product)",
+          "outcome": "REVEAL",
+          "reveal": {
+            "family": "CONTRADICTION",
+            "cross_lens": true,
+            "wording": "Je cijfers zien er gezond uit, en tegelijk hangt je bedrijf aan twee leveranciers die 78% van je inkoop leveren.",
+            "why": "Raakt de vraag: als dat ene wegvalt, hoeveel van mijn gezonde bedrijf valt dan mee weg?",
+            "significance": "L4",
+            "basis": [
+              {
+                "surface": "upload:pl",
+                "value": "omzetgroei 5%, resultaat 140000",
+                "method": "file"
+              },
+              {
+                "surface": "upload:purchase-split",
+                "value": "top2 leveranciers 78%",
+                "method": "file"
+              }
+            ]
+          },
+          "scores": {
+            "evidenceStrength": 4,
+            "relationStrength": 5,
+            "confidence": 4,
+            "nonTriviality": 5,
+            "surprise": 5,
+            "personalRelevance": 5,
+            "comprehensibility": 5,
+            "actionRelevance": 4,
+            "curiosity": 5,
+            "wow": 5,
+            "falsePositiveRisk": 2
+          },
+          "suppressions": [],
+          "reason": "gate passed"
+        },
+        {
+          "caseId": "studio-lumen",
+          "label": "Studio Lumen (creatief B2C, jong)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "techno-parts",
+          "label": "Techno Parts (B2B product, groei)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "de-vries-advies",
+          "label": "De Vries Advies (solo consultant, B2B)",
+          "outcome": "REVEAL",
+          "reveal": {
+            "family": "CONTRADICTION",
+            "cross_lens": true,
+            "wording": "Je cijfers zien er gezond uit, en tegelijk hangt je bedrijf aan een klant die 45% van je omzet is.",
+            "why": "Raakt de vraag: als dat ene wegvalt, hoeveel van mijn gezonde bedrijf valt dan mee weg?",
+            "significance": "L4",
+            "basis": [
+              {
+                "surface": "upload:pl",
+                "value": "omzetgroei 16.7%, resultaat 105000",
+                "method": "file"
+              },
+              {
+                "surface": "upload:revenue-split",
+                "value": "top1 45%",
+                "method": "file"
+              }
+            ]
+          },
+          "scores": {
+            "evidenceStrength": 4,
+            "relationStrength": 5,
+            "confidence": 4,
+            "nonTriviality": 5,
+            "surprise": 5,
+            "personalRelevance": 5,
+            "comprehensibility": 5,
+            "actionRelevance": 4,
+            "curiosity": 5,
+            "wow": 5,
+            "falsePositiveRisk": 2
+          },
+          "suppressions": [],
+          "reason": "gate passed"
+        },
+        {
+          "caseId": "horeca-plein",
+          "label": "Horeca Plein (restaurant, B2C)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        },
+        {
+          "caseId": "saas-metrics",
+          "label": "SaaS Metrics (digitaal, gezond)",
+          "outcome": "SILENCE",
+          "reveal": null,
+          "scores": null,
+          "suppressions": [],
+          "reason": "no relations detected"
+        }
+      ],
+      "extended": [
+        {
+          "caseId": "atelier-noord",
+          "outcome": "REVEAL",
+          "family": "CONTRADICTION"
+        },
+        {
+          "caseId": "groenveld-installatie",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "datacleve",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "kliniek-vitaal",
+          "outcome": "REVEAL",
+          "family": "CONTRADICTION"
+        },
+        {
+          "caseId": "webshop-bloom",
+          "outcome": "REVEAL",
+          "family": "CONTRADICTION"
+        },
+        {
+          "caseId": "oud-ijzer-bv",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "veilig-thuis-zorg",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "flex-markt",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "bouwmaat-groothandel",
+          "outcome": "REVEAL",
+          "family": "CONTRADICTION"
+        },
+        {
+          "caseId": "studio-lumen",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "techno-parts",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "de-vries-advies",
+          "outcome": "REVEAL",
+          "family": "CONTRADICTION"
+        },
+        {
+          "caseId": "horeca-plein",
+          "outcome": "SILENCE",
+          "family": null
+        },
+        {
+          "caseId": "saas-metrics",
+          "outcome": "SILENCE",
+          "family": null
+        }
+      ],
+      "summary": {
+        "lensId": "dependency.resilience",
+        "cases": 14,
+        "revealRate": 0.36,
+        "silenceRate": 0.64,
+        "insufficient": 0,
+        "failures": 0,
+        "reveals": 5,
+        "trivialReveals": 0,
+        "meanWow": 5,
+        "meanSurprise": 5,
+        "meanNonTriviality": 5,
+        "meanEvidenceStrength": 4,
+        "meanFalsePositiveRisk": 2,
+        "meanActionRelevance": 4,
+        "run": {
+          "timeToFirstValue": 2,
+          "userDataRequired": 1,
+          "integrationDependency": 2,
+          "costPerRun": 3,
+          "repeatability": 4
+        }
+      }
+    }
+  },
+  "gateGap": {
+    "reputation.reception": {
+      "suppressedByFrozenButRevealedByExtended": 0,
+      "cases": [],
+      "candidateSuppressionsByFamily": {
+        "CONTRADICTION": 2
+      },
+      "candidateSuppressionsByCheck": {
+        "specificity": 2
+      }
+    },
+    "finance.byd": {
+      "suppressedByFrozenButRevealedByExtended": 1,
+      "cases": [
+        {
+          "caseId": "bouwmaat-groothandel",
+          "family": "TREND_DIVERGENCE",
+          "wording": "Je personeelskosten groeiden sneller dan je omzet."
+        }
+      ],
+      "candidateSuppressionsByFamily": {
+        "CONCENTRATION": 2,
+        "TREND_DIVERGENCE": 2
+      },
+      "candidateSuppressionsByCheck": {
+        "attention_worthy": 4
+      }
+    },
+    "dependency.resilience": {
+      "suppressedByFrozenButRevealedByExtended": 0,
+      "cases": [],
+      "candidateSuppressionsByFamily": {},
+      "candidateSuppressionsByCheck": {}
+    }
+  }
+}
