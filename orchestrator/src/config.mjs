@@ -30,7 +30,8 @@ export const config = {
   // API server.
   api: {
     host: env('MACULIS_API_HOST', '127.0.0.1'),
-    port: Number(env('MACULIS_API_PORT', '4610')),
+    // Managed hosts (Render/Heroku) inject PORT; prefer it, then our own var.
+    port: Number(env('PORT', env('MACULIS_API_PORT', '4610'))),
     // Bearer token required on every mutating endpoint. If unset, the API binds
     // loopback-only and refuses to start on a non-loopback host (fail-closed,
     // same discipline as the product server).
