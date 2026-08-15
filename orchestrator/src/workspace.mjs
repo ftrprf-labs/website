@@ -100,15 +100,25 @@ export async function ensureBase(repo) {
     await git(baseDir, ['fetch', '--quiet', '--prune', 'origin']);
   }
   const defaultBranch = await detectDefaultBranch(baseDir);
-  const head = await git(baseDir, ['rev-parse', `origin/${defaultBranch}`]);
+  // Make sure origin/<default> is present locally (a shallow/branch-scoped clone
+  // may not have it) before anyone branches a worktree from it.
+  await git(baseDir, ['fetch', '--quiet', 'origin', defaultBranch]).catch(() => {});
+  const head = await git(baseDir, ['rev-parse', `origin/${defaultBranch}`])
+    .catch(() => git(baseDir, ['rev-parse', `refs/remotes/origin/${defaultBranch}`]));
   return { baseDir, defaultBranch, head };
 }
 
 async function detectDefaultBranch(baseDir) {
-  // Prefer the remote's advertised HEAD; fall back to main/master.
+  // 1. Local symbolic-ref (set by a normal, non-shallow clone).
   const ref = await git(baseDir, ['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD']).catch(() => '');
-  const m = /refs\/remotes\/origin\/(.+)$/.exec(ref);
+  let m = /refs\/remotes\/origin\/(.+)$/.exec(ref);
   if (m) return m[1];
+  // 2. Authoritative: ask the remote directly. Works even on a shallow or
+  //    detached checkout where no local origin/HEAD or origin/main ref exists.
+  const ls = await git(baseDir, ['ls-remote', '--symref', 'origin', 'HEAD']).catch(() => '');
+  m = /ref:\s+refs\/heads\/(\S+)\s+HEAD/.exec(ls);
+  if (m) return m[1];
+  // 3. Conventional fallbacks.
   for (const b of ['main', 'master']) {
     if (await git(baseDir, ['rev-parse', '--verify', `origin/${b}`]).then(() => true).catch(() => false)) return b;
   }

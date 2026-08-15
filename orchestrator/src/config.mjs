@@ -56,11 +56,13 @@ export const config = {
     timeoutMs: Number(env('MACULIS_TIMEOUT_MS', String(30 * 60_000))), // 30 min
     heartbeatMs: Number(env('MACULIS_HEARTBEAT_MS', String(5 * 60_000))),
     maxRetries: Number(env('MACULIS_MAX_RETRIES', '2')),
-    // Local checkout roots per repo, for the 'real' runner. When a repo has no
-    // local checkout the runner stays in mock mode for that task.
+    // Optional operator-maintained checkout roots per repo. Leave EMPTY by
+    // default: the workspace manager then does a fresh clone into the workspace
+    // root (public repos tokenless; private repos via MACULIS_GIT_TOKEN). Do not
+    // point this at the orchestrator's own deployment checkout — that is shallow
+    // and on the feature branch, which breaks default-branch detection. Only set
+    // an entry to a FULL local clone you maintain yourself.
     checkouts: {
-      'ftrprf-labs/website': REPO_ROOT,
-      // Add local clones here to enable real runs for the other domains:
       // 'ftrprf-labs/maculis-first-five.': '/path/to/maculis-first-five',
       // 'ftrprf-labs/groeiplatform-website': '/path/to/groeiplatform-website',
     },
