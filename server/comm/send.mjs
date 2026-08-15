@@ -13,6 +13,7 @@ import { getChannelProvider } from './providers/index.mjs';
 import { channelAllowed } from './consent.mjs';
 import { sanitizeHtml } from './sanitize.mjs';
 import { buildReferences } from './threading.mjs';
+import { wrapEmail } from './signature.mjs';
 import { recordAudit } from './audit.mjs';
 import { recordActivity } from './activity.mjs';
 import { getDefaultTenantId } from './tenant.mjs';
@@ -120,7 +121,16 @@ export async function sendOnChannel({
   const fromAddress = ctx.mailbox_address || config.commMailboxes[0] || 'hello@maculis.nl';
   const safeHtml = html ? sanitizeHtml(html) : '';
 
-  const sent = await prov.send({ tenantId: tid, from: fromAddress, to, subject: subj, text, html: safeHtml || null, threading });
+  // Living Maculis signature is added CENTRALLY at send time, EXACTLY ONCE, only for e-mail. The
+  // STORED body (below) stays clean (no signature) so the AI context and the conversation view show
+  // the actual message, never the presentation boilerplate (§11/§12).
+  let outText = text; let outHtml = safeHtml || null;
+  if (channel === 'EMAIL') {
+    const wrapped = wrapEmail({ bodyText: text, bodyHtml: safeHtml || null, fromAddress });
+    outText = wrapped.text; outHtml = wrapped.html;
+  }
+
+  const sent = await prov.send({ tenantId: tid, from: fromAddress, to, subject: subj, text: outText, html: outHtml, threading });
   logSend({ channel, mode: prov.mode, provider: prov.name, ok: !!sent.ok, delivery: sent.ok ? (sent.delivery || 'SENT') : 'FAILED', provider_msg: sent.providerMessageId || 'none', reason: sent.ok ? '-' : (sent.reason || 'send_failed') });
 
   // Persist the outbound message either way. A real failure is stored FAILED so it is ACTIONABLE (§41).

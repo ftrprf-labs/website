@@ -7,6 +7,7 @@
 // AI proposed something and link back to the source (§AI TRANSPARANTIE).
 
 import { query } from './../db.mjs';
+import { stripForContext } from '../signature.mjs';
 
 export async function buildRelationshipContext(tenantId, { conversationId = null, contactId = null, limitMessages = 8 } = {}) {
   const refs = [];
@@ -82,7 +83,7 @@ export function renderContextForModel(ctx) {
   const who = ctx.contact ? ([ctx.contact.first_name, ctx.contact.last_name].filter(Boolean).join(' ') || ctx.contact.email) : 'onbekend';
   const org = ctx.org ? ctx.org.name : 'onbekende organisatie';
   const stage = (ctx.org && ctx.org.relationship_stage) || (ctx.contact && ctx.contact.relationship_stage) || null;
-  const history = ctx.recent.map((m) => `${m.direction === 'INBOUND' ? 'ZIJ' : 'MACULIS'} (${m.channel}): ${(m.body_text || '').slice(0, 400)}`).join('\n');
+  const history = ctx.recent.map((m) => `${m.direction === 'INBOUND' ? 'ZIJ' : 'MACULIS'} (${m.channel}): ${stripForContext(m.body_text || '').slice(0, 400)}`).join('\n');
   const fu = ctx.followUps.map((f) => `- ${f.title}${f.due_at ? ' (uiterlijk ' + new Date(f.due_at).toLocaleDateString('nl-NL') + ')' : ''}`).join('\n');
   const mem = (ctx.memory || []).map((m) => `- [${m.kind}] ${m.content}`).join('\n');
   return [
