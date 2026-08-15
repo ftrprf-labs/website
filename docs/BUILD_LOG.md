@@ -5,6 +5,46 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-15 — Autonomous factory: eerlijke grounding + veilige engineeringfundering
+
+**Opdracht.** De "Autonomous Maculis Factory"-brief vroeg om de huidige Orchestrator te
+onderzoeken, een capability matrix te maken en de belangrijkste veilige, reversibele fundering te
+bouwen. Harde regel uit de brief zelf: geen schijnsucces.
+
+**Eerlijke bevinding.** Er staat geen Orchestrator-platform in deze repo. `ftrprf-labs/website` is
+de Testerbeheer/Invitation Manager plus de Communication Layer, dus een app die een toekomstige
+orchestrator beheert, niet de orchestrator zelf. Geen task-API, geen task state machine, geen queue,
+geen runner, geen durable task store. De feitelijke orchestrator vandaag is: eigenaar plus
+ChatGPT/Claude Code-sessies plus de MCP-toolomgeving plus Render auto-deploy, met dit BUILD_LOG als
+enig durable system of record. Alles daarboven is DESIGNED of MISSING, niet LIVE.
+
+**Gefixte baseline (geen codebug).** Een verse clone liet `npm test` falen met ERR_MODULE_NOT_FOUND
+omdat de gedeclareerde dependency `pg` nog niet geïnstalleerd was. Na `npm install`: suite 29/29
+pass, 7 skip (skip vereist `DATABASE_URL`, productie-pariteit). De schijnbare fout was ontbrekende
+deps in de clone, geen defect.
+
+**Veilige, additieve, reversibele fundering gebouwd:**
+- `.github/workflows/ci.yml`: quality gate die `npm ci` plus `npm test` draait op push en pull
+  request. Sluit het gat "autoDeploy zonder testgate". Puur additief; inert als Actions uit staat.
+- `.claude/hooks/session-start.sh` plus `.claude/settings.json`: web-only, idempotente SessionStart
+  hook die `npm install` draait zodat toekomstige websessies meteen testklaar zijn. Gevalideerd:
+  exit 0, `pg` aanwezig, eerder falende test slaagt.
+- `docs/repository-registry.md`: routingtabel (deliverable #7) met geverifieerde velden voor deze
+  repo en BUILD_LOG-ontleende velden voor de andere twee; onverifieerbare velden gemarkeerd.
+- `docs/AUTONOMOUS_FACTORY.md`: eerlijke capability matrix, gap analysis, friction map en
+  next-milestones in één doc (geen 37 losse bestanden, geen doc-spam).
+
+**Security genoteerd, niet stilletjes gewijzigd.** `npm audit` meldt een high advisory in `xlsx`
+0.18.5 (prototype pollution, ReDoS), geen fix op npm (SheetJS levert fixes via eigen CDN).
+Dependency-bron wijzigen is een supply-chain-beslissing met risico, dus vastgelegd voor een
+menselijke beslissing. Risico begrensd: `xlsx` parseert alleen admin-geüploade importbestanden achter
+de admin-gate, geen publieke input.
+
+**Geen productielogica gewijzigd. Geen deploy getriggerd door dit werk.** Alle wijzigingen additief
+en terug te draaien.
+
+---
+
 ## 2026-08-15 — Pass the Lens: productie-acceptatie (functioneel geaccepteerd, gesloten)
 
 **Status: in productie werkend en functioneel geaccepteerd.** Bevestigd via een echte

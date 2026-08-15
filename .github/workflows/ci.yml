@@ -1,0 +1,33 @@
+# Quality gate: install declared dependencies and run the test suite on every
+# push and pull request. Render deploys automatically on push (autoDeploy: true
+# in render.yaml), so this workflow is the automated check that runs the tests
+# before that deploy exists in history. The Communication Layer DB tests skip
+# cleanly without DATABASE_URL, which mirrors production parity.
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install declared dependencies (reproducible)
+        run: npm ci
+
+      - name: Run test suite
+        run: npm test
