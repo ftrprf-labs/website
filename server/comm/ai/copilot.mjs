@@ -11,6 +11,7 @@ import { query } from '../db.mjs';
 import { getProvider } from './provider.mjs';
 import { recordActivity } from '../activity.mjs';
 import { buildRelationshipContext, renderContextForModel } from './context.mjs';
+import { stripForContext } from '../signature.mjs';
 
 // Extensible intent vocabulary. Unknown labels from the model fall back to 'information'.
 export const INTENTS = ['question', 'interest', 'meeting', 'commercial_opportunity', 'objection', 'information', 'action_requested', 'no_action'];
@@ -61,7 +62,7 @@ export async function runCopilot({ conversationId, messageId }) {
 
     const ctx = await buildRelationshipContext(conv.tenant_id, { conversationId });
     const current = (await query('select body_text from message where id=$1', [messageId])).rows[0];
-    const currentText = current ? current.body_text : '';
+    const currentText = stripForContext(current ? current.body_text : '');
     const provider = getProvider();
     let parsed = null; let error = null;
     try {
