@@ -66,14 +66,20 @@ const state = {
   attention: null,
 };
 
-// Attention model — Dutch labels + a quiet colour per state. Kept in sync with server ATTENTION_STATES.
-const ATTN_LABEL = {
-  DELIVERY_PROBLEM: 'Levering mislukt', REPLY_READY: 'AI-antwoord klaar', NEW: 'Nieuw',
-  UNREAD: 'Ongelezen', NEEDS_ACTION: 'Wacht op jou', WAITING_FOR_CUSTOMER: 'Wacht op klant', RESOLVED: 'Afgerond',
+// Attention — HUMAN presentation of the server's canonical states. The user maintains relationships,
+// not an AI: the copy never says "AI", it says what is true for them ("Antwoord staat klaar"). One
+// quiet accent per state; gold is reserved for the single most meaningful thing.
+const ATTN_PRESENT = {
+  DELIVERY_PROBLEM: 'Levering mislukt',
+  REPLY_READY: 'Antwoord staat klaar',
+  NEW: 'Nieuw bericht',
+  UNREAD: 'Nieuw bericht',
+  NEEDS_ACTION: 'Vraagt aandacht',
+  WAITING_FOR_CUSTOMER: 'Wacht op klant',
+  RESOLVED: 'Afgehandeld',
 };
-// The chips the cockpit surfaces, most-urgent first (calm states are never a chip).
-const ATTN_CHIPS = ['DELIVERY_PROBLEM', 'REPLY_READY', 'NEW', 'UNREAD', 'NEEDS_ACTION'];
 const ATTN_CHANNEL = { EMAIL: 'E-mail', WHATSAPP: 'WhatsApp', SMS: 'SMS', PHONE: 'Telefoon', SOCIAL: 'Social' };
+const attnLabel = (s) => ATTN_PRESENT[s] || 'Vraagt aandacht';
 
 // ---- tiny API layer ------------------------------------------------------
 async function api(path, opts = {}) {
@@ -312,6 +318,27 @@ function updateInboxBadge() {
   else badge.classList.add('hidden');
 }
 
+// One compact conversation preview. It is the relationship + what they last said + what Maculis has
+// ready — a meaningful line, not a feed row. The whole card is one button that opens the exact
+// conversation (which marks it read). Channel is quiet context, never a separate product world.
+function previewCard(c, { hero = false } = {}) {
+  const st = attnLabel(c.state);
+  const meta = [c.org || c.email, ATTN_CHANNEL[c.channel] || c.channel].filter(Boolean).join(' · ');
+  const snippet = c.preview ? `<span class="attn-snippet">${esc(c.preview)}</span>` : '';
+  const cta = hero ? 'Bekijk gesprek' : 'Bekijk';
+  const aria = `Open gesprek met ${c.name}${c.org ? ' van ' + c.org : ''} — ${st}`;
+  return `
+    <button class="attn-card${hero ? ' attn-card-hero' : ''} attn-${c.state}" data-attn-conv="${c.id}" aria-label="${esc(aria)}">
+      <span class="attn-state">${esc(st)}</span>
+      <span class="attn-line">
+        <span class="attn-who">${esc(c.name)}</span>
+        <span class="attn-meta">${esc(meta)}</span>
+      </span>
+      ${snippet}
+      <span class="attn-cta">${cta} <span class="arw" aria-hidden="true">→</span></span>
+    </button>`;
+}
+
 function renderCockpit() {
   const el = $('#attention-cockpit');
   if (!el) return;
@@ -319,49 +346,57 @@ function renderCockpit() {
   if (!a || !a.summary) { el.classList.add('hidden'); el.innerHTML = ''; return; }
   el.classList.remove('hidden');
   const sum = a.summary;
+  const head = sum.headline || {};
 
+  // Zero-state — designed, not an afterthought. Calm, almost luxurious; Maculis gives attention back.
   if (!sum.actionable) {
-    // Calm empty state — never a fake KPI dashboard, just reassurance.
-    el.innerHTML = `<div class="cockpit-calm">✓ Alles bijgewerkt — geen communicatie wacht op je.</div>`;
+    el.classList.add('is-calm');
+    el.innerHTML = `
+      <div class="cockpit-zero" role="status">
+        <span class="zero-mark" aria-hidden="true"></span>
+        <span class="zero-text"><b>${esc(head.primary || 'Je bent bij.')}</b> ${esc(head.secondary || 'Voor nu hoeft er niets van je.')}</span>
+      </div>`;
     return;
   }
+  el.classList.remove('is-calm');
 
-  const chips = ATTN_CHIPS
-    .filter((s) => sum.states[s] > 0)
-    .map((s) => `<button class="attn-chip attn-${s}" data-attn-conv="" data-attn-state="${s}" title="${esc(ATTN_LABEL[s])}"><span class="dot"></span>${esc(ATTN_LABEL[s])}<b>${sum.states[s]}</b></button>`)
-    .join('');
-  const channels = Object.entries(sum.channels || {})
-    .map(([ch, n]) => `<span class="attn-ch">${esc(ATTN_CHANNEL[ch] || ch)} <b>${n}</b></span>`)
-    .join('');
-  const unknown = sum.unknownContact ? `<span class="attn-ch attn-unknown" title="Nog niet aan een relatie gekoppeld">Onbekend <b>${sum.unknownContact}</b></span>` : '';
+  const queue = a.queue || [];
+  const hero = queue[0];
+  const rest = queue.slice(1, 4); // keep it calm: a clear first step + a few more, the rest live in the Inbox
+  const overflow = queue.length - (1 + rest.length);
 
-  // The act-now queue: most-urgent first; one click opens the exact conversation + AI proposal.
-  const queue = (a.queue || []).slice(0, 6).map((c) => `
-    <button class="attn-item" data-attn-conv="${c.id}" title="Open in Inbox — markeert als gelezen">
-      <span class="attn-badge attn-${c.state}">${esc(ATTN_LABEL[c.state] || c.state)}</span>
-      <span class="attn-who">${esc(c.name)}</span>
-      <span class="attn-meta">${esc(c.org || c.email || '')} · ${esc(ATTN_CHANNEL[c.channel] || c.channel)}${c.hasAiProposed ? ' · AI klaar' : ''}</span>
-    </button>`).join('');
-  const more = a.queue && a.queue.length > 6 ? `<a class="attn-more" href="/comm.html">+${a.queue.length - 6} meer in de Inbox →</a>` : '';
+  // Level 1: what matters today, in human language. Level 2: the priority + a few more. Level 3 (the
+  // table) sits below. Gold is spent only on the single most meaningful next step.
+  const header = `
+    <div class="cockpit-head">
+      <h2 class="cockpit-h1">${esc(head.primary)}</h2>
+      ${head.secondary ? `<p class="cockpit-h2">${esc(head.secondary)}</p>` : ''}
+      <a class="cockpit-inbox" href="/comm.html">Naar Inbox<span class="arw" aria-hidden="true"> →</span></a>
+    </div>`;
 
-  el.innerHTML = `
-    <div class="cockpit-top">
-      <div class="cockpit-title"><span class="cockpit-count">${sum.actionable}</span> vraagt je aandacht</div>
-      <div class="cockpit-chips">${chips}</div>
-      <div class="cockpit-channels">${channels}${unknown}</div>
-      <a class="cockpit-open" href="/comm.html">Open Inbox →</a>
-    </div>
-    <div class="cockpit-queue">${queue}${more}</div>`;
+  // Present a single "first to look at" ONLY when there is more than one — the deterministic priority
+  // (most-urgent state, then oldest waiting) is honest, never an invented AI ranking.
+  const heroBlock = queue.length > 1
+    ? `<div class="cockpit-hero"><span class="hero-eyebrow">Als eerste bekijken</span>${previewCard(hero, { hero: true })}</div>`
+    : previewCard(hero, { hero: true });
+  const restBlock = rest.length ? `<div class="cockpit-rest">${rest.map((c) => previewCard(c)).join('')}</div>` : '';
+  const moreBlock = overflow > 0
+    ? `<a class="cockpit-more" href="/comm.html">Nog ${overflow} gesprek${overflow === 1 ? '' : 'ken'} in de Inbox<span class="arw" aria-hidden="true"> →</span></a>`
+    : '';
+
+  el.innerHTML = header + heroBlock + restBlock + moreBlock;
 }
 
 // A small attention dot on a Testerbeheer row, keyed by the tester's e-mail (the stable join to a
-// comm relationship). Only actionable states get a dot — calm/resolved rows stay quiet.
+// comm relationship). Colour is never the ONLY signal: the accessible label carries the state text,
+// and the cockpit above states it in words. Only actionable relationships get a dot.
 function attnDot(email) {
   const map = state.attention && state.attention.byEmail;
   const key = (email || '').trim().toLowerCase();
   const hit = map && key ? map[key] : null;
   if (!hit) return '';
-  return `<span class="row-attn attn-${hit.state}" title="${esc(ATTN_LABEL[hit.state] || hit.state)} — open relatie voor het gesprek" data-attn-conv="${hit.conversationId}"></span>`;
+  const label = `${attnLabel(hit.state)} — open gesprek`;
+  return `<span class="row-attn attn-${hit.state}" role="button" tabindex="0" title="${esc(label)}" aria-label="${esc(label)}" data-attn-conv="${hit.conversationId}"></span>`;
 }
 
 function updateSelectionUi() {
@@ -1100,10 +1135,16 @@ function wireEvents() {
     const el = e.target.closest('[data-attn-conv]');
     if (el && el.dataset.attnConv) window.location.href = '/comm.html#conv=' + encodeURIComponent(el.dataset.attnConv);
   });
-  // A row dot is also a one-click route to its conversation.
+  // A row dot is also a one-click (or keyboard) route to its conversation.
+  const openDot = (dot) => { window.location.href = '/comm.html#conv=' + encodeURIComponent(dot.dataset.attnConv); };
   $('#tester-rows').addEventListener('click', (e) => {
     const dot = e.target.closest('.row-attn[data-attn-conv]');
-    if (dot && dot.dataset.attnConv) { e.stopPropagation(); window.location.href = '/comm.html#conv=' + encodeURIComponent(dot.dataset.attnConv); }
+    if (dot && dot.dataset.attnConv) { e.stopPropagation(); openDot(dot); }
+  });
+  $('#tester-rows').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const dot = e.target.closest('.row-attn[data-attn-conv]');
+    if (dot && dot.dataset.attnConv) { e.preventDefault(); openDot(dot); }
   });
   $('#btn-eval-refresh').addEventListener('click', loadEvaluations);
   $('#eval-filter').addEventListener('change', (e) => { state.evalFilter = e.target.value; renderEvaluations(); });

@@ -5,6 +5,116 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-15 — Attention Cockpit + Living Signature + outbound delivery fix (productie)
+
+**1) Outbound delivery-incident opgelost (200 ≠ afgeleverd).** Root cause: de live-gate
+van de e-mailprovider hing aan `MAIL_FROM`; die was leeg → de provider viel terug op de
+**mock** → een interne 200 zonder echte Resend-call. Fix: live-gate losgekoppeld van
+`MAIL_FROM` (`mailTransport==='resend' && MAIL_API_KEY`), in productie **nooit** stil
+mocken (mock → expliciete fout), plus PII-veilige send-diagnostiek die de échte
+providermodus logt. Delivery-status webhooks (sent/delivered/bounced/failed/complained)
+werken de `message.delivery` bij zonder positieve statussen te laten terugvallen.
+
+**2) Living Maculis e-mailhandtekening.** Deterministisch, centraal bij verzenden
+toegevoegd (nooit door de AI, nooit in de opgeslagen body), exact één keer, idempotent,
+e-mailclient-veilig (knipoog als animated GIF met statische PNG-fallback, geen tracking
+pixel), dark-mode/mobiel/toegankelijk. AI-context sluit de eigen handtekening + geciteerde
+historie uit (`stripForContext`). **Definitieve copy:** `Ludwig van der Kuijl` /
+`Maculis · Kijk nog eens.` / `hello@maculis.nl · maculis.nl` (naam + payoff config-baar,
+nooit verzonnen; plain-text valt logisch terug op dezelfde regels).
+
+**3) Attention Cockpit — dagelijkse cockpit boven Testerbeheer.** Eén kanaal-agnostische
+"wat vraagt vandaag mijn aandacht?".
+- **Read = menselijk signaal:** conversation-level `last_read_at`-watermerk, alleen gezet
+  wanneer een bevoegde gebruiker het gesprek daadwerkelijk **opent** — nooit door webhook,
+  AI of achtergrondjob. Idempotent (watermerk loopt alleen vooruit).
+- **Attention is afgeleid, nooit dubbel opgeslagen:** uit `last_inbound_at` vs
+  `last_read_at`, een klaarstaand voorstel en leverstatus → `NEW/UNREAD/NEEDS_ACTION/
+  REPLY_READY/WAITING_FOR_CUSTOMER/RESOLVED (+ DELIVERY_PROBLEM)`.
+- **Eén bron van waarheid:** Inbox-badge, cockpit-kop, rij-indicator komen alle uit
+  `attentionOverview` (tenant-scoped, privacy uitgesloten). Behandelde communicatie
+  verdwijnt overal coherent.
+- **UX:** menselijke copy ("Antwoord staat klaar", correcte enkelvoud/meervoud), één
+  deterministische prioriteit ("Als eerste bekijken", op urgentie → oudste wachtend, geen
+  verzonnen AI-ranking), compacte conversation-previews met snippet, ontworpen zero-state
+  ("Je bent bij."), subtiele micro-interacties (respecteert `prefers-reduced-motion`),
+  responsive (mobiel = één boodschap + één actie), toegankelijk (kleur nooit het enige
+  signaal). Eén klik → juiste gesprek (`/comm.html#conv=<id>`, markeert gelezen).
+- **Migratie 005** forward-only/non-destructief: `last_read_at/last_read_by/last_inbound_at`
+  + backfill van `last_inbound_at` + tenant-scoped index. Geen read-state gebackfilld
+  (eerlijk "ongelezen tot geopend").
+
+**Tests:** volledige comm-suite **65/65** (serieel). Nieuw: 22 attention-cases (pure
+derivation + DB-E2E: watermerk, idempotentie, tenant-isolatie, privacy-uitsluiting,
+zero-state, headline enkelvoud/meervoud) + uitgebreide signature-cases. Visuele QA
+(desktop + mobiel + zero-state) via headless Chromium.
+
+**Menselijke acties — afgerond (niet langer openstaand):**
+- Communicatielaag geactiveerd (`DATABASE_URL` gekoppeld; Comm ENABLED, migraties 001–005).
+- Resend inbound webhook + `RESEND_WEBHOOK_SECRET` + `COMM_MAILBOXES` gezet; MX `maculis.nl`
+  geverifieerd; echte inbound→AI→bewerk→goedkeuren→outbound E2E aangetoond in productie.
+- `MAIL_API_KEY` en `MAIL_FROM` gezet (echte outbound live).
+
+**Resterende menselijke acties:** (a) visuele acceptatie van de knipoog in een échte
+ontvangen mail in echte clients (Apple Mail/Gmail); (b) na deze deploy Testerbeheer één
+keer openen zodat de productie-cockpit met echte relaties zichtbaar wordt (de read/write
+van het watermerk is lokaal tegen echte Postgres bewezen en de productie-boot is schoon,
+maar directe productie-DB-queries zijn vanuit de sandbox geblokkeerd (SSL/TLS)).
+
+**Commits:** branch `claude/maculis-communication-layer-gk5x2i` → merge naar deploybranch
+`claude/invitation-manager-mvp-d5r5h8` (auto-deploy Render, migratie 005 toegepast, schone boot).
+
+---
+
+## 2026-08-15 — Pass the Lens: productie-acceptatie (functioneel geaccepteerd, gesloten)
+
+**Status: in productie werkend en functioneel geaccepteerd.** Bevestigd via een echte
+productietest: een bestaande tester is opnieuw door First Five gegaan, Pass the Lens verscheen
+op het juiste moment, een nieuwe ondernemer is ingevuld en die persoon kwam correct in
+Testerbeheer binnen. Geen verdere wijzigingen; alleen heropenen bij een concrete bevinding uit
+echte testdata.
+
+**Wat het is.** De eerste ingebouwde organische groeilus: een ondernemer die First Five heeft
+ervaren draagt aan het einde (na de Meaningful End én de evaluatie) een andere ondernemer aan
+("Aan wie zou jij deze lens doorgeven?"). De aangedragen ondernemer landt als KANDIDAAT in
+Testerbeheer; een beheerder beoordeelt en nodigt uit via de bestaande Invitation Manager.
+
+**Architectuur (bestaande entiteiten hergebruikt, geen parallel CRM).**
+- First Five is een dunne forwarder: `POST /api/pass-the-lens` → forwardt de 4 minimale velden
+  (voornaam, achternaam, bedrijf, e-mail) naar Testerbeheer `POST /api/intake` (server-to-server,
+  `INTAKE_KEY`). First Five bewaart niets over de derde persoon (privacy §10).
+- `store.intake()` (bestaand seam): dedup op person_key, `source:'pass_the_lens'`, lifecycle nooit
+  gereset. Provenance in append-only `record.introductions[]` = `{ at, by_id, by_name, by_company,
+  source_journey }`; de verwijzer wordt uit zijn eigen token opgelost (`getByToken`), voert zijn
+  gegevens niet opnieuw in, en geen token/secret wordt opgeslagen. Repeat-introductie wordt
+  toegevoegd (zichtbaar), nooit een stille duplicaat/merge. History-event
+  `pass_the_lens_introduction` (observatie; stuurt nooit status/consent).
+- HARDE REGEL §4: geen automatische uitnodiging. Kandidaat = DRAFT + consent UNKNOWN → de
+  fail-closed `mayContact()`-gate blokkeert elke automatische outbound. Uitnodigen loopt via de
+  ONGEWIJZIGDE bestaande consent-gated e-mail/WhatsApp-flow; status schuift door naar SENT →
+  COMPLETED.
+- Relatiehistorie (§9/§15): best-effort `server/comm/pass-the-lens.mjs` (`bridgePassTheLens`) legt,
+  wanneer de Comm Layer aan staat, een Contact + `pass_the_lens_introduction`-activity + een
+  bevestigde memory ("Geïntroduceerd via Pass the Lens door X") vast, zichtbaar voor de AI-context.
+  Volledig guarded/no-op wanneer uit. In productie staat de Comm Layer AAN, dus dit speelt mee.
+- UI: rustig "Pass the Lens · via \<verwijzer\>"-label op de kandidaatrij + "Aangedragen door" in de
+  Historie. Schrijfregel gerespecteerd (geen streepjes als stijlmiddel).
+
+**Config (productie).** `INTAKE_KEY` gedeeld op `ftrlabs-testerbeheer` én `maculis-first-five`;
+`TESTERBEHEER_INTAKE_URL=https://ftrlabs-testerbeheer.onrender.com/api/intake` op First Five. Het
+gedeelde geheim staat NIET in code/log/docs. Zonder deze config degradeert de feature zacht (geen
+kandidaat, geen kapotte UX).
+
+**Tests.** Unit `tests/pass-the-lens.test.mjs` 5/5 (DRAFT + UNKNOWN → geen auto-invite; token-
+provenance; dedup/repeat-append; onbekende verwijzer; dossier). core 19/19 ongewijzigd. Cross-service
+E2E (beide échte servers lokaal) 15/15. First Five: tsc schoon, technical 13/13, selftest 8/8.
+Analytics PII-vrij: `pass_the_lens_shown/_submitted/_skipped` (geen namen/e-mail).
+
+**Commits.** Testerbeheer `ed6a9b5` (feat: controlled referral intake + provenance). First Five
+`091c4de` (feat: the organic growth loop terminal beat). Beide live gedeployed en schoon geboot.
+
+---
+
 ## 2026-08-15 — Inbound e-mail end to end: zichtbaar bij de klant + AI-verwerking
 
 **Gerichte afrondingsbug.** Inkomende e-mail verscheen niet bij Klant → Communicatie.
