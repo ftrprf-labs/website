@@ -20,6 +20,9 @@ import {
   checkPassword,
   cookieHeaderFor,
 } from './auth.mjs';
+import { handleComm } from './comm/routes.mjs';
+import { migrateOnBoot } from './comm/migrate.mjs';
+import { commEnabled } from './comm/db.mjs';
 
 const PUBLIC = join(ROOT, 'public');
 
@@ -213,6 +216,14 @@ async function handleApi(req, res, pathname) {
   // Health check for the managed platform (Render pings this). No auth, no PII.
   if (pathname === '/healthz' && method === 'GET') {
     return json(res, 200, { ok: true, service: 'ftrlabs-invitation-manager' });
+  }
+
+  // Communication Layer routes (mounted only when enabled). The webhook is signature-authed;
+  // other comm routes gate on the admin session inside handleComm. Additive — never touches the
+  // existing Invitation Manager / First Five routes.
+  if (pathname.startsWith('/api/comm/')) {
+    const handled = await handleComm(req, res, { pathname, method, isAuthed });
+    if (handled) return;
   }
 
   // Public endpoints (no admin gate).
@@ -644,7 +655,17 @@ server.listen(config.port, bindHost, () => {
   } else {
     console.log(`  Auth     : password gate ON`);
   }
+  console.log(`  Comm     : ${commEnabled() ? 'ENABLED (Postgres relationship layer)' : 'off (set COMM_LAYER_ENABLED + DATABASE_URL)'}`);
   console.log('');
+
+  // Communication Layer: apply DB migrations on boot when enabled. Best-effort — never blocks the
+  // Invitation Manager / First Five service if the database is briefly unreachable.
+  if (commEnabled()) {
+    migrateOnBoot().then((r) => {
+      if (r.ok) console.log(`  Comm     : migrations ${r.ran && r.ran.length ? 'applied ' + r.ran.join(', ') : 'up to date'}`);
+      else if (!r.skipped) console.log(`  Comm     : migrations pending (${r.error})`);
+    });
+  }
 
   // Retentie (privacy by design): ruim bij start en daarna dagelijks records op die
   // ouder zijn dan de bewaartermijn. Faalt nooit de server — alleen een telling gelogd.
