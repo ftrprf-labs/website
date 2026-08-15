@@ -71,12 +71,20 @@ export async function processInbound({ headers, rawBody, fetchEmail = fetchInbou
   const eventId = headers['svix-id'] || emailId;
   if (!eventId) return { ok: false, status: 400, reason: 'no_event_id' };
 
-  // 2/3) idempotency — record the event; a duplicate is a no-op success.
-  const dup = await query(
+  // 2/3) idempotency — record the event. Only a SUCCESSFULLY processed event is a true duplicate;
+  // a prior attempt that failed (or never finished) MUST be retried, otherwise a transient error
+  // (e.g. a missing key) would permanently lose the mail once Resend redelivers the same event
+  // (§19/§42 retry-safe, no lost messages).
+  const ins = await query(
     `insert into webhook_event(provider, provider_event_id, svix_id) values ('resend',$1,$2)
      on conflict (provider, provider_event_id) do nothing returning id`,
     [eventId, headers['svix-id'] || null]);
-  if (dup.rows.length === 0) return { ok: true, status: 200, duplicate: true };
+  if (ins.rows.length === 0) {
+    const prior = (await query("select status from webhook_event where provider='resend' and provider_event_id=$1", [eventId])).rows[0];
+    if (prior && prior.status === 'processed') return { ok: true, status: 200, duplicate: true };
+    // A previously failed/unfinished event: reset and reprocess on this redelivery.
+    await query("update webhook_event set status='received', error=null where provider='resend' and provider_event_id=$1", [eventId]);
+  }
 
   try {
     // 4) recipient allowlist — unknown @maculis.nl addresses are NOT processed as communication.
@@ -99,6 +107,10 @@ export async function processInbound({ headers, rawBody, fetchEmail = fetchInbou
 
     // 6) persist Message + Conversation + match — all in one transaction (persistence first).
     const result = await withTransaction(async (client) => {
+      // Idempotency guard: if this exact inbound message was already stored on an earlier attempt
+      // (post-commit failure, then a Resend retry), do not insert it twice.
+      const already = await client.query("select id, conversation_id from message where provider_message_id=$1 and direction='INBOUND' limit 1", [emailId]);
+      if (already.rows[0]) return { conversationId: already.rows[0].conversation_id, messageId: already.rows[0].id, contactMatched: false, contactId: null, organizationId: null, reprocessed: true };
       // Match sender to a permanent Contact (never for privacy auto-org; here we only identify
       // the person from the From address — org linkage stays conservative).
       const contact = await resolveContactTx(client, tenantId, { email: fromAddr });
