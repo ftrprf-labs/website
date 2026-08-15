@@ -115,6 +115,13 @@ export const config = {
   smsApiKey: process.env.SMS_API_KEY || '',
   smsApiUrl: process.env.SMS_API_URL || '',
   smsOriginator: process.env.SMS_ORIGINATOR || '',
+  // Twilio account SID (outbound) + the signing secret used to verify inbound/status webhooks
+  // (Twilio: the account auth token). Empty => the inbound SMS webhook is inert/fail-closed.
+  smsAccountSid: process.env.SMS_ACCOUNT_SID || '',
+  smsWebhookSecret: process.env.SMS_WEBHOOK_SECRET || '',
+  // Exact public URL Twilio is configured to call (signature is computed over it). Falls back to
+  // MACULIS_PUBLIC_URL + the request path when not set.
+  smsWebhookUrl: process.env.SMS_WEBHOOK_URL || '',
   phoneProvider: (process.env.PHONE_PROVIDER || '').toLowerCase(),
   phoneApiKey: process.env.PHONE_API_KEY || '',
   phoneNumber: process.env.PHONE_NUMBER || '',

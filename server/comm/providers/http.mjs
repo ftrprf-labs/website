@@ -26,15 +26,12 @@ export function backoffMs(attempt, base = 200, cap = 4000) {
 
 const defaultWait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// POST JSON with timeout + bounded retry. Returns a normalized result:
-//   { ok, status, json, error, attempts }   (ok is true only on a 2xx response)
-// `fetchImpl` and `wait` are injectable for offline tests. `retries` is the number of ADDITIONAL
-// attempts after the first (so retries:2 means up to 3 attempts total).
-export async function postJsonWithRetry({
+// Core retry loop. `body` is an already-encoded string; `headers` are complete. Returns a
+// normalized result { ok, status, json, error, attempts } (json is the parsed 2xx/non-2xx body).
+async function runWithRetry({
   url, headers = {}, body, timeoutMs = 10000, retries = 2,
   fetchImpl = fetch, wait = defaultWait, base = 200,
 }) {
-  const payload = typeof body === 'string' ? body : JSON.stringify(body);
   let attempt = 0;
   let lastError = null;
   while (attempt <= retries) {
@@ -42,18 +39,12 @@ export async function postJsonWithRetry({
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetchImpl(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...headers },
-        body: payload,
-        signal: controller.signal,
-      });
+      const res = await fetchImpl(url, { method: 'POST', headers, body, signal: controller.signal });
       clearTimeout(timer);
       if (res.ok) {
         const json = await res.json().catch(() => ({}));
         return { ok: true, status: res.status, json, attempts: attempt };
       }
-      // Non-2xx: retry only when the provider says so (429/5xx) and we have budget left.
       if (isRetryableStatus(res.status) && attempt <= retries) {
         await wait(backoffMs(attempt, base));
         lastError = `http_${res.status}`;
@@ -63,12 +54,40 @@ export async function postJsonWithRetry({
       return { ok: false, status: res.status, json, error: `http_${res.status}`, attempts: attempt };
     } catch (err) {
       clearTimeout(timer);
-      // Connection error / abort BEFORE a response: no request was acknowledged, so a retry cannot
-      // duplicate. Retry within budget; otherwise surface the error.
       lastError = err && err.name === 'AbortError' ? 'timeout' : 'network_error';
       if (attempt <= retries) { await wait(backoffMs(attempt, base)); continue; }
       return { ok: false, status: 0, error: lastError, attempts: attempt };
     }
   }
   return { ok: false, status: 0, error: lastError || 'exhausted', attempts: attempt };
+}
+
+// POST a JSON body (Content-Type: application/json). `retries` is the number of ADDITIONAL attempts
+// after the first (retries:2 => up to 3 attempts total).
+export async function postJsonWithRetry({ url, headers = {}, body, ...rest }) {
+  return runWithRetry({
+    url,
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: typeof body === 'string' ? body : JSON.stringify(body),
+    ...rest,
+  });
+}
+
+// POST an application/x-www-form-urlencoded body (Twilio and similar providers). `body` may be an
+// object (encoded here) or a pre-encoded string.
+export function encodeForm(obj) {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(obj || {})) {
+    if (Array.isArray(v)) v.forEach((x) => p.append(k, String(x)));
+    else if (v != null) p.append(k, String(v));
+  }
+  return p.toString();
+}
+export async function postFormWithRetry({ url, headers = {}, body, ...rest }) {
+  return runWithRetry({
+    url,
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...headers },
+    body: typeof body === 'string' ? body : encodeForm(body),
+    ...rest,
+  });
 }

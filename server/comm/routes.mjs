@@ -24,6 +24,7 @@ import { channelConsentState, setPreference, listPreferences } from './consent.m
 import { channelStatusBoard, SENDABLE_CHANNELS } from './providers/index.mjs';
 import { receiveChannelInbound, linkConversationToContact } from './channel-inbound.mjs';
 import { processWhatsAppWebhook, handleWhatsAppChallenge } from './whatsapp-inbound.mjs';
+import { processSmsWebhook, resolveWebhookUrl } from './sms-inbound.mjs';
 
 const UUID = '([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})';
 
@@ -78,6 +79,16 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
     let rawBody;
     try { rawBody = await readRaw(req); } catch { json(res, 413, { ok: false }); return true; }
     const result = await processWhatsAppWebhook({ headers: lowerHeaders(req), rawBody });
+    json(res, result.status || 200, { ok: result.ok, ...(result.reason ? { reason: result.reason } : {}) });
+    return true;
+  }
+
+  // SMS inbound + delivery status (POST, Twilio). Signature-authenticated (x-twilio-signature) over
+  // the exact webhook URL + form params, NOT admin-gated. Inert until SMS_WEBHOOK_SECRET is set.
+  if (pathname === '/api/comm/inbound/sms' && method === 'POST') {
+    let rawBody;
+    try { rawBody = await readRaw(req); } catch { json(res, 413, { ok: false }); return true; }
+    const result = await processSmsWebhook({ url: resolveWebhookUrl(pathname), headers: lowerHeaders(req), rawBody });
     json(res, result.status || 200, { ok: result.ok, ...(result.reason ? { reason: result.reason } : {}) });
     return true;
   }
