@@ -16,6 +16,7 @@ import { sanitizeHtml, htmlToText } from './sanitize.mjs';
 import { fetchInboundEmail } from './resend.mjs';
 import { tenantForMailbox } from './tenant.mjs';
 import { recordActivity } from './activity.mjs';
+import { runCopilot } from './ai/copilot.mjs';
 
 export function parseAddress(v) {
   if (!v) return '';
@@ -135,6 +136,13 @@ export async function processInbound({ headers, rawBody, fetchEmail = fetchInbou
       meta: { mailbox: route.address, messageId: result.messageId },
     });
     await query(`update webhook_event set status='processed', processed_at=now() where provider_event_id=$1`, [eventId]);
+
+    // AI runs AFTER persistence and only for the COMMUNICATION mailbox — privacy@ is never
+    // auto-analysed (§33). Fire-and-forget: the webhook returns immediately; a copilot failure
+    // can never lose or delay the received message.
+    if (!isPrivacy) {
+      Promise.resolve().then(() => runCopilot({ conversationId: result.conversationId, messageId: result.messageId })).catch(() => {});
+    }
     return { ok: true, status: 200, stored: true, mailboxKind: route.kind, isPrivacy, ...result };
   } catch (err) {
     // The webhook_event row stays 'received' with the error; Resend will retry, and idempotency
