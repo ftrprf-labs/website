@@ -27,7 +27,7 @@ function nextTaskId(db) {
 
 // Create a fully-formed task from a routing decision.
 export function createTask({ request, routing, priority = 'NORMAL', acceptance = [],
-  deployRequired = false, idempotencyKey = null }) {
+  deployRequired = false, idempotencyKey = null, epicId = null, dependsOn = [] }) {
   return tx((db) => {
     const id = nextTaskId(db);
     const now = new Date().toISOString();
@@ -57,9 +57,12 @@ export function createTask({ request, routing, priority = 'NORMAL', acceptance =
       acceptance_criteria: acceptance,
       tests_required: (routing.required_checks || []).length > 0,
       deploy_required: Boolean(deployRequired),
-      // Dependencies between tasks.
-      dependencies: [],
-      blocked_by: [],
+      // Epic decomposition + dependencies between tasks. `dependencies` are task
+      // ids that must reach COMPLETED before this task is runnable (brief:
+      // Autonomous Night Run decomposition).
+      epic_id: epicId || null,
+      dependencies: Array.isArray(dependsOn) ? [...dependsOn] : [],
+      blocked_by: Array.isArray(dependsOn) ? [...dependsOn] : [],
       // Results.
       human_action_required: false,
       result_summary: null,

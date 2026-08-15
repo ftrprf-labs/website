@@ -11,8 +11,9 @@
 
 import { config } from './config.mjs';
 import { route } from './router.mjs';
+import { decompose } from './decompose.mjs';
 import { getAgent } from './registry.mjs';
-import { createTask, getTask, setStatus, update, listTasks, normalize } from './tasks.mjs';
+import { createTask, getTask, setStatus, update, listTasks, normalize, isTerminal } from './tasks.mjs';
 import { deriveAcceptance, verifyAcceptance } from './acceptance.mjs';
 import { preflight } from './git.mjs';
 import { decideSession, recordUse, markTaskDone } from './sessions.mjs';
@@ -36,7 +37,8 @@ export function isAgentDisabled(agentId) { return Boolean(ready().disabledAgents
 
 // ---- Submit ---------------------------------------------------------------
 export function submit(request, { priority = 'NORMAL', preferredAgent = null,
-  deployRequired = false, idempotencyKey = null, acceptance = null } = {}) {
+  deployRequired = false, idempotencyKey = null, acceptance = null,
+  epicId = null, dependsOn = [] } = {}) {
   if (idempotencyKey) {
     const existingId = ready().idempotency[idempotencyKey];
     if (existingId && getTask(existingId)) return { task: getTask(existingId), deduped: 'idempotency' };
@@ -58,7 +60,7 @@ export function submit(request, { priority = 'NORMAL', preferredAgent = null,
   }
 
   const task = createTask({
-    request, routing, priority, deployRequired, idempotencyKey,
+    request, routing, priority, deployRequired, idempotencyKey, epicId, dependsOn,
     acceptance: acceptance || deriveAcceptance(request, routing),
   });
   audit('task_submitted', { task_id: task.task_id, agent: task.selected_agent, repository: task.repository, confidence: task.routing_confidence });
@@ -79,6 +81,79 @@ export function submit(request, { priority = 'NORMAL', preferredAgent = null,
   return { task: getTask(task.task_id) };
 }
 
+// ---- Submit an EPIC (decomposed large assignment) ------------------------
+// Split one large engineering assignment into ordered, routed sub-tasks and
+// submit them as a linked epic. Sub-tasks on the same repo (or marked with an
+// ordering word) are chained; independent repos run in parallel. Returns the epic
+// record + the created tasks. This is the ChatGPT → Orchestrator handoff for the
+// Autonomous Night Run working method.
+export function submitEpic(request, { priority = 'NORMAL', deployRequired = false, idempotencyKey = null } = {}) {
+  if (idempotencyKey) {
+    const existing = ready().idempotency[idempotencyKey];
+    if (existing && ready().epics[existing]) return { epic: ready().epics[existing], deduped: 'idempotency', tasks: epicTasks(existing) };
+  }
+  const plan = decompose(request);
+
+  // A single, indivisible instruction is just a task — do not manufacture an epic.
+  if (!plan.is_epic) {
+    const out = submit(request, { priority, deployRequired });
+    return { epic: null, is_epic: false, plan, tasks: [out.task] };
+  }
+
+  const epicId = tx((db) => { db.epicCounter += 1; return `EPIC-${db.epicCounter}`; });
+  const idByIndex = {};
+  const taskIds = [];
+  for (const step of plan.steps) {
+    const dependsOn = (step.depends_on_index || []).map((i) => idByIndex[i]).filter(Boolean);
+    const preferred = step.selected_agent && step.selected_agent !== 'NEEDS_ROUTING_REVIEW' ? step.selected_agent : null;
+    const out = submit(step.text, { priority, deployRequired, epicId, dependsOn, preferredAgent: preferred });
+    idByIndex[step.index] = out.task.task_id;
+    taskIds.push(out.task.task_id);
+  }
+
+  const epic = tx((db) => {
+    db.epics[epicId] = {
+      epic_id: epicId,
+      request,
+      created_at: new Date().toISOString(),
+      task_ids: taskIds,
+      repositories: plan.repositories,
+      truncated: plan.truncated,
+      needs_routing_review: plan.needs_routing_review,
+    };
+    if (idempotencyKey) db.idempotency[idempotencyKey] = epicId;
+    return db.epics[epicId];
+  });
+  audit('epic_submitted', { epic_id: epicId, subtasks: taskIds.length, repositories: plan.repositories });
+  return { epic, is_epic: true, plan, tasks: taskIds.map((id) => getTask(id)) };
+}
+
+function epicTasks(epicId) {
+  const e = ready().epics[epicId];
+  return e ? e.task_ids.map((id) => getTask(id)).filter(Boolean) : [];
+}
+
+// Epic status rollup: the epic is done when every sub-task is terminal; it needs a
+// human if any sub-task is waiting on one.
+export function getEpic(epicId) {
+  const e = ready().epics[epicId];
+  if (!e) return null;
+  const tasks = epicTasks(epicId);
+  const byStatus = {};
+  for (const t of tasks) byStatus[t.status] = (byStatus[t.status] || 0) + 1;
+  // BLOCKED is not in the TERMINAL set (it can be re-queued), but for an epic
+  // rollup a blocked dependent has settled — it will not proceed on its own.
+  const allSettled = tasks.every((t) => isTerminal(t.status) || t.status === 'BLOCKED');
+  const anyHuman = tasks.some((t) => t.status === 'WAITING_FOR_HUMAN' || t.human_action_required);
+  const anyFailed = tasks.some((t) => t.status === 'FAILED' || t.status === 'BLOCKED');
+  const rollup = anyHuman ? 'WAITING_FOR_HUMAN' : allSettled ? (anyFailed ? 'FAILED' : 'COMPLETED') : 'IN_PROGRESS';
+  return { ...e, rollup, by_status: byStatus, tasks };
+}
+
+export function listEpics() {
+  return Object.keys(ready().epics).map((id) => getEpic(id)).filter(Boolean);
+}
+
 function findActiveDuplicate(request) {
   const n = normalize(request);
   return listTasks({ active: true }).find((t) => t.normalized_request === n) || null;
@@ -94,7 +169,7 @@ export function pickRunnable() {
   const db = ready();
   if (listTasks({ status: 'RUNNING' }).length >= config.maxConcurrentAgents) return null;
   const queued = db.queue.map((id) => getTask(id))
-    .filter((t) => t && t.status === 'QUEUED' && !isAgentDisabled(t.selected_agent))
+    .filter((t) => t && t.status === 'QUEUED' && !isAgentDisabled(t.selected_agent) && depsSatisfied(t))
     .sort((a, b) => (PRIO[a.priority] - PRIO[b.priority]) || a.task_id.localeCompare(b.task_id, undefined, { numeric: true }));
   for (const t of queued) {
     const probe = tryAcquire(t.task_id, reposFor(t));
@@ -106,6 +181,27 @@ function reposFor(task) {
   const repos = [task.repository];
   if (task.cross_domain && task.dependency?.repository) repos.push(task.dependency.repository);
   return repos.filter(Boolean);
+}
+
+// Epic sub-task gating (Autonomous Night Run decomposition). A task is runnable
+// only once every prerequisite sub-task has COMPLETED.
+function depsSatisfied(task) {
+  const deps = task.dependencies || [];
+  if (!deps.length) return true;
+  return deps.every((d) => getTask(d)?.status === 'COMPLETED');
+}
+// If a prerequisite did NOT complete (failed/cancelled/blocked), its dependents
+// must not run on a broken base — block them explicitly rather than wait forever.
+function cascadeDependencyBlocks() {
+  const dead = new Set(['FAILED', 'CANCELLED', 'BLOCKED']);
+  for (const t of listTasks({ status: 'QUEUED' })) {
+    const deps = t.dependencies || [];
+    if (deps.some((d) => dead.has(getTask(d)?.status))) {
+      tx((db) => { db.queue = db.queue.filter((q) => q !== t.task_id); });
+      setStatusSafe(t.task_id, 'BLOCKED', { result_summary: 'Blocked: a prerequisite sub-task did not complete.' });
+      audit('task_blocked_dependency', { task_id: t.task_id });
+    }
+  }
 }
 
 function beat(taskId) { update(taskId, { last_heartbeat: new Date().toISOString() }); }
@@ -272,7 +368,13 @@ function setStatusSafe(taskId, status, patch) {
 
 export async function drain() {
   const processed = []; let id;
-  while ((id = pickRunnable())) { await process(id); processed.push(id); if (processed.length > 100) break; }
+  cascadeDependencyBlocks();
+  while ((id = pickRunnable())) {
+    await process(id);
+    processed.push(id);
+    cascadeDependencyBlocks();  // a just-finished dep may unblock or block dependents
+    if (processed.length > 100) break;
+  }
   return processed;
 }
 

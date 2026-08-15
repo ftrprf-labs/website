@@ -13,7 +13,15 @@ automation, no DOM scripting, no cookie reuse (brief §80).
 - A machine-readable **OpenAPI 3.1 spec** at `GET /openapi.json` describing the
   small tool surface (brief §24):
   `submit_maculis_task`, `get_maculis_task`, `list_maculis_tasks`,
-  `cancel_maculis_task`, `approve_maculis_action`, `list_maculis_human_actions`.
+  `cancel_maculis_task`, `approve_maculis_action`, `list_maculis_human_actions`,
+  and — for the Autonomous Night Run working method —
+  `submit_maculis_epic`, `plan_maculis_assignment`, `get_maculis_epic`,
+  `list_maculis_epics`, `get_maculis_governance`.
+- **Large assignments**: hand a full multi-step assignment to `submit_maculis_epic`.
+  The Orchestrator decomposes it into ordered, routed sub-tasks and runs them under
+  the governance framework in [`LEAD_ENGINEERING.md`](./LEAD_ENGINEERING.md). Poll
+  `get_maculis_epic` for the rollup. This is the ChatGPT → Orchestrator end state —
+  ChatGPT is the intake surface, not a manual relay step.
 - Async model: submit returns a `task_id` fast; the worker runs the task; status
   is polled via `get_maculis_task` (brief §26). Optional signed webhooks for
   push-style completion (brief §27, §45) — no fake callback if a channel isn't
@@ -53,4 +61,10 @@ node bin/maculis-dev.mjs serve
 curl -s localhost:4610/openapi.json | head            # public schema
 curl -s -XPOST localhost:4610/tasks -H "authorization: Bearer $MACULIS_API_TOKEN" \
   -H 'content-type: application/json' -d '{"request":"HEMA toont Nog een lens niet"}'
+
+# A large assignment → decomposed epic (dry-run plan, then submit):
+curl -s -XPOST localhost:4610/decompose -H "authorization: Bearer $MACULIS_API_TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"request":"1. Verbeter de homepage SEO\n2. Bouw een reveal stap in de First Five journey\n3. Daarna audit testerbeheer consent"}'
+curl -s localhost:4610/governance -H "authorization: Bearer $MACULIS_API_TOKEN" | head
 ```

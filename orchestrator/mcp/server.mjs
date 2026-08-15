@@ -29,6 +29,22 @@ const TOOLS = [
       required: ['request'],
     },
   },
+  {
+    name: 'submit_maculis_epic',
+    description: 'Submit a LARGE multi-step engineering assignment. It is decomposed into ordered, routed sub-tasks (one per repo/step), chained by dependency, and run under the Autonomous Night Run governance. Use for assignments spanning multiple steps or repos; use submit_maculis_task for a single instruction.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        request: { type: 'string', description: 'The full assignment in natural language (numbered/bulleted steps welcome).' },
+        priority: { type: 'string', enum: ['LOW', 'NORMAL', 'HIGH', 'URGENT'] },
+        deploy_required: { type: 'boolean' },
+      },
+      required: ['request'],
+    },
+  },
+  { name: 'plan_maculis_assignment', description: 'Dry-run: show how a large assignment would be split and routed into sub-tasks, without creating anything.', inputSchema: { type: 'object', properties: { request: { type: 'string' } }, required: ['request'] } },
+  { name: 'get_maculis_epic', description: 'Get one decomposed epic with its sub-tasks and rollup status.', inputSchema: { type: 'object', properties: { epic_id: { type: 'string' } }, required: ['epic_id'] } },
+  { name: 'get_maculis_governance', description: 'Read the durable Lead Engineering / Autonomous Night Run governance framework applied to every task.', inputSchema: { type: 'object', properties: {} } },
   { name: 'get_maculis_task', description: 'Get one task by id.', inputSchema: { type: 'object', properties: { task_id: { type: 'string' } }, required: ['task_id'] } },
   { name: 'list_maculis_tasks', description: 'List tasks, optionally filtered by status or agent.', inputSchema: { type: 'object', properties: { status: { type: 'string' }, agent: { type: 'string' } } } },
   { name: 'cancel_maculis_task', description: 'Cancel a task by id.', inputSchema: { type: 'object', properties: { task_id: { type: 'string' } }, required: ['task_id'] } },
@@ -46,6 +62,23 @@ async function callTool(name, a = {}) {
       setImmediate(() => engine.drain().catch(() => {}));
       return ok({ task_id: out.task.task_id, routed_to: out.task.selected_agent, repository: out.task.repository, status: out.task.status, reason: out.task.routing_reason, deduped: out.deduped || null });
     }
+    case 'submit_maculis_epic': {
+      const out = engine.submitEpic(a.request, { priority: a.priority, deployRequired: Boolean(a.deploy_required) });
+      setImmediate(() => engine.drain().catch(() => {}));
+      return ok({
+        epic_id: out.epic?.epic_id || null, is_epic: out.is_epic,
+        subtasks: (out.tasks || []).map((t) => ({ task_id: t.task_id, routed_to: t.selected_agent, repository: t.repository, depends_on: t.dependencies })),
+        repositories: out.plan?.repositories || [], needs_routing_review: out.plan?.needs_routing_review || false,
+      });
+    }
+    case 'plan_maculis_assignment': {
+      const { decompose } = await import('../src/decompose.mjs');
+      const plan = decompose(a.request);
+      return ok({ is_epic: plan.is_epic, count: plan.count, repositories: plan.repositories, needs_routing_review: plan.needs_routing_review,
+        steps: plan.steps.map((s) => ({ index: s.index, text: s.text, routed_to: s.selected_agent, repository: s.repository, depends_on_index: s.depends_on_index })) });
+    }
+    case 'get_maculis_epic': { const e = engine.getEpic(a.epic_id); return ok(e || { error: 'not found' }); }
+    case 'get_maculis_governance': { const { getGovernance } = await import('../src/governance.mjs'); return ok(getGovernance()); }
     case 'get_maculis_task': { const t = getTask(a.task_id); return ok(t || { error: 'not found' }); }
     case 'list_maculis_tasks': return ok(listTasks({ status: a.status, agent: a.agent }).map((t) => ({ task_id: t.task_id, status: t.status, agent: t.selected_agent, title: t.title })));
     case 'cancel_maculis_task': { const t = engine.cancel(a.task_id); return ok(t || { error: 'not found' }); }

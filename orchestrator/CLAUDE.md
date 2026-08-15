@@ -34,4 +34,9 @@ GitHub as the code-history source of truth. It is NOT one of the three products.
 - `src/sessions.mjs` — per-domain session continuity + freshness rules.
 - `src/tasks.mjs` — canonical task object + enforced status machine.
 - `src/api.mjs` — authenticated HTTP boundary. `mcp/server.mjs` — MCP tools.
+- `src/governance.mjs` + `config/governance.json` — the durable Autonomous Night
+  Run framework (loaded, injected into every prompt, served at `GET /governance`).
+- `src/decompose.mjs` — split a large assignment into ordered, routed sub-tasks;
+  `engine.submitEpic()` runs them as a dependency-gated epic. See
+  `docs/LEAD_ENGINEERING.md`.
 - `bin/maculis-dev.mjs` — the CLI.

@@ -79,6 +79,25 @@ by passing `verifyAcceptance()`: required checks actually ran and passed, a bug
 carries a regression test, e2e where required (not just unit), deploy-required
 tasks are live-verified (brief §30, §35). Otherwise → FAILED or WAITING_FOR_HUMAN.
 
+### Governance & decomposition — the Autonomous Night Run framework as data
+
+The working method (repo boundaries, parallel-work rules, quality gates, human
+actions, rollback, delivery discipline) is not left implicit in code or, worse, in
+a chat transcript. It is a versioned, machine-readable charter:
+`config/governance.json`, loaded by `src/governance.mjs`, injected into every task
+prompt, and served at `GET /governance` (and the `get_maculis_governance` tool).
+That is what makes the framework durable — it survives when a chat ends.
+
+Large assignments handed in from ChatGPT go through `submitEpic()`
+(`POST /epics` / `submit_maculis_epic`). `src/decompose.mjs` splits the assignment
+on **explicit structure only** (numbered/bulleted steps, lines, ordering words) —
+the same "deterministic and explainable, never a guess" philosophy as the router —
+routes each sub-task to its owning repo, and computes dependencies: same-repo
+sub-tasks are chained, independent repos run in parallel, an ordering word creates
+a cross-repo dependency. The scheduler gates on those dependencies (`depsSatisfied`)
+and blocks a dependent whose prerequisite failed, so nothing runs on a broken base.
+A single, indivisible instruction stays a single task — no manufactured epic.
+
 ## Where it runs
 
 V1: on a developer machine or a small always-on worker that has the repo

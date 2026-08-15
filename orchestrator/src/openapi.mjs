@@ -68,6 +68,41 @@ export function openApiSpec() {
           responses: { 200: { description: 'Cancelled' } },
         },
       },
+      '/epics': {
+        post: {
+          operationId: 'submit_maculis_epic',
+          summary: 'Submit a LARGE assignment: it is decomposed into ordered, routed sub-tasks and run under the Autonomous Night Run governance. Use this for multi-step engineering work spanning steps or repos; use submit_maculis_task for a single instruction.',
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: {
+              type: 'object', required: ['request'],
+              properties: {
+                request: { type: 'string', description: 'The full multi-step engineering assignment in natural language (numbered/bulleted steps welcome).' },
+                priority: { type: 'string', enum: ['LOW', 'NORMAL', 'HIGH', 'URGENT'] },
+                deploy_required: { type: 'boolean' },
+              },
+            } } },
+          },
+          responses: { 202: { description: 'Epic accepted; returns the epic id and its sub-tasks.' } },
+        },
+        get: { operationId: 'list_maculis_epics', summary: 'List decomposed epics and their rollup status.', responses: { 200: { description: 'OK' } } },
+      },
+      '/epics/{id}': {
+        get: {
+          operationId: 'get_maculis_epic', summary: 'Get one epic with its sub-tasks and rollup status.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: { 200: { description: 'OK' }, 404: { description: 'Not found' } },
+        },
+      },
+      '/decompose': {
+        post: {
+          operationId: 'plan_maculis_assignment',
+          summary: 'Dry-run: show how a large assignment would be split and routed into sub-tasks, without creating anything.',
+          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['request'], properties: { request: { type: 'string' } } } } } },
+          responses: { 200: { description: 'OK' } },
+        },
+      },
+      '/governance': { get: { operationId: 'get_maculis_governance', summary: 'Read the durable Lead Engineering / Autonomous Night Run governance framework the Orchestrator applies to every task.', responses: { 200: { description: 'OK' } } } },
       '/human-actions': { get: { operationId: 'list_maculis_human_actions', summary: 'List open human actions (things only the human can do).', responses: { 200: { description: 'OK' } } } },
       '/approvals/{id}': {
         post: {

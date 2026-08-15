@@ -22,6 +22,8 @@ const EMPTY = () => ({
   queue: [],                        // task ids waiting to run, in priority order
   approvals: {},                    // approval_id -> approval record
   humanActions: {},                 // action_id -> human action record
+  epics: {},                        // epic_id -> decomposed-assignment record
+  epicCounter: 0,                   // last-issued epic number
   idempotency: {},                  // key -> task_id
   disabledAgents: {},               // agent_id -> { reason, at } (brief §71)
   audit: [],                        // append-only audit events (capped)

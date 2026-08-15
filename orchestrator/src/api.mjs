@@ -17,6 +17,8 @@ import { getTask, listTasks } from './tasks.mjs';
 import { tail } from './audit.mjs';
 import { openApiSpec } from './openapi.mjs';
 import { ready } from './store.mjs';
+import { getGovernance } from './governance.mjs';
+import { decompose } from './decompose.mjs';
 
 const rate = new Map(); // key -> { count, resetAt }
 
@@ -86,6 +88,35 @@ export function createApiServer() {
         const body = await readJson(req);
         if (!body.request || typeof body.request !== 'string' || body.request.length > 4000) return send(res, 400, { error: 'request (string, <=4000 chars) required' });
         return send(res, 200, route(body.request));
+      }
+      // GET /governance  (the durable Autonomous Night Run framework, read-only)
+      if (req.method === 'GET' && path === '/governance') return send(res, 200, getGovernance());
+      // POST /decompose  (dry-run: split + route a large assignment, no tasks created)
+      if (req.method === 'POST' && path === '/decompose') {
+        const body = await readJson(req);
+        if (!body.request || typeof body.request !== 'string' || body.request.length > 8000) return send(res, 400, { error: 'request (string, <=8000 chars) required' });
+        const plan = decompose(body.request);
+        return send(res, 200, { ...plan, steps: plan.steps.map(publicStep) });
+      }
+      // POST /epics  (decompose + submit a large assignment as linked sub-tasks)
+      if (req.method === 'POST' && path === '/epics') {
+        const body = await readJson(req);
+        if (!body.request || typeof body.request !== 'string' || body.request.length > 8000) return send(res, 400, { error: 'request (string, <=8000 chars) required' });
+        const idempotencyKey = req.headers['idempotency-key'] || body.idempotency_key || null;
+        const out = engine.submitEpic(body.request, { priority: body.priority, deployRequired: Boolean(body.deploy_required), idempotencyKey });
+        setImmediate(() => engine.drain().catch(() => {}));
+        return send(res, 202, {
+          epic: out.epic, is_epic: out.is_epic, deduped: out.deduped || null,
+          tasks: (out.tasks || []).map(publicTask),
+          plan: out.plan ? { count: out.plan.count, repositories: out.plan.repositories, needs_routing_review: out.plan.needs_routing_review } : null,
+        });
+      }
+      // GET /epics  and  GET /epics/:id
+      if (req.method === 'GET' && path === '/epics') return send(res, 200, { epics: engine.listEpics().map(publicEpic) });
+      const me = /^\/epics\/([A-Za-z0-9-]+)$/.exec(path);
+      if (me && req.method === 'GET') {
+        const e = engine.getEpic(me[1]);
+        return e ? send(res, 200, { epic: publicEpic(e) }) : send(res, 404, { error: 'not found' });
       }
       // POST /tasks
       if (req.method === 'POST' && path === '/tasks') {
@@ -157,6 +188,17 @@ function publicTask(t) {
   if (!t) return null;
   const { normalized_request, history, ...rest } = t;
   return rest;
+}
+function publicStep(s) {
+  return {
+    index: s.index, text: s.text, selected_agent: s.selected_agent, repository: s.repository,
+    task_type: s.task_type, risk_level: s.risk_level, depends_on_index: s.depends_on_index || [],
+  };
+}
+function publicEpic(e) {
+  if (!e) return null;
+  const { tasks, ...rest } = e;
+  return { ...rest, tasks: (tasks || []).map(publicTask) };
 }
 
 export function startApi() {
