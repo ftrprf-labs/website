@@ -106,6 +106,11 @@ export const config = {
   // served as public static assets by this app; SIGNATURE_ASSET_BASE is the absolute base URL used
   // in outbound e-mail HTML (must be publicly reachable so mail clients can load the image).
   signatureAssetBase: (process.env.SIGNATURE_ASSET_BASE || 'https://ftrlabs-testerbeheer.onrender.com').replace(/\/+$/, ''),
+  // Canonical personal name shown in the signature. This is the definitive, authorised signature
+  // identity (distinct from the per-invitation {sender_first_name}). Env-overridable; never guessed.
+  signatureSenderName: process.env.SIGNATURE_SENDER_NAME || 'Ludwig van der Kuijl',
+  // The signature payoff/tagline — subtle, not a marketing slogan.
+  signaturePayoff: process.env.SIGNATURE_PAYOFF || 'Kijk nog eens.',
 
   // ---- Omnichannel provider adapters (§14-18, §66) ------------------------------------------
   // No secrets in code. When a channel's credentials are absent the adapter runs in MOCK mode and

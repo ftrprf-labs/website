@@ -29,9 +29,9 @@ function textToHtml(s) {
 // canonical brand domain. No surname, title, phone, social or address (§3).
 export function signatureConfig({ fromAddress } = {}) {
   return {
-    name: (config.senderFirstName || '').trim(), // '' → omitted, never guessed
+    name: (config.signatureSenderName || config.senderFirstName || '').trim(), // canonical, never guessed
     org: 'Maculis',
-    payoff: 'Zag je dat?',
+    payoff: config.signaturePayoff || 'Kijk nog eens.',
     email: (fromAddress || config.commMailboxes[0] || '').trim().toLowerCase() || null,
     website: 'maculis.nl',
     eyeGif: `${config.signatureAssetBase}/brand/maculis-eye.gif`,
@@ -57,7 +57,7 @@ export function renderSignatureHtml(cfg) {
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;border-collapse:collapse;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
   <tr>
     <td style="vertical-align:middle;padding-right:14px">
-      <img src="${esc(cfg.eyeGif)}" width="72" height="45" alt="Maculis — Zag je dat?" style="display:block;border:0;outline:none;width:72px;height:45px" />
+      <img src="${esc(cfg.eyeGif)}" width="72" height="45" alt="Maculis — ${esc(cfg.payoff)}" style="display:block;border:0;outline:none;width:72px;height:45px" />
     </td>
     <td style="vertical-align:middle;border-left:2px solid ${GOLD};padding-left:14px">
       ${nameLine}
