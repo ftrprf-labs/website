@@ -96,6 +96,24 @@ export async function runCopilot({ conversationId, messageId }) {
       await recordActivity({ tenantId: conv.tenant_id, type: 'ai_draft_created', channel: 'EMAIL',
         conversationId, meta: { intent: parsed.intent, draftId: ins.rows[0].id } });
     }
+
+    // Proactively PROPOSE relationship-memory items (agreements/preferences/reminders) from this
+    // message. Stored as source='ai', confidence='proposed' — never a hard fact until a human
+    // confirms (§RELATIONSHIP MEMORY). Best-effort; dynamic import avoids a circular dependency.
+    try {
+      const { extractMemory } = await import('./service.mjs');
+      const { addMemory, listMemory } = await import('../memory.mjs');
+      const who = (await query('select contact_id, organization_id from conversation where id=$1', [conversationId])).rows[0] || {};
+      if (who.contact_id) {
+        const { memory } = await extractMemory({ tenantId: conv.tenant_id, conversationId });
+        const existing = new Set((await listMemory(conv.tenant_id, { contactId: who.contact_id })).map((m) => m.content));
+        for (const m of (memory || [])) {
+          if (existing.has(m.content)) continue;
+          await addMemory(conv.tenant_id, { contactId: who.contact_id, organizationId: who.organization_id, conversationId, kind: m.kind, content: m.content, source: 'ai', sourceRef: { type: 'message', id: messageId } });
+        }
+      }
+    } catch { /* memory proposal is best-effort — never breaks receipt */ }
+
     return { ok: !error, draftId: ins.rows[0].id, intent: parsed?.intent, error };
   } catch (e) {
     // Absolute guarantee: AI never breaks the pipeline.

@@ -24,7 +24,7 @@ test('Relationship Workspace + AI-first composer + omnichannel', opts, async (t)
 
   try {
     await runMigrations({ silent: true });
-    await query('truncate message, conversation, contact, organization, mailbox, webhook_event, attachment, comm_draft, comm_draft_version, draft_chat_message, follow_up, delivery_event, activity, channel_identity, communication_preference, ai_draft, call_record, internal_note cascade');
+    await query('truncate message, conversation, contact, organization, mailbox, webhook_event, attachment, comm_draft, comm_draft_version, draft_chat_message, follow_up, delivery_event, activity, channel_identity, communication_preference, ai_draft, call_record, internal_note, relationship_memory cascade');
     const tenantId = await getDefaultTenantId();
     const secret = config.resendWebhookSecret;
 
@@ -111,6 +111,27 @@ test('Relationship Workspace + AI-first composer + omnichannel', opts, async (t)
     const list = await inbox.inboxConversations(tenantId, { box: 'communication' });
     assert.ok(list.length >= 1, 'inbox lists conversations with attention tags');
     assert.ok(list.every((c) => Array.isArray(c.attention)), 'each conversation carries attention tags');
+
+    // --- 7) Relationship Memory: AI proposes -> human confirms -> feeds context ------------------
+    const memory = await import('../server/comm/memory.mjs');
+    const aiSvc = await import('../server/comm/ai/service.mjs');
+    // A new inbound with an agreement/preference/reminder the copilot should propose as memory.
+    const r3 = await processInbound({ ...mk({ email_id: 'e3', from: 'kim@oca.nl', to: ['hello@maculis.nl'], subject: 'Re: planning' }, 'w3'),
+      fetchEmail: emailFetch('<c3@oca.nl>', 'Laten we na de vakantie opnieuw spreken. Ik heb een voorkeur voor telefonisch contact. Graag niet benaderen vóór oktober.') });
+    // copilot proposes memory fire-and-forget; wait for it.
+    let proposed = [];
+    for (let i = 0; i < 60; i++) { proposed = await memory.listMemory(tenantId, { contactId }); if (proposed.some((m) => m.confidence === 'proposed')) break; await new Promise((s) => setTimeout(s, 25)); }
+    assert.ok(proposed.some((m) => m.confidence === 'proposed' && m.source === 'ai'), 'AI proposed relationship memory (not yet a hard fact)');
+    assert.ok(proposed.some((m) => /telefonisch/i.test(m.content)), 'preference captured as proposal');
+    const reminder = proposed.find((m) => /oktober/i.test(m.content));
+    assert.ok(reminder, 'reminder captured as proposal');
+    // Confirmed memory feeds the model context; proposed does NOT.
+    const ctxBefore = await (await import('../server/comm/ai/context.mjs')).buildRelationshipContext(tenantId, { contactId });
+    assert.equal(ctxBefore.memory.length, 0, 'proposed memory is excluded from generation context');
+    await memory.confirmMemory(tenantId, reminder.id);
+    const ctxAfter = await (await import('../server/comm/ai/context.mjs')).buildRelationshipContext(tenantId, { contactId });
+    assert.ok(ctxAfter.memory.some((m) => /oktober/i.test(m.content)), 'confirmed memory now feeds context');
+    void aiSvc;
   } finally {
     await closePool();
   }
