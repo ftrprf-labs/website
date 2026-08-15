@@ -7,6 +7,7 @@
 
 import { config } from '../../config.mjs';
 import { makeMockChannel } from './mock-channel.mjs';
+import { normalizeWhatsAppPayload } from './whatsapp-webhook.mjs';
 
 const CAPS = {
   inbound: true, outbound: true, delivery_receipts: true, read_receipts: true,
@@ -45,16 +46,11 @@ export function whatsappProvider() {
       const id = body.messages && body.messages[0] && body.messages[0].id;
       return { ok: true, providerMessageId: id || null, delivery: 'SENT' };
     },
+    // Single source of truth for Meta payload parsing: the shared normalizer (also used by the
+    // signature-authed webhook). Returns the first message for the legacy single-message shape.
     normalizeInbound(payload = {}) {
-      // Meta webhook shape -> canonical inbound.
-      const entry = payload.entry && payload.entry[0];
-      const change = entry && entry.changes && entry.changes[0];
-      const msg = change && change.value && change.value.messages && change.value.messages[0];
-      return {
-        channel: 'WHATSAPP', provider: 'whatsapp-cloud',
-        providerMessageId: msg && msg.id, from: msg && msg.from, to: config.whatsappPhoneId,
-        text: (msg && msg.text && msg.text.body) || '', media: [], at: msg && msg.timestamp,
-      };
+      const { messages } = normalizeWhatsAppPayload(payload);
+      return messages[0] || { channel: 'WHATSAPP', provider: 'whatsapp-cloud', providerMessageId: null, from: null, to: config.whatsappPhoneId, text: '', media: [], at: null };
     },
   };
 }

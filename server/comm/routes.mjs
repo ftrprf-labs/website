@@ -23,6 +23,7 @@ import { addMemory, confirmMemory, dismissMemory, listMemory } from './memory.mj
 import { channelConsentState, setPreference, listPreferences } from './consent.mjs';
 import { channelStatusBoard, SENDABLE_CHANNELS } from './providers/index.mjs';
 import { receiveChannelInbound, linkConversationToContact } from './channel-inbound.mjs';
+import { processWhatsAppWebhook, handleWhatsAppChallenge } from './whatsapp-inbound.mjs';
 
 const UUID = '([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})';
 
@@ -56,6 +57,28 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
     try { rawBody = await readRaw(req); } catch { json(res, 413, { ok: false }); return true; }
     const result = await processInbound({ headers: lowerHeaders(req), rawBody });
     json(res, result.status || 200, { ok: result.ok, ...(result.reason ? { reason: result.reason } : {}), ...(result.stored ? { stored: true } : {}) });
+    return true;
+  }
+
+  // WhatsApp Cloud API webhook verification (GET). Meta echoes hub.challenge on a token match.
+  // NOT admin-gated; inert until WHATSAPP_WEBHOOK_VERIFY_TOKEN is configured (§8, §17).
+  if (pathname === '/api/comm/inbound/whatsapp' && method === 'GET') {
+    const v = handleWhatsAppChallenge({
+      mode: u.searchParams.get('hub.mode'),
+      token: u.searchParams.get('hub.verify_token'),
+      challenge: u.searchParams.get('hub.challenge'),
+    });
+    if (v.ok) { res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(v.challenge); return true; }
+    json(res, 403, { ok: false, reason: v.reason });
+    return true;
+  }
+
+  // WhatsApp Cloud API inbound (POST). Signature-authenticated (x-hub-signature-256), NOT admin-gated.
+  if (pathname === '/api/comm/inbound/whatsapp' && method === 'POST') {
+    let rawBody;
+    try { rawBody = await readRaw(req); } catch { json(res, 413, { ok: false }); return true; }
+    const result = await processWhatsAppWebhook({ headers: lowerHeaders(req), rawBody });
+    json(res, result.status || 200, { ok: result.ok, ...(result.reason ? { reason: result.reason } : {}) });
     return true;
   }
 

@@ -66,6 +66,38 @@ export async function receiveChannelInbound({ tenantId, channel, from, to = null
   return { ok: true, conversationId: result.convId, messageId: result.messageId, contactMatched: !!contactId, contactId, unknown: !contactId, value };
 }
 
+// Delivery-status rank so out-of-order provider receipts never move a message BACKWARDS
+// (a late 'delivered' must not overwrite a 'read'). FAILED/BOUNCED are terminal negatives.
+const DELIVERY_RANK = { QUEUED: 1, DELIVERING: 2, SENT: 3, DELIVERED: 4, READ: 5 };
+
+// Apply an outbound delivery receipt from a channel webhook (WhatsApp/SMS/...). Provider-neutral and
+// idempotent-safe: matches the OUTBOUND message by provider_message_id, appends an append-only
+// delivery_event, and advances message.delivery only forward. No-op when the message is unknown
+// (a receipt can arrive for a message sent by another instance/before a redeploy). Never throws.
+export async function applyDeliveryStatus({ tenantId = null, providerMessageId, state, detail = null, provider = null }) {
+  if (!providerMessageId || !state) return { ok: false, reason: 'incomplete' };
+  try {
+    const msg = (await query(
+      `select id, tenant_id, channel, delivery from message where provider_message_id=$1 and direction='OUTBOUND' limit 1`,
+      [providerMessageId])).rows[0];
+    if (!msg) return { ok: true, unknown: true };
+    const tid = tenantId || msg.tenant_id;
+    await query(
+      `insert into delivery_event(tenant_id, message_id, channel, provider, provider_message_id, state, detail)
+       values ($1,$2,$3,$4,$5,$6,$7)`,
+      [tid, msg.id, msg.channel, provider, providerMessageId, state, detail]);
+    const isNegative = state === 'FAILED' || state === 'BOUNCED';
+    const curRank = DELIVERY_RANK[msg.delivery] || 0;
+    const newRank = DELIVERY_RANK[state] || 0;
+    if (isNegative || newRank > curRank) {
+      await query('update message set delivery=$2 where id=$1', [msg.id, state]);
+    }
+    return { ok: true, messageId: msg.id, state };
+  } catch (err) {
+    return { ok: false, reason: 'delivery_error', error: String(err.message || err) };
+  }
+}
+
 // Link an UNKNOWN conversation to a Contact (existing or newly created), recording the channel
 // identity so future inbound auto-links. History is preserved (§20, §75).
 export async function linkConversationToContact({ tenantId, conversationId, contactId = null, newContact = null, userId = null }) {

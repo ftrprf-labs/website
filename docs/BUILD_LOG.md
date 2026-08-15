@@ -5,6 +5,63 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-15 — WhatsApp Cloud API inbound webhook (adapter, geen parallelle inbox)
+
+**Status: BUILT, wacht op account-actie (Meta).** De code voor inkomende WhatsApp is af, getest en
+gedeployd-klaar. Het gaat LIVE zodra `WHATSAPP_APP_SECRET` + `WHATSAPP_WEBHOOK_VERIFY_TOKEN` op de
+service staan en de webhook in de Meta App naar `/api/comm/inbound/whatsapp` wijst. Geen betaalde
+dienst geactiveerd; geen provider-account aangemaakt.
+
+**Wat het is.** De ontbrekende voordeur voor inkomende WhatsApp, via de officiële WhatsApp Business
+Cloud API (Meta). Geen browserautomatisering, geen WhatsApp Web scraping (§8, §14). WhatsApp is een
+CHANNEL ADAPTER binnen dezelfde Relationship + Communication architectuur, geen tweede inbox: elk
+inkomend bericht loopt door exact dezelfde `receiveChannelInbound`-pipeline als de simulator, dus
+identity-resolutie, conversation-threading, persistence en het automatische AI-voorstel zijn identiek
+aan e-mail.
+
+**Architectuur (additief, backwards compatible, fail-closed).**
+- `server/comm/providers/whatsapp-webhook.mjs` (puur, dependency-vrij): Meta-handtekening
+  (`x-hub-signature-256`, HMAC-SHA256 over de RAW body, constant-time vergelijk), GET verify-challenge
+  (`hub.mode`/`hub.verify_token`/`hub.challenge`, constant-time token-vergelijk), en normalisatie van
+  de geneste Meta-payload naar de canonieke inbound-vorm (tekst, media als referentie via media-id
+  zonder de binary op te halen, reply-context voor threading, interactive/button-titels, profielnaam
+  van onbekende afzender, en delivery-statussen sent/delivered/read/failed).
+- `server/comm/whatsapp-inbound.mjs` (dun): verifieer, parse, normaliseer, per bericht
+  `receiveChannelInbound`, per status `applyDeliveryStatus`. PII-veilige diagnostiek
+  (`[comm/whatsapp] …`, alleen stage + tellingen, nooit nummer/inhoud). Meta krijgt een snelle 200.
+- `channel-inbound.mjs`: nieuwe provider-neutrale `applyDeliveryStatus` (ook voor SMS): matcht de
+  OUTBOUND message op `provider_message_id`, schrijft een append-only `delivery_event`, en schuift
+  `message.delivery` alleen VOORUIT (rank-orde) zodat een late 'delivered' een 'read' nooit overschrijft.
+  No-op bij een onbekende message; nooit een throw.
+- `routes.mjs`: `GET`/`POST /api/comm/inbound/whatsapp` staan VOOR de admin-gate (net als de
+  Resend-webhook): de GET-challenge en de handtekening authenticeren, geen sessie. Inert zolang de
+  secrets ontbreken. `whatsapp.mjs`-adapter `normalizeInbound` delegeert nu naar dezelfde normalizer
+  (één bron van waarheid).
+
+**Replay/idempotency.** Meta's handtekening draagt geen timestamp, dus er is geen native replay-venster
+zoals bij Svix-e-mail. Replay wordt downstream afgevangen door idempotency op `provider_message_id`
+(`receiveChannelInbound` dedupt; delivery-status is forward-only en append-only). Een geldige
+handtekening is bewust géén bewijs van versheid; dat staat ook in de code gedocumenteerd.
+
+**Tests (offline, geen DB/provider):** nieuwe `tests/comm-whatsapp-webhook.test.mjs` **23/23** —
+handtekening (geldig/getampered/verkeerd-secret/ontbrekend/misvormd/geen-secret/niet-hex),
+verify-challenge (match/verkeerd-token/verkeerde-mode/niet-geconfigureerd), normalisatie
+(tekst+profiel, media-referentie, reply-context, interactive, status-mapping, multi-bericht,
+malformed→leeg), en de orchestrator met geïnjecteerde pipeline-stubs (fail-closed bij ongeldige
+handtekening, routing van bericht+status, duplicate-telling, verkeerd object-type genegeerd). Volledige
+suite **52/52 pass, 7 skip** (comm-DB-tests skippen netjes zonder `DATABASE_URL`), 0 fail. Geen
+regressie; geen productielogica van bestaande kanalen gewijzigd.
+
+**HUMAN ACTION (alleen Lud, Meta-account).** WhatsApp Business account + phone number id + permanent
+system-user token + app secret + verify token aanmaken en de webhook-callback
+`{MACULIS_PUBLIC_URL}/api/comm/inbound/whatsapp` registreren met veld `messages`. Daarna: env-vars op
+de service zetten en de laag aanzetten (`COMM_LAYER_ENABLED` + `DATABASE_URL`). Uitgaand WhatsApp gaat
+pas verzenden na expliciete menselijke goedkeuring (bestaande consent-gate + human approval, §11/§17).
+
+**Commit.** Zie git-historie op branch `claude/maculis-autonome-nachtmodus-dz3gnm`.
+
+---
+
 ## 2026-08-15 — Pass the Lens: productie-acceptatie (functioneel geaccepteerd, gesloten)
 
 **Status: in productie werkend en functioneel geaccepteerd.** Bevestigd via een echte
