@@ -125,6 +125,7 @@ export const config = {
   phoneProvider: (process.env.PHONE_PROVIDER || '').toLowerCase(),
   phoneApiKey: process.env.PHONE_API_KEY || '',
   phoneNumber: process.env.PHONE_NUMBER || '',
+  phoneWebhookSecret: process.env.PHONE_WEBHOOK_SECRET || '',
 };
 
 // Default WhatsApp/e-mail message template (brief §6). Editable at runtime through the settings

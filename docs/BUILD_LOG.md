@@ -5,6 +5,57 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-15 — Omnichannel adapters: WhatsApp outbound hardening, SMS end to end, telefonie fase 1
+
+Autonome nachtmodus, prioriteit 1 tot en met 3. Alle kanalen zijn adapters op DEZELFDE
+`receiveChannelInbound`-pipeline en het ene consent/audit/AI-model. Geen parallelle inbox. Voor het
+eerst tegen een ECHTE Postgres bewezen in deze omgeving (sandbox): volledige suite serieel
+**89/89 pass**, offline **76 pass, 10 skip**, 0 fail.
+
+**WhatsApp outbound hardening (TESTED IN SANDBOX; live send BUILT BUT WAITING FOR ACCOUNT ACTION).**
+- Gedeelde HTTP-helper `providers/http.mjs`: timeout (AbortController), begrensde deterministische
+  exponential backoff, en een strikte retry-policy. Retry ALLEEN veilig (netwerkfout vóór respons,
+  429, 5xx), nooit een 2xx/4xx, zodat at-least-once nooit dubbel verzendt. Ook een form-encoded pad
+  voor Twilio.
+- Live WhatsApp/SMS `send()` lopen via de helper (getypeerde reasons + attempt-telling).
+- PII-veilige `[comm/outbound]`-observability in `send.mjs` (kanaal, provider-mode, delivery/reason,
+  attempts; nooit ontvanger/inhoud).
+- E2E `tests/comm-whatsapp-e2e.test.mjs` (echte DB): ondertekende webhook inbound tot en met
+  delivery-status READ forward-only.
+
+**SMS channel adapter (TESTED IN SANDBOX; provider-activatie = HUMAN ACTION).**
+- Providerkeuze op basis van onderzoek: **Twilio** (één provider voor SMS + Voice, kan WhatsApp
+  fronten; sterke EU-ondersteuning; stabiele, verifieerbare webhook-signature). MessageBird/Bird
+  blijft gedocumenteerd alternatief; outbound is provider-neutraal.
+- `providers/sms-webhook.mjs` (puur): X-Twilio-Signature (HMAC-SHA1 over exacte URL + gesorteerde
+  params, base64, constant-time), form-parsing, inbound-vs-status classificatie, normalisatie.
+- `sms-inbound.mjs`: dun, verifieer → parse → classify → `receiveChannelInbound` / `applyDeliveryStatus`.
+  De ondertekende URL komt uit de geconfigureerde publieke basis, nooit uit een spoofbare Host-header.
+- Route `POST /api/comm/inbound/sms`, signature-authed, vóór de admin-gate, inert tot
+  `SMS_WEBHOOK_SECRET` gezet is. E2E `tests/comm-sms-e2e.test.mjs` (echte DB): identiek patroon als
+  WhatsApp en e-mail.
+
+**Telefonie fase 1: click to call (LIVE-capable zonder provider; fase 2 DESIGNED).**
+- Officiële, niet-fragiele route: een `tel:`-URI. Klikken in Testerbeheer opent de native dialer,
+  op iPhone direct of op de Mac via Apple Continuity over de bestaande KPN-lijn. Geen UI-automation,
+  geen ongedocumenteerde Apple-hacks, geen screen scraping (§10, §17). De server belt nooit zelf; hij
+  legt de call-INTENT + metadata vast op dezelfde relatietijdlijn en de mens logt de uitkomst.
+- `calls.mjs`: `initiateClickToCall` (consent-gate PHONE service = allow tenzij expliciete opt-out,
+  `call_record` + `call_started`-activity, retourneert de tel:-URI), `logCallOutcome`
+  (answered/missed/completed/failed + duur + korte samenvatting → `call_logged`), `listCalls`. Routes
+  `POST /api/comm/contacts/:id/call`, `GET …/calls`, `POST /api/comm/calls/:id/outcome`.
+- Fase 2 (echte EU voice provider, Twilio Voice voor consolidatie met SMS) plugt in achter HETZELFDE
+  `call_record` + `phoneProvider()`-model; de Workspace verandert niet. Nummeraankoop/activatie is een
+  HUMAN ACTION. E2E `tests/comm-calls.test.mjs`: click-to-call → consent → uitkomst → tijdlijn.
+
+**HUMAN ACTIONS (extern, alleen Lud).**
+- WhatsApp: Meta Business account + webhook op `/api/comm/inbound/whatsapp` (zie vorige entry).
+- SMS: Twilio account + nummer, `SMS_ACCOUNT_SID`/`SMS_API_KEY`/`SMS_ORIGINATOR`/`SMS_WEBHOOK_SECRET`
+  zetten, webhook op `/api/comm/inbound/sms`. Geen aankoop door de agent gedaan.
+- Telefonie fase 2: pas een voice provider/nummer nodig; fase 1 werkt zonder aankoop.
+
+---
+
 ## 2026-08-15 — WhatsApp Cloud API inbound webhook (adapter, geen parallelle inbox)
 
 **Status: BUILT, wacht op account-actie (Meta).** De code voor inkomende WhatsApp is af, getest en

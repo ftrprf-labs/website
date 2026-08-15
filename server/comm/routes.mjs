@@ -23,6 +23,7 @@ import { addMemory, confirmMemory, dismissMemory, listMemory } from './memory.mj
 import { channelConsentState, setPreference, listPreferences } from './consent.mjs';
 import { channelStatusBoard, SENDABLE_CHANNELS } from './providers/index.mjs';
 import { receiveChannelInbound, linkConversationToContact } from './channel-inbound.mjs';
+import { initiateClickToCall, logCallOutcome, listCalls } from './calls.mjs';
 import { processWhatsAppWebhook, handleWhatsAppChallenge } from './whatsapp-inbound.mjs';
 import { processSmsWebhook, resolveWebhookUrl } from './sms-inbound.mjs';
 
@@ -332,6 +333,28 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
   // Legacy contact timeline (activity rows only) — kept for backward compatibility.
   const legacyTl = pathname.match(new RegExp(`^/api/comm/contacts/${UUID}/timeline$`));
   if (legacyTl && method === 'GET') { json(res, 200, { timeline: await contactTimeline(tenantId, legacyTl[1]) }); return true; }
+
+  // ---- Telephony phase 1: click to call + call log (§10, §16) --------------------------------
+  // Initiate a click-to-call. Returns a tel: URI the browser/OS hands to the native dialer (iPhone
+  // directly, or Mac via Apple Continuity over the KPN line). Consent-gated server-side.
+  const callInit = pathname.match(new RegExp(`^/api/comm/contacts/${UUID}/call$`));
+  if (callInit && method === 'POST') {
+    const body = await readJson(req) || {};
+    const result = await initiateClickToCall({ tenantId, contactId: callInit[1], conversationId: body.conversationId || null, toNumber: body.toNumber || null, ipRef: ipRefOf(req) });
+    json(res, result.ok ? 200 : 400, result);
+    return true;
+  }
+  const callList = pathname.match(new RegExp(`^/api/comm/contacts/${UUID}/calls$`));
+  if (callList && method === 'GET') { json(res, 200, { calls: await listCalls(tenantId, callList[1]) }); return true; }
+
+  // Log the human-entered outcome of a call (answered/missed/completed/failed + duration + summary).
+  const callOutcome = pathname.match(new RegExp(`^/api/comm/calls/${UUID}/outcome$`));
+  if (callOutcome && method === 'POST') {
+    const body = await readJson(req) || {};
+    const result = await logCallOutcome({ tenantId, callRecordId: callOutcome[1], status: body.status, durationSeconds: body.durationSeconds, summary: body.summary, note: body.note });
+    json(res, result.ok ? 200 : 400, result);
+    return true;
+  }
 
   // ---- Channel inbound SIMULATOR (admin-gated) — drives mock WhatsApp/SMS/social inbound for
   //      the multi-channel Inbox demo + E2E. Real providers use signature-authed webhooks (§19).
