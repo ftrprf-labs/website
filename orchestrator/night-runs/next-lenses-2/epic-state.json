@@ -1,0 +1,1289 @@
+{
+  "version": 1,
+  "counter": 116,
+  "tasks": {
+    "MAC-101": {
+      "task_id": "MAC-101",
+      "title": "Onderzoek en ontwerp het Next Lenses raamwerk voor de First Five journey: nie…",
+      "original_request": "Onderzoek en ontwerp het Next Lenses raamwerk voor de First Five journey: nieuwe lenzen naast Technical Signals, hun evidence-model, fail-closed gedrag en plaats in Reveal en Recognition. Read-only analyse met aanbevelingen.",
+      "normalized_request": "onderzoek en ontwerp het next lenses raamwerk voor de first five journey nieuwe lenzen naast technical signals hun evidence model fail closed gedrag en plaats in reveal en recognition read only analyse met aanbevelingen",
+      "created_at": "2026-08-15T14:01:42.823Z",
+      "updated_at": "2026-08-15T14:01:42.824Z",
+      "status": "QUEUED",
+      "priority": "NORMAL",
+      "selected_agent": "first_five",
+      "repository": "ftrprf-labs/maculis-first-five.",
+      "task_type": "analysis",
+      "risk_level": "low",
+      "routing_confidence": 1,
+      "routing_reason": "Caller-preferred agent First Five (validated). Routed to First Five (ftrprf-labs/maculis-first-five.) as a analysis at low risk on: keywords first five, first-five, journey, reveal; paths journey, reveal, recognition.",
+      "cross_domain": false,
+      "primary_owner": null,
+      "dependency": null,
+      "branch": "orchestrator/mac-101-onderzoek-en-ontwerp-het-next-lenses-raa",
+      "session_id": null,
+      "required_checks": [],
+      "acceptance_criteria": [
+        "Investigate and report findings with evidence from the actual code/state."
+      ],
+      "tests_required": false,
+      "deploy_required": false,
+      "epic_id": "EPIC-1",
+      "dependencies": [],
+      "blocked_by": [],
+      "human_action_required": false,
+      "result_summary": null,
+      "commit_sha": null,
+      "pr": null,
+      "deploy_url": null,
+      "pre_change_sha": null,
+      "deployed_sha": null,
+      "rollback_sha": null,
+      "live_verification": null,
+      "warnings": [],
+      "history": [
+        {
+          "at": "2026-08-15T14:01:42.823Z",
+          "status": "RECEIVED"
+        },
+        {
+          "at": "2026-08-15T14:01:42.824Z",
+          "status": "ROUTED"
+        },
+        {
+          "at": "2026-08-15T14:01:42.824Z",
+          "status": "QUEUED"
+        }
+      ]
+    },
+    "MAC-102": {
+      "task_id": "MAC-102",
+      "title": "Analyseer de intelligence- en signaallaag voor de Relationship Workspace: wel…",
+      "original_request": "Analyseer de intelligence- en signaallaag voor de Relationship Workspace: welke signalen voeden communicatie en opvolging, met consent fail-closed, PII-grenzen en provenance. Read-only onderzoek.",
+      "normalized_request": "analyseer de intelligence en signaallaag voor de relationship workspace welke signalen voeden communicatie en opvolging met consent fail closed pii grenzen en provenance read only onderzoek",
+      "created_at": "2026-08-15T14:01:42.825Z",
+      "updated_at": "2026-08-15T14:01:42.826Z",
+      "status": "QUEUED",
+      "priority": "NORMAL",
+      "selected_agent": "relationship",
+      "repository": "ftrprf-labs/website",
+      "task_type": "analysis",
+      "risk_level": "low",
+      "routing_confidence": 1,
+      "routing_reason": "Caller-preferred agent Relationship (validated). Routed to Relationship (ftrprf-labs/website) as a analysis at low risk on: keywords relationship, workspace, communicatie, consent.",
+      "cross_domain": false,
+      "primary_owner": null,
+      "dependency": null,
+      "branch": "orchestrator/mac-102-analyseer-de-intelligence-en-signaallaag",
+      "session_id": null,
+      "required_checks": [],
+      "acceptance_criteria": [
+        "Investigate and report findings with evidence from the actual code/state."
+      ],
+      "tests_required": false,
+      "deploy_required": false,
+      "epic_id": "EPIC-1",
+      "dependencies": [],
+      "blocked_by": [],
+      "human_action_required": false,
+      "result_summary": null,
+      "commit_sha": null,
+      "pr": null,
+      "deploy_url": null,
+      "pre_change_sha": null,
+      "deployed_sha": null,
+      "rollback_sha": null,
+      "live_verification": null,
+      "warnings": [],
+      "history": [
+        {
+          "at": "2026-08-15T14:01:42.825Z",
+          "status": "RECEIVED"
+        },
+        {
+          "at": "2026-08-15T14:01:42.826Z",
+          "status": "ROUTED"
+        },
+        {
+          "at": "2026-08-15T14:01:42.826Z",
+          "status": "QUEUED"
+        }
+      ]
+    },
+    "MAC-103": {
+      "task_id": "MAC-103",
+      "title": "Deep research naar actuele officiele provider- en API-bronnen voor de communi…",
+      "original_request": "Deep research naar actuele officiele provider- en API-bronnen voor de communicatie- en verrijkingslaag van de Relationship Workspace: WhatsApp Business Platform, Twilio, Meta, e-mail, telefonie, social en enrichment data API. Gebruik officiele documentatie en leg provenance vast. Read-only onderzoek.",
+      "normalized_request": "deep research naar actuele officiele provider en api bronnen voor de communicatie en verrijkingslaag van de relationship workspace whatsapp business platform twilio meta e mail telefonie social en enrichment data api gebruik officiele documentatie en leg provenance vast read only onderzoek",
+      "created_at": "2026-08-15T14:01:42.836Z",
+      "updated_at": "2026-08-15T14:01:42.837Z",
+      "status": "QUEUED",
+      "priority": "NORMAL",
+      "selected_agent": "relationship",
+      "repository": "ftrprf-labs/website",
+      "task_type": "analysis",
+      "risk_level": "low",
+      "routing_confidence": 1,
+      "routing_reason": "Caller-preferred agent Relationship (validated). Routed to Relationship (ftrprf-labs/website) as a analysis at low risk on: keywords relationship, workspace, communicatie, whatsapp.",
+      "cross_domain": false,
+      "primary_owner": null,
+      "dependency": null,
+      "branch": "orchestrator/mac-103-deep-research-naar-actuele-officiele-pro",
+      "session_id": null,
+      "required_checks": [],
+      "acceptance_criteria": [
+        "WhatsApp channel wired into the Communication Layer for the named customer.",
+        "Inbound + outbound path implemented (or clearly stubbed where a provider credential is missing).",
+        "Consent gate (OPTED_IN only) enforced before any outbound message.",
+        "Missing external credentials surfaced as a central human action, not silently skipped."
+      ],
+      "tests_required": false,
+      "deploy_required": false,
+      "epic_id": "EPIC-1",
+      "dependencies": [
+        "MAC-102"
+      ],
+      "blocked_by": [
+        "MAC-102"
+      ],
+      "human_action_required": false,
+      "result_summary": null,
+      "commit_sha": null,
+      "pr": null,
+      "deploy_url": null,
+      "pre_change_sha": null,
+      "deployed_sha": null,
+      "rollback_sha": null,
+      "live_verification": null,
+      "warnings": [],
+      "history": [
+        {
+          "at": "2026-08-15T14:01:42.836Z",
+          "status": "RECEIVED"
+        },
+        {
+          "at": "2026-08-15T14:01:42.837Z",
+          "status": "ROUTED"
+        },
+        {
+          "at": "2026-08-15T14:01:42.837Z",
+          "status": "QUEUED"
+        }
+      ]
+    },
+    "MAC-104": {
+      "task_id": "MAC-104",
+      "title": "Onderzoek de publieke presentatie van de nieuwe lenzen en intelligence op de …",
+      "original_request": "Onderzoek de publieke presentatie van de nieuwe lenzen en intelligence op de website: WOW, micro reveal, SEO en privacy copy. Read-only analyse.",
+      "normalized_request": "onderzoek de publieke presentatie van de nieuwe lenzen en intelligence op de website wow micro reveal seo en privacy copy read only analyse",
+      "created_at": "2026-08-15T14:01:42.839Z",
+      "updated_at": "2026-08-15T14:01:42.839Z",
+      "status": "QUEUED",
+      "priority": "NORMAL",
+      "selected_agent": "website",
+      "repository": "ftrprf-labs/groeiplatform-website",
+      "task_type": "analysis",
+      "risk_level": "low",
+      "routing_confidence": 0.89,
+      "routing_reason": "Caller-preferred agent Website (validated). Routed to Website (ftrprf-labs/groeiplatform-website) as a analysis at low risk on: keywords website, wow, micro reveal, micro-reveal; paths seo.",
+      "cross_domain": false,
+      "primary_owner": null,
+      "dependency": null,
+      "branch": "orchestrator/mac-104-onderzoek-de-publieke-presentatie-van-de",
+      "session_id": null,
+      "required_checks": [],
+      "acceptance_criteria": [
+        "Reproduce the reported micro-reveal failure on the named page/domain.",
+        "Root cause identified.",
+        "Micro reveal renders correctly after the fix.",
+        "Regression/E2E test covers the fixed behaviour."
+      ],
+      "tests_required": false,
+      "deploy_required": false,
+      "epic_id": "EPIC-1",
+      "dependencies": [],
+      "blocked_by": [],
+      "human_action_required": false,
+      "result_summary": null,
+      "commit_sha": null,
+      "pr": null,
+      "deploy_url": null,
+      "pre_change_sha": null,
+      "deployed_sha": null,
+      "rollback_sha": null,
+      "live_verification": null,
+      "warnings": [],
+      "history": [
+        {
+          "at": "2026-08-15T14:01:42.839Z",
+          "status": "RECEIVED"
+        },
+        {
+          "at": "2026-08-15T14:01:42.839Z",
+          "status": "ROUTED"
+        },
+        {
+          "at": "2026-08-15T14:01:42.839Z",
+          "status": "QUEUED"
+        }
+      ]
+    },
+    "MAC-105": {
+      "task_id": "MAC-105",
+      "title": "Data strategy en architectuur voor de Relationship Workspace intelligence-dat…",
+      "original_request": "Data strategy en architectuur voor de Relationship Workspace intelligence-data: onderzoek opslag, provenance, kosten, security en privacy. Read-only architectuuronderzoek.",
+      "normalized_request": "data strategy en architectuur voor de relationship workspace intelligence data onderzoek opslag provenance kosten security en privacy read only architectuuronderzoek",
+      "created_at": "2026-08-15T14:01:42.840Z",
+      "updated_at": "2026-08-15T14:01:42.841Z",
+      "status": "QUEUED",
+      "priority": "NORMAL",
+      "selected_agent": "relationship",
+      "repository": "ftrprf-labs/website",
+      "task_type": "analysis",
+      "risk_level": "low",
+      "routing_confidence": 1,
+      "routing_reason": "Caller-preferred agent Relationship (validated). Routed to Relationship (ftrprf-labs/website) as a analysis at low risk on: keywords relationship, workspace.",
+      "cross_domain": false,
+      "primary_owner": null,
+      "dependency": null,
+      "branch": "orchestrator/mac-105-data-strategy-en-architectuur-voor-de-re",
+      "session_id": null,
+      "required_checks": [],
+      "acceptance_criteria": [
+        "Investigate and report findings with evidence from the actual code/state."
+      ],
+      "tests_required": false,
+      "deploy_required": false,
+      "epic_id": "EPIC-1",
+      "dependencies": [
+        "MAC-103"
+      ],
+      "blocked_by": [
+        "MAC-103"
+      ],
+      "human_action_required": false,
+      "result_summary": null,
+      "commit_sha": null,
+      "pr": null,
+      "deploy_url": null,
+      "pre_change_sha": null,
+      "deployed_sha": null,
+      "rollback_sha": null,
+      "live_verification": null,
+      "warnings": [],
+      "history": [
+        {
+          "at": "2026-08-15T14:01:42.840Z",
+          "status": "RECEIVED"
+        },
+        {
+          "at": "2026-08-15T14:01:42.841Z",
+          "status": "ROUTED"
+        },
+        {
+          "at": "2026-08-15T14:01:42.841Z",
+          "status": "QUEUED"
+        }
+      ]
+    },
+    "MAC-106": {
+      "task_id": "MAC-106",
+      "title": "Consolideer alle bevindingen in een geconsolideerd masterplan met product, da…",
+      "original_request": "Consolideer alle bevindingen in een geconsolideerd masterplan met product, data en architectuurstrategie en een gefaseerde routekaart. Read-only synthese.",
+      "normalized_request": "consolideer alle bevindingen in een geconsolideerd masterplan met product data en architectuurstrategie en een gefaseerde routekaart read only synthese",
+      "created_at": "2026-08-15T14:01:42.842Z",
+      "updated_at": "2026-08-15T14:01:42.842Z",
+      "status": "WAITING_FOR_HUMAN",
+      "priority": "NORMAL",
+      "selected_agent": "NEEDS_ROUTING_REVIEW",
+      "repository": null,
+      "task_type": "analysis",
+      "risk_level": "low",
+      "routing_confidence": 0,
+      "routing_reason": "No domain signal matched. Human routing review required.",
+      "cross_domain": false,
+      "primary_owner": null,
+      "dependency": null,
+      "branch": null,
+      "session_id": null,
+      "required_checks": [],
+      "acceptance_criteria": [
+        "Investigate and report findings with evidence from the actual code/state."
+      ],
+      "tests_required": false,
+      "deploy_required": false,
+      "epic_id": "EPIC-1",
+      "dependencies": [],
+      "blocked_by": [],
+      "human_action_required": true,
+      "result_summary": null,
+      "commit_sha": null,
+      "pr": null,
+      "deploy_url": null,
+      "pre_change_sha": null,
+      "deployed_sha": null,
+      "rollback_sha": null,
+      "live_verification": null,
+      "warnings": [],
+      "history": [
+        {
+          "at": "2026-08-15T14:01:42.842Z",
+          "status": "RECEIVED"
+        },
+        {
+          "at": "2026-08-15T14:01:42.842Z",
+          "status": "WAITING_FOR_HUMAN"
+        }
+      ]
+    },
+    "MAC-107": {
+      "task_id": "MAC-107",
+      "title": "Onderzoek en ontwerp het volledige Maculis lens-universum als product portfol…",
+      "original_request": "Onderzoek en ontwerp het volledige Maculis lens-universum als product portfolio strategie: lenzen voor marketing, merk en positionering, propositie, klant, commerciele performance, sales, finance, cashflow, marge, pricing, operations, team en organisatie, klantbeleving, reputatie, digitale vindbaarheid, concurrentie, markt, groei, risico, resilience, innovatie, AI en digital maturity, relationship intelligence, founder en leadership, plus nieuwe onverwachte lenscategorieen. Analyse met concept per lens.",
+      "normalized_request": "onderzoek en ontwerp het volledige maculis lens universum als product portfolio strategie lenzen voor marketing merk en positionering propositie klant commerciele performance sales finance cashflow marge pricing operations team en organisatie klantbeleving reputatie digitale vindbaarheid concurrentie markt groei risico resilience innovatie ai en digital maturity relationship intelligence founder en leadership plus nieuwe onverwachte lenscategorieen analyse met concept per lens",
+      "created_at": "2026-08-15T14:19:11.425Z",
+      "updated_at": "2026-08-15T14:19:11.430Z",
+      "status": "QUEUED",
+      "priority": "NORMAL",
+      "selected_agent": "relationship",
+      "repository": "ftrprf-labs/website",
+      "task_type": "feature",
+      "risk_level": "normal",
+      "routing_confidence": 0.7,
+      "routing_reason": "Caller-preferred agent Relationship (validated). Routed to Relationship (ftrprf-labs/website) as a feature at normal risk on: keywords relationship, organisatie. Cross-domain: also touches Website (ftrprf-labs/groeiplatform-website) — primary owner Relationship, dependency coordinated (no simultaneous contract edits).",
+      "cross_domain": true,
+      "primary_owner": "relationship",
+      "dependency": {
+        "agent_id": "website",
+        "repository": "ftrprf-labs/groeiplatform-website",
+        "signals": {
+          "keywords": [
+            "performance"
+          ],
+          "entities": [],
+          "paths": []
+        }
+      },
+      "branch": "orchestrator/mac-107-onderzoek-en-ontwerp-het-volledige-macul",
+      "session_id": null,
+      "required_checks": [
+        "unit"
+      ],
+      "acceptance_criteria": [
+        "Implement a working vertical slice of the request.",
+        "Tests cover the new behaviour."
+      ],
+      "tests_required": true,
+      "deploy_required": false,
+      "epic_id": "EPIC-2",
+      "dependencies": [],
+      "blocked_by": [],
+      "human_action_required": false,
+      "result_summary": null,
+      "commit_sha": null,
+      "pr": null,
+      "deploy_url": null,
+      "pre_change_sha": null,
+      "deployed_sha": null,
+      "rollback_sha": null,
+      "live_verification": null,
+      "warnings": [],
+      "history": [
+        {
+          "at": "2026-08-15T14:19:11.425Z",
+          "status": "RECEIVED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.429Z",
+          "status": "ROUTED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.430Z",
+          "status": "QUEUED"
+        }
+      ]
+    },
+    "MAC-108": {
+      "task_id": "MAC-108",
+      "title": "Rangschik alle kandidaat-lenzen op klantwaarde, wow, verrassing, betrouwbaarh…",
+      "original_request": "Rangschik alle kandidaat-lenzen op klantwaarde, wow, verrassing, betrouwbaarheid, benodigde data, bouwsnelheid, externe integratie afhankelijkheid, privacyrisico, kosten, herhaalbaarheid, commerciele waarde en growbrain potentieel; lever een top tien shortlist en een beargumenteerde roadmap met expliciete keuze voor lens twee. Analyse.",
+      "normalized_request": "rangschik alle kandidaat lenzen op klantwaarde wow verrassing betrouwbaarheid benodigde data bouwsnelheid externe integratie afhankelijkheid privacyrisico kosten herhaalbaarheid commerciele waarde en growbrain potentieel lever een top tien shortlist en een beargumenteerde roadmap met expliciete keuze voor lens twee analyse",
+      "created_at": "2026-08-15T14:19:11.431Z",
+      "updated_at": "2026-08-15T14:19:11.432Z",
+      "status": "QUEUED",
+      "priority": "NORMAL",
+      "selected_agent": "website",
+      "repository": "ftrprf-labs/groeiplatform-website",
+      "task_type": "feature",
+      "risk_level": "normal",
+      "routing_confidence": 0.5,
+      "routing_reason": "Caller-preferred agent Website (validated). Routed to Website (ftrprf-labs/groeiplatform-website) as a feature at normal risk on: keywords wow. Cross-domain: also touches First Five (ftrprf-labs/maculis-first-five.) — primary owner Website, dependency coordinated (no simultaneous contract edits).",
+      "cross_domain": true,
+      "primary_owner": "website",
+      "dependency": {
+        "agent_id": "first_five",
+        "repository": "ftrprf-labs/maculis-first-five.",
+        "signals": {
+          "keywords": [
+            "lens"
+          ],
+          "entities": [],
+          "paths": []
+        }
+      },
+      "branch": "orchestrator/mac-108-rangschik-alle-kandidaat-lenzen-op-klant",
+      "session_id": null,
+      "required_checks": [
+        "lint",
+        "typecheck",
+        "build"
+      ],
+      "acceptance_criteria": [
+        "Implement a working vertical slice of the request.",
+        "Tests cover the new behaviour."
+      ],
+      "tests_required": true,
+      "deploy_required": false,
+      "epic_id": "EPIC-2",
+      "dependencies": [],
+      "blocked_by": [],
+      "human_action_required": false,
+      "result_summary": null,
+      "commit_sha": null,
+      "pr": null,
+      "deploy_url": null,
+      "pre_change_sha": null,
+      "deployed_sha": null,
+      "rollback_sha": null,
+      "live_verification": null,
+      "warnings": [],
+      "history": [
+        {
+          "at": "2026-08-15T14:19:11.431Z",
+          "status": "RECEIVED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.432Z",
+          "status": "ROUTED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.432Z",
+          "status": "QUEUED"
+        }
+      ]
+    },
+    "MAC-109": {
+      "task_id": "MAC-109",
+      "title": "Verdiep de bestaande First Five journey zonder grote integraties: invisible i…",
+      "original_request": "Verdiep de bestaande First Five journey zonder grote integraties: invisible intelligence, nieuwe signalen, betere synthese, betere reveal, betere meaningful end, betere vervolgvragen, relationship memory en nieuwe triggers voor een volgende lens. Analyse.",
+      "normalized_request": "verdiep de bestaande first five journey zonder grote integraties invisible intelligence nieuwe signalen betere synthese betere reveal betere meaningful end betere vervolgvragen relationship memory en nieuwe triggers voor een volgende lens analyse",
+      "created_at": "2026-08-15T14:19:11.433Z",
+      "updated_at": "2026-08-15T14:19:11.435Z",
+      "status": "QUEUED",
+      "priority": "NORMAL",
+      "selected_agent": "first_five",
+      "repository": "ftrprf-labs/maculis-first-five.",
+      "task_type": "feature",
+      "risk_level": "normal",
+      "routing_confidence": 0.93,
+      "routing_reason": "Caller-preferred agent First Five (validated). Routed to First Five (ftrprf-labs/maculis-first-five.) as a feature at normal risk on: keywords first five, first-five, journey, reveal; paths journey, reveal.",
+      "cross_domain": false,
+      "primary_owner": null,
+      "dependency": null,
+      "branch": "orchestrator/mac-109-verdiep-de-bestaande-first-five-journey-",
+      "session_id": null,
+      "required_checks": [
+        "typecheck",
+        "unit",
+        "e2e",
+        "build"
+      ],
+      "acceptance_criteria": [
+        "Implement a working vertical slice of the request.",
+        "Tests cover the new behaviour."
+      ],
+      "tests_required": true,
+      "deploy_required": false,
+      "epic_id": "EPIC-2",
+      "dependencies": [],
+      "blocked_by": [],
+      "human_action_required": false,
+      "result_summary": null,
+      "commit_sha": null,
+      "pr": null,
+      "deploy_url": null,
+      "pre_change_sha": null,
+      "deployed_sha": null,
+      "rollback_sha": null,
+      "live_verification": null,
+      "warnings": [],
+      "history": [
+        {
+          "at": "2026-08-15T14:19:11.433Z",
+          "status": "RECEIVED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.434Z",
+          "status": "ROUTED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.435Z",
+          "status": "QUEUED"
+        }
+      ]
+    },
+    "MAC-110": {
+      "task_id": "MAC-110",
+      "title": "Finance lens deep dive: onderzoek actuele officiele api, oauth, scopes, sandb…",
+      "original_request": "Finance lens deep dive: onderzoek actuele officiele api, oauth, scopes, sandbox, webhook en pricing mogelijkheden voor Nederlandse en Europese boekhouding, open banking, payments, facturatie en commerce; plus een finance lens zonder koppeling via veilige import en een kleine set vragen; ontwerp een progressive data strategie. Read-only onderzoek met provenance.",
+      "normalized_request": "finance lens deep dive onderzoek actuele officiele api oauth scopes sandbox webhook en pricing mogelijkheden voor nederlandse en europese boekhouding open banking payments facturatie en commerce plus een finance lens zonder koppeling via veilige import en een kleine set vragen ontwerp een progressive data strategie read only onderzoek met provenance",
+      "created_at": "2026-08-15T14:19:11.437Z",
+      "updated_at": "2026-08-15T14:19:11.439Z",
+      "status": "QUEUED",
+      "priority": "NORMAL",
+      "selected_agent": "first_five",
+      "repository": "ftrprf-labs/maculis-first-five.",
+      "task_type": "analysis",
+      "risk_level": "high",
+      "routing_confidence": 0.8,
+      "routing_reason": "Caller-preferred agent First Five (validated). Routed to First Five (ftrprf-labs/maculis-first-five.) as a analysis at high risk on: keywords lens.",
+      "cross_domain": false,
+      "primary_owner": null,
+      "dependency": null,
+      "branch": "orchestrator/mac-110-finance-lens-deep-dive-onderzoek-actuele",
+      "session_id": null,
+      "required_checks": [],
+      "acceptance_criteria": [
+        "Investigate and report findings with evidence from the actual code/state."
+      ],
+      "tests_required": false,
+      "deploy_required": false,
+      "epic_id": "EPIC-2",
+      "dependencies": [
+        "MAC-109"
+      ],
+      "blocked_by": [
+        "MAC-109"
+      ],
+      "human_action_required": false,
+      "result_summary": null,
+      "commit_sha": null,
+      "pr": null,
+      "deploy_url": null,
+      "pre_change_sha": null,
+      "deployed_sha": null,
+      "rollback_sha": null,
+      "live_verification": null,
+      "warnings": [],
+      "history": [
+        {
+          "at": "2026-08-15T14:19:11.437Z",
+          "status": "RECEIVED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.438Z",
+          "status": "ROUTED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.439Z",
+          "status": "QUEUED"
+        }
+      ]
+    },
+    "MAC-111": {
+      "task_id": "MAC-111",
+      "title": "Marketing lens deep dive: welke intelligence uit publieke bronnen, welke vrij…",
+      "original_request": "Marketing lens deep dive: welke intelligence uit publieke bronnen, welke vrijwillige data en welke koppelingen analytics, search, advertising, crm, social, reviews en commerce exponentieel meer zicht geven; kies op waarde. Read-only onderzoek met officiele bronnen.",
+      "normalized_request": "marketing lens deep dive welke intelligence uit publieke bronnen welke vrijwillige data en welke koppelingen analytics search advertising crm social reviews en commerce exponentieel meer zicht geven kies op waarde read only onderzoek met officiele bronnen",
+      "created_at": "2026-08-15T14:19:11.442Z",
+      "updated_at": "2026-08-15T14:19:11.445Z",
+      "status": "QUEUED",
+      "priority": "NORMAL",
+      "selected_agent": "website",
+      "repository": "ftrprf-labs/groeiplatform-website",
+      "task_type": "analysis",
+      "risk_level": "low",
+      "routing_confidence": 0.64,
+      "routing_reason": "Caller-preferred agent Website (validated). Routed to Website (ftrprf-labs/groeiplatform-website) as a analysis at low risk on: keywords publieke, analytics. Cross-domain: also touches Relationship (ftrprf-labs/website) — primary owner Website, dependency coordinated (no simultaneous contract edits).",
+      "cross_domain": true,
+      "primary_owner": "website",
+      "dependency": {
+        "agent_id": "relationship",
+        "repository": "ftrprf-labs/website",
+        "signals": {
+          "keywords": [
+            "social",
+            "crm"
+          ],
+          "entities": [],
+          "paths": []
+        }
+      },
+      "branch": "orchestrator/mac-111-marketing-lens-deep-dive-welke-intellige",
+      "session_id": null,
+      "required_checks": [],
+      "acceptance_criteria": [
+        "Investigate and report findings with evidence from the actual code/state."
+      ],
+      "tests_required": false,
+      "deploy_required": false,
+      "epic_id": "EPIC-2",
+      "dependencies": [
+        "MAC-108"
+      ],
+      "blocked_by": [
+        "MAC-108"
+      ],
+      "human_action_required": false,
+      "result_summary": null,
+      "commit_sha": null,
+      "pr": null,
+      "deploy_url": null,
+      "pre_change_sha": null,
+      "deployed_sha": null,
+      "rollback_sha": null,
+      "live_verification": null,
+      "warnings": [],
+      "history": [
+        {
+          "at": "2026-08-15T14:19:11.442Z",
+          "status": "RECEIVED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.444Z",
+          "status": "ROUTED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.445Z",
+          "status": "QUEUED"
+        }
+      ]
+    },
+    "MAC-112": {
+      "task_id": "MAC-112",
+      "title": "Bouw een integration opportunity matrix over alle categorieen met per kandida…",
+      "original_request": "Bouw een integration opportunity matrix over alle categorieen met per kandidaat provider, categorie, officiele api, authenticatie, data, realtime of batch, sandbox, kosten, privacy, technische complexiteit, commerciele waarde, gevoede lenzen en prioriteit. Read-only onderzoek met actuele officiele bronnen en provenance.",
+      "normalized_request": "bouw een integration opportunity matrix over alle categorieen met per kandidaat provider categorie officiele api authenticatie data realtime of batch sandbox kosten privacy technische complexiteit commerciele waarde gevoede lenzen en prioriteit read only onderzoek met actuele officiele bronnen en provenance",
+      "created_at": "2026-08-15T14:19:11.446Z",
+      "updated_at": "2026-08-15T14:19:11.446Z",
+      "status": "WAITING_FOR_HUMAN",
+      "priority": "NORMAL",
+      "selected_agent": "NEEDS_ROUTING_REVIEW",
+      "repository": null,
+      "task_type": "analysis",
+      "risk_level": "low",
+      "routing_confidence": 0,
+      "routing_reason": "No domain signal matched. Human routing review required.",
+      "cross_domain": false,
+      "primary_owner": null,
+      "dependency": null,
+      "branch": null,
+      "session_id": null,
+      "required_checks": [],
+      "acceptance_criteria": [
+        "Investigate and report findings with evidence from the actual code/state."
+      ],
+      "tests_required": false,
+      "deploy_required": false,
+      "epic_id": "EPIC-2",
+      "dependencies": [],
+      "blocked_by": [],
+      "human_action_required": true,
+      "result_summary": null,
+      "commit_sha": null,
+      "pr": null,
+      "deploy_url": null,
+      "pre_change_sha": null,
+      "deployed_sha": null,
+      "rollback_sha": null,
+      "live_verification": null,
+      "warnings": [],
+      "history": [
+        {
+          "at": "2026-08-15T14:19:11.446Z",
+          "status": "RECEIVED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.446Z",
+          "status": "WAITING_FOR_HUMAN"
+        }
+      ]
+    },
+    "MAC-113": {
+      "task_id": "MAC-113",
+      "title": "Ontwerp een zero integration strategie per belangrijke lens met waarde binnen…",
+      "original_request": "Ontwerp een zero integration strategie per belangrijke lens met waarde binnen minuten zonder koppeling, en de progressie zero integration, optional enrichment, connected intelligence, longitudinal intelligence. Analyse.",
+      "normalized_request": "ontwerp een zero integration strategie per belangrijke lens met waarde binnen minuten zonder koppeling en de progressie zero integration optional enrichment connected intelligence longitudinal intelligence analyse",
+      "created_at": "2026-08-15T14:19:11.447Z",
+      "updated_at": "2026-08-15T14:19:11.450Z",
+      "status": "QUEUED",
+      "priority": "NORMAL",
+      "selected_agent": "first_five",
+      "repository": "ftrprf-labs/maculis-first-five.",
+      "task_type": "feature",
+      "risk_level": "normal",
+      "routing_confidence": 0.8,
+      "routing_reason": "Caller-preferred agent First Five (validated). Routed to First Five (ftrprf-labs/maculis-first-five.) as a feature at normal risk on: keywords lens.",
+      "cross_domain": false,
+      "primary_owner": null,
+      "dependency": null,
+      "branch": "orchestrator/mac-113-ontwerp-een-zero-integration-strategie-p",
+      "session_id": null,
+      "required_checks": [
+        "typecheck",
+        "unit",
+        "e2e",
+        "build"
+      ],
+      "acceptance_criteria": [
+        "Implement a working vertical slice of the request.",
+        "Tests cover the new behaviour."
+      ],
+      "tests_required": true,
+      "deploy_required": false,
+      "epic_id": "EPIC-2",
+      "dependencies": [
+        "MAC-110"
+      ],
+      "blocked_by": [
+        "MAC-110"
+      ],
+      "human_action_required": false,
+      "result_summary": null,
+      "commit_sha": null,
+      "pr": null,
+      "deploy_url": null,
+      "pre_change_sha": null,
+      "deployed_sha": null,
+      "rollback_sha": null,
+      "live_verification": null,
+      "warnings": [],
+      "history": [
+        {
+          "at": "2026-08-15T14:19:11.447Z",
+          "status": "RECEIVED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.449Z",
+          "status": "ROUTED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.450Z",
+          "status": "QUEUED"
+        }
+      ]
+    },
+    "MAC-114": {
+      "task_id": "MAC-114",
+      "title": "Ontwerp het wow en magic ervaringsmoment per toplens: wat verwacht men, wat o…",
+      "original_request": "Ontwerp het wow en magic ervaringsmoment per toplens: wat verwacht men, wat ontdekt Maculis, het he moment, de reveal, wat men morgen onthoudt en waarom men de lens deelt, geen dashboards. Analyse.",
+      "normalized_request": "ontwerp het wow en magic ervaringsmoment per toplens wat verwacht men wat ontdekt maculis het he moment de reveal wat men morgen onthoudt en waarom men de lens deelt geen dashboards analyse",
+      "created_at": "2026-08-15T14:19:11.453Z",
+      "updated_at": "2026-08-15T14:19:11.456Z",
+      "status": "QUEUED",
+      "priority": "NORMAL",
+      "selected_agent": "first_five",
+      "repository": "ftrprf-labs/maculis-first-five.",
+      "task_type": "analysis",
+      "risk_level": "low",
+      "routing_confidence": 0.84,
+      "routing_reason": "Caller-preferred agent First Five (validated). Routed to First Five (ftrprf-labs/maculis-first-five.) as a analysis at low risk on: keywords reveal, lens; paths reveal.",
+      "cross_domain": false,
+      "primary_owner": null,
+      "dependency": null,
+      "branch": "orchestrator/mac-114-ontwerp-het-wow-en-magic-ervaringsmoment",
+      "session_id": null,
+      "required_checks": [],
+      "acceptance_criteria": [
+        "Investigate and report findings with evidence from the actual code/state."
+      ],
+      "tests_required": false,
+      "deploy_required": false,
+      "epic_id": "EPIC-2",
+      "dependencies": [
+        "MAC-113"
+      ],
+      "blocked_by": [
+        "MAC-113"
+      ],
+      "human_action_required": false,
+      "result_summary": null,
+      "commit_sha": null,
+      "pr": null,
+      "deploy_url": null,
+      "pre_change_sha": null,
+      "deployed_sha": null,
+      "rollback_sha": null,
+      "live_verification": null,
+      "warnings": [],
+      "history": [
+        {
+          "at": "2026-08-15T14:19:11.453Z",
+          "status": "RECEIVED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.455Z",
+          "status": "ROUTED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.456Z",
+          "status": "QUEUED"
+        }
+      ]
+    },
+    "MAC-115": {
+      "task_id": "MAC-115",
+      "title": "Ontwerp de growbrain brug per toplens en het relationship flywheel met pass t…",
+      "original_request": "Ontwerp de growbrain brug per toplens en het relationship flywheel met pass the lens en de Relationship Workspace: trigger, overgang, growbrain context, eerste vervolgstap, meegenomen informatie en behoud van consent en provenance. Analyse.",
+      "normalized_request": "ontwerp de growbrain brug per toplens en het relationship flywheel met pass the lens en de relationship workspace trigger overgang growbrain context eerste vervolgstap meegenomen informatie en behoud van consent en provenance analyse",
+      "created_at": "2026-08-15T14:19:11.458Z",
+      "updated_at": "2026-08-15T14:19:11.459Z",
+      "status": "QUEUED",
+      "priority": "NORMAL",
+      "selected_agent": "relationship",
+      "repository": "ftrprf-labs/website",
+      "task_type": "analysis",
+      "risk_level": "low",
+      "routing_confidence": 0.85,
+      "routing_reason": "Caller-preferred agent Relationship (validated). Routed to Relationship (ftrprf-labs/website) as a analysis at low risk on: keywords relationship, workspace, consent.",
+      "cross_domain": false,
+      "primary_owner": null,
+      "dependency": null,
+      "branch": "orchestrator/mac-115-ontwerp-de-growbrain-brug-per-toplens-en",
+      "session_id": null,
+      "required_checks": [],
+      "acceptance_criteria": [
+        "Investigate and report findings with evidence from the actual code/state."
+      ],
+      "tests_required": false,
+      "deploy_required": false,
+      "epic_id": "EPIC-2",
+      "dependencies": [
+        "MAC-107"
+      ],
+      "blocked_by": [
+        "MAC-107"
+      ],
+      "human_action_required": false,
+      "result_summary": null,
+      "commit_sha": null,
+      "pr": null,
+      "deploy_url": null,
+      "pre_change_sha": null,
+      "deployed_sha": null,
+      "rollback_sha": null,
+      "live_verification": null,
+      "warnings": [],
+      "history": [
+        {
+          "at": "2026-08-15T14:19:11.458Z",
+          "status": "RECEIVED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.459Z",
+          "status": "ROUTED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.459Z",
+          "status": "QUEUED"
+        }
+      ]
+    },
+    "MAC-116": {
+      "task_id": "MAC-116",
+      "title": "Bepaal of lens een platform primitief moet worden en ontwerp de lens en signa…",
+      "original_request": "Bepaal of lens een platform primitief moet worden en ontwerp de lens en signal contracten, evidence, confidence, freshness, consent, data requirements, optional integrations, reveal, meaningful end, next lens triggers, growbrain handoff, evaluation en longitudinal comparison, plus het businessmodel voor het lensportfolio. Analyse.",
+      "normalized_request": "bepaal of lens een platform primitief moet worden en ontwerp de lens en signal contracten evidence confidence freshness consent data requirements optional integrations reveal meaningful end next lens triggers growbrain handoff evaluation en longitudinal comparison plus het businessmodel voor het lensportfolio analyse",
+      "created_at": "2026-08-15T14:19:11.460Z",
+      "updated_at": "2026-08-15T14:19:11.461Z",
+      "status": "QUEUED",
+      "priority": "NORMAL",
+      "selected_agent": "first_five",
+      "repository": "ftrprf-labs/maculis-first-five.",
+      "task_type": "analysis",
+      "risk_level": "low",
+      "routing_confidence": 0.84,
+      "routing_reason": "Caller-preferred agent First Five (validated). Routed to First Five (ftrprf-labs/maculis-first-five.) as a analysis at low risk on: keywords reveal, lens; paths reveal.",
+      "cross_domain": false,
+      "primary_owner": null,
+      "dependency": null,
+      "branch": "orchestrator/mac-116-bepaal-of-lens-een-platform-primitief-mo",
+      "session_id": null,
+      "required_checks": [],
+      "acceptance_criteria": [
+        "Investigate and report findings with evidence from the actual code/state."
+      ],
+      "tests_required": false,
+      "deploy_required": false,
+      "epic_id": "EPIC-2",
+      "dependencies": [
+        "MAC-114"
+      ],
+      "blocked_by": [
+        "MAC-114"
+      ],
+      "human_action_required": false,
+      "result_summary": null,
+      "commit_sha": null,
+      "pr": null,
+      "deploy_url": null,
+      "pre_change_sha": null,
+      "deployed_sha": null,
+      "rollback_sha": null,
+      "live_verification": null,
+      "warnings": [],
+      "history": [
+        {
+          "at": "2026-08-15T14:19:11.460Z",
+          "status": "RECEIVED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.461Z",
+          "status": "ROUTED"
+        },
+        {
+          "at": "2026-08-15T14:19:11.461Z",
+          "status": "QUEUED"
+        }
+      ]
+    }
+  },
+  "sessions": {},
+  "locks": {},
+  "queue": [
+    "MAC-101",
+    "MAC-102",
+    "MAC-103",
+    "MAC-104",
+    "MAC-105",
+    "MAC-107",
+    "MAC-108",
+    "MAC-109",
+    "MAC-110",
+    "MAC-111",
+    "MAC-113",
+    "MAC-114",
+    "MAC-115",
+    "MAC-116"
+  ],
+  "approvals": {},
+  "humanActions": {
+    "HA-1": {
+      "id": "HA-1",
+      "task_id": "MAC-106",
+      "created_at": "2026-08-15T14:01:42.843Z",
+      "status": "OPEN",
+      "kind": "routing-review",
+      "title": "Confirm which domain owns this task",
+      "request": "Consolideer alle bevindingen in een geconsolideerd masterplan met product, da…"
+    },
+    "HA-2": {
+      "id": "HA-2",
+      "task_id": "MAC-112",
+      "created_at": "2026-08-15T14:19:11.447Z",
+      "status": "OPEN",
+      "kind": "routing-review",
+      "title": "Confirm which domain owns this task",
+      "request": "Bouw een integration opportunity matrix over alle categorieen met per kandida…"
+    }
+  },
+  "epics": {
+    "EPIC-1": {
+      "epic_id": "EPIC-1",
+      "request": "MACULIS NEXT LENSES & INTELLIGENCE STRATEGY — Autonomous Deep Research, Product Strategy, Data Strategy and Architecture Night Run.\n1. Onderzoek en ontwerp het Next Lenses raamwerk voor de First Five journey: nieuwe lenzen naast Technical Signals, hun evidence-model, fail-closed gedrag en plaats in Reveal en Recognition. Read-only analyse met aanbevelingen.\n2. Analyseer de intelligence- en signaallaag voor de Relationship Workspace: welke signalen voeden communicatie en opvolging, met consent fail-closed, PII-grenzen en provenance. Read-only onderzoek.\n3. Deep research naar actuele officiele provider- en API-bronnen voor de communicatie- en verrijkingslaag van de Relationship Workspace: WhatsApp Business Platform, Twilio, Meta, e-mail, telefonie, social en enrichment data API. Gebruik officiele documentatie en leg provenance vast. Read-only onderzoek.\n4. Onderzoek de publieke presentatie van de nieuwe lenzen en intelligence op de website: WOW, micro reveal, SEO en privacy copy. Read-only analyse.\n5. Data strategy en architectuur voor de Relationship Workspace intelligence-data: onderzoek opslag, provenance, kosten, security en privacy. Read-only architectuuronderzoek.\n6. Consolideer alle bevindingen in een geconsolideerd masterplan met product, data en architectuurstrategie en een gefaseerde routekaart. Read-only synthese.",
+      "created_at": "2026-08-15T14:01:42.843Z",
+      "task_ids": [
+        "MAC-101",
+        "MAC-102",
+        "MAC-103",
+        "MAC-104",
+        "MAC-105",
+        "MAC-106"
+      ],
+      "repositories": [
+        "ftrprf-labs/maculis-first-five.",
+        "ftrprf-labs/website",
+        "ftrprf-labs/groeiplatform-website"
+      ],
+      "truncated": false,
+      "needs_routing_review": true
+    },
+    "EPIC-2": {
+      "epic_id": "EPIC-2",
+      "request": "MACULIS NEXT LENSES — STRATEGIC DEEPENING & PRODUCT PORTFOLIO (EPIC-2). Bouwt voort op EPIC-1 als input; decision-quality deep research, nog geen grote productfeatures.\n1. Onderzoek en ontwerp het volledige Maculis lens-universum als product portfolio strategie: lenzen voor marketing, merk en positionering, propositie, klant, commerciele performance, sales, finance, cashflow, marge, pricing, operations, team en organisatie, klantbeleving, reputatie, digitale vindbaarheid, concurrentie, markt, groei, risico, resilience, innovatie, AI en digital maturity, relationship intelligence, founder en leadership, plus nieuwe onverwachte lenscategorieen. Analyse met concept per lens.\n2. Rangschik alle kandidaat-lenzen op klantwaarde, wow, verrassing, betrouwbaarheid, benodigde data, bouwsnelheid, externe integratie afhankelijkheid, privacyrisico, kosten, herhaalbaarheid, commerciele waarde en growbrain potentieel; lever een top tien shortlist en een beargumenteerde roadmap met expliciete keuze voor lens twee. Analyse.\n3. Verdiep de bestaande First Five journey zonder grote integraties: invisible intelligence, nieuwe signalen, betere synthese, betere reveal, betere meaningful end, betere vervolgvragen, relationship memory en nieuwe triggers voor een volgende lens. Analyse.\n4. Finance lens deep dive: onderzoek actuele officiele api, oauth, scopes, sandbox, webhook en pricing mogelijkheden voor Nederlandse en Europese boekhouding, open banking, payments, facturatie en commerce; plus een finance lens zonder koppeling via veilige import en een kleine set vragen; ontwerp een progressive data strategie. Read-only onderzoek met provenance.\n5. Marketing lens deep dive: welke intelligence uit publieke bronnen, welke vrijwillige data en welke koppelingen analytics, search, advertising, crm, social, reviews en commerce exponentieel meer zicht geven; kies op waarde. Read-only onderzoek met officiele bronnen.\n6. Bouw een integration opportunity matrix over alle categorieen met per kandidaat provider, categorie, officiele api, authenticatie, data, realtime of batch, sandbox, kosten, privacy, technische complexiteit, commerciele waarde, gevoede lenzen en prioriteit. Read-only onderzoek met actuele officiele bronnen en provenance.\n7. Ontwerp een zero integration strategie per belangrijke lens met waarde binnen minuten zonder koppeling, en de progressie zero integration, optional enrichment, connected intelligence, longitudinal intelligence. Analyse.\n8. Ontwerp het wow en magic ervaringsmoment per toplens: wat verwacht men, wat ontdekt Maculis, het he moment, de reveal, wat men morgen onthoudt en waarom men de lens deelt, geen dashboards. Analyse.\n9. Ontwerp de growbrain brug per toplens en het relationship flywheel met pass the lens en de Relationship Workspace: trigger, overgang, growbrain context, eerste vervolgstap, meegenomen informatie en behoud van consent en provenance. Analyse.\n10. Bepaal of lens een platform primitief moet worden en ontwerp de lens en signal contracten, evidence, confidence, freshness, consent, data requirements, optional integrations, reveal, meaningful end, next lens triggers, growbrain handoff, evaluation en longitudinal comparison, plus het businessmodel voor het lensportfolio. Analyse.",
+      "created_at": "2026-08-15T14:19:11.462Z",
+      "task_ids": [
+        "MAC-107",
+        "MAC-108",
+        "MAC-109",
+        "MAC-110",
+        "MAC-111",
+        "MAC-112",
+        "MAC-113",
+        "MAC-114",
+        "MAC-115",
+        "MAC-116"
+      ],
+      "repositories": [
+        "ftrprf-labs/website",
+        "ftrprf-labs/groeiplatform-website",
+        "ftrprf-labs/maculis-first-five."
+      ],
+      "truncated": false,
+      "needs_routing_review": true
+    }
+  },
+  "epicCounter": 2,
+  "idempotency": {},
+  "disabledAgents": {},
+  "audit": [
+    {
+      "at": "2026-08-15T14:01:42.823Z",
+      "event": "task_submitted",
+      "task_id": "MAC-101",
+      "agent": "first_five",
+      "repository": "ftrprf-labs/maculis-first-five.",
+      "confidence": 1
+    },
+    {
+      "at": "2026-08-15T14:01:42.825Z",
+      "event": "task_routed",
+      "task_id": "MAC-101",
+      "agent": "first_five",
+      "reason": "Caller-preferred agent First Five (validated). Routed to First Five (ftrprf-labs/maculis-first-five.) as a analysis at low risk on: keywords first five, first-five, journey, reveal; paths journey, reveal, recognition."
+    },
+    {
+      "at": "2026-08-15T14:01:42.826Z",
+      "event": "task_submitted",
+      "task_id": "MAC-102",
+      "agent": "relationship",
+      "repository": "ftrprf-labs/website",
+      "confidence": 1
+    },
+    {
+      "at": "2026-08-15T14:01:42.827Z",
+      "event": "task_routed",
+      "task_id": "MAC-102",
+      "agent": "relationship",
+      "reason": "Caller-preferred agent Relationship (validated). Routed to Relationship (ftrprf-labs/website) as a analysis at low risk on: keywords relationship, workspace, communicatie, consent."
+    },
+    {
+      "at": "2026-08-15T14:01:42.836Z",
+      "event": "task_submitted",
+      "task_id": "MAC-103",
+      "agent": "relationship",
+      "repository": "ftrprf-labs/website",
+      "confidence": 1
+    },
+    {
+      "at": "2026-08-15T14:01:42.838Z",
+      "event": "task_routed",
+      "task_id": "MAC-103",
+      "agent": "relationship",
+      "reason": "Caller-preferred agent Relationship (validated). Routed to Relationship (ftrprf-labs/website) as a analysis at low risk on: keywords relationship, workspace, communicatie, whatsapp."
+    },
+    {
+      "at": "2026-08-15T14:01:42.839Z",
+      "event": "task_submitted",
+      "task_id": "MAC-104",
+      "agent": "website",
+      "repository": "ftrprf-labs/groeiplatform-website",
+      "confidence": 0.89
+    },
+    {
+      "at": "2026-08-15T14:01:42.840Z",
+      "event": "task_routed",
+      "task_id": "MAC-104",
+      "agent": "website",
+      "reason": "Caller-preferred agent Website (validated). Routed to Website (ftrprf-labs/groeiplatform-website) as a analysis at low risk on: keywords website, wow, micro reveal, micro-reveal; paths seo."
+    },
+    {
+      "at": "2026-08-15T14:01:42.840Z",
+      "event": "task_submitted",
+      "task_id": "MAC-105",
+      "agent": "relationship",
+      "repository": "ftrprf-labs/website",
+      "confidence": 1
+    },
+    {
+      "at": "2026-08-15T14:01:42.841Z",
+      "event": "task_routed",
+      "task_id": "MAC-105",
+      "agent": "relationship",
+      "reason": "Caller-preferred agent Relationship (validated). Routed to Relationship (ftrprf-labs/website) as a analysis at low risk on: keywords relationship, workspace."
+    },
+    {
+      "at": "2026-08-15T14:01:42.842Z",
+      "event": "task_submitted",
+      "task_id": "MAC-106",
+      "agent": "NEEDS_ROUTING_REVIEW",
+      "repository": null,
+      "confidence": 0
+    },
+    {
+      "at": "2026-08-15T14:01:42.843Z",
+      "event": "epic_submitted",
+      "epic_id": "EPIC-1",
+      "subtasks": 6,
+      "repositories": [
+        "ftrprf-labs/maculis-first-five.",
+        "ftrprf-labs/website",
+        "ftrprf-labs/groeiplatform-website"
+      ]
+    },
+    {
+      "at": "2026-08-15T14:19:11.429Z",
+      "event": "task_submitted",
+      "task_id": "MAC-107",
+      "agent": "relationship",
+      "repository": "ftrprf-labs/website",
+      "confidence": 0.7
+    },
+    {
+      "at": "2026-08-15T14:19:11.430Z",
+      "event": "task_routed",
+      "task_id": "MAC-107",
+      "agent": "relationship",
+      "reason": "Caller-preferred agent Relationship (validated). Routed to Relationship (ftrprf-labs/website) as a feature at normal risk on: keywords relationship, organisatie. Cross-domain: also touches Website (ftrprf-labs/groeiplatform-website) — primary owner Relationship, dependency coordinated (no simultaneous contract edits)."
+    },
+    {
+      "at": "2026-08-15T14:19:11.431Z",
+      "event": "task_submitted",
+      "task_id": "MAC-108",
+      "agent": "website",
+      "repository": "ftrprf-labs/groeiplatform-website",
+      "confidence": 0.5
+    },
+    {
+      "at": "2026-08-15T14:19:11.433Z",
+      "event": "task_routed",
+      "task_id": "MAC-108",
+      "agent": "website",
+      "reason": "Caller-preferred agent Website (validated). Routed to Website (ftrprf-labs/groeiplatform-website) as a feature at normal risk on: keywords wow. Cross-domain: also touches First Five (ftrprf-labs/maculis-first-five.) — primary owner Website, dependency coordinated (no simultaneous contract edits)."
+    },
+    {
+      "at": "2026-08-15T14:19:11.433Z",
+      "event": "task_submitted",
+      "task_id": "MAC-109",
+      "agent": "first_five",
+      "repository": "ftrprf-labs/maculis-first-five.",
+      "confidence": 0.93
+    },
+    {
+      "at": "2026-08-15T14:19:11.436Z",
+      "event": "task_routed",
+      "task_id": "MAC-109",
+      "agent": "first_five",
+      "reason": "Caller-preferred agent First Five (validated). Routed to First Five (ftrprf-labs/maculis-first-five.) as a feature at normal risk on: keywords first five, first-five, journey, reveal; paths journey, reveal."
+    },
+    {
+      "at": "2026-08-15T14:19:11.438Z",
+      "event": "task_submitted",
+      "task_id": "MAC-110",
+      "agent": "first_five",
+      "repository": "ftrprf-labs/maculis-first-five.",
+      "confidence": 0.8
+    },
+    {
+      "at": "2026-08-15T14:19:11.440Z",
+      "event": "task_routed",
+      "task_id": "MAC-110",
+      "agent": "first_five",
+      "reason": "Caller-preferred agent First Five (validated). Routed to First Five (ftrprf-labs/maculis-first-five.) as a analysis at high risk on: keywords lens."
+    },
+    {
+      "at": "2026-08-15T14:19:11.443Z",
+      "event": "task_submitted",
+      "task_id": "MAC-111",
+      "agent": "website",
+      "repository": "ftrprf-labs/groeiplatform-website",
+      "confidence": 0.64
+    },
+    {
+      "at": "2026-08-15T14:19:11.445Z",
+      "event": "task_routed",
+      "task_id": "MAC-111",
+      "agent": "website",
+      "reason": "Caller-preferred agent Website (validated). Routed to Website (ftrprf-labs/groeiplatform-website) as a analysis at low risk on: keywords publieke, analytics. Cross-domain: also touches Relationship (ftrprf-labs/website) — primary owner Website, dependency coordinated (no simultaneous contract edits)."
+    },
+    {
+      "at": "2026-08-15T14:19:11.446Z",
+      "event": "task_submitted",
+      "task_id": "MAC-112",
+      "agent": "NEEDS_ROUTING_REVIEW",
+      "repository": null,
+      "confidence": 0
+    },
+    {
+      "at": "2026-08-15T14:19:11.448Z",
+      "event": "task_submitted",
+      "task_id": "MAC-113",
+      "agent": "first_five",
+      "repository": "ftrprf-labs/maculis-first-five.",
+      "confidence": 0.8
+    },
+    {
+      "at": "2026-08-15T14:19:11.452Z",
+      "event": "task_routed",
+      "task_id": "MAC-113",
+      "agent": "first_five",
+      "reason": "Caller-preferred agent First Five (validated). Routed to First Five (ftrprf-labs/maculis-first-five.) as a feature at normal risk on: keywords lens."
+    },
+    {
+      "at": "2026-08-15T14:19:11.454Z",
+      "event": "task_submitted",
+      "task_id": "MAC-114",
+      "agent": "first_five",
+      "repository": "ftrprf-labs/maculis-first-five.",
+      "confidence": 0.84
+    },
+    {
+      "at": "2026-08-15T14:19:11.457Z",
+      "event": "task_routed",
+      "task_id": "MAC-114",
+      "agent": "first_five",
+      "reason": "Caller-preferred agent First Five (validated). Routed to First Five (ftrprf-labs/maculis-first-five.) as a analysis at low risk on: keywords reveal, lens; paths reveal."
+    },
+    {
+      "at": "2026-08-15T14:19:11.458Z",
+      "event": "task_submitted",
+      "task_id": "MAC-115",
+      "agent": "relationship",
+      "repository": "ftrprf-labs/website",
+      "confidence": 0.85
+    },
+    {
+      "at": "2026-08-15T14:19:11.459Z",
+      "event": "task_routed",
+      "task_id": "MAC-115",
+      "agent": "relationship",
+      "reason": "Caller-preferred agent Relationship (validated). Routed to Relationship (ftrprf-labs/website) as a analysis at low risk on: keywords relationship, workspace, consent."
+    },
+    {
+      "at": "2026-08-15T14:19:11.460Z",
+      "event": "task_submitted",
+      "task_id": "MAC-116",
+      "agent": "first_five",
+      "repository": "ftrprf-labs/maculis-first-five.",
+      "confidence": 0.84
+    },
+    {
+      "at": "2026-08-15T14:19:11.462Z",
+      "event": "task_routed",
+      "task_id": "MAC-116",
+      "agent": "first_five",
+      "reason": "Caller-preferred agent First Five (validated). Routed to First Five (ftrprf-labs/maculis-first-five.) as a analysis at low risk on: keywords reveal, lens; paths reveal."
+    },
+    {
+      "at": "2026-08-15T14:19:11.462Z",
+      "event": "epic_submitted",
+      "epic_id": "EPIC-2",
+      "subtasks": 10,
+      "repositories": [
+        "ftrprf-labs/website",
+        "ftrprf-labs/groeiplatform-website",
+        "ftrprf-labs/maculis-first-five."
+      ]
+    }
+  ]
+}
