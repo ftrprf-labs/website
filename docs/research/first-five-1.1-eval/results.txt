@@ -1,0 +1,30 @@
+
+=== FIRST FIVE 1.1 EVALUATION (real frozen engine, gate UNCHANGED) ===
+
+fixture           CUR       1.1       1.1 family       cross
+----------------------------------------------------------------
+ama-ned           SILENCE   SILENCE   -                -
+fysio-direct      REVEAL    REVEAL    CONTRADICTION    -
+premium-studio    SILENCE   REVEAL    TELLING_ABSENCE  -
+vastgoed-expert   REVEAL    REVEAL    TELLING_ABSENCE  -
+daktuin-proof     SILENCE   SILENCE   -                -
+bouwadvies-prijs  SILENCE   REVEAL    CONTRADICTION    yes
+snel-vs-review    SILENCE   REVEAL    MISCAST          yes
+wallpaper-co      SILENCE   SILENCE   -                -
+modest-clean      SILENCE   SILENCE   -                -
+maatwerk-proof    SILENCE   SILENCE   -                -
+puffery-co        SILENCE   SILENCE   -                -
+drift-training    SILENCE   REVEAL    DRIFT            -
+
+=== AGGREGATE ===
+fixtures: 12
+CURRENT reveals: 2 | 1.1 reveals: 6
+NEW reveal-worthy candidates unlocked by 1.1: 4 -> premium-studio(TELLING_ABSENCE), bouwadvies-prijs(CONTRADICTION,cross), snel-vs-review(MISCAST,cross), drift-training(DRIFT)
+correct-SILENCE regressions kept silent: 6 / 6
+SILENCE wrongly broken by 1.1 (should be 0): 0 
+AMA-NED regression: CURRENT=SILENCE 1.1=SILENCE (must both be SILENCE)
+
+=== ESTIMATED QUALITY of NEW reveals (0..3, HYPOTHESIS, needs real users) ===
+non-triviality: 2.75 | surprise: 2.50 | recognition: 2.75 | WOW: 2.50 | false-positive risk: 1.25
+
+time-to-first-value: UNCHANGED (both Level 1, same public retrieval, +0 network for HTML-derived evidence; +1 lookup only when public reviews are used).
