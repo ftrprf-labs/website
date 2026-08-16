@@ -405,7 +405,14 @@ function attnItem(it, restContainer) {
      <div class="itemfoot">
        <button class="why-btn" aria-expanded="false">Waarom zie ik dit?</button>
        <span class="open-hint" aria-hidden="true">Open ${esc(dest)} <span class="arw">→</span></span>
-       <button class="settle-btn" title="Leg terug in rust">Afgehandeld</button>
+       <span class="settle">
+         <button class="settle-btn" aria-haspopup="true" aria-expanded="false" title="Leg weg">Leg weg ▾</button>
+         <span class="settle-menu" hidden>
+           <button data-r="afgehandeld">Afgehandeld</button>
+           <button data-r="gezien">Gezien, geen actie</button>
+           <button data-r="later">Later</button>
+         </span>
+       </span>
      </div>
      <div class="why" hidden><span class="prov ${it.tier === 'klaar' ? 'suggestion' : 'observation'}">Provenance</span> ${esc(it.why)}</div>`;
 
@@ -424,18 +431,30 @@ function attnItem(it, restContainer) {
     else { whyBox.setAttribute('hidden', ''); whyBtn.setAttribute('aria-expanded', 'false'); whyBtn.textContent = 'Waarom zie ik dit?'; }
   });
 
-  // signature interaction: "Terugval in rust" — a handled item settles, never vanishes
-  b.querySelector('.settle-btn').addEventListener('click', e => {
+  // signature interaction: "Terugval in rust" — an item settles, never vanishes.
+  // Not everything that leaves Vandaag is truly "afgehandeld": a small, non-bureaucratic
+  // choice (afgehandeld / gezien, geen actie / later) records what actually happened,
+  // which is also honest feedback Maculis can later learn from.
+  const settleBtn = b.querySelector('.settle-btn');
+  const settleMenu = b.querySelector('.settle-menu');
+  settleBtn.addEventListener('click', e => {
     e.stopPropagation();
-    settleToRest(b, it, restContainer);
+    const open = settleMenu.hasAttribute('hidden');
+    if (open) { settleMenu.removeAttribute('hidden'); settleBtn.setAttribute('aria-expanded', 'true'); }
+    else { settleMenu.setAttribute('hidden', ''); settleBtn.setAttribute('aria-expanded', 'false'); }
   });
+  settleMenu.querySelectorAll('button[data-r]').forEach(rb => rb.addEventListener('click', e => {
+    e.stopPropagation();
+    settleToRest(b, it, restContainer, rb.getAttribute('data-r'));
+  }));
   return b;
 }
 
-function settleToRest(node, it, restContainer) {
+const SETTLE_LBL = { afgehandeld: 'afgehandeld', gezien: 'gezien, geen actie', later: 'teruggelegd voor later' };
+function settleToRest(node, it, restContainer, reason = 'afgehandeld') {
   if (!restContainer) return;
   const settled = el('div', 'rest-item');
-  settled.innerHTML = `<span class="rk"></span>${esc(it.who.name)} · <span class="muted">afgehandeld, zojuist</span>`;
+  settled.innerHTML = `<span class="rk"></span>${esc(it.who.name)} · <span class="muted">${esc(SETTLE_LBL[reason] || 'afgehandeld')}, zojuist</span>`;
   if (reduceMotion) {
     node.remove();
     revealRestArea(restContainer);
@@ -1405,6 +1424,35 @@ function deriveNow(rel) {
   return [{ kind: 'quiet', tone: 'quiet', label: 'Rustig', line: 'Er speelt nu niets bij deze relatie. Dat is ook een status.' }];
 }
 
+// ONE contextual "Neem contact op": offers only relevant channels and is honest about
+// three separate layers, exactly as the real model distinguishes them (channel_identity /
+// channelConsentState / channel_kind adapter): (1) the contact detail exists, (2) consent
+// allows this channel, (3) the send/call adapter actually exists. E-mail meets all three;
+// WhatsApp/SMS wait on opt-in and adapter (C). Never scattered per-channel buttons.
+function contactControl(d) {
+  const optedOut = d.consentStatus === 'OPTED_OUT';
+  const box = el('div', 'dos-contact');
+  box.innerHTML =
+    `<button class="btn btn-primary dos-contact-btn" aria-expanded="false" aria-haspopup="true">Neem contact op</button>
+     <div class="dos-contact-menu" hidden role="menu">
+       <button class="dos-chan" data-go="work" ${optedOut ? 'disabled' : ''} role="menuitem">E-mail${optedOut ? ' · geen toestemming' : ' · opent het gesprek'}</button>
+       <button class="dos-chan" ${optedOut ? 'disabled' : ''} role="menuitem">Bellen${optedOut ? ' · geen toestemming' : ' · nummer aanwezig'} ${provChip('A')}</button>
+       <button class="dos-chan" disabled role="menuitem">WhatsApp · vereist opt-in, verzendadapter volgt ${provChip('C')}</button>
+       <button class="dos-chan" disabled role="menuitem">SMS · vereist opt-in, verzendadapter volgt ${provChip('C')}</button>
+       <p class="dos-note">Drie lagen apart: het gegeven bestaat, toestemming staat het toe, en de verzend- of beladapter bestaat. E-mail voldoet aan alle drie ${provChip('A')}; WhatsApp en SMS wachten op opt-in en adapter ${provChip('C')}.</p>
+     </div>`;
+  const cBtn = box.querySelector('.dos-contact-btn');
+  const cMenu = box.querySelector('.dos-contact-menu');
+  cBtn.addEventListener('click', () => {
+    const open = cMenu.hasAttribute('hidden');
+    if (open) { cMenu.removeAttribute('hidden'); cBtn.setAttribute('aria-expanded', 'true'); }
+    else { cMenu.setAttribute('hidden', ''); cBtn.setAttribute('aria-expanded', 'false'); }
+  });
+  const mail = box.querySelector('[data-go="work"]');
+  if (mail) mail.addEventListener('click', () => { scn = 'work'; render(); });
+  return box;
+}
+
 function viewDossier() {
   const rel = activeRel || (PEOPLE.jb ? { name: PEOPLE.jb.name, org: PEOPLE.jb.org } : { name: 'Onbekend', org: '' });
   const d = dossierFor(rel);
@@ -1433,6 +1481,27 @@ function viewDossier() {
        <span class="dos-owner">Eigenaar: ${esc(d.owner)} ${provChip('A')}</span>
      </div>`;
   wrap.appendChild(idc);
+
+  // Identity and reachability, directly under the header. A relatiedossier must answer
+  // "wie is dit, bij welke organisatie, hoe bereik ik hem" without expanding an accordion.
+  // Organization already sits in the header subtitle. This compact zone adds the actual
+  // reachability plus the single contact action; the full "Contact en identiteiten"
+  // detail stays a section below. Meaning-first preserved: a zone, not a CRM card.
+  const email = (d.identities.find(i => i.channel === 'e-mail') || {}).value || '';
+  const phone = (d.identities.find(i => i.channel === 'telefoon') || {}).value || '';
+  const wa = (d.identities.find(i => i.channel === 'whatsapp') || {}).value || '';
+  const consentHint = d.consentStatus === 'OPTED_OUT' ? '<span class="reach-consent out">Geen toestemming voor uitgaand contact</span>'
+    : d.consentStatus === 'UNKNOWN' ? '<span class="reach-consent unk">Toestemming nog onbekend</span>' : '';
+  const reach = el('div', 'dos-reach');
+  reach.innerHTML =
+    `<div class="reach-lines">
+       ${email ? `<span class="reach-item"><span class="reach-ic" aria-hidden="true">✉</span><span class="reach-v">${esc(email)}</span></span>` : ''}
+       ${phone ? `<span class="reach-item"><span class="reach-ic" aria-hidden="true">☎</span><span class="reach-v">${esc(phone)}</span></span>` : ''}
+       ${wa ? `<span class="reach-item"><span class="reach-ic" aria-hidden="true">◇</span><span class="reach-v">WhatsApp: ${esc(wa)}</span></span>` : ''}
+       ${consentHint}
+     </div>`;
+  reach.appendChild(contactControl(d));
+  wrap.appendChild(reach);
 
   // NU — meaning first: what to understand and do now
   const now = el('section', 'dos-now');
@@ -1480,13 +1549,26 @@ function viewDossier() {
         b.innerHTML = `<div class="memory" style="border-color:var(--ok)">${esc(d.journey)}</div><p class="dos-note">De status (concept, uitgenodigd, gestart, afgerond) is in Maculis. Detail per sessie en per stap ${provChip('C')} bestaat nog niet.</p>`;
         return b;
       } },
-    { key: 'zag', title: 'Wat Maculis zag', prov: 'A', open: true, body: () => {
+    // Observation ≠ memory (lifecycle: signaleren → interpreteren → voorstellen →
+    // bevestigen/verwerpen → pas dan duurzaam onthouden). "Wat Maculis zag" holds the
+    // observations/proposals (can change, be rejected); "Geheugen" holds only what is
+    // durably confirmed. An old AI-inference must never silently become a fact.
+    { key: 'zag', title: 'Wat Maculis zag', prov: 'B', open: true, body: () => {
         const b = el('div', 'dos-memory');
-        if (!d.memory.length) b.innerHTML = '<p class="muted">Nog niets vastgelegd.</p>';
-        d.memory.forEach(m => {
-          const tag = m.source === 'ai' && m.confidence === 'proposed' ? '<span class="mem-ai">AI-voorstel</span>' : '<span class="mem-conf">Bevestigd</span>';
-          const act = m.source === 'ai' && m.confidence === 'proposed' ? '<span class="mem-acts"><button class="linkbtn">Bevestigen</button> · <button class="linkbtn">Verwerpen</button></span>' : '';
-          b.innerHTML += `<div class="mem"><div class="mem-top">${tag}<span class="mem-when">${esc(m.when || '')}</span></div><p>${esc(m.text)}</p>${act}</div>`;
+        const obs = d.memory.filter(m => m.confidence === 'proposed');
+        if (!obs.length) b.innerHTML = '<p class="muted">Geen open observaties. Wat bevestigd is, staat onder Geheugen.</p>';
+        obs.forEach(m => {
+          b.innerHTML += `<div class="mem"><div class="mem-top"><span class="mem-ai">AI-voorstel</span><span class="mem-when">${esc(m.when || '')}</span></div><p>${esc(m.text)}</p><span class="mem-acts"><button class="linkbtn">Bevestigen</button> · <button class="linkbtn">Verwerpen</button></span></div>`;
+        });
+        b.innerHTML += `<p class="dos-note">Een observatie is nog geen geheugen. Pas na bevestigen wordt iets duurzaam onthouden.</p>`;
+        return b;
+      } },
+    { key: 'geheugen', title: 'Geheugen', prov: 'A', open: false, body: () => {
+        const b = el('div', 'dos-memory');
+        const conf = d.memory.filter(m => m.confidence !== 'proposed');
+        if (!conf.length) b.innerHTML = '<p class="muted">Nog niets duurzaam onthouden.</p>';
+        conf.forEach(m => {
+          b.innerHTML += `<div class="mem"><div class="mem-top"><span class="mem-conf">Bevestigd</span><span class="mem-when">${esc(m.when || '')}</span></div><p>${esc(m.text)}</p></div>`;
         });
         return b;
       } },
@@ -1557,32 +1639,9 @@ function viewDossier() {
   });
   wrap.appendChild(secWrap);
 
-  // Communication as a contextual capability: ONE "Neem contact op" that offers only
-  // the relevant and allowed channels, never scattered per-channel buttons. Honest
-  // about state: e-mail and telefonie exist (A); the WhatsApp send adapter is C.
+  // The contextual "Neem contact op" now lives in the reachability zone at the top,
+  // where the reachability question is answered. The foot keeps the way onward.
   const foot = el('div', 'dos-foot');
-  const optedOut = d.consentStatus === 'OPTED_OUT';
-  const contact = el('div', 'dos-contact');
-  contact.innerHTML =
-    `<button class="btn btn-primary dos-contact-btn" aria-expanded="false">Neem contact op</button>
-     <div class="dos-contact-menu" hidden role="menu">
-       <button class="dos-chan" data-go="work" ${optedOut ? 'disabled' : ''} role="menuitem">E-mail${optedOut ? ' · geen toestemming' : ' · opent het gesprek'}</button>
-       <button class="dos-chan" role="menuitem">Bellen · telefonie bestaat ${provChip('A')}</button>
-       <button class="dos-chan" disabled role="menuitem">WhatsApp · vereist opt-in, verzendadapter volgt ${provChip('C')}</button>
-       <p class="dos-note">Alleen kanalen met contactgegevens en geldige toestemming zijn beschikbaar. Consent per kanaal en per doel bestaat in het model ${provChip('A')}.</p>
-     </div>`;
-  const cBtn = contact.querySelector('.dos-contact-btn');
-  const cMenu = contact.querySelector('.dos-contact-menu');
-  cBtn.addEventListener('click', () => {
-    const open = cMenu.hasAttribute('hidden');
-    if (open) { cMenu.removeAttribute('hidden'); cBtn.setAttribute('aria-expanded', 'true'); }
-    else { cMenu.setAttribute('hidden', ''); cBtn.setAttribute('aria-expanded', 'false'); }
-  });
-  const mail = contact.querySelector('[data-go="work"]');
-  if (mail) mail.addEventListener('click', () => { scn = 'work'; render(); });
-  foot.appendChild(contact);
-
-  // always a way onward to the conversation
   const g = el('button', 'btn btn-ghost', 'Open het gesprek →');
   g.addEventListener('click', () => { scn = 'work'; render(); });
   foot.appendChild(g);

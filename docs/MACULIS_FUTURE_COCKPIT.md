@@ -1703,3 +1703,78 @@ Geen resterende fundamentele blockers. Vanuit deze baseline kunnen de echte onde
 gericht verder worden ontwikkeld (verzendadapters waar de pilot ze nodig heeft, en daarna de duurzame
 reveal-/inzicht-historie als sluitstuk van geheugen en auditability). Volgende stap is visuele/content-
 verfijning, met als eerste beslissing het licht/donker-palet van Vandaag (§24.22).
+
+## 25. Consolidatie- en completeness-pass (binnen de frozen baseline)
+
+Een gerichte pass om de bestaande cockpit coherent en compleet te maken, zonder de architectuur opnieuw
+te openen. Alleen aantoonbare inconsistenties opgelost; geen nieuwe capabilities, geen gefakete data. De
+conclusie A uit §24 blijft ongewijzigd, met deze verbeteringen erin opgenomen.
+
+### 25.1 Identiteit en bereikbaarheid direct zichtbaar (primaire correctie)
+
+Probleem: contact en identiteit stond alleen in een standaard ingeklapte sectie. Een relatiedossier moet
+de basale vragen (wie is dit, bij welke organisatie, hoe bereik ik hem) zonder uitklappen beantwoorden.
+
+Kleinste rustige oplossing: een compacte identiteits- en bereikbaarheidszone direct onder de header
+(naam en organisatie stonden er al; toegevoegd: het primaire e-mailadres, telefoonnummer en de
+WhatsApp-aanwezigheid) plus de contextuele actie "Neem contact op". De volledige sectie "Contact en
+identiteiten" blijft eronder voor detail (verified, primair, meerdere adressen). Meaning-first blijft:
+een zone, geen CRM-kaart. Grondslag in de code: `channel_identity` (channel, value, verified,
+is_primary).
+
+### 25.2 Neem contact op: drie lagen eerlijk gescheiden
+
+De contactactie maakt nu expliciet onderscheid tussen drie lagen die de echte code ook scheidt:
+
+1. het contactgegeven/identity bestaat (`channel_identity`);
+2. consent staat dit kanaal toe (`channelConsentState`/`channelAllowed`: EMAIL/PHONE standaard toegestaan,
+   WHATSAPP/SMS vereisen expliciete opt-in);
+3. de technische verzend- of beladapter bestaat (`channel_kind`: e-mail is er; WhatsApp/SMS zijn C).
+
+Zo is E-mail volledig bruikbaar; Bellen heeft nummer en toestemming; WhatsApp en SMS tonen eerlijk dat ze
+op opt-in en adapter wachten. Bij een relatie zonder toestemming (OPTED_OUT) tonen de gegevens zich nog
+wel, maar zijn de uitgaande kanalen uitgeschakeld met "geen toestemming", plus een zichtbare hint in de
+bereikbaarheidszone. Werkelijk bruikbaar nu: e-mail (identity plus consent plus adapter) en bellen
+(nummer plus consent, mens draait zelf). Alleen data, nog niet uitvoerbaar: WhatsApp/SMS (identity kan
+bestaan, maar opt-in en adapter ontbreken, C).
+
+### 25.3 Observatie versus geheugen expliciet gescheiden
+
+"Wat Maculis zag" (nu gemarkeerd als afgeleid, B) bevat de observaties en AI-voorstellen, met Bevestigen
+en Verwerpen, en de regel dat een observatie nog geen geheugen is. Een aparte sectie "Geheugen" (in
+Maculis, A) bevat alleen wat duurzaam bevestigd is. Zo wordt een oude AI-inferentie nooit stilzwijgend
+een feit. Dit maakt de lifecycle expliciet: signaleren, interpreteren, voorstellen, bevestigen of
+verwerpen, en pas daarna duurzaam onthouden.
+
+### 25.4 Aandacht wegleggen met betekenis
+
+De enkele knop "Afgehandeld" op Vandaag is vervangen door een rustige keuze "Leg weg": Afgehandeld,
+Gezien geen actie, of Later. Niet ieder item dat Vandaag verlaat is werkelijk afgehandeld. De keuze is
+lichtgewicht (geen formulier) en is tegelijk eerlijke feedback waar Maculis later van kan leren welke
+signalen de gebruiker wel of niet relevant vindt. Het item valt nog steeds terug in rust, met de reden
+zichtbaar.
+
+### 25.5 Persoon versus organisatie blijft gerespecteerd
+
+De bereikbaarheidszone hoort bij de persoon; de organisatie staat in de header en de sectie "Organisatie
+en andere contacten" (A) blijft beschikbaar. De correctie hardcodeert dus niet opnieuw relatie is één
+persoon plus één bedrijf: het model draagt meerdere contactpersonen per organisatie en een persoon kan
+van organisatie wisselen.
+
+### 25.6 Herloop van het dossier als gewone medewerker
+
+1. Wie is deze relatie? Naam en rol in de header. Ja.
+2. Bij welke organisatie hoort deze persoon nu? Header-subtitel plus sectie organisatie. Ja.
+3. Hoe bereik ik hem? Bereikbaarheidszone onder de header, zonder uitklappen. Ja.
+4. Welke kanalen zijn daadwerkelijk beschikbaar? "Neem contact op" toont ze met eerlijke status. Ja.
+5. Welke mag ik gebruiken? Consent zichtbaar (hint plus per-kanaal in de actie). Ja.
+6. Kan ik vanuit deze context contact leggen zonder apart systeem? Ja, via dezelfde relatiecontext.
+7. Andere contacten van dezelfde organisatie? Sectie organisatie (A); fixtures tonen één contact.
+8. Blijft het rustig en meaning-first? Ja: een compacte zone, geen contactkaart vol velden.
+9. Bestaand versus toekomstig nog eerlijk? Ja: e-mail A, bellen A, WhatsApp/SMS C, reveal-historie C.
+
+### 25.7 Wat bewust niet is toegevoegd
+
+Geen aparte contactpagina, geen CRM-contactkaart, geen losse kanaalknoppen, geen dialer/verzendadapter,
+geen nieuwe hoofdnavigatie, geen extra scherm. De architectuur uit §24 blijft ongewijzigd. Testsuite
+groen; nul console-errors.

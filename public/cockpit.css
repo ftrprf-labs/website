@@ -545,8 +545,20 @@ body {
   font-size: 12px; color: var(--faint); letter-spacing: .01em;
 }
 .why-btn:hover, .settle-btn:hover { color: var(--primary); }
-.settle-btn { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
-.settle-btn::before { content: "✓"; color: var(--ok); }
+.settle { margin-left: auto; position: relative; }
+.settle-btn { display: inline-flex; align-items: center; gap: 6px; }
+.settle-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 5;
+  display: flex; flex-direction: column; min-width: 180px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 6px; gap: 2px; box-shadow: var(--shadow);
+}
+.settle-menu[hidden] { display: none; }
+.settle-menu button {
+  text-align: left; border: 0; background: transparent; color: var(--text);
+  font-size: 13px; padding: 7px 10px; border-radius: 7px; cursor: pointer;
+}
+.settle-menu button:hover { background: var(--surface-2); color: var(--primary); }
 .why-btn.ghost { border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; color: var(--muted); }
 .why-btn.ghost:hover { border-color: var(--primary); color: var(--primary); }
 .item .why {
@@ -1084,6 +1096,22 @@ body {
 .dos-meta { margin-left: auto; text-align: right; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
 .dos-stage { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent); border-radius: 999px; padding: 3px 10px; }
 .dos-owner { font-size: 12px; color: var(--faint); display: inline-flex; gap: 6px; align-items: center; }
+
+/* Dossier: identity + reachability zone, directly under the header */
+.dos-reach {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s4);
+  flex-wrap: wrap; margin: calc(var(--s5) * -1 + 2px) 0 var(--s5);
+  padding: var(--s3) var(--s4); border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface);
+}
+.reach-lines { display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; min-width: 0; }
+.reach-item { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
+.reach-ic { color: var(--primary); width: 16px; text-align: center; }
+.reach-v { color: var(--text); }
+.reach-consent { font-size: 12px; padding: 2px 9px; border-radius: 999px; border: 1px dashed color-mix(in srgb, var(--warn) 55%, transparent); color: var(--warn); }
+.reach-consent.out { border-style: solid; border-color: color-mix(in srgb, var(--danger) 50%, transparent); color: var(--danger); }
+.dos-reach .dos-contact { position: relative; flex: 0 0 auto; }
+.dos-reach .dos-contact-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; }
 
 /* Dossier: NU hero (meaning first) */
 .dos-now { border: 1px solid var(--border-strong); border-radius: var(--radius-lg); padding: var(--s5); margin-bottom: var(--s5); background: var(--surface); }
