@@ -17,6 +17,7 @@
 import { query } from './db.mjs';
 import { getDefaultTenantId } from './tenant.mjs';
 import { runCopilot } from './ai/copilot.mjs';
+import { createFollowUp } from './followups.mjs';
 
 function enabled() {
   return /^(1|true|yes|on)$/i.test(process.env.PREVIEW_SEED || '');
@@ -49,9 +50,9 @@ export async function previewSeedOnBoot() {
   try {
     const tenantId = await getDefaultTenantId();
     const existing = (await query('select count(*)::int n from contact where tenant_id=$1', [tenantId])).rows[0].n;
-    if (existing > 0) return { skipped: true, reason: 'already seeded' };
-
     let seeded = 0;
+    if (existing > 0) { await ensureDemoFollowUp(tenantId); return { skipped: true, reason: 'already seeded', ensuredFollowUp: true }; }
+
     for (const r of RELATIONS) {
       const org = (await query(
         'insert into organization(tenant_id,name,primary_domain) values ($1,$2,$3) returning id',
@@ -74,10 +75,32 @@ export async function previewSeedOnBoot() {
       await runCopilot({ conversationId: conv, messageId: msg }).catch(() => {});
       seeded += 1;
     }
+    await ensureDemoFollowUp(tenantId);
     console.log(`  Preview  : ${seeded} demonstratierelatie(s) geseed (echte copilot-output)`);
     return { ok: true, seeded };
   } catch (e) {
     console.log(`  Preview  : seed uitgesteld (${e.message})`);
     return { ok: false, error: String(e.message || e) };
   }
+}
+
+// One demonstration follow-up so the prepared-work surface (Slice 4) is visible on first open.
+// Idempotent: only creates one when the tenant has no follow-ups at all (so completing it, or the
+// user creating their own, never triggers a re-create).
+async function ensureDemoFollowUp(tenantId) {
+  try {
+    const total = (await query('select count(*)::int n from follow_up where tenant_id=$1', [tenantId])).rows[0].n;
+    if (total > 0) return;
+    const row = (await query(
+      `select c.id as conv, c.contact_id, c.organization_id
+         from conversation c where c.tenant_id=$1 and c.is_privacy=false and c.contact_id is not null
+        order by c.created_at asc limit 1`, [tenantId])).rows[0];
+    if (!row) return;
+    const dueAt = new Date(Date.now() + 2 * 86400000).toISOString();
+    await createFollowUp(tenantId, {
+      contactId: row.contact_id, organizationId: row.organization_id, conversationId: row.conv,
+      title: 'Opvolgen: tweede sessie inplannen', channelHint: 'EMAIL', dueAt,
+    });
+    console.log('  Preview  : 1 demonstratie-follow-up klaargezet');
+  } catch { /* best-effort; never breaks boot */ }
 }

@@ -101,9 +101,10 @@ async function renderVandaag() {
   const wrap = el('div', 'view-enter');
   if (!ok) { wrap.appendChild(el('p', 'lead-note', 'Kon aandacht niet laden.')); view.appendChild(wrap); return; }
   const h = data.headline || { primary: '', secondary: null, zero: false };
+  const prepared = data.preparedWork || [];
   document.getElementById('nc-vandaag').textContent = data.counts && data.counts.actionable ? String(data.counts.actionable) : '';
 
-  if (h.zero) {
+  if (h.zero && !prepared.length) {
     // Calm state: the silence block carries the message; no duplicate headline above it.
     wrap.appendChild(el('div', 'eyebrow', 'Vandaag'));
     const s = el('div', 'silence');
@@ -113,7 +114,12 @@ async function renderVandaag() {
   }
 
   const greet = el('div', 'greet');
-  greet.innerHTML = `<div class="eyebrow">Vandaag</div><h1>${esc(h.primary)}</h1>${h.secondary ? `<p class="sub">${esc(h.secondary)}</p>` : ''}`;
+  if (h.zero) {
+    // No new messages, but Maculis has prepared work waiting — say that honestly.
+    greet.innerHTML = `<div class="eyebrow">Vandaag</div><h1>Geen nieuwe berichten.</h1><p class="sub">Wel werk dat Maculis voor je klaarzette.</p>`;
+  } else {
+    greet.innerHTML = `<div class="eyebrow">Vandaag</div><h1>${esc(h.primary)}</h1>${h.secondary ? `<p class="sub">${esc(h.secondary)}</p>` : ''}`;
+  }
   wrap.appendChild(greet);
   const tiers = [['now', 'Nu', 'vraagt jou'], ['ready', 'Klaar', 'Maculis heeft iets voorbereid']];
   for (const [key, label, hint] of tiers) {
@@ -124,7 +130,54 @@ async function renderVandaag() {
     items.forEach(it => g.appendChild(attnCard(it)));
     wrap.appendChild(g);
   }
+  // Slice 4 — prepared work (follow-ups) Maculis put ready. You decide and complete it.
+  if (prepared.length) {
+    const g = el('div', 'attn-group');
+    g.appendChild(tierHead('ready', 'Klaargezet', 'werk dat Maculis voor je klaarzette'));
+    prepared.forEach(f => g.appendChild(preparedCard(f)));
+    wrap.appendChild(g);
+  }
   view.appendChild(wrap);
+}
+
+function preparedCard(f) {
+  const b = el('article', 'item');
+  const chips = [];
+  if (f.overdue) chips.push('<span class="chip now"><span class="k"></span>verlopen</span>');
+  if (f.org) chips.push(`<span class="chip">${esc(f.org)}</span>`);
+  b.innerHTML =
+    `<div class="row1"><span class="who">${esc(f.title)}</span></div>
+     ${f.who ? `<div class="line">${esc(f.who)}</div>` : ''}
+     ${chips.length ? `<div class="tags">${chips.join('')}</div>` : ''}`;
+  const bar = el('div', 'prepared-actions');
+  const done = el('button', 'btn btn-ghost', 'Afronden');
+  done.addEventListener('click', async () => {
+    done.disabled = true; done.textContent = 'Bezig…';
+    const r = await api('/api/cockpit/followup/' + f.id + '/done', { method: 'POST' });
+    if (r.ok) render(); else { done.disabled = false; done.textContent = 'Afronden'; }
+  });
+  bar.appendChild(done);
+  if (f.contactId) {
+    const open = el('button', 'btn btn-ghost', 'Open relatie');
+    open.addEventListener('click', () => { activeContactId = f.contactId; scn = 'dossier'; render(); });
+    bar.appendChild(open);
+  }
+  b.appendChild(bar);
+  return b;
+}
+
+// Slice 4 — an open follow-up rendered as an actionable row (used in the dossier).
+function followUpRow(f) {
+  const row = el('div', 'fu-row');
+  row.innerHTML = `<div class="fu-main"><span class="fu-k ${f.overdue ? 'overdue' : ''}">${f.overdue ? 'verlopen' : 'open'}</span><span class="fu-title">${esc(f.title)}</span></div>`;
+  const done = el('button', 'linkbtn', 'Afronden');
+  done.addEventListener('click', async () => {
+    done.disabled = true; done.textContent = 'Bezig…';
+    const r = await api('/api/cockpit/followup/' + f.id + '/done', { method: 'POST' });
+    if (r.ok) renderDossier(activeContactId); else { done.disabled = false; done.textContent = 'Afronden'; }
+  });
+  row.appendChild(done);
+  return row;
 }
 
 function tierHead(cls, label, hint) {
@@ -237,9 +290,10 @@ async function renderDossier(contactId) {
     return b;
   }));
   secWrap.appendChild(dosSection('Open acties en follow-ups', 'A', false, () => {
-    const b = el('div', '');
-    if (!data.followups.length) b.innerHTML = '<p class="muted">Geen open acties.</p>';
-    data.followups.forEach(f => { b.innerHTML += `<div class="fact"><span class="k">${f.overdue ? 'verlopen' : 'open'}</span><span class="v">${esc(f.title)}</span></div>`; });
+    const b = el('div', 'dos-followups');
+    const open = (data.followups || []).filter((f) => f.status !== 'done');
+    if (!open.length) { b.innerHTML = '<p class="muted">Geen open acties.</p>'; return b; }
+    open.forEach((f) => b.appendChild(followUpRow(f)));
     return b;
   }));
   secWrap.appendChild(dosSection('Contact en identiteiten', 'A', false, () => {

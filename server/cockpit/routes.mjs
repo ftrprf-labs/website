@@ -25,7 +25,7 @@ import * as drafts from '../comm/drafts.mjs';
 import { sendOnChannel } from '../comm/send.mjs';
 import { confirmMemory, dismissMemory } from '../comm/memory.mjs';
 import { channelConsentState } from '../comm/consent.mjs';
-import { createFollowUp } from '../comm/followups.mjs';
+import { createFollowUp, updateFollowUp, listFollowUps } from '../comm/followups.mjs';
 import { recordAudit } from '../comm/audit.mjs';
 import { listRelationships } from '../comm/relationship.mjs';
 import { inboxConversations } from '../comm/inbox.mjs';
@@ -92,6 +92,21 @@ function renderNextMove(a) {
   }
 }
 
+// Slice 4 — prepared work (follow-ups) shaped meaning-first for the cockpit.
+function shapeFollowUp(f) {
+  return {
+    id: f.id,
+    title: f.title,
+    note: f.note || null,
+    dueAt: f.due_at || null,
+    overdue: !!f.overdue,
+    contactId: f.contact_id || null,
+    conversationId: f.conversation_id || null,
+    who: [f.first_name, f.last_name].filter(Boolean).join(' ') || null,
+    org: f.org || null,
+  };
+}
+
 // EMAIL is the only channel that can actually deliver in Slice 1. The reachability
 // zone stays honest about the three separate layers: the datum exists, consent
 // allows it, and a real send/call adapter exists.
@@ -125,7 +140,7 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
       emailOnly: true,
       // Only EMAIL can actually deliver; a real transport must be configured for Phase B.
       mailConfigured: Boolean(config.mailTransport && config.mailApiKey),
-      slice: 'slice-3',
+      slice: 'slice-4',
     });
     return true;
   }
@@ -165,12 +180,33 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
       };
       groups[tierOf(c.state)].push(item);
     }
+    // Slice 4 — prepared work Maculis put ready for you (open follow-ups), surfaced on the
+    // highest-traffic screen so it is not lost. Human completes it; nothing auto-runs.
+    const preparedWork = (await listFollowUps(tenantId, { status: 'open' })).map(shapeFollowUp);
     json(res, 200, {
       headline: ov.summary.headline,          // server-computed, never drifts
-      counts: { actionable: ov.summary.actionable, ready: ov.summary.readyCount },
+      counts: { actionable: ov.summary.actionable, ready: ov.summary.readyCount, prepared: preparedWork.length },
       groups,
+      preparedWork,
       source: 'communication-layer/attention',
     });
+    return true;
+  }
+
+  // ---- Acties: the prepared-work list (open follow-ups across relations) -------
+  if (pathname === '/api/cockpit/actions' && method === 'GET') {
+    const actions = (await listFollowUps(tenantId, { status: 'open' })).map(shapeFollowUp);
+    json(res, 200, { actions, count: actions.length });
+    return true;
+  }
+
+  // ---- Complete a follow-up (human action, audited) ----------------------------
+  const fuDone = pathname.match(new RegExp(`^/api/cockpit/followup/${UUID}/done$`));
+  if (fuDone && method === 'POST') {
+    const r = await updateFollowUp(tenantId, fuDone[1], { status: 'done' });
+    if (!r.ok) { json(res, r.reason === 'not_found' ? 404 : 400, { ok: false, reason: r.reason || 'update_failed' }); return true; }
+    await recordAudit({ tenantId, action: 'cockpit_followup_done', entityType: 'follow_up', entityId: fuDone[1], ipRef: ipRefOf(req) });
+    json(res, 200, { ok: true });
     return true;
   }
 
@@ -360,6 +396,10 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
          from conversation c where c.id=$1 and c.tenant_id=$2`, [nextMove[1], tenantId])).rows[0];
     if (!conv) { json(res, 404, { ok: false, error: 'not_found' }); return true; }
     if (move.type === 'follow_up_task') {
+      // Idempotent per conversation: if an open follow-up already exists for this thread, return it
+      // instead of stacking duplicates (one action, one prepared task).
+      const dup = (await query("select id, title, due_at from follow_up where tenant_id=$1 and conversation_id=$2 and status='open' order by created_at desc limit 1", [tenantId, conv.id])).rows[0];
+      if (dup) { json(res, 200, { ok: true, move: move.type, deduped: true, followUp: { id: dup.id, title: dup.title, dueAt: dup.due_at } }); return true; }
       const dueAt = new Date(Date.now() + move.in_days * 86400000).toISOString();
       const base = (conv.ai_summary || conv.subject || 'dit gesprek').replace(/\s+/g, ' ').trim().slice(0, 120);
       const title = `Opvolgen: ${base}`;
