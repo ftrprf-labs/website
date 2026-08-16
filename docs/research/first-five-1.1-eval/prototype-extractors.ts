@@ -103,11 +103,20 @@ function driftClaims(pages: any[]): any[] {
 }
 
 // ---- ClaimExtractor implementation ------------------------------------------------------------
+// includeValueAbsence: the broad value/positioning-absence family. Default OFF — the go/no-go
+// (docs/FIRST_FIVE_1_1_GONOGO.md) dropped it as weak/audit-like/redundant with PatternReader v1.
+// The FINAL First Five 1.1 scope = promise-fact + drift + one review-echo + lens provenance.
 export class ProposedExtractor {
-  readonly name = "proposed-1.1(value+promisefact+drift+review)";
-  constructor(private reviewsByHost: Record<string, any[]> = {}) {}
+  readonly name: string;
+  constructor(private reviewsByHost: Record<string, any[]> = {}, private opts: { includeValueAbsence?: boolean } = {}) {
+    this.name = `proposed-1.1(${opts.includeValueAbsence ? "value+" : ""}promisefact+drift+review)`;
+  }
   async extract(pages: any[], host: string) {
-    const claims = [...valueClaims(pages), ...promiseFact(pages), ...driftClaims(pages)];
+    const claims = [
+      ...(this.opts.includeValueAbsence ? valueClaims(pages) : []),   // OUT of the final scope by default
+      ...promiseFact(pages),
+      ...driftClaims(pages),
+    ];
     const reviews = this.reviewsByHost[host] ?? [];   // outside-in review-echo (one public quote)
     return { claims, caseSet: [], reviews, vacancies: [], extractor: this.name };
   }

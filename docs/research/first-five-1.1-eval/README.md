@@ -35,6 +35,24 @@ Outcome and the per-extension go/no-go are in `docs/FIRST_FIVE_1_1_GONOGO.md`. N
 engine and Gate are untouched in both rounds; the second round additionally discovered that the live
 reveal runs the frozen engine first and PatternReader v1 only on its SILENCE.
 
+## Final round: real-case runner (the last proof round)
+
+`run-real-cases.ts` is the instrument for the final proof round on REAL First Five cases. It runs the
+REAL live pipeline with the REAL `ServerRetriever` (real server-side fetch of the given public URLs)
+and prints the three separate outcomes per case: DUIDING, REVEAL, and TECHNISCHE THERMOMETER, for
+CURRENT vs First Five 1.1 (the four IN extensions; value-absence is OFF via
+`ProposedExtractor(..., { includeValueAbsence: false })`).
+
+```bash
+# on a machine WITH internet egress (this session's policy blocks public-web fetch):
+cd /workspace/maculis-first-five. && node_modules/.bin/tsx \
+  <this-folder>/run-real-cases.ts https://real-pilot-site-1.nl https://real-pilot-site-2.nl ...
+```
+
+It was verified end-to-end here; every fetch returns `ACCESS_FAILED` because this session's network
+policy blocks outbound to public sites (proxy 403 on CONNECT; WebFetch EGRESS_BLOCKED). That is the
+single blocker; see `docs/FIRST_FIVE_1_1_SCOPE.md` for the exact minimal human action.
+
 ## Run it
 
 Requires the First Five repo checked out and its deps installed:
