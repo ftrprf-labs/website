@@ -5,6 +5,39 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-15 — Scope & ownership: Communication Layer grens (productbeslissing)
+
+**Geen code-wijziging. Uitsluitend een vastgelegde scope/ownership-grens** (op verzoek), zodat
+toekomstige sessies/agents niet vanuit de Communication-workstream buiten hun mandaat bouwen.
+
+**De Communication Layer is en blijft eigenaar van de communicatie-primitieven en -state:**
+inbound/outbound, conversations, drafts, AI-suggesties (human-in-the-loop), delivery + delivery
+events, read-watermarks, attention-state, channel-adapters en betrouwbare relationship-linked
+communicatie.
+
+**Niet vanuit deze workstream bouwen of wijzigen** (behoren tot de Lens/First Five- of toekomstige
+Future Cockpit-workstream): Reveal Engine, Reveal Gate, zakelijke thermometer, technische
+website-thermometer, Lens 1, Lens 2, Future Cockpit-architectuur, GrowBrain, en nieuwe Relationship
+Intelligence zonder bewezen databron.
+
+**Twee vastgelegde architectuurpunten:**
+1. De huidige Communication Layer is bewust zo gebouwd dat een toekomstige **Future Cockpit** hem
+   later als **betrouwbare onderlaag** kan consumeren: `attentionOverview` (afgeleide, tenant-scoped
+   attention-state), het conversation-level read-watermerk en de channel-agnostische adapters zijn
+   stabiele primitieven, los van hun huidige UI-presentatie.
+2. De huidige **Attention Cockpit is een operationele baseline, NIET de definitieve toekomstige
+   Maculis Home.** De cockpit mag later opgaan in of vervangen worden door de Future Cockpit; de
+   onderliggende communicatie-primitieven blijven dan de bron van waarheid.
+
+**Lens 1-pilotbevinding (ter referentie, hoort NIET bij Communication):** bij een website zonder
+Reveal komt in de huidige journey te weinig van de andere lagen terug. `SILENCE` bij de Reveal Gate
+mag de héle journey niet stilleggen (SILENCE bij Reveal ≠ SILENCE van de journey); de Reveal Gate
+wordt niet verlaagd. Dit wordt elders in de Lens/First Five-workstream opgepakt.
+
+**Productie-baseline blijft ongewijzigd — geen rollback.**
+
+---
+
 ## 2026-08-15 — Attention Cockpit + Living Signature + outbound delivery fix (productie)
 
 **1) Outbound delivery-incident opgelost (200 ≠ afgeleverd).** Root cause: de live-gate
