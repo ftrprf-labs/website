@@ -84,7 +84,9 @@ async function render() {
   if (scn === 'vandaag') { shell.setAttribute('data-space', 'reveal'); lightNav('vandaag'); return renderVandaag(); }
   if (scn === 'dossier') { shell.setAttribute('data-space', 'work'); lightNav('relaties'); return renderDossier(activeContactId); }
   if (scn === 'gesprek') { shell.setAttribute('data-space', 'work'); lightNav('gesprekken'); return renderGesprek(activeConvId); }
-  // Not wired in Slice 1 — honest placeholder, never fixtures.
+  if (scn === 'relaties') { shell.setAttribute('data-space', 'work'); lightNav('relaties'); return renderRelaties(); }
+  if (scn === 'gesprekken') { shell.setAttribute('data-space', 'work'); lightNav('gesprekken'); return renderGesprekken(); }
+  // Only Beheer stays an honest placeholder in this slice — never fixtures.
   shell.setAttribute('data-space', 'work'); lightNav(scn);
   const wrap = el('div', 'view-enter');
   wrap.appendChild(el('div', 'eyebrow-line', scn.charAt(0).toUpperCase() + scn.slice(1)));
@@ -401,6 +403,90 @@ async function renderComposer(composer, convId, data) {
   });
   bar.appendChild(warmer); bar.appendChild(korter); bar.appendChild(send);
   composer.appendChild(bar);
+}
+
+/* ---------- Relaties (real overview, searchable) ---------- */
+async function renderRelaties() {
+  const wrap = el('div', 'view-enter wide');
+  wrap.appendChild(el('div', 'eyebrow-line', 'Relaties'));
+  const bar = el('div', 'filterbar');
+  bar.innerHTML = `<span class="search big"><span aria-hidden="true">⌕</span><input type="text" id="rel-q" placeholder="Zoek een naam of organisatie" aria-label="Zoek relatie"></span>`;
+  wrap.appendChild(bar);
+  const meta = el('div', 'work-meta'); wrap.appendChild(meta);
+  const list = el('div', 'ck-list'); wrap.appendChild(list);
+  view.appendChild(wrap);
+
+  async function load(q) {
+    const { ok, data } = await api('/api/cockpit/relations' + (q ? ('?q=' + encodeURIComponent(q)) : ''));
+    list.innerHTML = '';
+    if (!ok) { list.appendChild(el('p', 'lead-note', 'Kon relaties niet laden.')); return; }
+    meta.innerHTML = `<span class="wm-count"><b>${data.count}</b> relatie${data.count === 1 ? '' : 's'}</span>`;
+    if (!data.relations.length) { list.appendChild(el('p', 'muted', q ? 'Geen relatie gevonden.' : 'Nog geen relaties.')); return; }
+    data.relations.forEach((r) => list.appendChild(relRow(r)));
+  }
+  const input = bar.querySelector('#rel-q');
+  let t; input.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => load(input.value.trim()), 180); });
+  load('');
+}
+
+function relRow(r) {
+  const row = el('article', 'conv'); row.tabIndex = 0; row.setAttribute('role', 'button');
+  const hint = r.openConversations ? `${r.openConversations} open gesprek${r.openConversations === 1 ? '' : 'ken'}` : (r.email || '');
+  const chips = [];
+  if (r.openConversations) chips.push(`<span class="chip now"><span class="k"></span>${r.openConversations} open</span>`);
+  if (r.stage) chips.push(`<span class="chip">${esc(r.stage)}</span>`);
+  row.innerHTML =
+    `<span class="av" aria-hidden="true">${esc(initials(r.name))}</span>
+     <div class="conv-main">
+       <div class="conv-top"><span class="conv-who">${esc(r.name)}</span></div>
+       ${r.org ? `<div class="conv-org">${esc(r.org)}</div>` : ''}
+       ${hint ? `<div class="conv-snip">${esc(hint)}</div>` : ''}
+       ${chips.length ? `<div class="conv-tags">${chips.join('')}</div>` : ''}
+     </div>`;
+  const open = () => { activeContactId = r.contactId; scn = 'dossier'; render(); };
+  row.addEventListener('click', open);
+  row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  return row;
+}
+
+/* ---------- Gesprekken (real overview) ---------- */
+async function renderGesprekken() {
+  const { ok, data } = await api('/api/cockpit/conversations');
+  const wrap = el('div', 'view-enter wide');
+  wrap.appendChild(el('div', 'eyebrow-line', 'Gesprekken'));
+  if (!ok) { wrap.appendChild(el('p', 'lead-note', 'Kon gesprekken niet laden.')); view.appendChild(wrap); return; }
+  const meta = el('div', 'work-meta'); meta.innerHTML = `<span class="wm-count"><b>${data.count}</b> gesprek${data.count === 1 ? '' : 'ken'}</span>`; wrap.appendChild(meta);
+  const list = el('div', 'ck-list');
+  if (!data.conversations.length) list.appendChild(el('p', 'muted', 'Nog geen gesprekken.'));
+  data.conversations.forEach((c) => list.appendChild(gespRow(c)));
+  wrap.appendChild(list);
+  view.appendChild(wrap);
+}
+
+function gespRow(c) {
+  const row = el('article', 'conv'); row.tabIndex = 0; row.setAttribute('role', 'button');
+  const chips = [];
+  if (c.hasPrepared) chips.push('<span class="chip ready"><span class="k"></span>concept klaar</span>');
+  if (c.waitingOnUs) chips.push('<span class="chip now"><span class="k"></span>wacht op jou</span>');
+  chips.push(`<span class="chip">${esc((c.status || '').toLowerCase())}</span>`);
+  const snip = c.subject
+    ? `<b>${esc(c.subject)}</b>${c.preview ? ' · ' + esc(c.preview) : ''}`
+    : (c.preview ? esc(c.preview) : '');
+  row.innerHTML =
+    `<span class="av" aria-hidden="true">${esc(initials(c.who))}</span>
+     <div class="conv-main">
+       <div class="conv-top">
+         <span class="conv-who">${esc(c.who)}</span>
+         <span class="conv-chan">${esc(CHAN_ICO[c.channel] || '')} ${esc((c.channel || '').toLowerCase())}</span>
+       </div>
+       ${c.org ? `<div class="conv-org">${esc(c.org)}</div>` : ''}
+       ${snip ? `<div class="conv-snip">${snip}</div>` : ''}
+       <div class="conv-tags">${chips.join('')}</div>
+     </div>`;
+  const open = () => { activeConvId = c.conversationId; scn = 'gesprek'; render(); };
+  row.addEventListener('click', open);
+  row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  return row;
 }
 
 boot();

@@ -27,6 +27,9 @@ import { confirmMemory, dismissMemory } from '../comm/memory.mjs';
 import { channelConsentState } from '../comm/consent.mjs';
 import { createFollowUp } from '../comm/followups.mjs';
 import { recordAudit } from '../comm/audit.mjs';
+import { listRelationships } from '../comm/relationship.mjs';
+import { inboxConversations } from '../comm/inbox.mjs';
+import { stripForContext } from '../comm/signature.mjs';
 import { config } from '../config.mjs';
 
 const UUID = '([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})';
@@ -122,7 +125,7 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
       emailOnly: true,
       // Only EMAIL can actually deliver; a real transport must be configured for Phase B.
       mailConfigured: Boolean(config.mailTransport && config.mailApiKey),
-      slice: 'slice-2',
+      slice: 'slice-3',
     });
     return true;
   }
@@ -168,6 +171,46 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
       groups,
       source: 'communication-layer/attention',
     });
+    return true;
+  }
+
+  // ---- Relaties: a real, searchable overview from the Comm Layer ---------------
+  // Same reality as Vandaag and the dossier; wraps the existing listRelationships service.
+  if (pathname === '/api/cockpit/relations' && method === 'GET') {
+    const q = (u.searchParams.get('q') || '').slice(0, 120);
+    const rows = await listRelationships(tenantId, { q, limit: 200 });
+    const relations = rows.map((r) => ({
+      contactId: r.id,
+      name: [r.first_name, r.last_name].filter(Boolean).join(' ') || r.email || 'Onbekend',
+      org: r.org || null,
+      email: r.email || null,
+      stage: r.relationship_stage || null,
+      openConversations: Number(r.open_convs || 0),
+      lastActivity: r.last_activity || null,
+    }));
+    json(res, 200, { relations, count: relations.length, query: q });
+    return true;
+  }
+
+  // ---- Gesprekken: a real conversations overview (communication box only) ------
+  // Privacy conversations are never surfaced here. Wraps the existing inbox service.
+  if (pathname === '/api/cockpit/conversations' && method === 'GET') {
+    const filter = u.searchParams.get('filter') || 'all';
+    const rows = await inboxConversations(tenantId, { box: 'communication', filter, limit: 200 });
+    const conversations = rows.map((c) => ({
+      conversationId: c.id,
+      contactId: c.contact_id || null,
+      who: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || 'Onbekend',
+      org: c.org || null,
+      channel: c.channel,
+      subject: c.subject || null,
+      status: c.status,
+      preview: (stripForContext(c.last_body || '') || '').replace(/\s+/g, ' ').trim().slice(0, 140) || null,
+      lastMessageAt: c.last_message_at,
+      hasPrepared: c.attention.includes('ai_ready'),
+      waitingOnUs: c.attention.includes('waiting_on_us'),
+    }));
+    json(res, 200, { conversations, count: conversations.length });
     return true;
   }
 
