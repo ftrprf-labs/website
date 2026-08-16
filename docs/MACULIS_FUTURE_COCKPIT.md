@@ -11,6 +11,12 @@ Onderzoek, recovery, architectuur, drie visuele richtingen, prototype, vergelijk
 
 Schrijfregel gerespecteerd: geen koppeltekens of gedachtestreepjes als stijlmiddel in zichtbare copy.
 
+> **Update na productbeslissing (richting C gekozen).** Ludwig koos richting C, met A als fase 1.
+> Er volgde een tweede, verdiepende ontwerp- en prototyperonde die richting C moest bewijzen én
+> actief kapot proberen te redeneren. De resultaten daarvan staan in **§18 (verdiepingsronde)**,
+> inclusief de dual-space stresstest, de C versus A vergelijking na verdieping en het belangrijkste
+> zwakke punt van C. Nog steeds geen productie-rewrite en geen migratie uitgevoerd.
+
 ---
 
 ## 0. Samenvatting in één minuut
@@ -577,3 +583,132 @@ Mijn aanbeveling: C, gestart als A. Richting B niet als enige keuze.
 
 Alle overige stappen (shell, Vandaag, tokenconsolidatie, Gesprekken, Relaties, Reveal-primitives)
 volgen uit die keuze en staan in §14. Geen productie-rewrite tot de richting expliciet gekozen is.
+
+---
+
+## 18. Verdiepingsronde (richting C bewezen en gestrest)
+
+Ludwig koos richting C. Deze ronde bracht het prototype naar een niveau waarop de ervaring echt te
+beoordelen is, met realistische fixtures (lange namen, lange organisaties, lange e-mailadressen, 520
+relaties, lege en uitzonderlijke states, mobiel, reduced motion, toetsenbord). Geen prototype-theater.
+
+### 18.1 Wat nu concreet in het prototype zit
+
+**Vandaag met vier echte states** (`/cockpit.html?scn=vandaag&day=...`):
+
+- **Rustig.** Stilte als successtatus. "Je bent bij. Voor nu hoeft er niets van je."
+- **Eén ding.** Precies één item krijgt het hele podium. "Het enige dat nu telt." 519 relaties blijven
+  rustig en bereikbaar. Bewijst dat Maculis durft te reduceren tot één.
+- **Normaal.** Enkele betekenisvolle items over Nu, Beweging en Klaar, plus rust.
+- **Druk.** Zevenendertig gebeurtenissen vannacht, maar geen zevenendertig kaarten. Drie stijgen naar
+  Nu, twee reveals naar Beweging, twee antwoorden naar Klaar. De overige vierendertig worden
+  samengevat in één rustige, openbare regel. Dit is het bewijs dat Maculis rustiger wordt bij meer
+  informatie, niet drukker.
+
+**Drie signature interactions** die andere CRM- en dashboardproducten niet vanzelf hebben:
+
+1. **Kijk nog eens.** De reveal. Feit, observatie, gevolgtrekking, suggestie verschijnen laag voor
+   laag, met zekerheid en herkomst, en een expliciete "Waarom laat Maculis mij dit zien?". Onzekerheid
+   wordt getoond, causaliteit nooit verzonnen ("samenval in tijd, geen bewezen oorzaak"). Silence is
+   een first-class success state naast de reveal.
+2. **Terugval in rust.** Een afgehandeld item verdwijnt niet met een schok. Het verzadigt uit, krimpt
+   en zakt zichtbaar terug in een rust-zone ("afgehandeld, zojuist"). Het tegenovergestelde van een
+   notificatie die ploft en weg is. Behandelde dingen worden rustig, niet weg.
+3. **De stille meerderheid.** Op een drukke dag houdt Maculis de ruis samengevat in één regel die je
+   pas opent als je erom vraagt. Maculis imponeert door wat het besluit niet te tonen.
+
+**Relaties op schaal** (`?scn=relaties`): door Maculis voorgestelde weergaven (er beweegt iets, actief
+gesprek, lang stil was actief, First Five afgerond, alle relaties), gesorteerd op recent movement in
+plaats van alfabet, met per rij context (laatste gesprek, journey, geheugenhint) en een reveal-badge
+waar er een reveal klaarstaat. Zoeken is de kerninteractie. De volledige lijst blijft bereikbaar maar
+is niet het startpunt.
+
+**Gesprekken omnichannel** (`?scn=gesprekken`): de relatie is de eenheid, het kanaal is metadata. Een
+gesprek toont e-mail, WhatsApp, SMS of telefoon als context ("ook via telefoon"), niet als apart
+inboxproduct. Eén aandachtsmodel over alle kanalen.
+
+**Work space** (`?scn=work`): de lichte ruimte voor diep werk. Een lange, realistische mail, een lang
+concept-antwoord, relatiecontext, journey en geheugen ernaast. En, cruciaal, een **donkere reveal
+aperture binnen de lichte ruimte** ("Binnen dit gesprek valt iets op"). Zien gebeurt in donker, ook
+midden in het werken in licht.
+
+### 18.2 Dual-space kritisch getest (geprobeerd kapot te redeneren)
+
+- **Voelt donker naar licht natuurlijk?** Ja, mits de overgang aan de route hangt, niet aan een knop.
+  In het prototype wisselt de ruimte wanneer je van kijken (Vandaag, Reveal) naar werken (Gesprekken,
+  Relaties, Work) gaat. Je flipt nooit midden in een taak.
+- **Eén product of twee?** Eén, zolang beide ruimtes exact dezelfde typescale, spacing en
+  componentset delen. Ze doen dat in het prototype. Alleen de tokens verschillen. Zodra een ruimte een
+  eigen componenttaal zou krijgen, worden het twee producten. Dat is de bewakingsgrens.
+- **Wanneer wisselt de ruimte precies?** Op route/bestemming, wat neerkomt op intentie (zien versus
+  werken). Niet per taak binnen een scherm, niet handmatig.
+- **Hoe werkt terugkeer?** Symmetrisch. Terug naar Vandaag is terug naar donker. Voorspelbaar.
+- **Reveal binnen een lichte werkcontext?** Als een donkere aperture. Zo blijft "zien" altijd donker,
+  ook binnen een lichte kamer. Dit is de elegantste vondst van deze ronde en het antwoord op de vraag
+  die dual-space had kunnen breken.
+- **Communicatie?** Leeft in de werkruimte (licht), met aandacht die naar Vandaag (donker) stroomt.
+- **Mobiel?** De ruimte wisselt nog steeds op bestemming. Vandaag blijft donker en selecteert scherper
+  (één ding, twee gesprekken). Werk opent in licht. Getest op een echt smal scherm (402 px, device
+  emulation): geen horizontale overflow, alles vouwt.
+- **Visuele vermoeidheid?** Het risico is echt: snel heen en weer flipperen tussen donker en licht
+  vermoeit. Mitigatie in het prototype: overgangen zijn traag en geëased, de ruimte is stabiel per
+  bestemming (je flipt niet constant), en `prefers-reduced-motion` schakelt de overgang uit.
+
+**Waar dual-space alsnog zou kunnen verliezen van volledig Deep Maculis:** als je in de praktijk merkt
+dat je de hele dag in de werkruimte zit (veel mail, veel lijsten) en Vandaag maar kort bezoekt, dan
+draag je de kosten van twee ruimtes voor een donkere ruimte die je weinig ziet. In dat gebruikspatroon
+is volledig licht (of volledig donker) eenvoudiger. Dit is een empirische vraag die alleen echt gebruik
+beantwoordt. Het prototype maakt die vraag toetsbaar; het beslist hem niet.
+
+### 18.3 C versus A na verdieping
+
+| Dimensie | A · Deep (alles donker) | C · Reveal/Work (dual-space) |
+|---|---|---|
+| Reveal en aandacht | sterk | sterk, identiek aan A in de reveal-ruimte |
+| Lange mail schrijven | zwak, donker vermoeit bij lang lezen/typen | **sterk**, lichte werkruimte |
+| Grote lijsten scannen | gemiddeld | **sterk**, licht leest rustiger bij dichtheid |
+| Eén product-gevoel | **sterk**, per definitie één ruimte | sterk, mits tokendiscipline streng blijft |
+| Complexiteit | **laag** | hoger, twee palettes onderhouden |
+| Risico op incoherentie | **laag** | reëel, vereist bewaking |
+| Dagelijkse duurzaamheid | goed 's avonds, zwaarder overdag | **sterk**, past zich aan het moment aan |
+
+Na de verdieping blijft de conclusie: C wint op productkracht en dagelijkse duurzaamheid, A wint op
+eenvoud en zekerheid. Het verschil is scherper geworden, niet kleiner. De donkere reveal-aperture in
+de lichte werkruimte is de doorslag: het bewijst dat C de reveal-kracht van A volledig behoudt en er
+de werkruimte bovenop legt, zonder de reveal op te offeren.
+
+### 18.4 Het belangrijkste zwakke punt van C
+
+**De coherentie hangt aan discipline die het huidige product nog niet heeft.** Vandaag bestaan er twee
+losse tokensystemen (bruin voor Testerbeheer, grafiet/goud voor Inbox en Workspace). C vraagt het
+tegenovergestelde: één gedeelde tokenbron met twee kleurmodi die perfect synchroon lopen. Als die
+discipline verslapt, wordt C twee producten die op elkaar lijken, precies de generieke SaaS-uitkomst
+die we willen vermijden. C is dus niet alleen een designkeuze, het is een verplichting tot
+tokenhygiëne. Dat is beheersbaar en valt samen met werk dat toch moet gebeuren (§14, fase 1), maar het
+is een echte kost en het is de plek waar C kan mislukken. Wie C kiest, kiest die discipline.
+
+Tweede zwakte, kleiner: de dubbele-ruimte legt een leercurve op ("waarom is dit scherm ineens licht?").
+De route-gebonden overgang en de badge "Reveal space / Work space" dempen dit, maar het is een concept
+dat je één keer moet snappen. Voor een product dat je twintig keer per dag opent is dat aanvaardbaar.
+
+### 18.5 Definitieve aanbeveling
+
+**Houd vast aan C, gestart als A, en maak tokenhygiëne tot voorwaarde vooraf.** De verdieping heeft C
+niet verzwakt maar versterkt, met de reveal-aperture als sluitstuk. Bouw fase 1 (shell, Vandaag,
+tokenconsolidatie) als A-in-donker en voeg de lichte werkruimte pas toe wanneer de gedeelde tokenbron
+staat en bewezen synchroon loopt. Zo krijg je de kracht van C zonder het risico ervan vooruit te nemen.
+
+Zou echt gebruik uitwijzen dat je vrijwel alleen in de werkruimte leeft, val dan terug op één ruimte
+(waarschijnlijk licht). Die uitweg is goedkoop omdat C toch al één gedeelde tokenbron gebruikt: één
+ruimte uitzetten is een configuratie, geen herbouw.
+
+### 18.6 Prototype en screenshots
+
+- **Klikbaar (live):** dezelfde Artifact-URL, nu verdiept. Schakel bovenin richting (C/A) en scherm;
+  op Vandaag schakel je de dagstate (rustig, één ding, normaal, druk).
+- **Deep-links:** `?dir=C&scn=vandaag&day=busy`, `?scn=reveal&rev=r-saar`, `?scn=relaties&seg=stil`,
+  `?scn=work`, plus `&expand=1` om alle reveal-lagen ineens te tonen.
+- **Bestanden:** `public/cockpit.html`, `public/cockpit.css`, `public/cockpit.js`. Geïsoleerd,
+  additief, CSP-safe. Alle data PROTOTYPE DATA.
+
+Geen productie-implementatie tot Ludwig het prototype zelf heeft beoordeeld en expliciet GO geeft.
