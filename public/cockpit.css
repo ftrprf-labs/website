@@ -42,25 +42,27 @@
    ===================================================================== */
 [data-direction="A"] {
   color-scheme: dark;
-  --bg: #080503;
-  --field: #0d0906;
-  --surface: #140e08;
-  --surface-2: #1d130b;
-  --surface-3: #251a10;
-  --border: rgba(200, 137, 74, 0.18);
-  --border-strong: rgba(200, 137, 74, 0.34);
-  --text: #ece2d4;
-  --muted: #a89a86;
-  --faint: #6f6455;
-  --primary: #c8894a;
-  --primary-soft: rgba(200, 137, 74, 0.14);
+  /* Same readability pass as direction C: lighter text, a plane lifted off pure
+     black, gold as accent only. */
+  --bg: #0a0705;
+  --field: #120c07;
+  --surface: #1b130b;
+  --surface-2: #241810;
+  --surface-3: #2e2013;
+  --border: rgba(200, 137, 74, 0.22);
+  --border-strong: rgba(200, 137, 74, 0.38);
+  --text: #f4ecdf;
+  --muted: #c6b8a2;
+  --faint: #95886f;
+  --primary: #d79c58;
+  --primary-soft: rgba(215, 156, 88, 0.16);
   --primary-text: #241606;
   --ok: #4cae86;
   --warn: #cf8a3c;
   --danger: #e5674f;
-  --reveal-glow: radial-gradient(120% 90% at 50% -10%, rgba(200,137,74,0.16), transparent 60%);
-  --shadow: 0 1px 2px rgba(0,0,0,.5), 0 18px 50px rgba(0,0,0,.5);
-  --hair: rgba(200,137,74,0.10);
+  --reveal-glow: radial-gradient(120% 90% at 50% -10%, rgba(215,156,88,0.14), transparent 62%);
+  --shadow: 0 1px 2px rgba(0,0,0,.45), 0 18px 48px rgba(0,0,0,.46);
+  --hair: rgba(200,137,74,0.14);
 }
 
 /* =====================================================================
@@ -97,25 +99,31 @@
    ===================================================================== */
 [data-direction="C"] {
   color-scheme: dark;
-  --bg: #0a0705;
-  --field: #100b07;
-  --surface: #17100a;
-  --surface-2: #20160d;
-  --surface-3: #2a1d11;
-  --border: rgba(206, 156, 96, 0.20);
-  --border-strong: rgba(206, 156, 96, 0.36);
-  --text: #f0e7da;
-  --muted: #ab9d88;
-  --faint: #726553;
-  --primary: #d29a5b;
-  --primary-soft: rgba(210, 154, 91, 0.14);
+  /* Readability pass: the dark plane is lifted off pure black so cards feel less
+     heavy, primary and secondary text are lighter, and gold stays an accent only
+     (never body text). Tested by eye at normal laptop distance, not only on
+     formal contrast values. Attention value and warm signature are preserved. */
+  --bg: #0c0806;
+  --field: #130d08;
+  --surface: #1d140c;
+  --surface-2: #271b10;
+  --surface-3: #322414;
+  --border: rgba(206, 156, 96, 0.24);
+  --border-strong: rgba(206, 156, 96, 0.40);
+  --text: #f6efe3;
+  --muted: #cabda6;
+  --faint: #9a8c73;
+  --primary: #e0ad67;
+  --primary-soft: rgba(224, 173, 103, 0.16);
   --primary-text: #241606;
+  /* semantic colors unchanged: they are shared with the light work space, where
+     brightening would cost contrast on white */
   --ok: #4cae86;
   --warn: #cf8a3c;
   --danger: #e5674f;
-  --reveal-glow: radial-gradient(120% 90% at 50% -10%, rgba(210,154,91,0.18), transparent 60%);
-  --shadow: 0 1px 2px rgba(0,0,0,.5), 0 18px 50px rgba(0,0,0,.55);
-  --hair: rgba(206,156,96,0.10);
+  --reveal-glow: radial-gradient(120% 90% at 50% -10%, rgba(224,173,103,0.15), transparent 62%);
+  --shadow: 0 1px 2px rgba(0,0,0,.45), 0 18px 48px rgba(0,0,0,.48);
+  --hair: rgba(206,156,96,0.14);
 }
 [data-direction="C"][data-space="work"],
 [data-direction="C"] [data-space="work"] {
@@ -150,7 +158,17 @@ body {
   -webkit-font-smoothing: antialiased;
   transition: background .5s var(--ease), color .5s var(--ease);
 }
-.shell { min-height: 100vh; overflow-x: hidden; }
+/* The color tokens live on .shell itself (it carries [data-direction] and
+   [data-space]). body sits ABOVE that node, so applying the tokens on body left
+   them undefined there: the backdrop fell back to the viewer's canvas and any
+   heading that inherited color rendered black on near-black. Painting background
+   and text HERE, where the tokens resolve, fixes both and makes the dark plane
+   real CSS instead of a dark-mode-canvas accident. */
+.shell {
+  min-height: 100vh; overflow-x: hidden;
+  background: var(--bg); color: var(--text);
+  transition: background .5s var(--ease), color .5s var(--ease);
+}
 
 /* selection + focus */
 ::selection { background: var(--primary-soft); }
@@ -658,17 +676,19 @@ body {
    ===================================================================== */
 .aperture {
   color-scheme: dark;
-  --bg: #0a0705; --field: #100b07; --surface: #17100a; --surface-2: #20160d; --surface-3: #2a1d11;
-  --border: rgba(206,156,96,0.20); --border-strong: rgba(206,156,96,0.36);
-  --text: #f0e7da; --muted: #ab9d88; --faint: #726553;
-  --primary: #d29a5b; --primary-soft: rgba(210,154,91,0.14); --primary-text: #241606;
-  --hair: rgba(206,156,96,0.10);
+  /* Same lifted, higher-contrast dark tokens as direction C, so the reveal
+     aperture stays comfortably readable inside the light work room. */
+  --bg: #0c0806; --field: #130d08; --surface: #1d140c; --surface-2: #271b10; --surface-3: #322414;
+  --border: rgba(206,156,96,0.24); --border-strong: rgba(206,156,96,0.40);
+  --text: #f6efe3; --muted: #cabda6; --faint: #9a8c73;
+  --primary: #e0ad67; --primary-soft: rgba(224,173,103,0.16); --primary-text: #241606;
+  --hair: rgba(206,156,96,0.14);
   background: var(--surface); color: var(--text);
   border: 1px solid var(--border-strong); border-radius: var(--radius);
   padding: var(--s4) var(--s5); position: relative; overflow: hidden;
-  box-shadow: inset 0 0 60px rgba(0,0,0,.35);
+  box-shadow: inset 0 0 48px rgba(0,0,0,.20);
 }
-.aperture::before { content: ""; position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% -10%, rgba(210,154,91,0.18), transparent 60%); pointer-events: none; }
+.aperture::before { content: ""; position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% -10%, rgba(224,173,103,0.15), transparent 62%); pointer-events: none; }
 .aperture > * { position: relative; }
 .aperture .ap-noticed { font-size: var(--t-eyebrow); letter-spacing: .16em; text-transform: uppercase; color: var(--primary); }
 .aperture .ap-text { color: var(--text); margin: var(--s2) 0 var(--s3); font-size: 14px; }
@@ -802,7 +822,10 @@ body {
 
 /* Relaties meaning-first */
 .search.big { padding: 11px var(--s4); font-size: var(--t-body); }
-.rel-meaning { margin: var(--s2) 0 var(--s6); }
+.rel-meaning { margin: var(--s2) 0 var(--s4); }
+.rel-find { display: flex; gap: var(--s3); align-items: stretch; margin: 0 0 var(--s6); max-width: 640px; }
+.rel-find .search.big { flex: 1; }
+.rel-find .btn { flex: 0 0 auto; }
 .rel-count { font-family: var(--serif); font-size: var(--t-title); color: var(--text); margin: 0 0 var(--s2); font-weight: 500; }
 .rel-count b { color: var(--primary); font-weight: 600; }
 .rel-sub { color: var(--muted); font-size: var(--t-body); max-width: 62ch; margin: 0; }

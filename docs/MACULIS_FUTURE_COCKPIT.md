@@ -1228,3 +1228,218 @@ Vandaag, Relaties, dossier, gesprek en Beheer nu als één coherent geheel. De o
 afgebakend als C (met de reveal-historie als enige echt ontbrekende pijler). De IA is hiermee stabiel
 genoeg om breed naar visuele verfijning te gaan, met de C-punten als bekende, meetbare vervolgstappen
 die backendwerk vragen wanneer echt gebruik ze afdwingt.
+
+## 23. Integrale IA-review vóór visuele verfijning (freeze-ronde)
+
+Doel van deze ronde: het hele skelet toetsen vanuit de gebruiker, niet vanuit de schermen die we
+toevallig gebouwd hebben, en één ondubbelzinnige conclusie geven: bevriezen, of maximaal drie
+fundamentele problemen eerst oplossen. Geen productie, geen backend, geen nieuwe capabilities.
+
+### 23.1 De architectuur zoals getoetst
+
+Permanente navigatie (linkerrail), in deze volgorde:
+
+- **Vandaag** → Maculis kijkt voor je. Wat verdient nu aandacht.
+- **Relaties** → twee modi in één product: Maculis selecteert wat beweegt, of jij neemt het stuur
+  (zoeken, filteren, segmenteren, selecteren, bulk). Relatie → dossier → gesprek/actie.
+- **Gesprekken** → operationele communicatie, kanaal-agnostisch, altijd gekoppeld aan een relatie.
+- **Groei** → conditioneel: verschijnt alleen wanneer Maculis een patroon over meerdere relaties ziet.
+- **Beheer** (rustige voet in de rail) → minder frequent operationeel werk: Testerbeheer,
+  Berichtsjablonen, Imports, Instellingen.
+
+Testerbeheer blijft bewust onder Beheer, niet als permanent raileditem. Dit onderscheid tussen
+dagelijks werk (Vandaag, Relaties, Gesprekken) en operationeel beheer (Beheer) is bevestigd als goed.
+
+### 23.2 Stresstest: vijftien gebruikersintenties
+
+Per intent: startpunt, aantal stappen, voorspelbaarheid, en of je het systeemmodel moet kennen.
+
+| # | Intent | Startpunt → bestemming | Stappen | Oordeel |
+|---|--------|------------------------|---------|---------|
+| 1 | Waar moet ik 's ochtends naar kijken? | Vandaag (landing) | 0 | Sterk. Maculis kijkt voor je, meteen zichtbaar. |
+| 2 | Wat speelt er bij klant X? | Relaties → zoek → dossier → "Wat speelt er nu" | 2 tot 3 | Sterk na fix: zoeken staat nu direct in Relaties. |
+| 3 | Laatste gesprek met klant X terugvinden | Relaties → dossier → "Open het gesprek" | 3 | Goed. Relatie is de duurzame ingang. |
+| 4 | Zelf door 5.000 relaties zoeken | Relaties → zoekveld of "Zelf werken" → tabel | 1 tot 2 | Sterk na fix. |
+| 5 | Alle relaties die aan voorwaarden voldoen | Relaties → werkruimte → filters | 2 | Sterk. Echte filterbalk (org, First Five, laatste contact, eigenaar, open actie, reveal). |
+| 6 | Meerdere selecteren en er iets mee doen | Relaties → werkruimte → selectie → bulk | 2 | Sterk. Follow-up, segment, export. |
+| 7 | Waarom ziet Maculis een verandering? | Vandaag → reveal → "Waarom zie ik dit?" + lagen | 1 tot 2 | Sterk. Feit → observatie → gevolgtrekking → suggestie, met evidence en zekerheid. |
+| 8 | Nieuw bericht van een relatie, waar landt dat? | Vandaag (Nu) en Gesprekken (Nu) | 0 tot 1 | Sterk. |
+| 9 | Wat onthield/zag Maculis eerder? | Dossier → "Wat Maculis zag" + "Reveals eerder getoond" | 2 | Sterk, en eerlijk over de reveal-historie-gap. |
+| 10 | Waar staat iemand in First Five/journey? | Dossier → "First Five en journey" | 2 | Sterk op relatieniveau. |
+| 11 | Een tester toevoegen | Beheer → Testerbeheer → "Tester toevoegen" | 2 | Goed. Bewuste keuze: buiten de dagelijkse aandacht. |
+| 12 | Wie gaf toestemming, wie rondde First Five af? | Beheer → Testerbeheer → kolommen + Evaluaties | 2 | Sterk. |
+| 13 | Uitnodiging of template beheren | Beheer → Berichtsjablonen | 2 | Bestemming aanwezig (placeholder in prototype). |
+| 14 | Operationele instelling wijzigen | Beheer → Instellingen | 2 | Bestemming aanwezig (placeholder). |
+| 15 | Ik ken de persoon, niet waar iets zit | Relaties → zoekveld → dossier | 2 | Sterk na fix. Vóór de fix was dit de scherpste wrijving. |
+
+Uitkomst: veertien van de vijftien intents waren al sterk. Intent 15 (en daarmee de ingang van 2, 3, 4)
+legde één echte fundamentele wrijving bloot, hieronder.
+
+### 23.3 Het fundamentele probleem dat de review vond (en dat nu is opgelost)
+
+**Vindbaarheid van zoeken/zelf-sturen was verstopt achter de modus-ontdekking van Relaties.**
+
+Relaties opende in de kalme modus "Maculis kijkt voor je": bewegende relaties, en geen zoekveld. De
+volledige lijst én zoeken zaten achter de knop "Zelf zoeken, filteren en werken" onderaan. Voor de
+meest voorkomende professionele ingang ("ik zoek klant X") zag een nieuwe collega dus geen zoekveld;
+je wist alleen dat je die knop moest indrukken omdat wíj wisten dat hij er stond. Dat faalt precies op
+de eigen norm: iets telt niet als geslaagd als het alleen logisch is doordat wij het prototype kennen.
+Dit is progressive disclosure één stap te ver, toegepast op een vindbaarheidsprimitief.
+
+**Fix (klein, IA-gemotiveerd, uitgevoerd):** het zoekveld staat nu permanent in Relaties, direct onder
+de betekenislijn "Van je 5.000 relaties bewegen er nu 7", in beide modi zichtbaar. Typen en verzenden
+brengt je meteen in de werkruimte, gefilterd. De kalme modus leidt nog steeds met wat beweegt
+(meaning first blijft intact); zoeken is nooit meer verstopt. De hand-off "Zelf werken" blijft bestaan
+voor wie het hele bestand wil doorbladeren.
+
+Dit beantwoordt meteen de zoekvraag hieronder: een globale zoekbalk of command palette is nu **niet**
+nodig.
+
+### 23.4 Een latent leesbaarheidsdefect dat de review blootlegde (opgelost)
+
+Tijdens het aanscherpen van de donkere attention-states bleek een echte bug: de kleur-tokens leven op
+`.shell` (die draagt `data-direction` en `data-space`), maar alleen `body` (dat bóven `.shell` staat)
+paste ze toe. Daardoor was de donkere achtergrond in feite het donkere canvas van de kijker, en erfden
+koppen zonder eigen kleur (de begroeting op Vandaag, de reveal-kop) zwart op bijna-zwart. Dat was de
+kern van "onvoldoende comfortabele leesbaarheid".
+
+**Fix:** achtergrond en tekstkleur worden nu op `.shell` gezet, waar de tokens oplossen. De donkere
+laag is echte CSS, niet langer afhankelijk van de systeemvoorkeur van de kijker. Daarnaast: lichtere
+primaire en secundaire tekst, een donker vlak dat van puur zwart is afgetild zodat het minder zwaar
+weegt, en goud/oranje uitsluitend als accent (nooit bodytekst). De semantische kleuren (ok, warn,
+danger) bleven ongewijzigd omdat ze gedeeld worden met de lichte werkruimte, waar oplichten juist
+contrast op wit zou kosten. Getoetst op het oog op normale laptopafstand, niet alleen op formele
+contrastwaarden.
+
+### 23.5 First-day test (nieuwe collega, geen uitleg, een paar minuten)
+
+- Wat vraagt aandacht? → Vandaag, eerste item in de rail, landingsscherm. Ja.
+- Waar staan alle relaties? → Relaties. Ja.
+- Hoe vind ik een specifieke klant? → zoekveld staat nu direct in Relaties. Ja (was het zwakke punt).
+- Kan ik op een relatie klikken? → ja, elke naam/kaart/rij opent het dossier.
+- Waar zit het volledige dossier? → één klik op de relatie, opent meaning first.
+- Waar staan gesprekken? → Gesprekken, en vanuit elk dossier via "Open het gesprek".
+- Van gesprek naar relatie en terug? → "Open relatie" in het gesprek, "Open het gesprek" in het dossier.
+- Waar zitten minder frequente beheertaken? → Beheer, rustig onderin de rail.
+- Waar zit Testerbeheer? → Beheer → Testerbeheer.
+
+Alle negen slagen nu zonder voorkennis van onze architectuur.
+
+### 23.6 Tegengas, expliciet (het ontwerp niet beschermen, de eenvoud wel)
+
+- **Relatiedossier te zwaar?** Nee, mits de secties grotendeels ingeklapt blijven. Er staat een korte
+  Nu-hero plus acht inklapbare secties, standaard slechts twee open. Waakpunt: het aantal secties niet
+  laten groeien; elke nieuwe sectie moet een echte gebruikersvraag beantwoorden.
+- **Verdient Gesprekken een hoofdbestemming?** Ja, maar de identiteit moet scherper. Nu overlapt het
+  deels met Vandaag (dezelfde communicatie-items). Voor een communicatielaag is een operationele,
+  kanaal-agnostische gespreksplek een eigen taak (jouw hele werkstroom berichten), los van wat Maculis
+  vóór je selecteert. Aanscherping hoort in content-refinement, niet in de IA: Gesprekken is de
+  werkstroom, Vandaag is alleen wat aandacht verdient. Geen blokkade.
+- **Raakt Beheer te diep verstopt?** Nee. Twee klikken, bewust rustig. De voet-plaatsing is gewild en
+  blijft zichtbaar gelabeld. Waakpunt: de bestemmingen ín Beheer herkenbaar houden (nu vier duidelijke
+  kaarten).
+- **Verwarren de twee Relaties-modi?** Dat wás het risico, precies via de verstopte zoekfunctie. Met
+  zoeken nu permanent zichtbaar is de scherpe kant weg. De modi zijn geen tweede navigatiemodel; het is
+  één primitief (vind/werk met relaties) dat dieper doorschakelt.
+- **Is globale zoek nodig?** Nee, niet nu. Trigger voor later: als gebruikers structureel vanuit
+  Vandaag, Gesprekken of Beheer naar een willekeurige persoon willen springen zonder eerst naar
+  Relaties te gaan. Tot dan is "Relaties, typ de naam" voorspelbaar en genoeg. Niet bouwen omdat
+  moderne software het heeft.
+- **Moet Journeys zelfstandig worden?** Nee. De huidige use cases tonen geen operationeel werkproces
+  waarin groepen relaties door journey-stappen bewogen worden of capaciteit gepland wordt. Journey is
+  context ván een relatie (First Five in het dossier) plus operationeel werk onder Beheer. Trigger voor
+  later: zodra journey-stappen als zelfstandig, herhaald groepsproces beheerd moeten worden.
+- **Botst meaning first met snelheid voor professionals?** Dat was exact de zoek-wrijving: de
+  professional wilde snel het stuur, en meaning first had het verstopt. Opgelost door zoeken altijd
+  zichtbaar te maken. Meaning first blijft de default, snelheid is nooit meer weggestopt.
+
+### 23.7 Reveals, observatie en geheugen: drie dingen, niet één
+
+De drie zijn conceptueel gescheiden, en het dossier kan dat dragen:
+
+- **Wat Maculis onthoudt** (geheugen): bevestigde afspraken en AI-voorstellen. In Maculis (A).
+- **Wat Maculis observeert**: patroonbreuken en signalen, zichtbaar in reveals en in de aperture. Deels
+  afgeleid (B).
+- **Wat Maculis als reveal daadwerkelijk heeft getoond**: de duurzame historie van welke reveal wanneer
+  en waarom is getoond. Bestaat backendmatig **niet** (C), eerlijk zo gemarkeerd in "Reveals eerder
+  getoond", nooit met neppe data.
+
+Aanscherping voor content-refinement (geen blokkade): de sectiekop "Wat Maculis zag" bevat nu zowel
+onthouden feiten als geobserveerde voorstellen. De labels mogen scherper het verschil tussen onthouden
+en observeren benoemen. De structuur hoeft daarvoor niet te veranderen.
+
+### 23.8 Groei: conditioneel, maar duurzaam vindbaar (opgelost)
+
+Groei verschijnt alleen wanneer een echt patroon over meerdere relaties bestaat. Het risico dat de
+gebruiker flagde: verdwijnt de conditionele ingang, dan mag eerder zichtbare betekenis niet zoekraken.
+De copy beloofde die duurzaamheid al ("blijft terugvindbaar in de betrokken relaties"), maar de weg
+terug was niet gelegd.
+
+**Fix:** het patroon is nu een sectie "Onderdeel van een patroon" (afgeleid, B) in het dossier van de
+betrokken relatie (Saar). Zo blijft het patroon vindbaar bij de relatie zelf, ook nadat het van Vandaag
+verdwijnt en het conditionele Groei-item weg is. De belofte klopt nu letterlijk, zonder Groei permanent
+te maken en zonder fictieve live-navigatie die zou doodlopen.
+
+### 23.9 A/B/C-capabilities (eerlijkheid behouden)
+
+- **A, bestaat in Maculis**: identiteit en e-mailhistorie, First Five status, geheugen (bevestigd en
+  AI-voorstel), follow-ups, consent per kanaal, Testerbeheer-lifecycle, Pass the Lens-herkomst.
+- **B, afgeleid uit bestaande data**: "wat speelt er nu", en het Groei-patroon per relatie.
+- **C, toekomstig (nooit als bestaand voorgesteld)**: relatie-eigenaar, non-e-mail kanaalhistorie,
+  journeydetail per sessie, relatie-notities, unified consent-versie, en de **duurzame reveal-historie**
+  (de enige echt ontbrekende pijler). Alle C-elementen dragen zichtbaar het label "toekomstig".
+
+### 23.10 Resterende risico's (bewust geen blokkades)
+
+1. Gesprekken kan als attention-queue gaan overlappen met Vandaag. Scherp de rol aan in content: hier de
+   werkstroom, daar alleen aandacht.
+2. Het dossier kan sluipend zwaarder worden. Houd secties ingeklapt en bewaak het aantal.
+3. De reveal-historie (C) blijft een echte capability-gap. Bouwen zodra echt gebruik dit afdwingt.
+4. "Wat Maculis zag" mengt onthouden en observeren; label-aanscherping in content-refinement.
+
+### 23.11 Wat NIET is gebouwd in deze ronde
+
+Geen productie, geen migratie, geen backend. Geen Lens 2, geen Reveal Engine- of Gate-wijzigingen.
+Geen globale zoekbalk of command palette. Geen zelfstandige Journeys-werkplek. Geen extra
+navigatiebestemmingen "voor de zekerheid". Geen fictieve backenddata. Testerbeheer niet opnieuw
+gestructureerd. Prototype controls blijven buiten het product (één navigatiemodel voor de gebruiker).
+
+### 23.12 Conclusie en IA-baseline
+
+De review vond geen structureel gat in het productmodel. De A/B/C-spine (Maculis kijkt voor mij →
+Vandaag; ik heb het stuur → Relaties; ik beheer Maculis → Beheer) is gezond. Er was één fundamentele
+wrijving (verstopte vindbaarheid van zoeken) en één latent leesbaarheidsdefect (donkere koppen zwart
+door tokens op de verkeerde node). Beide zijn in deze ronde klein en gericht opgelost, getest en visueel
+geverifieerd. De volledige testsuite blijft groen (55 pass, 9 skip zonder DB, 0 fail).
+
+**Aanbeveling: de IA is stabiel. Bevriezen en breed naar visuele/content-verfijning gaan.** De
+C-capabilities (met de reveal-historie voorop) zijn bekende, meetbare vervolgstappen die pas backendwerk
+vragen wanneer echt gebruik ze afdwingt.
+
+Vastgelegde baseline:
+
+- **Vandaag** → Maculis kijkt voor je.
+- **Relaties** → Maculis selecteert wat beweegt, of jij opent de volledige werkruimte (zoeken altijd
+  zichtbaar) → relatie → dossier → gesprek/actie.
+- **Gesprekken** → operationele communicatie, altijd gekoppeld aan een relatie.
+- **Beheer** → minder frequent operationeel beheer: Testerbeheer, templates, imports, instellingen.
+
+Vastgelegde principes:
+
+- één productnavigatie;
+- meaning first, maar progressive disclosure nooit ten koste van vindbaarheid;
+- detail on demand;
+- Maculis kijkt voor je ↔ jij hebt het stuur;
+- relatie is de duurzame contextdrager;
+- gesprek is activiteit binnen een relatie;
+- journey is context tenzij operationeel gebruik zelfstandigheid rechtvaardigt;
+- beheer blijft uit de dagelijkse aandacht;
+- prototype controls bestaan buiten het product;
+- toekomstige capabilities worden niet als bestaande data voorgesteld;
+- aandacht trekken mag nooit ten koste gaan van comfortabel lezen.
+
+### 23.13 In het prototype te zien
+
+- Zoeken in Relaties: `/cockpit.html?dir=C&scn=relaties` (zoekveld staat direct onder de betekenislijn).
+- Donkere leesbaarheid: `?scn=vandaag&day=busy`, `?scn=reveal&rev=r-kim&expand=1`, `?scn=work` (aperture).
+- Groei duurzaam vindbaar: open Saar vanuit Relaties → dossiersectie "Onderdeel van een patroon".

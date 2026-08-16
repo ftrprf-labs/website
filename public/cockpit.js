@@ -769,6 +769,23 @@ function viewRelatiesMaculis() {
   lead.innerHTML = `<p class="rel-count">Van je <b>${totalText}</b> relaties bewegen er nu <b>${MOVERS.length}</b>.</p>`;
   wrap.appendChild(lead);
 
+  // Search is a findability primitive, so it stays visible in the calm default,
+  // never hidden behind the "zelf werken" hand-off. Typing a name and submitting
+  // takes you straight into the workspace, filtered. "Ik zoek klant X" needs no
+  // knowledge of the two modes.
+  const find = el('form', 'rel-find');
+  find.innerHTML =
+    `<span class="search big"><span aria-hidden="true">⌕</span>
+       <input type="text" id="rel-find-q" placeholder="Zoek een relatie op naam of organisatie" aria-label="Zoek een relatie op naam of organisatie" value="${esc(relFilters.q)}"></span>
+     <button class="btn btn-ghost" type="submit">Zoeken</button>`;
+  find.addEventListener('submit', e => {
+    e.preventDefault();
+    relFilters.q = find.querySelector('#rel-find-q').value;
+    relMode = 'work';
+    render();
+  });
+  wrap.appendChild(find);
+
   MOVER_GROUPS.forEach(g => {
     const members = MOVERS.filter(m => m.group === g.key);
     if (!members.length) return;
@@ -1327,6 +1344,10 @@ const DOSSIER_OVERRIDES = {
     journey: 'First Five · afgerond',
     followups: [{ title: 'Terugkoppeling op haar laatste vraag', due: '3 dagen geleden', overdue: true }],
     provenance: null,
+    // A pattern Maculis saw across several relations stays findable HERE, at the
+    // member relation, even after it leaves Vandaag and the conditional Groei nav
+    // is gone. This is what keeps conditional Groei from losing its history.
+    pattern: 'Drie ondernemers vielen stil kort na hun First Five evaluatie. Maculis zag dit over meerdere relaties, niet bij Saar alleen.',
   },
   'Lieselotte Vandewalle': {
     role: 'Advocaat', owner: 'Sanne', stage: 'Kandidaat',
@@ -1364,6 +1385,7 @@ function dossierFor(rel) {
     followups: ov.followups || (rel.openAction ? [{ title: 'Open follow-up', due: 'deze week', overdue: false }] : []),
     consentStatus: rel.consent || 'OPTED_IN',
     provenance: ov.provenance || null,
+    pattern: ov.pattern || null,
     lastDays: rel.lastDays != null ? rel.lastDays : 3,
     channel: rel.channel || 'e-mail',
   };
@@ -1495,6 +1517,13 @@ function viewDossier() {
         return b;
       } },
   ];
+  if (d.pattern) sections.push({ key: 'patroon', title: 'Onderdeel van een patroon', prov: 'B', open: false, body: () => {
+      const b = el('div', '');
+      b.innerHTML =
+        `<p class="dos-note">${esc(d.pattern)}</p>
+         <p class="dos-note">Dit patroon leeft in Groei zolang Maculis het over meerdere relaties ziet. Ook wanneer het van Vandaag verdwijnt, blijft het hier bij de relatie zichtbaar. Zo raakt betekenis die eerder verscheen niet zoek.</p>`;
+      return b;
+    } });
   if (d.provenance) sections.push({ key: 'herkomst', title: 'Herkomst', prov: 'A', open: false, body: () => { const b = el('div', ''); b.innerHTML = `<div class="memory">${esc(d.provenance)}</div>`; return b; } });
 
   const secWrap = el('div', 'dos-sections');
