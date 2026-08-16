@@ -13,6 +13,7 @@ import { config } from './config.mjs';
 import { route } from './router.mjs';
 import { decompose } from './decompose.mjs';
 import { makeOrigin, inheritOrigin, readOrigin } from './origin.mjs';
+import { pausedDecisionFor } from './decisions.mjs';
 import { getAgent } from './registry.mjs';
 import { createTask, getTask, setStatus, update, listTasks, normalize, isTerminal } from './tasks.mjs';
 import { deriveAcceptance, verifyAcceptance } from './acceptance.mjs';
@@ -66,9 +67,22 @@ export function submit(request, { priority = 'NORMAL', preferredAgent = null,
   });
   audit('task_submitted', { task_id: task.task_id, agent: task.selected_agent, repository: task.repository, confidence: task.routing_confidence });
 
+  // PAUSED-scope guard (§17/§18): a derived task/assignment may NOT implicitly resume
+  // a paused scope (e.g. EPIC-3 / next Lens). It is recorded BLOCKED + a human action,
+  // never silently executed. Evidence intake and decisions are not execution and never
+  // reach this path. Blocks only THIS item — sibling steps still run (§22).
+  const paused = pausedDecisionFor(request);
+
   if (task.selected_agent === 'NEEDS_ROUTING_REVIEW') {
     setStatus(task.task_id, 'WAITING_FOR_HUMAN', { human_action_required: true });
     enqueueHumanAction(task.task_id, { kind: 'routing-review', title: 'Confirm which domain owns this task', request: task.title });
+  } else if (paused) {
+    setStatus(task.task_id, 'ROUTED');
+    setStatus(task.task_id, 'BLOCKED', { human_action_required: true,
+      result_summary: `Blocked by active PAUSED decision ${paused.decision.decision_id} (${paused.decision.scope}). An explicit superseding decision (Ludwig GO) is required to resume.` });
+    enqueueHumanAction(task.task_id, { kind: 'paused-decision', title: `Resume of ${paused.decision.scope} needs explicit GO`,
+      why: `Matched paused decision ${paused.decision.decision_id} on "${paused.matched}". ${paused.decision.decision}` });
+    audit('task_paused_blocked', { task_id: task.task_id, decision_id: paused.decision.decision_id, scope: paused.decision.scope, matched: paused.matched });
   } else if (isAgentDisabled(task.selected_agent)) {
     setStatus(task.task_id, 'ROUTED');
     setStatus(task.task_id, 'BLOCKED', { result_summary: `Agent ${task.selected_agent} is disabled; task blocked until re-enabled.` });
@@ -260,13 +274,77 @@ export function acknowledgeEpic(epicId, { correlationId = null, by = 'unknown' }
   return { ok: true, completion_delivery_state: rec.completion_delivery_state, completion: getEpicCompletion(epicId) };
 }
 
+// ---- Epic PAUSE / RESUME (control-plane §6.8) ----------------------------
+// A paused epic keeps its state but its QUEUED sub-tasks are not picked up by the
+// worker (pickRunnable gates on isEpicPaused). RESUME is refused when an active
+// PAUSED decision covers the epic's request scope, unless an explicit override is
+// given (an authenticated caller acting on a superseding decision / Ludwig GO).
+export function isEpicPaused(epicId) { return Boolean(epicId && ready().epics[epicId]?.paused); }
+
+export function pauseEpic(epicId, { reason = 'paused via control plane', by = 'unknown' } = {}) {
+  const e = ready().epics[epicId];
+  if (!e) return { ok: false, reason: 'not_found' };
+  tx((db) => { const r = db.epics[epicId]; r.paused = true; r.paused_reason = reason; r.paused_at = new Date().toISOString(); r.paused_by = by; });
+  audit('epic_paused', { epic_id: epicId, by, reason });
+  return { ok: true, epic_id: epicId, paused: true };
+}
+
+export function resumeEpic(epicId, { by = 'unknown', override = false } = {}) {
+  const e = ready().epics[epicId];
+  if (!e) return { ok: false, reason: 'not_found' };
+  const blocked = pausedDecisionFor(e.request);
+  if (blocked && !override) {
+    audit('epic_resume_blocked', { epic_id: epicId, decision_id: blocked.decision.decision_id, by });
+    return { ok: false, reason: 'paused_by_decision', decision_id: blocked.decision.decision_id, scope: blocked.decision.scope,
+      message: `Resume refused: active PAUSED decision ${blocked.decision.decision_id} (${blocked.decision.scope}) covers this epic. Supersede it (explicit GO) or pass override.` };
+  }
+  tx((db) => { const r = db.epics[epicId]; r.paused = false; r.resumed_at = new Date().toISOString(); r.resumed_by = by; });
+  audit('epic_resumed', { epic_id: epicId, by, override: Boolean(override) });
+  setImmediate(() => drain().catch(() => {}));
+  return { ok: true, epic_id: epicId, paused: false };
+}
+
+// ---- Monitoring / status overview (control-plane §19) --------------------
+// One compact aggregate: task states, epic phases, open human actions, active +
+// superseded decisions, and cross-workstream conflicts (two epics touching the same
+// repo). A traffic tower, not a project-management platform. No bulky content.
+export function statusOverview() {
+  const tasks = listTasks();
+  const byTaskStatus = {};
+  for (const t of tasks) byTaskStatus[t.status] = (byTaskStatus[t.status] || 0) + 1;
+  const epics = listEpics();
+  const epicPhase = { RUNNING: 0, WAITING_FOR_HUMAN: 0, PAUSED: 0, COMPLETED: 0, FAILED: 0, IN_PROGRESS: 0 };
+  const conflictMap = {};
+  for (const e of epics) {
+    if (isEpicPaused(e.epic_id)) epicPhase.PAUSED += 1; else epicPhase[e.rollup] = (epicPhase[e.rollup] || 0) + 1;
+    for (const r of e.repositories || []) (conflictMap[r] = conflictMap[r] || []).push(e.epic_id);
+  }
+  const decisions = Object.values(ready().decisions);
+  const conflicts = Object.entries(conflictMap)
+    .filter(([, ids]) => ids.filter((id) => { const e = getEpic(id); return e && e.rollup === 'IN_PROGRESS'; }).length > 1)
+    .map(([repo, ids]) => ({ repository: repo, epics: ids }));
+  return {
+    tasks: byTaskStatus,
+    epics: epicPhase,
+    open_human_actions: listHumanActions().length,
+    open_approvals: listApprovals().length,
+    decisions: { active: decisions.filter((d) => d.status === 'active').length, superseded: decisions.filter((d) => d.status === 'superseded').length,
+      paused_scopes: decisions.filter((d) => d.status === 'active' && d.effect === 'pause').map((d) => d.scope) },
+    evidence: Object.keys(ready().evidence).length,
+    cross_workstream_conflicts: conflicts,
+    undelivered_completions: epics.filter((e) => (e.rollup === 'COMPLETED' || e.rollup === 'FAILED') && (e.completion_delivery_state || 'not_ready') !== 'delivered')
+      .map((e) => ({ epic_id: e.epic_id, submitted_by: e.origin?.submitted_by, state: e.completion_delivery_state || 'not_ready' })),
+  };
+}
+
 // Compact cockpit view — one line per epic, no bulky content (brief: calm cockpit).
 export function cockpitView() {
   return listEpics().map((e) => {
     const o = e.origin || {};
-    const phase = e.rollup === 'IN_PROGRESS'
-      ? (e.by_status?.RUNNING ? 'RUNNING' : 'ROUTED')
-      : (e.rollup === 'WAITING_FOR_HUMAN' ? 'HUMAN ACTION' : 'COMPLETED');
+    const phase = isEpicPaused(e.epic_id) ? 'PAUSED'
+      : e.rollup === 'IN_PROGRESS'
+        ? (e.by_status?.RUNNING ? 'RUNNING' : (e.by_status?.BLOCKED ? 'BLOCKED' : 'ROUTED'))
+        : (e.rollup === 'WAITING_FOR_HUMAN' ? 'HUMAN ACTION' : e.rollup === 'FAILED' ? 'FAILED' : 'COMPLETED');
     return {
       epic_id: e.epic_id,
       phase,
@@ -274,11 +352,14 @@ export function cockpitView() {
       origin_type: o.type || 'unspecified',
       submitted_by: o.submitted_by || 'unknown',
       correlation_id: o.correlation_id || null,
+      workstream: e.repositories?.[0] || null,
       tasks: e.task_ids.length,
       by_status: e.by_status,
       repositories: e.repositories,
       commits: e.tasks.map((t) => t.commit_sha).filter(Boolean).length,
       status: e.rollup,
+      paused: isEpicPaused(e.epic_id),
+      human_action: e.rollup === 'WAITING_FOR_HUMAN',
       delivery: e.completion_delivery_state || 'not_ready',
       return_kind: o.return_destination?.kind || 'none',
     };
@@ -300,7 +381,7 @@ export function pickRunnable() {
   const db = ready();
   if (listTasks({ status: 'RUNNING' }).length >= config.maxConcurrentAgents) return null;
   const queued = db.queue.map((id) => getTask(id))
-    .filter((t) => t && t.status === 'QUEUED' && !isAgentDisabled(t.selected_agent) && depsSatisfied(t))
+    .filter((t) => t && t.status === 'QUEUED' && !isAgentDisabled(t.selected_agent) && !isEpicPaused(t.epic_id) && depsSatisfied(t))
     .sort((a, b) => (PRIO[a.priority] - PRIO[b.priority]) || a.task_id.localeCompare(b.task_id, undefined, { numeric: true }));
   for (const t of queued) {
     const probe = tryAcquire(t.task_id, reposFor(t));

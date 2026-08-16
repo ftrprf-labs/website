@@ -133,5 +133,26 @@
       "CONVERSATION/ORIGIN CONTEXT — never automatically globalised."
     ],
     "guarantee": "A task prompt carries only global governance + canonical registry role + the task's own request/acceptance. Origin conversation context (origin id/project/correlation, another workstream's reasoning) is never injected into a task prompt. A Finance-chat assumption cannot become canonical for First Five."
+  },
+
+  "control_plane": {
+    "primary_architecture": "Ludwig → ChatGPT → Maculis Orchestrator → specialist workstream/runner/repository, and back: workstream → Orchestrator → ChatGPT → Ludwig. ChatGPT is the cockpit; the Orchestrator is traffic control; workstreams are specialist destinations; runners execute; repositories/evidence/decisions/structured records are the durable memory. Chats are interfaces, never the system of record.",
+    "tell_it_once": "Ludwig tells ChatGPT once what he wants or discovers. The Orchestrator classifies it, decides which durable workstream it touches, delivers the minimal relevant context to the right executor, guards decisions and dependencies, and returns the result with full provenance. The human does not choose which chat to paste into.",
+    "no_chat_to_chat_bus": "The Orchestrator is not a relay for full chat transcripts. Specialist transcripts stay local to their workstream/interface and are never auto-forwarded to ChatGPT, to other workstreams, or merged into one global conversation. ChatGPT receives the structured result with provenance, not hundreds of reasoning messages.",
+    "structured_objects": "Transport between control plane and workstreams is structured objects: TASK, DECISION, EVIDENCE, PILOT_EVIDENCE, STATUS, COMPLETION, HUMAN_ACTION, BLOCKER, SUPERSESSION, ACKNOWLEDGEMENT. Each carries where relevant: id, type, workstream_id, origin, correlation_id, timestamp, scope, summary, provenance, status, ordering, related task/epic, durable artifact/repo refs, parent/cross-workstream relation. Extend the canonical models; never fork a parallel datamodel.",
+    "no_async_push": "No real asynchronous push into an existing ChatGPT conversation exists in the available technology. The Orchestrator MUST NOT fake one. ChatGPT submits via the control plane; the Orchestrator stores origin/correlation, executes autonomously, stores the completion durably; ChatGPT retrieves pending/completed returns via the same interface (poll/ack). Webhooks are used only where genuinely available.",
+    "selective_routing": "New information is classified, tested against existing decisions, assessed for relevance, coupled to one or more workstreams, given provenance and a MINIMAL context envelope, and only then executed. No automatic broadcast to all workstreams. Provenance per source is preserved even under synthesis — a summary must not destroy the source structure.",
+    "chats_are_not_workstreams": "A specialist chat is at most one interface onto a workstream. The workstream survives when the chat ends, a new chat opens, another agent executes, Claude Code restarts, or a runner is replaced. Durable: repo state, tasks, decisions, evidence, completions, provenance, governance, registry. Not durable/canonical: an arbitrary conversational transcript.",
+    "human_action_isolation": "A HUMAN ACTION blocks only the dependency that genuinely needs it, never the whole Orchestrator. Example: ChatGPT Action auth requires human configuration → mark ChatGPT live-auth as a HUMAN ACTION and deliver the instructions, but keep every independent workstream functioning."
+  },
+
+  "decision_ledger": {
+    "principle": "One canonical supersession semantics. Newer explicit product decisions win over older conflicting decisions within the same scope. A DECISION carries decision_id, scope, decision, timestamp, origin, rationale, status, supersedes, superseded_by (+ effect/guard).",
+    "explicit_only": "Supersession is explicit only. A PAUSE is never lifted implicitly by a stray resume record — only an explicit superseding decision (Ludwig GO) lifts it.",
+    "hard_current_decision": "EPIC-3 / next Lens (Lens 2) = PAUSED, pending (1) real Lens 1 pilot evidence, (2) review of that evidence, (3) explicit Ludwig GO. A derived task, old roadmap, old recommendation or specialist workstream must not implicitly resume EPIC-3. The PAUSED guard records any such attempt as BLOCKED with a human action, never silently executes it.",
+    "product_rules": [
+      "Never weaken a gate to avoid SILENCE. Expand evidence before lowering truth standards.",
+      "SILENCE at Reveal ≠ SILENCE of the whole journey. The three layers (business thermometer, Reveal-or-SILENCE, technical thermometer) function independently."
+    ]
   }
 }

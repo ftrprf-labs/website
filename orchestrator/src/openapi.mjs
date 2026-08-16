@@ -12,9 +12,9 @@ export function openApiSpec() {
   return {
     openapi: '3.1.0',
     info: {
-      title: 'Maculis Development Orchestrator',
-      description: 'Submit one free-text development task; it is routed to the right Maculis domain (Website / First Five / Relationship), built by a real coding agent, verified, and delivered. Poll task status for the outcome.',
-      version: '2.0.0',
+      title: 'Maculis Orchestrator — ChatGPT Control Plane',
+      description: 'The central control plane for Maculis engineering. Tell it ONCE: submit an assignment/epic, submit cross-workstream evidence, or record a decision. The Orchestrator classifies, routes it selectively to the right durable workstream (Website / First Five / Relationship), executes with a real coding agent under governance, keeps provenance + origin, and returns the structured result to be retrieved here (poll/ack). No async push to a chat exists — retrieval is via this same API. Decisions supersede older ones; a PAUSED decision (e.g. EPIC-3 / next Lens) blocks implicit resumption.',
+      version: '3.0.0',
     },
     servers: [{ url: server }],
     security: [{ bearerAuth: [] }],
@@ -140,6 +140,44 @@ export function openApiSpec() {
         },
       },
       '/agents': { get: { operationId: 'list_maculis_agents', summary: 'List development domains.', responses: { 200: { description: 'OK' } } } },
+      '/workstreams': { get: { operationId: 'list_maculis_workstreams', summary: 'List durable Maculis workstream identities (chat-independent): id, domain, scope, owning repo, status, active epics, paused scopes, client bindings.', responses: { 200: { description: 'OK' } } } },
+      '/workstreams/{id}': { get: { operationId: 'get_maculis_workstream', summary: 'Get one workstream identity + live state.', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'OK' }, 404: { description: 'Not found' } } } },
+      '/status': { get: { operationId: 'get_maculis_status', summary: 'Monitoring overview: task/epic states (RUNNING/WAITING/PAUSED/BLOCKED/HUMAN ACTION/COMPLETED/FAILED), active + superseded decisions, cross-workstream conflicts, undelivered completions.', responses: { 200: { description: 'OK' } } } },
+      '/decisions': {
+        get: { operationId: 'list_maculis_decisions', summary: 'List canonical decisions (optionally by scope/status/effect), including the supersession chain.', parameters: [{ name: 'scope', in: 'query', schema: { type: 'string' } }, { name: 'status', in: 'query', schema: { type: 'string' } }], responses: { 200: { description: 'OK' } } },
+        post: {
+          operationId: 'record_maculis_decision',
+          summary: 'Record a canonical DECISION (scope/decision/rationale/effect). effect "pause" installs a guard that blocks implicit resumption of that scope; pass supersedes:[id] to mark older decisions superseded (newer wins).',
+          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['decision'], properties: {
+            scope: { type: 'string' }, decision: { type: 'string' }, rationale: { type: 'string' },
+            effect: { type: 'string', enum: ['pause', 'resume', 'policy', 'note'] }, supersedes: { type: 'array', items: { type: 'string' } },
+          } } } } },
+          responses: { 201: { description: 'Recorded' } },
+        },
+      },
+      '/decisions/{id}': { get: { operationId: 'get_maculis_decision', summary: 'Get one decision.', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'OK' }, 404: { description: 'Not found' } } } },
+      '/decisions/{id}/supersede': {
+        post: { operationId: 'supersede_maculis_decision', summary: 'Record a new decision that explicitly supersedes an existing one (newer wins).',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['decision'], properties: { decision: { type: 'string' }, rationale: { type: 'string' }, effect: { type: 'string' }, scope: { type: 'string' } } } } } },
+          responses: { 201: { description: 'Superseded' }, 404: { description: 'Not found' } } },
+      },
+      '/evidence': {
+        get: { operationId: 'list_maculis_evidence', summary: 'List evidence records (optionally by workstream/kind).', parameters: [{ name: 'workstream', in: 'query', schema: { type: 'string' } }, { name: 'kind', in: 'query', schema: { type: 'string' } }], responses: { 200: { description: 'OK' } } },
+        post: {
+          operationId: 'submit_maculis_evidence',
+          summary: 'Submit cross-workstream EVIDENCE / PILOT_EVIDENCE once. It is classified, routed SELECTIVELY to the owning workstream(s) with no broadcast, given a minimal context envelope preserving provenance, and returned with the routing "why". Never starts execution, never lifts a PAUSED decision.',
+          requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['text'], properties: {
+            text: { type: 'string', description: 'The finding/observation in natural language.' },
+            hint: { type: 'string', enum: ['EVIDENCE', 'PILOT_EVIDENCE'] },
+            origin: { type: 'object', description: 'Where it came from (type/id/project/correlation_id/return_destination). submitted_by is set from your API key.' },
+          } } } } },
+          responses: { 201: { description: 'Recorded + routed' } },
+        },
+      },
+      '/evidence/{id}': { get: { operationId: 'get_maculis_evidence', summary: 'Retrieve an evidence record (classification, routing, context envelope, provenance).', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], responses: { 200: { description: 'OK' }, 404: { description: 'Not found' } } } },
+      '/epics/{id}/pause': { post: { operationId: 'pause_maculis_epic', summary: 'Pause an epic (queued sub-tasks stop being picked up).', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], requestBody: { required: false, content: { 'application/json': { schema: { type: 'object', properties: { reason: { type: 'string' } } } } } }, responses: { 200: { description: 'Paused' }, 404: { description: 'Not found' } } } },
+      '/epics/{id}/resume': { post: { operationId: 'resume_maculis_epic', summary: 'Resume a paused epic. Refused (409) when an active PAUSED decision covers its scope unless override=true (explicit GO).', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }], requestBody: { required: false, content: { 'application/json': { schema: { type: 'object', properties: { override: { type: 'boolean' } } } } } }, responses: { 200: { description: 'Resumed' }, 409: { description: 'Blocked by paused decision' } } } },
     },
   };
 }

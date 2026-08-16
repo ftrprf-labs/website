@@ -45,4 +45,11 @@ GitHub as the code-history source of truth. It is NOT one of the three products.
   `docs/ORIGIN_AND_RETURN.md`. Specialist workstreams submit with an `origin`, then
   retrieve + acknowledge (`getEpicCompletion`/`acknowledgeEpic`); `cockpitView()` is
   the calm one-line-per-epic surface.
+- `src/decisions.mjs` — the canonical decision ledger + explicit-only supersession +
+  the EPIC-3 PAUSED guard (seeded on boot). `src/evidence.mjs` — EVIDENCE/PILOT_EVIDENCE
+  intake, classification, selective routing (no broadcast) + minimal context envelope.
+  `src/workstreams.mjs` — durable workstream identities derived from the registry.
+  ChatGPT-first control plane: see `docs/CONTROL_PLANE.md`.
+- `src/liveProbe.mjs` — one-shot in-instance LIVE prover of the deployed control plane
+  (real runner), triggered by `MACULIS_BOOT_LIVE_E2E`; logs a structured transcript.
 - `bin/maculis-dev.mjs` — the CLI.

@@ -26,6 +26,10 @@ const EMPTY = () => ({
   epicCounter: 0,                   // last-issued epic number
   idempotency: {},                  // key -> task_id
   disabledAgents: {},               // agent_id -> { reason, at } (brief §71)
+  decisions: {},                    // decision_id -> canonical DECISION record (ledger + supersession)
+  decisionCounter: 0,               // last-issued decision number
+  evidence: {},                     // evidence_id -> EVIDENCE / PILOT_EVIDENCE record (classified + routed)
+  evidenceCounter: 0,               // last-issued evidence number
   audit: [],                        // append-only audit events (capped)
 });
 

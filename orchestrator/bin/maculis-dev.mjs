@@ -20,6 +20,7 @@ import * as engine from '../src/engine.mjs';
 import { getTask, listTasks } from '../src/tasks.mjs';
 import { tail } from '../src/audit.mjs';
 import { startApi } from '../src/api.mjs';
+import { seedCanonicalDecisions } from '../src/decisions.mjs';
 
 const [, , cmd, ...args] = process.argv;
 const rest = args.join(' ');
@@ -159,8 +160,26 @@ async function main() {
       break;
     }
     case 'serve': {
+      // Seed the durable, canonical decisions (EPIC-3 PAUSED + product rules) so the
+      // PAUSED guard is active even on an ephemeral store (idempotent; §15/§17).
+      try { const seeded = seedCanonicalDecisions(); if (seeded.length) console.log(`[decisions] seeded ${seeded.join(', ')}`); } catch (e) { console.log('[decisions] seed error: ' + e.message); }
       startApi();
       engine.startWorker();   // API + async worker in one process (single authoritative worker)
+      // Optional one-shot LIVE E2E prover of the ChatGPT-facing control plane. When
+      // MACULIS_BOOT_LIVE_E2E is set, act as a real control-plane client against the
+      // DEPLOYED route (public URL, loopback fallback) with the REAL runner, and log a
+      // structured transcript to the host stream. Unset the env var after capture so
+      // it does not re-run. Never blocks serving; errors are caught.
+      if (process.env.MACULIS_BOOT_LIVE_E2E) {
+        setImmediate(async () => {
+          try {
+            await new Promise((r) => setTimeout(r, 1500));   // let the listener bind
+            const { runLiveProbe } = await import('../src/liveProbe.mjs');
+            const out = await runLiveProbe();
+            console.log(`[live-e2e] DONE passed=${out.passed}/${out.total}`);
+          } catch (e) { console.log('[live-e2e] error: ' + e.message); }
+        });
+      }
       // Optional one-shot boot self-test (diagnostic, brief §4/§6 online verification).
       // When MACULIS_BOOT_SELFTEST is set, submit exactly one task on startup, run
       // it, and log the outcome (runner mode, status, cost) so an operator can prove

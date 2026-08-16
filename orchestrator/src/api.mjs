@@ -19,6 +19,9 @@ import { openApiSpec } from './openapi.mjs';
 import { ready } from './store.mjs';
 import { getGovernance } from './governance.mjs';
 import { decompose } from './decompose.mjs';
+import { recordDecision, listDecisions, getDecision, supersedeDecision } from './decisions.mjs';
+import { recordEvidence, listEvidence, getEvidence } from './evidence.mjs';
+import { workstreams, getWorkstream } from './workstreams.mjs';
 
 const rate = new Map(); // key -> { count, resetAt }
 
@@ -119,6 +122,53 @@ export function createApiServer() {
       }
       // GET /cockpit  (compact calm-cockpit view — one line per epic, no content)
       if (req.method === 'GET' && path === '/cockpit') return send(res, 200, { cockpit: engine.cockpitView() });
+      // GET /status  (monitoring overview — task/epic states, decisions, conflicts)
+      if (req.method === 'GET' && path === '/status') return send(res, 200, { status: engine.statusOverview() });
+      // GET /workstreams  and  GET /workstreams/:id  (durable workstream identities)
+      if (req.method === 'GET' && path === '/workstreams') return send(res, 200, { workstreams: workstreams() });
+      const mw = /^\/workstreams\/([A-Za-z0-9_-]+)$/.exec(path);
+      if (mw && req.method === 'GET') { const w = getWorkstream(mw[1]); return w ? send(res, 200, { workstream: w }) : send(res, 404, { error: 'not found' }); }
+
+      // ---- Decision ledger (record / list / get / supersede) --------------
+      if (req.method === 'GET' && path === '/decisions') {
+        return send(res, 200, { decisions: listDecisions({ scope: url.searchParams.get('scope'), status: url.searchParams.get('status'), effect: url.searchParams.get('effect') }) });
+      }
+      if (req.method === 'POST' && path === '/decisions') {
+        const body = await readJson(req);
+        if (!body.decision || typeof body.decision !== 'string' || body.decision.length > 4000) return send(res, 400, { error: 'decision (string, <=4000 chars) required' });
+        const rec = recordDecision({ scope: body.scope, decision: body.decision, rationale: body.rationale, effect: body.effect,
+          guard: body.guard, supersedes: body.supersedes, origin: body.origin || null, submittedBy });
+        return send(res, 201, { decision: rec });
+      }
+      const mdz = /^\/decisions\/([A-Za-z0-9-]+)$/.exec(path);
+      if (mdz && req.method === 'GET') { const d = getDecision(mdz[1]); return d ? send(res, 200, { decision: d }) : send(res, 404, { error: 'not found' }); }
+      const mds = /^\/decisions\/([A-Za-z0-9-]+)\/supersede$/.exec(path);
+      if (mds && req.method === 'POST') {
+        const body = await readJson(req);
+        if (!body.decision || typeof body.decision !== 'string') return send(res, 400, { error: 'decision (string) required' });
+        const r = supersedeDecision(mds[1], { decision: body.decision, rationale: body.rationale, effect: body.effect, scope: body.scope, guard: body.guard, origin: body.origin || null, submittedBy });
+        return send(res, r.ok ? 201 : 404, r);
+      }
+
+      // ---- Evidence intake (classify + selective routing + envelope) ------
+      if (req.method === 'GET' && path === '/evidence') return send(res, 200, { evidence: listEvidence({ workstream: url.searchParams.get('workstream'), kind: url.searchParams.get('kind') }) });
+      if (req.method === 'POST' && path === '/evidence') {
+        const body = await readJson(req);
+        if (!body.text || typeof body.text !== 'string' || body.text.length > 8000) return send(res, 400, { error: 'text (string, <=8000 chars) required' });
+        const r = recordEvidence(body.text, { origin: body.origin || null, submittedBy, hint: body.hint || null, summary: body.summary || null });
+        return send(res, r.ok ? 201 : 400, r);
+      }
+      const mev = /^\/evidence\/([A-Za-z0-9-]+)$/.exec(path);
+      if (mev && req.method === 'GET') { const e = getEvidence(mev[1]); return e ? send(res, 200, { evidence: e }) : send(res, 404, { error: 'not found' }); }
+
+      // POST /epics/:id/pause | /resume  (control-plane epic PAUSE/RESUME)
+      const mep = /^\/epics\/([A-Za-z0-9-]+)\/(pause|resume)$/.exec(path);
+      if (mep && req.method === 'POST') {
+        const body = await readJson(req).catch(() => ({}));
+        const r = mep[2] === 'pause' ? engine.pauseEpic(mep[1], { reason: body.reason || 'paused via control plane', by: submittedBy })
+          : engine.resumeEpic(mep[1], { by: submittedBy, override: Boolean(body.override) });
+        return send(res, r.ok ? 200 : (r.reason === 'not_found' ? 404 : 409), r);
+      }
       // GET /epics  and  GET /epics/:id
       if (req.method === 'GET' && path === '/epics') return send(res, 200, { epics: engine.listEpics().map(publicEpic) });
       const me = /^\/epics\/([A-Za-z0-9-]+)$/.exec(path);
