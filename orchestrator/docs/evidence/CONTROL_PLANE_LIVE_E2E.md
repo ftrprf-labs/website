@@ -62,3 +62,31 @@ public host is blocked by org policy. This is not a mock and not a scratchpad ha
 - **Unit regression:** 86 `node --test` tests green (`test/control-plane.test.mjs` covers
   supersession, PAUSED guard, evidence classification/selective routing/firewall,
   workstreams, epic pause/resume, monitoring).
+
+---
+
+## Bootstrap-deadlock fix — LIVE exit-test (commit `2edb001`, instance `c97ct`, 2026-08-16 ~09:06 UTC)
+
+Root cause: central control-plane engineering had no own domain, and the router read a
+protective mention ("do not touch First Five") as positive First Five intent, so central
+work mis-routed to First Five and DEC-1 then correctly blocked it — the Orchestrator could
+not fix its own routing defect via its normal route. Fix: a new `orchestrator` domain +
+negation-aware routing (DEC-1 untouched). Exit-test via the NORMAL API route with a neutral
+central command, real runner:
+
+```
+[live-e2e] {"step":"bootstrap_start","runner":"real"}
+[live-e2e] {"step":"public_auth_check","status":200,"external_auth":"OK"}
+[live-e2e] {"test":"BOOTSTRAP.submit","status":202,"task_id":"MAC-101","routed_to":"orchestrator","task_status":"QUEUED"}
+[live-e2e] {"test":"BOOTSTRAP_routed_to_orchestrator","pass":true,"detail":{"routed_to":"orchestrator","repository":"ftrprf-labs/website"}}
+[live-e2e] {"test":"BOOTSTRAP_not_first_five_or_relationship","pass":true}
+[live-e2e] {"test":"BOOTSTRAP_not_blocked","pass":true}
+[live-e2e] {"test":"BOOTSTRAP_real_runner_completed","pass":true,"detail":{"status":"COMPLETED","agent":"orchestrator"}}
+[live-e2e] {"step":"bootstrap_summary","passed":4,"total":4}
+[live-e2e] BOOTSTRAP DONE passed=4/4
+```
+
+The neutral central command auto-classified as `orchestrator` (not First Five, not
+Relationship), was not blocked, and completed on the real runner. Regression: 94 `node --test`
+green (adds `test/bootstrap-routing.test.mjs`). The bootstrap exception is ended; further
+central engineering runs via the normal Orchestrator route.
