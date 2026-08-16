@@ -15,7 +15,14 @@ Schrijfregel gerespecteerd: geen koppeltekens of gedachtestreepjes als stijlmidd
 > Er volgde een tweede, verdiepende ontwerp- en prototyperonde die richting C moest bewijzen én
 > actief kapot proberen te redeneren. De resultaten daarvan staan in **§18 (verdiepingsronde)**,
 > inclusief de dual-space stresstest, de C versus A vergelijking na verdieping en het belangrijkste
-> zwakke punt van C. Nog steeds geen productie-rewrite en geen migratie uitgevoerd.
+> zwakke punt van C.
+>
+> **Update na de first-day UX-test (§19).** De informatiearchitectuur is aangescherpt. **Lenzen is
+> uit de primaire navigatie gehaald**: een lens is hoe Maculis kijkt, geen bestemming. Lens-uitkomsten
+> landen nu als reveal op Vandaag, als geheugen in de relatie ("Wat Maculis zag") en als patroon in
+> Groei. De navigatie is gesplitst in drie dagelijkse bestemmingen plus een rustige groep "Verder".
+> Waar §0 tot §17 nog "Lenzen" als navigatiebestemming noemen, geldt §19 als de actuele stand.
+> Nog steeds geen productie-rewrite en geen migratie uitgevoerd.
 
 ---
 
@@ -712,3 +719,86 @@ ruimte uitzetten is een configuratie, geen herbouw.
   additief, CSP-safe. Alle data PROTOTYPE DATA.
 
 Geen productie-implementatie tot Ludwig het prototype zelf heeft beoordeeld en expliciet GO geeft.
+
+---
+
+## 19. First-day UX test en IA-herziening (lens uit de navigatie)
+
+Aanleiding: een nieuwe collega moet zonder uitleg kunnen beginnen. De interface mag niet vragen dat
+hij eerst onze interne structuur leert. Uitgangspunt: je begint op Vandaag, Maculis selecteert wat
+aandacht verdient en brengt je vandaar naar het juiste gesprek, de juiste relatie of het juiste
+inzicht. De andere ruimtes zijn er voor zoeken, verdiepen en specifiek werk.
+
+### 19.1 De test (nieuwe collega, nul uitleg, vijf minuten)
+
+Ik heb richting C doorlopen alsof ik net binnen ben. Per vraag het oordeel voor en na de aanscherping.
+
+| Vraag | Voor | Na |
+|---|---|---|
+| Wat doet Maculis voor mij? | Onduidelijk. Zeven navigatie-items en het jargon "Reveal space" dwongen me een taxonomie te leren. | De orientatie zegt het in drie regels: Maculis kijkt, onthoudt, en laat het zien als iets ertoe doet. |
+| Waar begin ik mijn dag? | Vandaag stond bovenaan, maar zonder dat gezegd werd. | "Begin gewoon bovenaan." De drie dagelijkse bestemmingen staan apart bovenaan. |
+| Wat vraagt nu mijn aandacht? | Al goed. De tier Nu is helder. | Ongewijzigd sterk. |
+| Wat moet ik vervolgens doen? | Onduidelijk. Niet zichtbaar dat een kaart klikbaar is. | Elk item toont "Open het gesprek" met een pijl en een chevron. De kaart opent het gesprek. |
+| Waar vind ik een relatie terug? | Relaties, vindbaar. | Ongewijzigd. Vandaag brengt je er ook vanzelf heen. |
+| Waar vindt communicatie plaats? | Gesprekken, maar de route vanaf Vandaag was niet benoemd. | Klikken op een aandachtsitem opent het gesprek. De route leert zichzelf. |
+| Wat betekent een journey? | Alleen te snappen door het tabblad Journeys te openen. | Je ontmoet "journey" binnen de relatie (First Five, sessie 1 van 5) en op Vandaag, in context. |
+| Hoe verschijnen reveals, zonder "lens" te snappen? | Een navigatie-item "Lenzen" suggereerde dat ik een concept moest leren voordat ik kon werken. | "Lenzen" is uit de navigatie. Reveals verschijnen gewoon op Vandaag als "Er valt iets op". |
+
+### 19.2 De kern: lens is geen plek
+
+We haalden twee dingen door elkaar. **Een lens is hoe Maculis kijkt. Een reveal is wat Maculis laat
+zien wanneer de uitkomst betekenisvol is.** Een medewerker heeft geen dagelijkse werkruimte nodig om
+"alle reveals van bestaande relaties" te bekijken. Daarom is Lenzen **uit de primaire navigatie
+gehaald**. De lens wordt een onderliggende intelligentielaag die door heel Maculis heen werkt en op
+drie plekken zichtbaar wordt:
+
+1. **Op Vandaag**, als een reveal, wanneer de uitkomst er nu toe doet. Een eerdere reveal mag
+   **terugkomen** wanneer nieuwe gebeurtenissen hem weer relevant maken (zichtbaar als "Kwam terug").
+2. **In de relatie**, als geheugen. Het nieuwe paneel **"Wat Maculis zag"** toont per relatie welke
+   lens liep, wat de reveal was en wat daarna gebeurde. Hier zie je de geschiedenis terug, niet in een
+   apart Lenzen-tabblad.
+3. **In Groei**, wanneer Maculis een patroon over meerdere relaties of losse reveals samen ziet. Dat
+   is intelligence op een hoger niveau, geen dagelijkse bladerruimte.
+
+Principe, door de hele interface heen: **Maculis kijkt. Maculis onthoudt. En als iets ertoe doet, laat
+Maculis het zien.**
+
+### 19.3 De herziene informatiearchitectuur
+
+Primaire navigatie, opnieuw beoordeeld vanuit het werk van de gebruiker.
+
+**Dagelijks (bovenaan, waar het oog landt):**
+- **Vandaag.** Start. Aandacht en reveals. Vanaf hier routeert Maculis je naar de rest.
+- **Relaties.** Zoeken en verdiepen. De volledige universe, met per relatie het geheugen.
+- **Gesprekken.** Communicatie, omnichannel, binnen de relatie.
+
+**Verder (rustiger, wanneer je het nodig hebt):**
+- **Journeys.** Operationeel: First Five pipeline en Testerbeheer. Je komt hier zelden vanuit het niets.
+- **Groei.** Intelligence over meerdere relaties. Verschijnt wanneer verdiend.
+- **Beheer.** Templates, imports, instellingen.
+
+**Verwijderd uit de primaire navigatie:** Lenzen. Niet omdat lenzen onbelangrijk zijn, maar omdat een
+lens iets is waarmee Maculis kijkt, geen bestemming waar de gebruiker heen navigeert.
+
+De rail toont deze splitsing letterlijk: drie dagelijkse bestemmingen, een rustige scheiding met het
+label "Verder", dan de secundaire drie. Een nieuwe collega hoeft op dag één alleen de bovenste drie te
+begrijpen, en zelfs die leert hij vanzelf door vanuit Vandaag te klikken.
+
+### 19.4 Wat behouden bleef
+
+De cockpit blijft een intelligence-cockpit, geen SaaS-dashboard. Behouden: de aandachtshiërarchie
+(Nu, Beweging, Klaar, Rust), de vier dagstates, de reveal met provenance en "Kijk nog eens.", de drie
+signature interactions, de dual-space, stilte als successtatus. De orientatie is eenmalig en verdwijnt
+zodra je hem wegklikt. Geen wizard, geen tour, geen permanente uitleg. Maculis blijft voelen alsof het
+vóór je kijkt en je alleen lastigvalt wanneer iets ertoe doet.
+
+### 19.5 In het prototype te zien
+
+- Vandaag met orientatie en de herziene rail: `/cockpit.html?dir=C&scn=vandaag&day=normal`
+- Zonder orientatie (na wegklikken): `...&firstday=0`
+- Reveal die terugkwam: `?scn=reveal&rev=r-saar`
+- Relatie met "Wat Maculis zag": `?scn=work`
+- Groei als cross-relatie intelligence: `?scn=groei`
+
+Nog geen productie, geen migratie, geen nieuwe functionaliteit. Alleen richting C op dit fundamentele
+punt aangescherpt.

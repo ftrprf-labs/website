@@ -41,6 +41,7 @@ function el(tag, cls, html) {
   return n;
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function appendIf(parent, node) { if (node) parent.appendChild(node); }
 function initials(name) {
   const p = name.trim().split(/\s+/);
   return ((p[0] || '')[0] || '') + ((p[p.length - 1] || '')[0] || '');
@@ -121,7 +122,8 @@ const REVEAL_SAAR = {
   id: 'r-saar', who: PEOPLE.saar, tier: 'beweging',
   noticed: 'Er valt iets op', headline: 'Saar raakt langzaam uit beeld.',
   relto: 'Saar · Saar Keramiek',
-  why: 'Een relatie die drie maanden actief was, viel stil. Niet ineens, geleidelijk.',
+  recurred: 'Deze observatie kwam vandaag terug. Saar opende je oude mail opnieuw, na zeven weken stilte. Maculis had dit onthouden en laat het weer zien nu er beweging is.',
+  why: 'Een relatie die drie maanden actief was, viel stil. Niet ineens, geleidelijk. Maculis onthield het en bracht het terug toen er opnieuw iets gebeurde.',
   layers: [
     { prov: 'fact', tag: 'Feit', text: 'Het laatste contact was zeven weken geleden.',
       evidence: 'Daarvoor was er gemiddeld elke tien dagen contact, drie maanden lang.', conf: null },
@@ -179,6 +181,12 @@ const THREAD = {
   ],
   memory: 'Onthouden: het team praatte de dag na de eerste sessie lang na over de vraag "wat als niemand het ooit zou weten". Bevestigd door jou op 5 augustus.',
   journey: 'First Five · sessie 1 van 5 afgerond · tweede sessie in overleg',
+  // What Maculis saw for THIS relationship: which lens ran, what the reveal was,
+  // and what happened after. This is where lens output lives, as memory.
+  sightings: [
+    { when: '4 augustus', source: 'First Five', reveal: 'Het team bleef hangen bij één vraag uit de sessie.', after: 'Jij bevestigde dit als afspraak in het geheugen.' },
+    { when: 'vandaag', source: 'Communicatie', reveal: 'Jean-Baptiste noemt tijdsdruk, maar vraagt niet om uitstel.', after: 'Zichtbaar in dit gesprek, wacht op jouw antwoord.' },
+  ],
   aperture: {
     noticed: 'Binnen dit gesprek valt iets op',
     text: 'Jean-Baptiste noemt twee keer tijdsdruk, maar vraagt niet om uitstel. Hij vraagt om een goede keuze.',
@@ -256,7 +264,7 @@ function greeting() { return 'Goedemorgen'; }
 
 function spaceBadge(space) {
   const b = el('div', 'space-badge');
-  b.innerHTML = `<span class="d"></span>${space === 'work' ? 'Work space · om te werken' : 'Reveal space · om te zien'}`;
+  b.innerHTML = `<span class="d"></span>${space === 'work' ? 'Om te werken' : 'Om te zien'}`;
   return b;
 }
 
@@ -284,6 +292,23 @@ function greetBlock(sub) {
   return g;
 }
 
+/* A quiet, one-time orientation. Not a wizard. It states the whole promise in
+   three lines so a new colleague can start without learning any structure. */
+function orientation() {
+  if (!firstDay) return null;
+  const o = el('aside', 'orient');
+  o.setAttribute('aria-label', 'Zo werkt Maculis');
+  o.innerHTML =
+    `<div class="orient-body">
+       <p class="orient-lead">Nieuw hier? Je hoeft niets te leren om te beginnen.</p>
+       <p class="orient-p">Maculis kijkt mee met je relaties en gesprekken. Maculis onthoudt wat speelt. En als iets ertoe doet, laat Maculis het hier zien. De rest blijft rustig.</p>
+       <p class="orient-p muted">Begin gewoon bovenaan. Klik iets aan en Maculis brengt je naar het juiste gesprek of de juiste relatie. Zoeken en verder werk vind je links, wanneer je het nodig hebt.</p>
+     </div>
+     <button class="orient-close" aria-label="Sluiten">Ik snap het</button>`;
+  o.querySelector('.orient-close').addEventListener('click', () => { firstDay = false; render(); });
+  return o;
+}
+
 function tierHead(cls, label, hint) {
   const h = el('div', 'attn-head');
   h.innerHTML =
@@ -292,15 +317,21 @@ function tierHead(cls, label, hint) {
   return h;
 }
 
-/* An attention item with: meaning, "waarom zie ik dit?", and the settle action. */
+/* An attention item. It is the doorway: clicking it opens the conversation, so a
+   new colleague learns the whole loop from Vandaag alone (attention -> open ->
+   handle). Plus "waarom zie ik dit?" and the settle action. */
 function attnItem(it, restContainer) {
-  const b = el('article', 'item');
+  const b = el('article', 'item openable');
   b.setAttribute('tabindex', '0');
+  b.setAttribute('role', 'button');
+  const dest = it.opens || 'het gesprek';
+  b.setAttribute('aria-label', `${it.who.name}: ${it.label}. Openen om ${dest} te bekijken.`);
   b.innerHTML =
     `<div class="row1">
        <span class="who">${esc(it.who.name)}</span>
        <span class="chan">${esc(CHAN_ICO[it.chan] || '')} ${esc(it.chan)}</span>
        <span class="when">${esc(it.when)}</span>
+       <span class="go-chevron" aria-hidden="true">›</span>
      </div>
      <div class="line">${esc(it.line)}</div>
      <div class="tags">
@@ -309,11 +340,17 @@ function attnItem(it, restContainer) {
      </div>
      <div class="itemfoot">
        <button class="why-btn" aria-expanded="false">Waarom zie ik dit?</button>
+       <span class="open-hint" aria-hidden="true">Open ${esc(dest)} <span class="arw">→</span></span>
        <button class="settle-btn" title="Leg terug in rust">Afgehandeld</button>
      </div>
      <div class="why" hidden><span class="prov ${it.tier === 'klaar' ? 'suggestion' : 'observation'}">Provenance</span> ${esc(it.why)}</div>`;
 
-  // signature interaction: "waarom zie ik dit?" reveals the provenance line
+  // primary action: open the conversation (the next step, made obvious)
+  function open() { scn = 'work'; render(); }
+  b.addEventListener('click', open);
+  b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+
+  // "waarom zie ik dit?" reveals the provenance line (trust, on demand)
   const whyBtn = b.querySelector('.why-btn');
   const whyBox = b.querySelector('.why');
   whyBtn.addEventListener('click', e => {
@@ -381,6 +418,7 @@ function viewVandaag() {
 
   if (day === 'quiet') {
     wrap.appendChild(greetBlock('Er is vanmorgen niets dat je aandacht vraagt.'));
+    appendIf(wrap, orientation());
     wrap.appendChild(dayBar('quiet'));
     const s = el('div', 'silence');
     s.innerHTML =
@@ -394,6 +432,7 @@ function viewVandaag() {
 
   if (day === 'one') {
     wrap.appendChild(greetBlock('Vandaag verdient één ding je aandacht.'));
+    appendIf(wrap, orientation());
     wrap.appendChild(dayBar('one'));
     const rest = restArea();
     const one = el('div', 'attn-group one-thing');
@@ -407,6 +446,7 @@ function viewVandaag() {
 
   if (day === 'busy') {
     wrap.appendChild(greetBlock('Er gebeurde veel vannacht. Maculis koos wat telt.'));
+    appendIf(wrap, orientation());
     wrap.appendChild(dayBar('busy'));
     const rest = restArea();
 
@@ -438,6 +478,7 @@ function viewVandaag() {
 
   // normal day
   wrap.appendChild(greetBlock('Twee gesprekken vragen je aandacht. Eén antwoord staat klaar. Bij één relatie beweegt iets.'));
+  appendIf(wrap, orientation());
   wrap.appendChild(dayBar('normal'));
   const rest = restArea();
 
@@ -492,8 +533,9 @@ function eyeSvg() {
 /* A compact teaser for a reveal, sitting in the Beweging tier on Vandaag. */
 function revealTeaser(data) {
   const t = el('button', 'reveal-teaser');
+  const recur = data.recurred ? `<span class="rt-recur">Kwam terug</span>` : '';
   t.innerHTML =
-    `<span class="rt-noticed">${esc(data.noticed)}</span>
+    `<span class="rt-noticed">${esc(data.noticed)}${recur}</span>
      <span class="rt-head">${esc(data.headline)}</span>
      <span class="rt-rel">${esc(data.relto)}</span>
      <span class="rt-go">Kijk <span class="arw" aria-hidden="true">→</span></span>`;
@@ -512,6 +554,11 @@ function revealBlock(data, opts = {}) {
     `<div class="noticed">${esc(data.noticed)}</div>
      <h2>${esc(data.headline)}</h2>
      <div class="relto">${esc(data.relto)}</div>`;
+  if (data.recurred) {
+    const rc = el('div', 'reveal-recur');
+    rc.innerHTML = `<span class="rc-badge">Kwam terug</span> ${esc(data.recurred)}`;
+    r.appendChild(rc);
+  }
 
   // "waarom zie ik dit?" — the trust mechanism, one line, on demand
   if (data.why) {
@@ -798,6 +845,20 @@ function viewWork() {
   journey.innerHTML = `<h3>Journey</h3><div class="memory" style="border-color:var(--ok)">${esc(THREAD.journey)}</div>`;
   side.appendChild(journey);
 
+  // Wat Maculis zag: lens + reveal history for this one relationship, as memory.
+  // This is where "which lens ran" lives, so lens is never a place you navigate to.
+  const saw = el('div', 'panel');
+  let sh = '<h3>Wat Maculis zag</h3>';
+  THREAD.sightings.forEach(s => {
+    sh += `<div class="sighting">
+      <div class="sight-top"><span class="sight-when">${esc(s.when)}</span><span class="sight-src">${esc(s.source)}</span></div>
+      <div class="sight-reveal">${esc(s.reveal)}</div>
+      <div class="sight-after">${esc(s.after)}</div>
+    </div>`;
+  });
+  saw.innerHTML = sh;
+  side.appendChild(saw);
+
   const mem = el('div', 'panel');
   mem.innerHTML = `<h3>Geheugen</h3><div class="memory">${esc(THREAD.memory)}</div>`;
   side.appendChild(mem);
@@ -834,9 +895,10 @@ let scn = 'vandaag';
 let day = 'normal';
 let revealWhich = 'r-kim';
 let relSeg = 'beweegt';
+let firstDay = true; // show the one-time orientation on Vandaag (toggle with ?firstday=0)
 
-const NAV_TO_SCN = { vandaag: 'vandaag', relaties: 'relaties', gesprekken: 'gesprekken', lenzen: 'lenzen', journeys: 'journeys', groei: 'groei', beheer: 'beheer' };
-const SPACE = { vandaag: 'reveal', reveal: 'reveal', lenzen: 'reveal', journeys: 'reveal', groei: 'reveal',
+const NAV_TO_SCN = { vandaag: 'vandaag', relaties: 'relaties', gesprekken: 'gesprekken', journeys: 'journeys', groei: 'groei', beheer: 'beheer' };
+const SPACE = { vandaag: 'reveal', reveal: 'reveal', journeys: 'reveal', groei: 'reveal',
                 relaties: 'work', gesprekken: 'work', work: 'work', beheer: 'work' };
 
 function render() {
@@ -849,9 +911,8 @@ function render() {
     case 'relaties': node = viewRelaties(); break;
     case 'gesprekken': node = viewGesprekken(); break;
     case 'work': node = viewWork(); break;
-    case 'lenzen': node = viewPlaceholder('Lenzen', 'First Five en toekomstige lenzen. Een lens wordt hier geen tabblad met twintig metrics. Wat een lens ziet, landt in Vandaag, in de relatie, of als reveal.', 'reveal'); break;
-    case 'journeys': node = viewPlaceholder('Journeys', 'First Five en toekomstige journeys. Uitnodigingen, voortgang, evaluaties. Testerbeheer leeft hier verder als operationele journey view.', 'reveal'); break;
-    case 'groei': node = viewPlaceholder('Groei', 'GrowBrain verschijnt pas wanneer Maculis genoeg begrijpt om een diepere stap betekenisvol te maken. Geen upgrade knop. Een natuurlijke verdieping, wanneer er iets onder zit.', 'reveal'); break;
+    case 'journeys': node = viewPlaceholder('Journeys', 'First Five en toekomstige journeys. Uitnodigingen, voortgang, evaluaties. Testerbeheer leeft hier verder als operationele journey view. Je komt hier zelden vanuit het niets. Meestal brengt Vandaag of een relatie je hier.', 'reveal'); break;
+    case 'groei': node = viewPlaceholder('Groei', 'Hier verschijnt betekenis die Maculis over meerdere relaties heen ziet. Wanneer eenzelfde patroon bij verschillende mensen terugkomt, of wanneer losse reveals samen iets groters vertellen, landt dat hier. Geen upgrade knop. Een verdieping, wanneer er iets onder zit.', 'reveal'); break;
     default: node = viewPlaceholder('Beheer', 'Templates, imports, instellingen en operationele controls. Alles wat nodig is, buiten de dagelijkse aandacht gehouden.', 'work');
   }
   view.appendChild(node);
@@ -885,13 +946,14 @@ const params = new URLSearchParams(location.search);
 const wantDir = (params.get('dir') || 'C').toUpperCase();
 setDir(['A', 'C'].includes(wantDir) ? wantDir : 'C');
 const wantScn = params.get('scn');
-if (['vandaag', 'reveal', 'relaties', 'gesprekken', 'work', 'lenzen', 'journeys', 'groei', 'beheer'].includes(wantScn)) scn = wantScn;
+if (['vandaag', 'reveal', 'relaties', 'gesprekken', 'work', 'journeys', 'groei', 'beheer'].includes(wantScn)) scn = wantScn;
 const wantDay = params.get('day');
 if (['quiet', 'one', 'normal', 'busy'].includes(wantDay)) day = wantDay;
 const wantRev = params.get('rev');
 if (['r-kim', 'r-saar', 'r-lens'].includes(wantRev)) revealWhich = wantRev;
 const wantSeg = params.get('seg');
 if (SEGMENTS.some(s => s.key === wantSeg)) relSeg = wantSeg;
+if (params.get('firstday') === '0') firstDay = false;
 
 /* nav counts: attention only, never a notification pile */
 document.getElementById('nc-vandaag').textContent = '5';

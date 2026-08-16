@@ -703,3 +703,81 @@ body {
   .work-grid { grid-template-columns: 1fr; }
   .aperture { order: -1; }
 }
+
+/* =====================================================================
+   IA ROUND — first-day orientation, legible routing, lens-as-memory
+   ===================================================================== */
+
+/* nav split: primary destinations, then a quiet "Verder" group */
+.nav-divider {
+  display: flex; align-items: center; gap: var(--s2);
+  margin: var(--s3) var(--s3) var(--s2); color: var(--faint);
+  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+}
+.nav-divider::after { content: ""; flex: 1; height: 1px; background: var(--hair); }
+.nav .later { color: var(--faint); }
+.nav .later .ico { opacity: .6; }
+.nav .later:hover { color: var(--muted); }
+
+/* one-time orientation: states the whole promise, then gets out of the way */
+.orient {
+  display: flex; gap: var(--s4); align-items: flex-start;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
+  background: var(--surface); padding: var(--s5); margin: 0 0 var(--s5);
+  position: relative; overflow: hidden;
+}
+.orient::before { content: ""; position: absolute; inset: 0; background: var(--reveal-glow); pointer-events: none; }
+.orient > * { position: relative; }
+.orient-body { flex: 1; }
+.orient-lead { margin: 0 0 var(--s2); font-family: var(--serif); font-size: var(--t-lead); color: var(--text); }
+.orient-p { margin: 0 0 var(--s2); color: var(--muted); font-size: var(--t-body); max-width: 60ch; }
+.orient-p:last-child { margin-bottom: 0; }
+.orient-close {
+  border: 1px solid var(--border-strong); background: var(--field); color: var(--text);
+  border-radius: 999px; padding: 7px 15px; font-size: 13px; cursor: pointer; white-space: nowrap;
+}
+.orient-close:hover { border-color: var(--primary); color: var(--primary); }
+
+/* attention item as a doorway: obviously openable, with a named next step */
+.item.openable { cursor: pointer; }
+.item.openable:hover, .item.openable:focus-visible { border-color: var(--border-strong); transform: translateY(-1px); }
+.item .go-chevron {
+  margin-left: var(--s2); color: var(--faint); font-size: 20px; line-height: 1;
+  transition: transform .2s var(--ease), color .2s var(--ease);
+}
+.item.openable:hover .go-chevron { color: var(--primary); transform: translateX(3px); }
+.item .open-hint {
+  margin-left: auto; margin-right: var(--s4); color: var(--primary); font-size: 12px;
+  display: inline-flex; align-items: center; gap: 5px; opacity: .85;
+}
+.item .open-hint .arw { transition: transform .2s var(--ease); }
+.item.openable:hover .open-hint .arw { transform: translateX(3px); }
+.itemfoot { flex-wrap: wrap; }
+
+/* a reveal that returned because new events made it relevant again */
+.rt-recur, .rc-badge {
+  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ok); border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent);
+  border-radius: 6px; padding: 1px 6px; margin-left: var(--s2);
+}
+.reveal-recur {
+  position: relative; margin-top: var(--s3); padding: var(--s3) var(--s4);
+  border-left: 2px solid var(--ok); background: var(--field); border-radius: 8px;
+  color: var(--muted); font-size: 13px;
+}
+.reveal-recur .rc-badge { margin-left: 0; margin-right: 6px; }
+
+/* Wat Maculis zag: per-relationship lens + reveal history, framed as memory */
+.sighting { padding: var(--s3) 0; border-top: 1px solid var(--hair); }
+.sighting:first-of-type { border-top: 0; padding-top: 0; }
+.sight-top { display: flex; align-items: baseline; gap: var(--s3); margin-bottom: 4px; }
+.sight-when { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.sight-src { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--primary); }
+.sight-reveal { color: var(--text); font-size: 13px; }
+.sight-after { color: var(--muted); font-size: 12px; margin-top: 3px; padding-left: var(--s3); border-left: 2px solid var(--hair); }
+
+@media (max-width: 860px) {
+  .orient { flex-direction: column; }
+  .orient-close { align-self: flex-start; }
+  .item .open-hint { margin-left: 0; }
+}
