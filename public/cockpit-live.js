@@ -133,17 +133,27 @@ function tierHead(cls, label, hint) {
 
 function attnCard(it) {
   const b = el('article', 'item openable'); b.tabIndex = 0; b.setAttribute('role', 'button');
+  const tier = it.state === 'REPLY_READY' ? 'ready' : 'now';
+  // Slice 2: when Maculis has a real reading (reasonSource='ai'), that grounded understanding is the
+  // main line and the raw quote becomes a quiet echo. Without a reading we fall back honestly to the
+  // preview and the neutral state reason — never an invented "why".
+  const grounded = it.reasonSource === 'ai';
+  const line = grounded ? it.reason : (it.preview || it.reason);
+  const echo = grounded && it.preview && it.preview !== it.reason ? `<div class="echo">“${esc(it.preview)}”</div>` : '';
+  const chips = [];
+  if (it.intent) chips.push(`<span class="intent-chip ${tier}">${esc(it.intent)}</span>`);
+  if (!grounded) chips.push(`<span class="chip ${tier}"><span class="k"></span>${esc(it.reason)}</span>`);
+  else if (it.hasPrepared) chips.push(`<span class="chip ${tier}"><span class="k"></span>concept klaar</span>`);
+  if (it.org) chips.push(`<span class="chip">${esc(it.org)}</span>`);
   b.innerHTML =
     `<div class="row1">
        <span class="who">${esc(it.name)}</span>
        <span class="chan">${esc(CHAN_ICO[it.channel] || '')} ${esc((it.channel || '').toLowerCase())}</span>
        <span class="go-chevron" aria-hidden="true">›</span>
      </div>
-     ${it.preview ? `<div class="line">${esc(it.preview)}</div>` : ''}
-     <div class="tags">
-       <span class="chip ${it.state === 'REPLY_READY' ? 'ready' : 'now'}"><span class="k"></span>${esc(it.reason)}</span>
-       ${it.org ? `<span class="chip">${esc(it.org)}</span>` : ''}
-     </div>`;
+     ${line ? `<div class="line">${esc(line)}</div>` : ''}
+     ${echo}
+     <div class="tags">${chips.join('')}</div>`;
   const open = () => {
     if (it.contactId) { activeContactId = it.contactId; scn = 'dossier'; render(); }
     else { activeConvId = it.conversationId; scn = 'gesprek'; render(); }
@@ -288,14 +298,55 @@ async function renderGesprek(convId) {
   data.messages.forEach(m => { msgs += `<div class="msg ${m.direction === 'OUTBOUND' ? 'out' : 'in'}"><div class="who">${esc(m.direction === 'OUTBOUND' ? 'Maculis · jij' : conv.who)} · ${esc((m.channel || '').toLowerCase())}${m.delivery ? ' · ' + esc(m.delivery) : ''}</div><div class="b">${esc(m.body_text || '')}</div></div>`; });
   thread.innerHTML = `<div class="th-head"><h2>${esc(conv.subject || 'Gesprek')}</h2><div class="meta">${esc(conv.who)}${conv.org ? ' · ' + esc(conv.org) : ''} · ${esc((conv.channel || '').toLowerCase())} · ${esc(conv.status)}</div></div><div class="msgs">${msgs}</div>`;
 
+  // Slice 2 — what Maculis reads in this thread, grounded in a real ai_draft. Only shown when a
+  // reading exists; never an invented understanding.
+  if (data.understanding) thread.appendChild(lensPanel(data.understanding));
+
   // composer / draft
   const composer = el('div', 'composer');
   thread.appendChild(composer);
   await renderComposer(composer, convId, data);
 
+  // Slice 2 — prepared next moves. The human chooses; nothing auto-executes.
+  if (data.nextMoves && data.nextMoves.length) thread.appendChild(movesPanel(convId, data.nextMoves));
+
   grid.appendChild(thread);
   wrap.appendChild(grid);
   view.appendChild(wrap);
+}
+
+function lensPanel(u) {
+  const p = el('div', 'lens');
+  p.innerHTML =
+    `<div class="lens-h"><span aria-hidden="true">◐</span> Wat Maculis hierin ziet</div>
+     <div class="lens-body">${esc(u.summary)}</div>
+     ${u.intent ? `<div class="lens-intent"><span class="intent-chip now">${esc(u.intent)}</span></div>` : ''}`;
+  return p;
+}
+
+function movesPanel(convId, moves) {
+  const wrap = el('div', 'moves');
+  wrap.appendChild(el('div', 'moves-h', 'Voorgestelde volgende stappen'));
+  moves.forEach((m) => {
+    const row = el('div', 'move');
+    row.appendChild(el('span', 'move-lbl', esc(m.label)));
+    if (m.executable) {
+      const btn = el('button', 'btn btn-ghost', 'Overnemen');
+      btn.addEventListener('click', async () => {
+        btn.disabled = true; btn.textContent = 'Bezig…';
+        const r = await api('/api/cockpit/conversation/' + convId + '/next-move', { method: 'POST', body: JSON.stringify({ type: m.type, in_days: m.in_days }) });
+        row.innerHTML = '';
+        row.appendChild(el('span', 'move-lbl', esc(m.label)));
+        row.appendChild(el('span', (r.ok && r.data && r.data.ok) ? 'move-done' : 'move-prepared',
+          (r.ok && r.data && r.data.ok) ? '✓ Gepland' : 'Kon niet worden overgenomen'));
+      });
+      row.appendChild(btn);
+    } else {
+      row.appendChild(el('span', 'move-prepared', 'voorbereid'));
+    }
+    wrap.appendChild(row);
+  });
+  return wrap;
 }
 
 async function renderComposer(composer, convId, data) {

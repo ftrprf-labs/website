@@ -25,6 +25,8 @@ import * as drafts from '../comm/drafts.mjs';
 import { sendOnChannel } from '../comm/send.mjs';
 import { confirmMemory, dismissMemory } from '../comm/memory.mjs';
 import { channelConsentState } from '../comm/consent.mjs';
+import { createFollowUp } from '../comm/followups.mjs';
+import { recordAudit } from '../comm/audit.mjs';
 import { config } from '../config.mjs';
 
 const UUID = '([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})';
@@ -57,6 +59,34 @@ const STATE_REASON = {
 function tierOf(state) {
   if (state === 'REPLY_READY') return 'ready';
   return 'now';
+}
+
+// Slice 2 — the intelligence the copilot already produces, made legible. Human words for the
+// machine intent vocabulary; unknown labels are shown as a neutral signal, never invented.
+const INTENT_LABEL = {
+  question: 'vraag', interest: 'interesse', meeting: 'afspraak',
+  commercial_opportunity: 'kans', objection: 'bezwaar', information: 'informatie',
+  action_requested: 'actie gevraagd', no_action: 'geen actie nodig',
+};
+const intentLabel = (i) => (i ? (INTENT_LABEL[i] || 'signaal') : null);
+
+// A prepared suggested_action, rendered meaning-first. `executable` marks the ones Slice 2 can
+// actually carry out as a SAFE, INTERNAL, human-initiated move (never external, never auto). The
+// rest are shown honestly as prepared but not yet actionable.
+function renderNextMove(a) {
+  if (!a || typeof a !== 'object' || !a.type) return null;
+  switch (a.type) {
+    case 'follow_up_task': {
+      const d = Number(a.in_days) > 0 ? Number(a.in_days) : 3;
+      return { type: a.type, in_days: d, label: `Follow-up over ${d} dag${d === 1 ? '' : 'en'} plannen`, executable: true };
+    }
+    case 'mark_commercial_opportunity':
+      return { type: a.type, label: 'Markeren als kans', executable: false };
+    case 'propose_next_lens':
+      return { type: a.type, label: 'Een volgende blik voorstellen', executable: false };
+    default:
+      return { type: a.type, label: String(a.type).replace(/_/g, ' '), executable: false };
+  }
 }
 
 // EMAIL is the only channel that can actually deliver in Slice 1. The reachability
@@ -92,7 +122,7 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
       emailOnly: true,
       // Only EMAIL can actually deliver; a real transport must be configured for Phase B.
       mailConfigured: Boolean(config.mailTransport && config.mailApiKey),
-      slice: 'slice-1',
+      slice: 'slice-2',
     });
     return true;
   }
@@ -106,11 +136,28 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
   // ---- Vandaag: what needs my attention now (attention only, no reveal-noise) --
   if (pathname === '/api/cockpit/today' && method === 'GET') {
     const ov = await attentionOverview(tenantId);
+    // Slice 2 — surface the copilot's real understanding as the grounded "why". One batch query for
+    // the newest proposed ai_draft per conversation; fall back honestly to the neutral state reason.
+    const ids = ov.queue.map((c) => c.id);
+    const understanding = new Map();
+    if (ids.length) {
+      const rows = (await query(
+        `select distinct on (conversation_id) conversation_id, summary, intent
+           from ai_draft where tenant_id=$1 and conversation_id = any($2::uuid[])
+             and status='proposed' and summary is not null
+          order by conversation_id, created_at desc`, [tenantId, ids])).rows;
+      for (const r of rows) understanding.set(r.conversation_id, r);
+    }
     const groups = { now: [], ready: [] };
     for (const c of ov.queue) {
+      const u = understanding.get(c.id);
       const item = {
         conversationId: c.id, contactId: c.contactId || null, name: c.name, org: c.org,
-        channel: c.channel, state: c.state, reason: STATE_REASON[c.state] || 'Vraagt aandacht',
+        channel: c.channel, state: c.state,
+        // The AI's factual reading of what the sender wrote, when Maculis actually has one.
+        reason: (u && u.summary) ? u.summary : (STATE_REASON[c.state] || 'Vraagt aandacht'),
+        reasonSource: (u && u.summary) ? 'ai' : 'state',
+        intent: u ? intentLabel(u.intent) : null,
         preview: c.preview, hasPrepared: !!c.hasAiProposed,
       };
       groups[tierOf(c.state)].push(item);
@@ -177,8 +224,13 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
       `select id, direction, channel, from_address, subject, body_text, delivery, created_at
          from message where conversation_id=$1 order by created_at asc`, [id])).rows;
     const proposal = (await query(
-      `select summary, intent, suggested_reply from ai_draft
+      `select summary, intent, suggested_reply, suggested_actions from ai_draft
         where conversation_id=$1 and status='proposed' order by created_at desc limit 1`, [id])).rows[0] || null;
+    // Slice 2 — make the copilot's reading legible: human intent + prepared, human-approvable moves.
+    const understanding = proposal && proposal.summary
+      ? { summary: proposal.summary, intent: intentLabel(proposal.intent) } : null;
+    const nextMoves = proposal && Array.isArray(proposal.suggested_actions)
+      ? proposal.suggested_actions.map(renderNextMove).filter(Boolean) : [];
     const working = (await query(
       `select id, status, channel, subject, body, ai_generated, human_edited, version
          from comm_draft where conversation_id=$1 and status='draft' order by created_at desc limit 1`, [id])).rows[0] || null;
@@ -190,6 +242,8 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
         org: conv.org, contactId: conv.contact_id,
       },
       messages, proposal, workingDraft: working, consent,
+      understanding,   // what Maculis reads in this thread (grounded in a real ai_draft)
+      nextMoves,       // prepared, not auto-executed; the human chooses
     });
     return true;
   }
@@ -244,6 +298,39 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
   const settle = pathname.match(new RegExp(`^/api/cockpit/conversation/${UUID}/settle$`));
   if (settle && method === 'POST') {
     json(res, 200, await markConversationRead(tenantId, settle[1], { userId: null }));
+    return true;
+  }
+
+  // ---- Prepared next move: a SAFE, INTERNAL, human-initiated action -----------
+  // The copilot prepares suggested_actions; nothing runs until the human chooses one here. Slice 2
+  // executes only internal moves (a follow-up). External actions stay behind the consent-gated send
+  // path. Refuses non-executable action types honestly rather than pretending.
+  const nextMove = pathname.match(new RegExp(`^/api/cockpit/conversation/${UUID}/next-move$`));
+  if (nextMove && method === 'POST') {
+    const body = await readJson(req) || {};
+    const move = renderNextMove(body);
+    if (!move) { json(res, 400, { ok: false, error: 'unknown_move' }); return true; }
+    if (!move.executable) { json(res, 400, { ok: false, reason: 'not_executable_yet', type: move.type }); return true; }
+    const conv = (await query(
+      `select c.id, c.subject, c.contact_id, c.organization_id,
+              (select summary from ai_draft where conversation_id=c.id and status='proposed' order by created_at desc limit 1) as ai_summary
+         from conversation c where c.id=$1 and c.tenant_id=$2`, [nextMove[1], tenantId])).rows[0];
+    if (!conv) { json(res, 404, { ok: false, error: 'not_found' }); return true; }
+    if (move.type === 'follow_up_task') {
+      const dueAt = new Date(Date.now() + move.in_days * 86400000).toISOString();
+      const base = (conv.ai_summary || conv.subject || 'dit gesprek').replace(/\s+/g, ' ').trim().slice(0, 120);
+      const title = `Opvolgen: ${base}`;
+      const fu = await createFollowUp(tenantId, {
+        contactId: conv.contact_id, organizationId: conv.organization_id, conversationId: conv.id,
+        title, channelHint: 'EMAIL', dueAt,
+      });
+      if (!fu.ok) { json(res, 400, { ok: false, reason: fu.reason || 'follow_up_failed' }); return true; }
+      await recordAudit({ tenantId, action: 'cockpit_next_move', entityType: 'conversation', entityId: conv.id,
+        ipRef: ipRefOf(req), meta: { move: move.type, followUpId: fu.id, dueAt } });
+      json(res, 200, { ok: true, move: move.type, followUp: { id: fu.id, title, dueAt } });
+      return true;
+    }
+    json(res, 400, { ok: false, reason: 'not_executable_yet', type: move.type });
     return true;
   }
 
