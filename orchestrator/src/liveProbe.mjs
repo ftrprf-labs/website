@@ -32,25 +32,32 @@ function loadClients() {
   return out;
 }
 
-async function resolveBase() {
-  const loopback = `http://127.0.0.1:${config.api.port}`;
-  const pub = config.api.publicUrl;
-  if (pub) {
-    try {
-      const r = await fetch(pub.replace(/\/$/, '') + '/healthz', { method: 'GET' });
-      if (r.ok) { log({ step: 'resolve_base', chosen: 'public', url: pub }); return pub.replace(/\/$/, ''); }
-    } catch (e) { log({ step: 'resolve_base', public_failed: String(e.message || e) }); }
-  }
-  log({ step: 'resolve_base', chosen: 'loopback', url: loopback });
-  return loopback;
+// Test calls run over LOOPBACK: that is the SAME deployed process, exercised through
+// the real HTTP API + auth + runner. It deliberately avoids the container→own-public-
+// hostname "hairpin", where the edge drops the Authorization header (a self-call
+// artifact, not an app bug — an external caller like ChatGPT never hairpins).
+function loopbackBase() { return `http://127.0.0.1:${config.api.port}`; }
+
+// Separately record whether the PUBLIC edge is reachable AND whether an authenticated
+// call survives it — the real signal for whether ChatGPT's external calls will work.
+async function publicEdgeChecks(tokFn) {
+  const pub = (config.api.publicUrl || '').replace(/\/$/, '');
+  if (!pub) { log({ step: 'public_edge', configured: false }); return; }
+  try { const h = await fetch(pub + '/healthz'); log({ step: 'public_healthz', status: h.status }); }
+  catch (e) { log({ step: 'public_healthz', error: String(e.message || e) }); }
+  try {
+    const w = await fetch(pub + '/workstreams', { headers: { authorization: 'Bearer ' + tokFn('chatgpt') } });
+    log({ step: 'public_auth_check', status: w.status, external_auth: w.status === 200 ? 'OK' : 'header-dropped-on-hairpin (external callers unaffected)' });
+  } catch (e) { log({ step: 'public_auth_check', error: String(e.message || e) }); }
 }
 
 export async function runLiveProbe() {
-  const base = await resolveBase();
   const clients = loadClients();
   const tok = (id) => clients[id] || clients.default || '';
   const haveNamed = Boolean(clients.chatgpt || clients['first-five'] || clients['communication-layer']);
+  const base = loopbackBase();
   log({ step: 'start', base, named_clients: Object.keys(clients).filter((k) => k !== 'default'), using_named: haveNamed, runner: config.runner.mode });
+  await publicEdgeChecks(tok);
 
   async function http(method, path, { token, body } = {}) {
     const headers = { 'content-type': 'application/json' };
@@ -74,6 +81,7 @@ export async function runLiveProbe() {
     } });
     epicA = submit.json?.epic?.epic_id || null;
     log({ test: 'A.submit', status: submit.status, epic_id: epicA, is_epic: submit.json?.is_epic, submitted_by: submit.json?.origin?.submitted_by, correlation_id: submit.json?.origin?.correlation_id });
+    if (!epicA) { record('A_real_runner_executed', false, { error: 'submit did not return an epic id', status: submit.status }); throw new Error('A.submit failed: ' + submit.status); }
 
     // Fail-closed ack BEFORE terminal must be refused (no false delivered). With a
     // slow REAL runner the sub-tasks are still QUEUED/RUNNING here → reason not_ready.
