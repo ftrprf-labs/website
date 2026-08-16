@@ -1378,7 +1378,9 @@ function dossierFor(rel) {
     identities: [
       { channel: 'e-mail', value: (rel.fromTester && rel.fromTester.email) || emailFor(name, rel.org), cls: 'A' },
       { channel: 'telefoon', value: (rel.fromTester && rel.fromTester.mobile) || '+32 4xx xx xx xx', cls: 'A' },
-      { channel: 'whatsapp', value: 'zelfde nummer, koppeling nog niet actief', cls: 'C' },
+      // The number is stored as a channel_identity (A). WhatsApp *sending* is the
+      // adapter that is not yet wired; that C nuance lives in "Neem contact op".
+      { channel: 'whatsapp', value: 'zelfde nummer als telefoon', cls: 'A' },
     ],
     journey: ov.journey || `First Five · ${rel.firstFive || 'status onbekend'}`,
     memory: ov.memory || [{ text: 'Nog geen vastgelegde afspraken. Maculis stelt ze voor zodra er iets speelt.', source: 'ai', confidence: 'proposed', when: '' }],
@@ -1428,7 +1430,7 @@ function viewDossier() {
      </div>
      <div class="dos-meta">
        <span class="dos-stage">${esc(d.stage)}</span>
-       <span class="dos-owner">Eigenaar: ${esc(d.owner)} ${provChip('C')}</span>
+       <span class="dos-owner">Eigenaar: ${esc(d.owner)} ${provChip('A')}</span>
      </div>`;
   wrap.appendChild(idc);
 
@@ -1517,6 +1519,17 @@ function viewDossier() {
         return b;
       } },
   ];
+  // Principle: a relation is a person OR an organization. The model already carries
+  // organization + its contacts (organization/contact tables, orgContacts), so this
+  // is A, not future. Shown for real organizations, not for "zelfstandig".
+  const isOrg = d.org && !/zelfstandig/i.test(d.org);
+  if (isOrg) sections.push({ key: 'org', title: 'Organisatie en andere contacten', prov: 'A', open: false, body: () => {
+      const b = el('div', '');
+      b.innerHTML =
+        `<p class="dos-note">Een relatie kan een persoon of een organisatie zijn. Bij ${esc(d.org)} kan Maculis communicatie, follow-ups en signalen ook op organisatieniveau samenbrengen, naast de persoon. Het model draagt meerdere contactpersonen per organisatie ${provChip('A')}, en een persoon kan van organisatie wisselen.</p>
+         <p class="dos-note">In dit voorbeeld is er één bekende contactpersoon binnen deze organisatie.</p>`;
+      return b;
+    } });
   if (d.pattern) sections.push({ key: 'patroon', title: 'Onderdeel van een patroon', prov: 'B', open: false, body: () => {
       const b = el('div', '');
       b.innerHTML =
@@ -1544,8 +1557,32 @@ function viewDossier() {
   });
   wrap.appendChild(secWrap);
 
-  // always a way onward to the conversation
+  // Communication as a contextual capability: ONE "Neem contact op" that offers only
+  // the relevant and allowed channels, never scattered per-channel buttons. Honest
+  // about state: e-mail and telefonie exist (A); the WhatsApp send adapter is C.
   const foot = el('div', 'dos-foot');
+  const optedOut = d.consentStatus === 'OPTED_OUT';
+  const contact = el('div', 'dos-contact');
+  contact.innerHTML =
+    `<button class="btn btn-primary dos-contact-btn" aria-expanded="false">Neem contact op</button>
+     <div class="dos-contact-menu" hidden role="menu">
+       <button class="dos-chan" data-go="work" ${optedOut ? 'disabled' : ''} role="menuitem">E-mail${optedOut ? ' · geen toestemming' : ' · opent het gesprek'}</button>
+       <button class="dos-chan" role="menuitem">Bellen · telefonie bestaat ${provChip('A')}</button>
+       <button class="dos-chan" disabled role="menuitem">WhatsApp · vereist opt-in, verzendadapter volgt ${provChip('C')}</button>
+       <p class="dos-note">Alleen kanalen met contactgegevens en geldige toestemming zijn beschikbaar. Consent per kanaal en per doel bestaat in het model ${provChip('A')}.</p>
+     </div>`;
+  const cBtn = contact.querySelector('.dos-contact-btn');
+  const cMenu = contact.querySelector('.dos-contact-menu');
+  cBtn.addEventListener('click', () => {
+    const open = cMenu.hasAttribute('hidden');
+    if (open) { cMenu.removeAttribute('hidden'); cBtn.setAttribute('aria-expanded', 'true'); }
+    else { cMenu.setAttribute('hidden', ''); cBtn.setAttribute('aria-expanded', 'false'); }
+  });
+  const mail = contact.querySelector('[data-go="work"]');
+  if (mail) mail.addEventListener('click', () => { scn = 'work'; render(); });
+  foot.appendChild(contact);
+
+  // always a way onward to the conversation
   const g = el('button', 'btn btn-ghost', 'Open het gesprek →');
   g.addEventListener('click', () => { scn = 'work'; render(); });
   foot.appendChild(g);

@@ -1443,3 +1443,263 @@ Vastgelegde principes:
 - Zoeken in Relaties: `/cockpit.html?dir=C&scn=relaties` (zoekveld staat direct onder de betekenislijn).
 - Donkere leesbaarheid: `?scn=vandaag&day=busy`, `?scn=reveal&rev=r-kim&expand=1`, `?scn=work` (aperture).
 - Groei duurzaam vindbaar: open Saar vanuit Relaties → dossiersectie "Onderdeel van een patroon".
+
+## 24. Pre-freeze productarchitectuur-review (DEFINITIEVE BASELINE)
+
+Dit is de definitieve pre-freeze review. Doel: de eenvoudige menselijke bovenlaag toetsen tegen de
+vraag of ze overeind blijft wanneer Maculis veel intelligenter wordt, duizenden relaties volgt,
+meerdere medewerkers bedient en meerdere kanalen gebruikt. Bron van waarheid voor wat werkelijk bestaat:
+de echte implementatie (`server/comm/*.mjs`, migraties 001 tot 005), niet de prototype-fixtures.
+
+Belangrijkste bevinding van deze ronde: **de backend is aanzienlijk rijker dan de prototype-fixtures
+suggereerden.** Verschillende zaken die het dossier als "toekomstig" markeerde, bestaan in werkelijkheid
+al in het datamodel. De A/B/C-classificatie hieronder is daarop gecorrigeerd, en het prototype is
+bijgewerkt zodat het bestaande capabilities niet langer als toekomstig voorstelt.
+
+### 24.1 De fundamentele productbelofte (frozen)
+
+Maculis mag steeds meer zien, begrijpen en onthouden, zodat de mens steeds beter alleen ziet wat ertoe
+doet. De cockpit is de menselijke bovenlaag tussen wat Maculis waarneemt en waar een mens aandacht aan
+moet geven of mee wil werken. De intelligence eronder mag sterk groeien zonder dat de interface
+evenredig drukker wordt. Geen dashboard van alle data, geen activiteitenfeed.
+
+### 24.2 Vandaag = aandachtsfilter met twee legitieme bronnen (frozen)
+
+Vandaag toont niet wat er gebeurde, maar waar een mens er nú iets aan heeft om te zien, beoordelen,
+beslissen of doen. First Five-completions, scans, reveals, observaties en communicatie-events komen niet
+automatisch op Vandaag. Schaaltest: 137 sessies, 42 reveals, honderden veranderingen en tientallen
+berichten in één nacht, en als slechts vier zaken menselijke aandacht verdienen toont Vandaag vier. Niets
+te melden mag leeg zijn.
+
+Twee bronnen passeren dezelfde strenge drempel:
+
+- **Reactieve aandacht**: iets vraagt aantoonbaar om je, bijvoorbeeld een onbeantwoord bericht, een
+  verlopen follow-up, een beslissing. In de code: `getRelationship().summary.nextAction` (unread /
+  follow_up / waiting / ai). Bestaat (A/B).
+- **Ontdekte aandacht**: Maculis combineert meerdere signalen, herinneringen en veranderingen over tijd
+  en bronnen en ontdekt een betekenisvol verband dat op zichzelf door geen enkel event werd gevraagd. In
+  het prototype: de reveals (Kim: reactietijd plus toon plus timing; Saar: stilte plus heropende mail
+  plus onbeantwoorde vraag) en het Groei-patroon (drie relaties, zelfde verloop). Menselijke taal: "Dit
+  valt me op", met provenance (wat, waarom, waarop gebaseerd, welke context verder).
+
+De lat is hoog: onzekerheid blijft eerlijk (hypothese als hypothese, nooit afgeleid verband als feit),
+en de stille meerderheid blijft gebundeld en rustig. De architectuur biedt hier ruimte voor zonder een
+feed van AI-observaties te worden. Dit is een principe, geen opdracht om nu een correlation engine te
+bouwen.
+
+### 24.3 Signal → Movement → Attention → Action (frozen)
+
+SIGNAL (Maculis neemt waar) → MOVEMENT (iets veranderde betekenisvol) → ATTENTION (verdient nu menselijke
+aandacht) → ACTION (er is iets te doen). Niet ieder signal wordt movement, niet iedere movement wordt
+attention, niet iedere attention wordt action, en niet iedere action is communicatie. Cruciaal en
+bevestigd door de code: **attention is afgeleid, nooit dubbel opgeslagen** (migratie 005:
+"ATTENTION IS DERIVED, NEVER STORED TWICE ... computed at read time"). Aandacht is geen notificatiepile en
+geen takenlijst. Aandacht is bovendien niet hetzelfde als taak.
+
+### 24.4 "Voor mij" en meerdere medewerkers (frozen principe; A in het model)
+
+De werkruimte is voor Maculis-medewerkers, niet voor klanten. Meerdere medewerkers moeten later dezelfde
+IA kunnen delen zonder dat iedereen dezelfde Vandaag krijgt. Het model draagt dit al: `app_user`, `team`,
+`team_member`, `conversation.owner_user_id`, `conversation.team_id`, `assigned_to`, en een `notification`
+tabel met types (new_inbound, mention, assigned, reply_overdue). Vandaag is daarom principieel persoons-
+of verantwoordelijkheidsrelatief (mijn/mijn team/aan mij toegewezen), niet één globale lijst. Geen
+rollen- of permissiesysteem in deze ronde; wel als baseline vastgelegd dat Vandaag scopebaar is op
+eigenaar/toewijzing.
+
+### 24.5 Prioriteit en overbelasting (frozen principe; thresholds niet frozen)
+
+Ook terechte aandacht kan te veel worden. Bij dertig echte aandachtspunten is het antwoord niet dertig
+grote kaarten. De IA draagt schaal via tiers (Nu, Beweging, Klaar, Rust), bundeling (de stille
+meerderheid als één regel), urgentieonderscheid en het "één ding" versus "druk" onderscheid. Concrete
+ranking, thresholds en bundelregels zijn expliciet niet frozen (verfijnen op echt gebruik).
+
+### 24.6 Aandacht heeft een levenscyclus (frozen principe)
+
+Aandacht verschijnt en kan betekenisvol verdwijnen: gezien, afgehandeld ("terugval in rust", nooit
+zomaar weg), klant is aan zet. Rijkere toestanden (later, gedelegeerd/toegewezen, bewust geen actie,
+automatisch niet meer relevant) worden gedragen door de aanwezige bouwstenen (owner/assignment,
+attention-read-state 005) en zijn nu niet volledig gedemonstreerd. Onderscheid aandacht versus taak
+blijft: niet ieder aandachtspunt wordt een taak, niet iedere taak komt uit intelligence.
+
+### 24.7 Hoofdarchitectuur (frozen)
+
+Vandaag (wat vraagt mij nu) · Relaties (wat beweegt in mijn netwerk plus toegang tot alle relaties) ·
+Gesprekken (waar communicatie operationeel plaatsvindt) · Relatiedossier (wat Maculis weet, onthoudt en
+zag rond deze relatie) · Beheer (hoe we Maculis en infrastructuur beheren). Geen nieuwe
+hoofdnavigatiebestemmingen zonder aantoonbare gebruikersnoodzaak.
+
+### 24.8 Relaties: Maculis kijkt ↔ jij hebt het stuur (frozen)
+
+Kalme default toont een kleine betekenisvolle selectie (wat beweegt). Zoeken staat permanent zichtbaar
+(vorige ronde), en de volledige werkruimte (zoeken, filteren, sorteren, selecteren, segmenteren, bulk,
+individuele relatie openen) is één stap weg. `listRelationships` (zoek over naam/e-mail/mobiel/
+organisatie/domein) bestaat (A). Meaning-first blokkeert professionele agency niet.
+
+### 24.9 Relatiedossier (frozen)
+
+Duurzaam detailniveau, meaning first: eerst "Wat speelt er nu", daarna detail-on-demand. Betekenis →
+context → historie → handelen → administratie, niet databasevelden → categorieën → scherm. Geen eindeloze
+CRM-accordeon; secties standaard grotendeels ingeklapt.
+
+### 24.10 Persoon, organisatie en relatie (GEEN structureel blocker; A in het model)
+
+Getoetst en opgelost. Het model draagt B2B al: `organization` (naam, domein, stage), `contact`
+(organization_id, rol, stage), en `orgContacts` (alle contactpersonen binnen een organisatie); follow-ups
+en conversaties kennen zowel `contact_id` als `organization_id`. Een relatie is dus een persoon **of** een
+organisatie, en het dossierpatroon geldt voor beide. Het prototype gelijkstelde "relatie" impliciet aan
+één persoon; dat is deze ronde gecorrigeerd met een dossiersectie "Organisatie en andere contacten" (A).
+Geen nieuw datamodel gebouwd; de capability bestaat al.
+
+### 24.11 Communicatie is een contextuele capability (frozen)
+
+Communicatie is geen apart eiland. Vanuit context leidt één actie "Neem contact op" naar alleen de
+relevante en toegestane kanalen, nooit losse kanaalknoppen. Bestaat in het model: `channel_identity` per
+kanaal, `communication_preference` (per kanaal én doel: transactional/research/commercial/privacy, met
+legal_basis en withdrawn_at), `consent` per kanaal, `call_record`, `ai_draft`. Deze ronde
+gedemonstreerd in het dossier: E-mail (opent het gesprek), Bellen (telefonie bestaat, A), WhatsApp
+(vereist opt-in, verzendadapter volgt, C). De verzendadapters voor WhatsApp/SMS/social zijn de C-laag;
+de identiteiten, consent en conversatiestructuur eronder bestaan.
+
+### 24.12 Cross-channel continuïteit (frozen principe; e-mail A, overige adapters C)
+
+Denk kanaalonafhankelijk vanuit de relatie. `channel_identity` (meerdere kanalen), conversaties met een
+`channel`, en de `activity`-timeline (unified, message plus non-message events) dragen één relationele
+historie. De medewerker reconstrueert de relatie niet per kanaal opnieuw. E-mail is volledig aanwezig (A);
+de overige kanaaladapters zijn C.
+
+### 24.13 AI-uitleg en menselijke controle (frozen)
+
+Waarom-zie-ik-dit, gelaagd (Feit → Observatie → Gevolgtrekking → Suggestie) met evidence en, waar zinvol,
+een zekerheidsindicatie in menselijke taal ("samenval in tijd, geen bewezen oorzaak"). Menselijke
+provenance, niet overal technische modeldetails. Niets wordt automatisch verzonden; de mens houdt het
+laatste woord en een menselijke wijziging blijft behouden.
+
+### 24.14 Geheugen, observatie, interpretatie en reveal zijn niet hetzelfde (frozen)
+
+Vier gescheiden begrippen die nooit één generieke "AI insights"-bak mogen worden: wat Maculis onthoudt
+(`relationship_memory`, A), wat het observeert, wat het interpreteert (de reveal-lagen), en wat
+daadwerkelijk als reveal is getoond. Aanscherping voor content-refinement: de dossierlabels mogen
+onthouden en observeren scherper scheiden. Structuur hoeft niet te wijzigen.
+
+### 24.15 A/B/C-capabilities, definitief (gecorrigeerd tegen de echte code)
+
+**A — bestaat werkelijk** (schema plus aggregatie in `relationship.mjs`):
+persoon en organisatie plus meerdere contacten per organisatie; kanaalidentiteiten per kanaal;
+omnichannel conversaties; unified activity-timeline (incl. merges/assignments); relationship_memory;
+follow-ups (contact- en organisatieniveau); consent per kanaal en `communication_preference` per doel;
+ai_draft; interne notities per gesprek; app_user/team/team_member/owner/assignment; notification (getypt);
+call_record; audit_event/delivery_event; afgeleide attention-read-state; zoeken (`listRelationships`).
+
+**B — betrouwbaar afleidbaar**: "wat speelt er nu" (nextAction), attention zelf (derived), het
+Groei-patroon per relatie, en ontdekte-aandacht-synthese uit activity plus memory plus conversaties.
+
+**C — vereist nieuwe backend/persistence**, met prioritering:
+
+- *Nodig vóór echte pilot/productie*: de verzendadapters voor niet-e-mailkanalen (WhatsApp/SMS), voor
+  zover de pilot die kanalen echt gebruikt.
+- *Later waarschijnlijk waardevol*: duurzame reveal-/ontdekte-inzicht-historie (welke reveal wanneer,
+  waarom en aan wie getoond, en welke actie volgde). Dit is de enige echt ontbrekende inhoudelijke
+  pijler en het sluitstuk van auditability (§24.20). Ook: relatie-niveau notities en tags,
+  per-sessie journeydetail, één geünificeerde consent-versie over invitation- en comm-systeem.
+- *Mogelijk niet nodig, eerst gebruik afwachten*: een aparte globale zoekingang, een zelfstandige
+  Journeys-werkplek, expliciete merge/dedup-UX (de `activity`-merge bestaat, de bediening niet).
+
+Een future-prototype-element is geen engineeringbestelling.
+
+### 24.16 Fouten, onzekerheid en lege states (frozen principe)
+
+Gedemonstreerd: lege Vandaag ("Je bent bij"), lege Groei ("Nog geen patroon"), onzekerheid (zekerheid
+plus "geen bewezen oorzaak"), mislukte levering (bounce bij Tom), ontbrekende toestemming (kanaalknoppen
+uitgeschakeld), weinig historie ("nog niets vastgelegd"). De filosofie houdt overal stand: niet bluffen,
+niet overclaimen, geen fictieve zekerheid. Mogelijk dubbele records: de `activity`-merge bestaat (A), de
+merge-bediening is C.
+
+### 24.17 Notificaties buiten de werkruimte (frozen principe)
+
+Vandaag is het interne aandachtsfilter. Een attention-item rechtvaardigt niet automatisch een push, mail
+of WhatsApp naar de medewerker; externe onderbreking vereist een hogere drempel dan zichtbaarheid op
+Vandaag. Het model heeft er een thuis voor (`notification`, getypt), maar toekomstige workstreams sturen
+niet ieder hun eigen notificaties. Geen notificatiesysteem in deze ronde.
+
+### 24.18 Beheer en Testerbeheer (frozen)
+
+Beheer blijft één rustige ingang (voet van de rail) met Testerbeheer, Berichtsjablonen, Imports,
+Instellingen. Testerbeheer hoort niet in de hoofdnavigatie. Beheer blijft uit de dagelijkse aandacht.
+
+### 24.19 Journeys, Groei, zoeken (frozen)
+
+Journey is context van een relatie; een zelfstandige werkplek pas als medewerkers dagelijks groepen
+relaties operationeel door journey-stappen bewegen of capaciteit plannen (nu niet het geval). Groei is
+conditioneel maar duurzaam vindbaar bij de betrokken relatie (vorige ronde). Zoeken in Relaties volstaat;
+globale zoek is nu niet nodig (trigger: structureel personen zoeken vanuit Vandaag/Gesprekken/Beheer).
+
+### 24.20 Herleidbaarheid/audit (frozen principe; grotendeels A, sluitstuk C)
+
+`audit_event`, `activity` en `delivery_event` dragen wat Maculis deed, wanneer en waarop gebaseerd. Het
+sluitstuk "wat werd aan de medewerker getoond en welke menselijke actie volgde" hangt aan de duurzame
+reveal-historie (C). De provenance-filosofie maakt audit mogelijk, niet onmogelijk.
+
+### 24.21 Desktop, mobiel, responsiveness (frozen uitgangspunt)
+
+De volledige professionele werkruimte is primair desktop/laptop. Onderweg minimaal relevant: Vandaag
+bekijken, relatie opzoeken, contactgegevens, gesprek lezen, contact starten. De CSS is responsive
+(rail en tabellen hebben mobiele varianten); geen aparte mobiele app. De architectuur werkt niet op één
+prototypebreedte.
+
+### 24.22 Donker en licht (principe frozen; palet-per-scherm NIET frozen)
+
+Principe: de lichte cockpit is de standaard dagelijkse werkomgeving; donker is betekenisvolle nadruk
+(reveal/aperture, bijzondere aandacht), niet de permanente dagelijkse omgeving. De verbeterde contrast-
+en leesbaarheidsregels blijven. **Openstaande visual-refinement beslissing (bewust niet nu beslist):**
+Vandaag rendert in het huidige prototype nog volledig donker (het "dual-space: donker om te zien"
+concept). Onder principe §24.22 is dat de eerste vraag voor de visuele fase. Aanbeveling: Vandaag licht
+maken als dagelijkse standaard, met de donkere behandeling gereserveerd voor de reveal/aperture-momenten
+erbinnen. Dit is een paletkeuze, geen IA-wijziging, en valt bewust binnen "niet frozen".
+
+### 24.23 CRM-drift review (frozen filosofie)
+
+Per onderdeel getoetst: Vandaag (curatie, geen feed), Relaties-default (movers, geen tabel), dossier
+(betekenis eerst), Gesprekken (aandacht-tiers). De tabel in Relaties-werkruimte en Testerbeheer zijn
+gereedschap achter "jij hebt het stuur", niet de productfilosofie. Maculis zegt "dit doet ertoe; de
+werkelijkheid erachter is beschikbaar", niet "hier is alles wat we weten".
+
+### 24.24 Wat frozen is, en wat bewust niet
+
+**Frozen:** hoofd-IA; rol van Vandaag als aandachtsfilter met twee bronnen (reactief en ontdekt); rol van
+Relaties (twee modi); relatiedossierprincipe (meaning-first, detail-on-demand); Gesprekken; Beheer;
+attention-principe en signal→movement→attention→action; communicatie als contextuele capability;
+meaning-first/detail-on-demand; licht/donker-principe; provenance/eerlijkheid en de scheiding geheugen/
+observatie/interpretatie/reveal; relatie (persoon of organisatie) als duurzame contextdrager; Vandaag
+scopebaar op eigenaar/toewijzing; attention ≠ externe notificatie.
+
+**Bewust NIET frozen:** exacte copy; pixels; definitieve kleuren en het palet-per-scherm (incl. of Vandaag
+licht of donker is); specifieke componentvormen; rankingalgoritmes; exacte attention-thresholds en
+bundelregels; toekomstige capabilities; alle aannames die alleen echt gebruik kan bewijzen. Frozen
+betekent geen willekeurige architectuurwijziging zonder bewijs, niet "nooit meer leren".
+
+### 24.25 Prototype-correcties in deze ronde (alleen aantoonbare inconsistenties)
+
+- Eigenaar in het dossier: van "toekomstig" naar "in Maculis" (owner/assignment bestaan in het model).
+- WhatsApp-identiteit: niet langer als geheel "toekomstig"; het nummer bestaat (channel_identity, A), de
+  verzendadapter is de C-laag (nu correct in "Neem contact op").
+- Nieuwe dossiersectie "Organisatie en andere contacten" (A): relatie is persoon of organisatie.
+- Nieuwe contextuele actie "Neem contact op" in het dossier: één actie, alleen relevante/toegestane
+  kanalen, eerlijk over kanaalstatus. Geen losse kanaalknoppen, geen gefakete capabilities. Acties inert
+  in het prototype.
+
+### 24.26 Eindconclusie
+
+De laatste toets: kan Maculis straks honderd keer meer zien zonder dat de medewerker honderd keer meer
+hoeft te zien, en kan die medewerker, zodra hij wil handelen, vanuit dezelfde relatiecontext moeiteloos
+begrijpen, beslissen en communiceren? Het antwoord is overtuigend ja. Vandaag filtert (twee bronnen,
+zelfde hoge drempel, afgeleide attention, geen feed); de relatie is de duurzame contextdrager voor
+persoon én organisatie; communicatie is een contextuele capability met echte consent- en kanaalmodellen
+eronder; en de enige echt ontbrekende inhoudelijke pijler (duurzame reveal-historie) is eerlijk als C
+belegd met een vaste plek in het dossier.
+
+**A — FUTURE COCKPIT BASELINE FROZEN.**
+
+Geen resterende fundamentele blockers. Vanuit deze baseline kunnen de echte onderliggende capabilities
+gericht verder worden ontwikkeld (verzendadapters waar de pilot ze nodig heeft, en daarna de duurzame
+reveal-/inzicht-historie als sluitstuk van geheugen en auditability). Volgende stap is visuele/content-
+verfijning, met als eerste beslissing het licht/donker-palet van Vandaag (§24.22).
