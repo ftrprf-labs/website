@@ -182,7 +182,10 @@ const securityHeaders = {
 
 async function serveStatic(req, res, urlPath) {
   let rel = decodeURIComponent(urlPath);
-  if (rel === '/' || rel === '') rel = '/index.html';
+  // PREVIEW ONLY: the staging cockpit serves the operational real-data cockpit at the root, so the
+  // preview URL opens Slice 1 + Slice 2 directly. Guarded by PREVIEW_COCKPIT_ROOT; in production this
+  // flag is unset and the root stays the Testerbeheer admin. Never touches production behaviour.
+  if (rel === '/' || rel === '') rel = config.previewCockpitRoot ? '/cockpit-live.html' : '/index.html';
   const full = normalize(join(PUBLIC, rel));
   if (!full.startsWith(PUBLIC)) {
     res.writeHead(403).end('Forbidden');

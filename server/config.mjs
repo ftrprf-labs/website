@@ -87,6 +87,9 @@ export const config = {
   // Five flow is unaffected until we deliberately switch it on. No secrets in code.
   commLayerEnabled: /^(1|true|yes|on)$/i.test(process.env.COMM_LAYER_ENABLED || ''),
   databaseUrl: process.env.DATABASE_URL || '',
+  // PREVIEW ONLY: when set, the site root "/" serves the operational cockpit (/cockpit-live.html)
+  // instead of the Testerbeheer admin. Off by default, so production Testerbeheer is unchanged.
+  previewCockpitRoot: /^(1|true|yes|on)$/i.test(process.env.PREVIEW_COCKPIT_ROOT || ''),
   // Resend inbound (Receiving). MAIL_API_KEY (already used for outbound) doubles as the
   // Receiving-API key; the webhook signing secret is set AFTER the webhook is created in Resend.
   resendWebhookSecret: process.env.RESEND_WEBHOOK_SECRET || '',
