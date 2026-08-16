@@ -16,30 +16,15 @@
        CSP-safe: no inline scripts, no inline handlers. Logic in /cockpit.js.
        ===================================================================== -->
 
-  <div class="proto-flag">
-    <b>Prototype</b>
-    <span class="mobile-hide">Maculis Future Cockpit · fictieve gegevens</span>
-    <span class="spacer"></span>
-
-    <span class="ctrl mobile-hide">
-      <label id="dir-label">Richting</label>
-      <span class="seg" role="group" aria-labelledby="dir-label">
-        <button data-dir="C" aria-pressed="true">C · Reveal/Work</button>
-        <button data-dir="A" aria-pressed="false">A · Deep</button>
-      </span>
-    </span>
-
-    <span class="ctrl">
-      <label id="scn-label" class="mobile-hide">Scherm</label>
-      <span class="seg" role="group" aria-labelledby="scn-label">
-        <button data-scn="vandaag" aria-pressed="true">Vandaag</button>
-        <button data-scn="reveal" aria-pressed="false">Reveal</button>
-        <button data-scn="relaties" aria-pressed="false">Relaties</button>
-        <button data-scn="gesprekken" aria-pressed="false">Gesprekken</button>
-        <button data-scn="work" aria-pressed="false">Work</button>
-      </span>
-    </span>
-  </div>
+  <!-- Prototype controls live OUTSIDE the product. A new colleague never sees a
+       second navigation system; there is one nav model (the left rail). This
+       launcher and drawer exist only for us to test states, directions and days.
+       Nothing here is future product UI. -->
+  <button id="proto-toggle" class="proto-toggle" aria-expanded="false" aria-controls="proto-panel">
+    <span class="pt-ico" aria-hidden="true">⧉</span> Prototype
+  </button>
+  <aside id="proto-panel" class="proto-panel" aria-label="Prototype controls" hidden></aside>
+  <div id="proto-scrim" class="proto-scrim" hidden></div>
 
   <div class="shell" data-direction="C" data-space="reveal" id="shell">
     <div class="frame">

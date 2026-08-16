@@ -28,7 +28,13 @@ Schrijfregel gerespecteerd: geen koppeltekens of gedachtestreepjes als stijlmidd
 > relaties bestaat. Relaties is herontworpen vanuit de 5.000-vraag: meaning-first, geen CRM-lijst. Het
 > uitlegblok is weg; gedrag leert de gebruiker. §20 bevat ook de gevraagde tegengas op dit reduceren.
 > Waar eerdere secties nog Journeys of Groei als vaste bestemming noemen, geldt §20 als de actuele stand.
-> Nog steeds geen productie-rewrite en geen migratie uitgevoerd.
+>
+> **Update na de agency-ronde (§21).** De prototype-besturing is volledig uit de productervaring gehaald
+> (één navigatiemodel, alleen de linkerrail) en in een aparte "Prototype controls"-lade gezet. Relaties
+> heeft nu twee modi: Maculis kiest, of jij hebt het stuur met een echte high-density werkruimte
+> (zoeken, combineerbare filters, sorteren, selectie, bulkacties). §21 bevat de derde first-day test, de
+> vier-intent stresstest, uitgebreide tegengas, en de aanbeveling dat de IA klaar is voor visuele
+> verfijning. Nog steeds geen productie-rewrite en geen migratie uitgevoerd.
 
 ---
 
@@ -907,3 +913,176 @@ alleen verhuizen naar waar ze thuishoren.
 - Groei die verschijnt door een patroon (drukke dag): `?scn=vandaag&day=busy`, dan het patroon openen
 - De Groei-patroonweergave: `?scn=groei&day=busy` (en de eerlijke lege staat: `?scn=groei&day=normal`)
 - Gedrag dat leert, zonder uitlegblok: `?scn=vandaag&day=normal`
+
+---
+
+## 21. Eén navigatiemodel, en de cockpit als gereedschap (agency-ronde)
+
+Deze ronde bewijst twee dingen tegelijk: dat er visueel maar één navigatiemodel bestaat, en dat de
+cockpit niet alleen vóór de gebruiker kijkt maar ook krachtig gereedschap in zijn handen wordt.
+Prototype only. Geen productie, geen migratie, geen nieuwe backend.
+
+### 21.1 De twee navigatiesystemen ontward
+
+De observatie klopte: er liepen twee navigaties door elkaar. Audit van de oude bovenbalk:
+
+| Element bovenin | Wat het was | Oordeel |
+|---|---|---|
+| Richting (C/A) | visuele richting wisselen | **puur prototype** |
+| Scherm (Vandaag/Reveal/Relaties/Gesprekken/Work) | naar een state springen | **puur prototype** (dupliceerde bovendien de linkernav) |
+| Dag (rustig/één ding/normaal/druk) | een dagsituatie kiezen | **puur prototype** (een echte gebruiker kiest zijn dag niet) |
+| Reveal-switch (Kim/Saar/lens) | een reveal kiezen om te tonen | **puur prototype** |
+
+**Er zat geen enkele echte productfunctionaliteit bovenin.** Alles was besturing van het prototype.
+Daarom is de hele bovenbalk uit de productervaring gehaald. Alle testbesturing zit nu in één discrete
+"Prototype controls"-lade, bereikbaar via één klein knopje ("Prototype", rechtsonder), duidelijk buiten
+de product-UI: donker, monospace, met een streepjeskader en de tekst "Alleen voor ontwerp en test. Een
+echte gebruiker ziet dit niet." We gooien de controls dus niet weg, we zetten ze in een aparte
+buitenlaag voor onszelf.
+
+**Before/after (navigatie).**
+- Before: links de echte IA, boven een tweede balk die grotendeels prototype-besturing was. Twee
+  mentale modellen.
+- After: links de enige navigatie (Vandaag, Relaties, Gesprekken, plus discrete Beheer en, alleen bij
+  een patroon, Groei). De inhoud vertelt wat er gebeurt en wat je kunt doen. De prototype-lade staat
+  los, zichtbaar als test-gereedschap, niet als product.
+
+**Tegengas: is er horizontale productnavigatie die wél nodig is?** Op dit moment niet. De enige
+serieuze kandidaat voor iets persistents bovenin is een globale zoekbalk. Maar zoeken hoort hier
+contextueel: op Vandaag hoef je niet te zoeken (Maculis selecteert), en in Relaties staat zoeken
+prominent in beide modi. Zou later een echt product-brede sprong nodig blijken (zoek over relaties,
+gesprekken en journeys tegelijk), dan is een enkel zoekveld in de rail of een command-palette (toets
+te openen) logischer dan een tweede horizontale balk. Advies: houd het bij één nav-model tot echt
+gebruik een globale sprong afdwingt, en los dat dan op met zoeken, niet met tabbladen.
+
+### 21.2 Het fundamentele interactieprincipe: Maculis voor jou versus jij van Maculis
+
+De cockpit maakt nu expliciet onderscheid tussen twee houdingen.
+
+- **Maculis heeft iets voor jou.** Vandaag, en de standaardingang van Relaties ("Maculis kijkt voor
+  je"). Hier selecteert en duidt Maculis. De gebruiker hoeft niet te zoeken, filteren of configureren.
+- **Jij wilt iets van Maculis.** De werkmodus van Relaties ("Jij hebt het stuur"). Hier zoekt,
+  filtert, sorteert, selecteert en handelt de gebruiker zelf.
+
+De overgang is één rustige stap: op de meaning-first Relaties staat onderaan "Zelf zoeken, filteren en
+werken". In de werkmodus staat bovenaan "Terug naar wat Maculis toont". Meaning-first betekent hier dus
+nadrukkelijk niet user-agency-last.
+
+### 21.3 Relaties in twee modi, één product
+
+- **Modus A, Maculis kiest.** "Van je 5.000 relaties bewegen er nu 7", gegroepeerd op reden. Even
+  rustig bij 50 als bij 50.000. De kalme default.
+- **Modus B, zelf werken.** Een echte high-density werkruimte over de volledige 5.000: een compacte
+  zoekbalk, meerdere combineerbare filters (organisatie, First Five, laatste contact, eigenaar, open
+  actie, reveal geweest), filters wissen, sorteren (recente beweging, laatste contact, naam), een
+  live resultaatteller ("377 van 5.000"), meervoudige selectie met select-all, en geloofwaardige
+  bulkacties (follow-up plannen, opslaan als segment, exporteren) die als prototype duidelijk niets
+  echt versturen. Een tabel is hier niet verboden omdat het op SaaS lijkt; een tabel is juist het
+  goede gereedschap voor deze taak. Het onderscheidende zit in de rust van modus A en de intelligentie
+  eromheen, niet in het vermijden van bewezen patronen.
+
+De filterset is bewust gecureerd, niet de volledige CRM-waslijst. Dimensies die betekenis dragen voor
+Maculis (journey/First Five, laatste contact, open actie, eigenaar, recente beweging, reveal) zijn
+opgenomen; puur administratieve velden zijn weggelaten om ruis te voorkomen.
+
+### 21.4 De derde first-day test (tien taken, geen uitleg)
+
+Doorlopen als nieuwe collega, nul uitleg, prototype-lade dicht.
+
+| Taak | Waar ik klikte | Aarzeling | Nav-wissels | Uitleg nodig? |
+|---|---|---|---|---|
+| 1. Wat vraagt aandacht? | Vandaag (staat bovenaan, actief) | geen | 0 | nee |
+| 2. Waarom? | "Waarom zie ik dit?" op het item | geen | 0 | nee |
+| 3. Beantwoord Jean-Baptiste | item → "Open het gesprek" → composer | geen | 1 | nee |
+| 4. Eén specifieke rustige relatie | Relaties → zelf zoeken → naam typen | kort: eerst gezocht naar zoekveld in modus A | 1 tot 2 | nee |
+| 5. Alle relaties van organisatie X | Relaties → zelf werken → filter Organisatie | geen | 1 | nee |
+| 6. Twee of drie voorwaarden combineren | filters stapelen (org + First Five + laatste contact) | geen | 0 | nee |
+| 7. Twintig selecteren + bulk | select-all + "Follow-up plannen" | kort: select-all koos zichtbare, niet alle 377 | 0 | licht (zie risico) |
+| 8. Wat Maculis eerder bij een relatie zag | relatie openen → "Wat Maculis zag" | geen | 1 | nee |
+| 9. Waar zit iemand in zijn journey | relatie openen → Journey-paneel | geen | 1 | nee |
+| 10. Organisatiebreed patroon | Vandaag (drukke dag) → patroon → Groei | geen, mits het patroon bestaat | 1 | nee |
+
+Conclusie: negen van de tien taken lukken zonder uitleg en met hooguit één of twee navigatiewissels.
+De twee lichte aarzelingen (zoeken in modus A, en select-all-zichtbaar versus alle resultaten) zijn
+interactiedetails, geen IA-problemen, en zijn in het prototype al deels ondervangen (de hand-off naar
+modus B, en "Selecteer alle N resultaten"). Geen enkele taak vroeg om uitlegtekst.
+
+### 21.5 De vier-intent stresstest
+
+| Intentie | Draagt de kerninterface het? | Hoe |
+|---|---|---|
+| Dagelijks relationeel werk | Ja, ruim | Leeft vrijwel volledig op Vandaag en in Gesprekken. Ziet modus B zelden. |
+| Gericht zoeken | Ja | Zoeken in Relaties (beide modi) en straks eventueel een command-palette. |
+| Onderzoeken/segmenteren | Ja | Modus B: filters combineren, sorteren, opslaan als segment. |
+| Operationeel werk | Grotendeels | Modus B: selectie + bulkacties. Grote journey-operaties zijn de grens, zie 21.6. |
+
+Dezelfde kerninterface draagt de vier intenties zonder voor iedereen permanent alle complexiteit te
+tonen. De zwaardere modi (onderzoeken, operationeel) zitten achter een bewuste stap (progressive
+disclosure), niet achter verstopte features.
+
+### 21.6 Tegengas en resterende risico's
+
+- **Drie permanente bestemmingen kunnen te weinig zijn** als zoeken niet uitstekend is. De hele
+  belofte leunt op goede selectie en goed zoeken. Behandel zoekkwaliteit als eerste-klas eis.
+- **Vandaag krijgt veel macht.** Als Maculis' selectie ooit fout of incompleet is, mist de gebruiker
+  het, want er is minder handmatig vangnet. Mitigatie: elk item blijft uitlegbaar ("waarom"), en de
+  volledige werkruimte is altijd één stap weg. Maar dit blijft de kern van het risico van meaning-first.
+- **Vertrouwen.** De gebruiker moet Maculis kunnen laten kiezen zonder controle te verliezen. Het
+  expliciete onderscheid "Maculis kijkt voor je" versus "Jij hebt het stuur", plus provenance overal,
+  is het antwoord. Verdwijnt dat onderscheid, dan slaat rust om in machteloosheid.
+- **Meaning-first kan informatie verbergen.** Een relatie die nooit "beweegt" bestaat op Vandaag niet.
+  Daarom moet modus B altijd de volledige dataset kunnen tonen, ongefilterd. Dat is nu zo.
+- **Conditionele Groei blijft een voorspelbaarheidsrisico.** Een nav-item dat komt en gaat kan
+  onrustig zijn. Mitigatie: alleen bij een echt patroon, en een duurzame vindplaats voor eerdere
+  patronen (voorstel: onder Beheer, plus in de betrokken relaties). Nog te bewijzen bij echt gebruik.
+- **Journeys operationeel.** Dit is de sterkste tegengas. Zodra "meerdere relaties tegelijk naar een
+  volgende stap brengen", groepen samenstellen, capaciteit plannen en uitzonderingen behandelen
+  frequent, dagelijks werk zijn, is het dogmatisch om ze onder Beheer te verstoppen. **Wanneer verdient
+  Journeys opnieuw een zelfstandige operationele werkplek?** Antwoord: wanneer journey-operaties
+  regelmatig over veel relaties tegelijk gaan en een eigen overzicht (pipeline, funnel, capaciteit)
+  vereisen dat niet natuurlijk in Relaties of een relatie past. Tot dan is de journey context in de
+  relatie, plus bulkwerk via modus B en Testerbeheer onder Beheer, voldoende. Dit is een meetbare
+  drempel, geen principekwestie: laat echt gebruik hem bepalen.
+- **Gesprekken en Relaties kunnen te veel gaan dragen.** Als beide blijven groeien, ontstaat het risico
+  dat ze zelf mini-producten worden. Bewaak dat met dezelfde discipline: modus/progressive disclosure,
+  niet nog een permanente bestemming.
+- **Waar rust omslaat in gebrek aan controle** is precies de grens die deze ronde adresseert. Het
+  antwoord is niet minder meaning-first, maar het altijd-bereikbare stuur (modus B) en het zichtbare
+  onderscheid tussen de twee houdingen.
+
+### 21.7 Drie intelligentielagen gescheiden gehouden
+
+Reveal (haalt de hoge kwaliteitsdrempel, betekenisvol, met provenance), duiding/context (nuttig om te
+begrijpen, geen reveal, bijvoorbeeld de "Wat Maculis zag"-regels en de aperture-observatie), en
+technische signalen (concreet operationeel, bijvoorbeeld "levering mislukt") zijn in de copy en
+plaatsing uit elkaar gehouden. Niet elk technisch probleem is een reveal; niet elke nuttige observatie
+verdient Vandaag. Stilte blijft een geldige uitkomst.
+
+### 21.8 Wat bewust niet is gebouwd
+
+- Geen rollen- en rechtenmodel (wel rolbewust getest: de kerninterface draagt de intenties).
+- Geen echte Journeys-operatieplek (pipeline/funnel/capaciteit), alleen de vraag beantwoord wanneer die
+  nodig wordt.
+- Geen duurzame Groei-historievindplaats geïmplementeerd (alleen conceptueel belegd).
+- Geen echte zoekmachine of command-palette (zoeken werkt binnen Relaties; product-brede zoek is een
+  latere stap).
+- Geen productie-UI vervangen, geen migratie, geen backend, geen Lens 2, geen uitbreiding van Reveal
+  Engine of Gate. Bulkacties zijn prototype-no-ops die niets versturen of wijzigen.
+
+### 21.9 In het prototype te zien
+
+- Product zonder prototype-navigatie: `/cockpit.html?dir=C&scn=vandaag&day=normal`
+- Relaties, Maculis kiest: `?scn=relaties`
+- Relaties, zelf werken (high-density): `?scn=relaties&relmode=work`
+- De prototype-lade (voor ons): `?proto=1`, of het knopje rechtsonder
+
+### 21.10 Aanbeveling: klaar voor visuele verfijning?
+
+**Ja.** De informatiearchitectuur en de interactiemodellen staan nu stevig: één navigatiemodel, een
+helder onderscheid tussen Maculis-voor-jou en jij-aan-het-stuur, een meaning-first ingang die niet in
+user-agency-last vervalt, en een geloofwaardige werkruimte bij 5.000 relaties. De open punten (globale
+zoek, Journeys-operatieplek, Groei-historie) zijn afgebakende, meetbare vervolgvragen, geen fundamentele
+gaten. Ze hoeven visuele verfijning niet te blokkeren, mits we ze als bekende drempels meenemen.
+
+Advies: ga naar visuele verfijning van richting C, met deze IA als vaste basis, en houd de drie open
+punten op de agenda voor het moment dat echt gebruik ze afdwingt.

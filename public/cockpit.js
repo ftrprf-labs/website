@@ -231,6 +231,12 @@ function pickWeighted(rnd, arr) {
   return arr[0];
 }
 const HINTS = ['Laatste gesprek: 3 dagen geleden', 'First Five afgerond', 'Open follow-up', 'Onthouden: werkt liefst dinsdag', 'Nieuwe contactpersoon', 'Introductie via Pass the Lens', 'Geen open acties'];
+
+/* Dimensions the high-density workspace can actually filter and sort on. These
+   are the ones that carry meaning for Maculis, not every CRM field imaginable. */
+const OWNERS = ['Ludwig', 'Sanne', 'Joris', 'Team'];
+const FIRSTFIVE = ['Niet gestart', 'Uitgenodigd', 'Bezig', 'Afgerond'];
+const CHANNELS = ['e-mail', 'whatsapp', 'sms', 'telefoon'];
 function buildRelationships(n) {
   const rnd = mulberry32(20260815);
   const out = [];
@@ -241,11 +247,25 @@ function buildRelationships(n) {
     const org = ORGS[Math.floor(rnd() * ORGS.length)];
     const mv = pickWeighted(rnd, MOVE);
     const hint = HINTS[Math.floor(rnd() * HINTS.length)];
-    out.push({ name, org, mv, hint, surfaced: mv.cls === 'moving' || mv.cls === 'reveal' });
+    const owner = OWNERS[Math.floor(rnd() * OWNERS.length)];
+    const firstFive = FIRSTFIVE[Math.floor(rnd() * FIRSTFIVE.length)];
+    const lastDays = Math.floor(rnd() * 180);          // days since last contact
+    const openAction = rnd() < 0.28;
+    const channel = CHANNELS[Math.floor(rnd() * CHANNELS.length)];
+    const hadReveal = mv.cls === 'reveal' || rnd() < 0.05;
+    out.push({ id: i, name, org, mv, hint, owner, firstFive, lastDays, openAction, channel, hadReveal,
+               surfaced: mv.cls === 'moving' || mv.cls === 'reveal' });
   }
   return out;
 }
 const RELATIONSHIPS = buildRelationships(5000);
+function daysLabel(d) {
+  if (d === 0) return 'vandaag';
+  if (d === 1) return 'gisteren';
+  if (d < 14) return `${d} dagen`;
+  if (d < 56) return `${Math.round(d / 7)} weken`;
+  return `${Math.round(d / 30)} maanden`;
+}
 
 /* A cross-relationship pattern. This is what Groei is: meaning Maculis only sees
    across many relationships. It exists in the world here, so it can surface. When
@@ -441,7 +461,6 @@ function viewVandaag() {
 
   if (day === 'quiet') {
     wrap.appendChild(greetBlock('Er is vanmorgen niets dat je aandacht vraagt.'));
-    wrap.appendChild(dayBar('quiet'));
     const s = el('div', 'silence');
     s.innerHTML =
       `<div class="eye" aria-hidden="true">${eyeSvg()}</div>
@@ -454,7 +473,6 @@ function viewVandaag() {
 
   if (day === 'one') {
     wrap.appendChild(greetBlock('Vandaag verdient één ding je aandacht.'));
-    wrap.appendChild(dayBar('one'));
     const rest = restArea();
     const one = el('div', 'attn-group one-thing');
     one.appendChild(tierHead('now', 'Nu', 'het enige dat nu telt'));
@@ -467,7 +485,6 @@ function viewVandaag() {
 
   if (day === 'busy') {
     wrap.appendChild(greetBlock('Er gebeurde veel vannacht. Maculis koos wat telt.'));
-    wrap.appendChild(dayBar('busy'));
     const rest = restArea();
 
     const nu = el('div', 'attn-group');
@@ -492,14 +509,13 @@ function viewVandaag() {
     wrap.appendChild(rest);
 
     const foot = el('p', 'scale-note');
-    foot.textContent = 'Zevenendertig gebeurtenissen vannacht. Zeven verdienden een plek. De rest bleef rustig, samengevat in één regel. Zo voorkomt Maculis dat drukte je dag bepaalt.';
+    foot.textContent = 'Zevenendertig gebeurtenissen vannacht. Zeven kregen een plek, de rest bleef rustig.';
     wrap.appendChild(foot);
     return wrap;
   }
 
   // normal day
   wrap.appendChild(greetBlock('Twee gesprekken vragen je aandacht. Eén antwoord staat klaar. Bij één relatie beweegt iets.'));
-  wrap.appendChild(dayBar('normal'));
   const rest = restArea();
 
   const nu = el('div', 'attn-group');
@@ -663,30 +679,7 @@ function viewReveal() {
   const wrap = el('div', 'view-enter');
   wrap.appendChild(spaceBadge('reveal'));
 
-  // toggle between the two relationship reveals and the hypothetical lens
-  const tog = el('div', 'reveal-switch');
-  tog.setAttribute('role', 'group');
-  tog.setAttribute('aria-label', 'Kies een reveal');
-  [['r-kim', 'Kim verandert'], ['r-saar', 'Saar valt stil'], ['r-lens', 'Toekomstige lens']].forEach(([k, lbl]) => {
-    const b = el('button', 'rsw', esc(lbl));
-    b.setAttribute('aria-pressed', String(k === revealWhich));
-    b.addEventListener('click', () => { revealWhich = k; render(); });
-    tog.appendChild(b);
-  });
-  wrap.appendChild(tog);
-
   wrap.appendChild(revealBlock(data));
-
-  const note = el('p', 'scale-note');
-  note.textContent = 'Elke laag verschijnt pas als je verder kijkt. Feit, observatie, gevolgtrekking, suggestie. Onzekerheid en herkomst blijven zichtbaar. Een reveal zonder voldoende evidence bestaat niet.';
-  wrap.appendChild(note);
-
-  // silence as a first-class success state, shown alongside
-  const sil = el('div', 'reveal-silence');
-  sil.innerHTML =
-    `<span class="prov fact">Stilte</span>
-     <p>Is er niets dat de drempel haalt? Dan toont Vandaag geen reveal, maar rust. Liever niets dan een zwakke observatie.</p>`;
-  wrap.appendChild(sil);
   return wrap;
 }
 
@@ -736,27 +729,25 @@ function viewGroei() {
    ===================================================================== */
 
 function viewRelaties() {
+  return relMode === 'work' ? viewRelatiesWork() : viewRelatiesMaculis();
+}
+
+/* Mode A — Maculis selects. The calm default. Same size at 50 or 50.000. */
+function viewRelatiesMaculis() {
   const wrap = el('div', 'view-enter wide');
   wrap.appendChild(spaceBadge('work'));
+  const totalText = RELATIONSHIPS.length.toLocaleString('nl-NL');
 
-  const total = RELATIONSHIPS.length;
-  const totalText = total.toLocaleString('nl-NL');
-
-  // Search first: with thousands of relations, search is how you reach anyone.
   const top = el('div', 'rel-top');
   top.innerHTML =
     `<h1>Relaties</h1>
-     <span class="search big"><span aria-hidden="true">⌕</span><input type="text" id="relsearch" placeholder="Zoek een naam, organisatie of onderwerp bij ${totalText} relaties" aria-label="Zoeken bij ${totalText} relaties"></span>`;
+     <span class="mode-tag" title="Maculis selecteert">Maculis kijkt voor je</span>`;
   wrap.appendChild(top);
 
-  // The meaning statement: a handful move, the size does not grow with the total.
   const lead = el('div', 'rel-meaning');
-  lead.innerHTML =
-    `<p class="rel-count">Van je <b>${totalText}</b> relaties bewegen er nu <b>${MOVERS.length}</b>.</p>
-     <p class="rel-sub">Bij vijftig relaties zag je hier hetzelfde soort selectie. Maculis kiest wat beweegt, jij hoeft niet te scrollen. De rest is rustig en blijft bereikbaar via zoeken.</p>`;
+  lead.innerHTML = `<p class="rel-count">Van je <b>${totalText}</b> relaties bewegen er nu <b>${MOVERS.length}</b>.</p>`;
   wrap.appendChild(lead);
 
-  // What moves now, grouped by reason. Rich cards, not a dense table.
   MOVER_GROUPS.forEach(g => {
     const members = MOVERS.filter(m => m.group === g.key);
     if (!members.length) return;
@@ -766,40 +757,175 @@ function viewRelaties() {
     wrap.appendChild(group);
   });
 
-  // The full universe: present, but deliberately not the primary experience.
-  const allWrap = el('div', 'rel-all');
-  const toggle = el('button', 'rel-all-toggle', `Toon de volledige lijst van ${totalText} <span class="arw" aria-hidden="true">›</span>`);
-  toggle.setAttribute('aria-expanded', String(relShowAll));
-  const body = el('div', 'rel-all-body' + (relShowAll ? '' : ' hidden'));
-  toggle.addEventListener('click', () => { relShowAll = !relShowAll; render(); });
-  allWrap.appendChild(el('p', 'rel-all-note', 'De volledige lijst is er, maar je hoeft er zelden doorheen. Zoeken en bovenstaande selectie brengen je sneller bij wie ertoe doet.'));
-  allWrap.appendChild(toggle);
-  allWrap.appendChild(body);
-  wrap.appendChild(allWrap);
+  // The hand-off from "Maculis kijkt voor mij" to "ik heb zelf het stuur".
+  const hand = el('div', 'rel-handoff');
+  const btn = el('button', 'handoff-btn');
+  btn.innerHTML = `<span class="hb-title">Zelf zoeken, filteren en werken</span><span class="hb-sub">Je hele relatiebestand als werkruimte</span><span class="arw" aria-hidden="true">→</span>`;
+  btn.addEventListener('click', () => { relMode = 'work'; render(); });
+  hand.appendChild(btn);
+  wrap.appendChild(hand);
+  return wrap;
+}
 
-  if (relShowAll) {
-    const list = el('div', 'rel-list');
-    const shown = RELATIONSHIPS.slice(0, 40);
-    shown.forEach(r => {
-      const row = el('article', 'rel' + (r.surfaced ? ' surfaced' : ''));
-      row.tabIndex = 0;
-      row.innerHTML =
-        `<span class="movement" aria-hidden="true"></span>
-         <span class="av" aria-hidden="true">${esc(initials(r.name))}</span>
-         <span class="nm">${esc(r.name)}<small>${esc(r.hint)}</small></span>
-         <span class="org">${esc(r.org)}</span>
-         <span class="state ${r.mv.cls}"><span class="k"></span>${esc(r.mv.label)}</span>
-         <span class="act">
-           <button title="Open relatie" aria-label="Open relatie ${esc(r.name)}">◇</button>
-           <button title="Gesprek" aria-label="Open gesprek met ${esc(r.name)}">❯</button>
-         </span>`;
-      row.querySelector('.act').addEventListener('click', e => { e.stopPropagation(); scn = 'gesprekken'; render(); });
-      row.addEventListener('click', () => { scn = 'gesprekken'; render(); });
-      list.appendChild(row);
-    });
-    body.appendChild(list);
-    body.appendChild(el('p', 'scale-note', `Eerste 40 van ${totalText} getoond, op alfabet. Bij duizenden relaties is dit bewust niet het startpunt. Zoeken en betekenis wel.`));
+/* ---- Mode B — you drive: a real high-density workspace over the full set ---- */
+
+function relFiltered() {
+  const f = relFilters;
+  const q = f.q.trim().toLowerCase();
+  let rows = RELATIONSHIPS.filter(r => {
+    if (q && !(r.name.toLowerCase().includes(q) || r.org.toLowerCase().includes(q))) return false;
+    if (f.org && r.org !== f.org) return false;
+    if (f.ff && r.firstFive !== f.ff) return false;
+    if (f.owner && r.owner !== f.owner) return false;
+    if (f.open && !r.openAction) return false;
+    if (f.reveal && !r.hadReveal) return false;
+    if (f.last === 'w1' && r.lastDays >= 7) return false;
+    if (f.last === 'w4' && !(r.lastDays >= 7 && r.lastDays < 28)) return false;
+    if (f.last === 'm3' && r.lastDays < 90) return false;
+    return true;
+  });
+  const rank = { moving: 0, reveal: 1, active: 2, quiet: 3 };
+  if (relSort === 'naam') rows = rows.slice().sort((a, b) => a.name.localeCompare(b.name, 'nl'));
+  else if (relSort === 'last') rows = rows.slice().sort((a, b) => a.lastDays - b.lastDays);
+  else rows = rows.slice().sort((a, b) => (rank[a.mv.cls] - rank[b.mv.cls]) || (a.lastDays - b.lastDays));
+  return rows;
+}
+function activeFilterCount() {
+  const f = relFilters;
+  return [f.q, f.org, f.ff, f.owner, f.last].filter(Boolean).length + (f.open ? 1 : 0) + (f.reveal ? 1 : 0);
+}
+
+function viewRelatiesWork() {
+  const wrap = el('div', 'view-enter wide');
+  wrap.appendChild(spaceBadge('work'));
+  const totalText = RELATIONSHIPS.length.toLocaleString('nl-NL');
+
+  const top = el('div', 'rel-top');
+  const back = el('button', 'back-btn');
+  back.innerHTML = `<span class="arw" aria-hidden="true">←</span> Terug naar wat Maculis toont`;
+  back.addEventListener('click', () => { relMode = 'maculis'; render(); });
+  top.appendChild(back);
+  top.appendChild(el('span', 'mode-tag you', 'Jij hebt het stuur'));
+  wrap.appendChild(top);
+
+  wrap.appendChild(el('h1', 'work-h1', 'Relaties, zelf doorzoeken'));
+
+  // filter bar
+  const bar = el('div', 'filterbar');
+  bar.innerHTML =
+    `<span class="search"><span aria-hidden="true">⌕</span><input type="text" id="f-q" placeholder="Naam of organisatie" aria-label="Zoek op naam of organisatie" value="${esc(relFilters.q)}"></span>
+     <select id="f-org" aria-label="Organisatie"><option value="">Alle organisaties</option>${ORGS.map(o => `<option ${relFilters.org === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>
+     <select id="f-ff" aria-label="First Five"><option value="">First Five: alle</option>${FIRSTFIVE.map(o => `<option ${relFilters.ff === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>
+     <select id="f-last" aria-label="Laatste contact">
+       <option value="">Laatste contact: alle</option>
+       <option value="w1" ${relFilters.last === 'w1' ? 'selected' : ''}>Deze week</option>
+       <option value="w4" ${relFilters.last === 'w4' ? 'selected' : ''}>1 tot 4 weken</option>
+       <option value="m3" ${relFilters.last === 'm3' ? 'selected' : ''}>Langer dan 3 maanden</option>
+     </select>
+     <select id="f-owner" aria-label="Eigenaar"><option value="">Iedere eigenaar</option>${OWNERS.map(o => `<option ${relFilters.owner === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>
+     <button class="fchip ${relFilters.open ? 'on' : ''}" id="f-open">Open actie</button>
+     <button class="fchip ${relFilters.reveal ? 'on' : ''}" id="f-reveal">Reveal geweest</button>
+     <button class="fclear" id="f-clear">Wis${activeFilterCount() ? ` (${activeFilterCount()})` : ''}</button>`;
+  wrap.appendChild(bar);
+  bar.querySelector('#f-q').addEventListener('input', e => { relFilters.q = e.target.value; rerenderList(); });
+  bar.querySelector('#f-org').addEventListener('change', e => { relFilters.org = e.target.value; render(); });
+  bar.querySelector('#f-ff').addEventListener('change', e => { relFilters.ff = e.target.value; render(); });
+  bar.querySelector('#f-last').addEventListener('change', e => { relFilters.last = e.target.value; render(); });
+  bar.querySelector('#f-owner').addEventListener('change', e => { relFilters.owner = e.target.value; render(); });
+  bar.querySelector('#f-open').addEventListener('click', () => { relFilters.open = !relFilters.open; render(); });
+  bar.querySelector('#f-reveal').addEventListener('click', () => { relFilters.reveal = !relFilters.reveal; render(); });
+  bar.querySelector('#f-clear').addEventListener('click', () => { relFilters = { q: '', org: '', ff: '', last: '', owner: '', open: false, reveal: false }; relSelected.clear(); render(); });
+
+  const rows = relFiltered();
+
+  // count + sort
+  const meta = el('div', 'work-meta');
+  meta.innerHTML =
+    `<span class="wm-count"><b>${rows.length.toLocaleString('nl-NL')}</b> van ${totalText} relaties</span>
+     <span class="wm-sort"><label for="f-sort">Sorteer</label>
+       <select id="f-sort" aria-label="Sorteer">
+         <option value="beweging" ${relSort === 'beweging' ? 'selected' : ''}>Recente beweging</option>
+         <option value="last" ${relSort === 'last' ? 'selected' : ''}>Laatste contact</option>
+         <option value="naam" ${relSort === 'naam' ? 'selected' : ''}>Naam A tot Z</option>
+       </select></span>`;
+  meta.querySelector('#f-sort').addEventListener('change', e => { relSort = e.target.value; render(); });
+  wrap.appendChild(meta);
+
+  // selection bar (only when something is selected)
+  const selBar = el('div', 'selbar' + (relSelected.size ? '' : ' hidden'));
+  wrap.appendChild(selBar);
+
+  const listWrap = el('div', 'work-table-wrap');
+  wrap.appendChild(listWrap);
+
+  function renderSelBar() {
+    selBar.classList.toggle('hidden', relSelected.size === 0);
+    if (!relSelected.size) { selBar.innerHTML = ''; return; }
+    selBar.innerHTML =
+      `<span class="sb-count">${relSelected.size} geselecteerd</span>
+       <button class="sb-act" data-act="followup">Follow-up plannen</button>
+       <button class="sb-act" data-act="segment">Opslaan als segment</button>
+       <button class="sb-act" data-act="export">Exporteren</button>
+       <button class="sb-clear">Selectie wissen</button>`;
+    selBar.querySelectorAll('.sb-act').forEach(b => b.addEventListener('click', () => bulkAction(b.getAttribute('data-act'))));
+    selBar.querySelector('.sb-clear').addEventListener('click', () => { relSelected.clear(); render(); });
   }
+  function bulkAction(kind) {
+    const n = relSelected.size;
+    const label = { followup: `Follow-up gepland voor ${n} relaties`, segment: `Segment opgeslagen met ${n} relaties`, export: `${n} relaties klaargezet om te exporteren` }[kind];
+    selBar.innerHTML = `<span class="sb-done">✓ ${esc(label)}. Prototype: er is niets echt verzonden of gewijzigd.</span><button class="sb-clear">Klaar</button>`;
+    selBar.querySelector('.sb-clear').addEventListener('click', () => { relSelected.clear(); render(); });
+  }
+  renderSelBar();
+
+  // the table itself
+  const CAP = 50;
+  const shown = rows.slice(0, CAP);
+  const table = el('div', 'work-table');
+  const allVisibleSelected = shown.length && shown.every(r => relSelected.has(r.id));
+  let html =
+    `<div class="wt-head">
+       <span class="wt-check"><input type="checkbox" id="wt-all" aria-label="Selecteer zichtbare" ${allVisibleSelected ? 'checked' : ''}></span>
+       <span>Relatie</span><span>Eigenaar</span><span>First Five</span><span>Laatste contact</span><span>Status</span>
+     </div>`;
+  shown.forEach(r => {
+    const rev = r.hadReveal ? `<span class="rev-badge" title="Reveal geweest">Reveal</span>` : '';
+    const open = r.openAction ? `<span class="dot-open" title="Open actie"></span>` : '';
+    html +=
+      `<label class="wt-row" data-id="${r.id}">
+         <span class="wt-check"><input type="checkbox" ${relSelected.has(r.id) ? 'checked' : ''} aria-label="Selecteer ${esc(r.name)}"></span>
+         <span class="wt-rel"><b>${esc(r.name)}</b><small>${esc(r.org)}</small></span>
+         <span class="wt-owner">${esc(r.owner)}</span>
+         <span class="wt-ff">${esc(r.firstFive)}</span>
+         <span class="wt-last">${esc(daysLabel(r.lastDays))}</span>
+         <span class="wt-status"><span class="state ${r.mv.cls}"><span class="k"></span>${esc(r.mv.label)}</span> ${rev}${open}</span>
+       </label>`;
+  });
+  table.innerHTML = html;
+  table.querySelector('#wt-all').addEventListener('change', e => {
+    if (e.target.checked) shown.forEach(r => relSelected.add(r.id));
+    else shown.forEach(r => relSelected.delete(r.id));
+    render();
+  });
+  table.querySelectorAll('.wt-row').forEach(row => {
+    const id = Number(row.getAttribute('data-id'));
+    row.querySelector('input').addEventListener('change', e => {
+      if (e.target.checked) relSelected.add(id); else relSelected.delete(id);
+      renderSelBar();
+    });
+  });
+  listWrap.appendChild(table);
+
+  if (rows.length > CAP) {
+    const more = el('div', 'work-more');
+    more.innerHTML = `Eerste ${CAP} getoond. <button class="linkbtn" id="sel-all-matching">Selecteer alle ${rows.length.toLocaleString('nl-NL')} resultaten</button>`;
+    more.querySelector('#sel-all-matching').addEventListener('click', () => { rows.forEach(r => relSelected.add(r.id)); render(); });
+    listWrap.appendChild(more);
+  }
+  if (!rows.length) listWrap.appendChild(el('p', 'scale-note', 'Geen relaties voldoen aan deze filters. Pas ze aan of wis ze.'));
+
+  // keep search focus after input re-render
+  function rerenderList() { render(); const inp = document.getElementById('f-q'); if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } }
   return wrap;
 }
 
@@ -839,7 +965,7 @@ function viewGesprekken() {
     `<div class="eyebrow-line">Gesprekken · om te werken</div>
      <h1 class="work-h1">Gesprekken</h1>
      <span class="search big" style="max-width:520px"><span aria-hidden="true">⌕</span><input type="text" placeholder="Zoek een gesprek, persoon of onderwerp" aria-label="Zoek een gesprek"></span>
-     <p class="lead-note" style="margin-top:var(--s4)">Van al je gesprekken vragen er nu ${nuCount} iets, ${klaarCount} antwoorden staan klaar. De rest is rustig. Een gesprek hoort bij een relatie, niet bij een kanaal: e-mail, WhatsApp, SMS en telefoon lopen door hetzelfde aandachtsmodel.</p>`;
+     <p class="lead-note" style="margin-top:var(--s4)">${nuCount} vragen nu iets, ${klaarCount} antwoorden staan klaar. De rest is rustig.</p>`;
   wrap.appendChild(head);
 
   const tiers = [
@@ -891,9 +1017,7 @@ function viewWork() {
   wrap.appendChild(spaceBadge('work'));
 
   const head = el('div', '');
-  head.innerHTML =
-    `<div class="eyebrow-line">Gesprek · Work space</div>
-     <p class="lead-note">Hier werk je langer. Een lange mail, context erbij, rustig licht. De ruimte wisselde van donker naar licht toen je van kijken naar werken ging. Zelfde product, andere modus.</p>`;
+  head.innerHTML = `<div class="eyebrow-line">Gesprek</div>`;
   wrap.appendChild(head);
 
   const grid = el('div', 'work-grid');
@@ -1000,8 +1124,10 @@ let dir = 'C';
 let scn = 'vandaag';
 let day = 'normal';
 let revealWhich = 'r-kim';
-let relSeg = 'beweegt';
-let relShowAll = false; // the full 5.000 list stays behind a de-emphasized toggle
+let relMode = 'maculis'; // 'maculis' (selects) | 'work' (you drive)
+let relFilters = { q: '', org: '', ff: '', last: '', owner: '', open: false, reveal: false };
+let relSort = 'beweging';
+let relSelected = new Set();
 
 const NAV_TO_SCN = { vandaag: 'vandaag', relaties: 'relaties', gesprekken: 'gesprekken', journeys: 'journeys', groei: 'groei', beheer: 'beheer' };
 const SPACE = { vandaag: 'reveal', reveal: 'reveal', journeys: 'reveal', groei: 'reveal',
@@ -1017,9 +1143,9 @@ function render() {
     case 'relaties': node = viewRelaties(); break;
     case 'gesprekken': node = viewGesprekken(); break;
     case 'work': node = viewWork(); break;
-    case 'journeys': node = viewPlaceholder('Journeys', 'Een journey, zoals First Five, is geen aparte bestemming meer. Je ziet hem in de relatie zelf: waar iemand staat, wat de volgende stap is. De operationele kant (uitnodigen, pipeline, evaluaties) leeft onder Beheer, als Testerbeheer. Zo hoef je hier zelden vanuit het niets te zijn.', 'reveal'); break;
+    case 'journeys': node = viewPlaceholder('Journeys', 'Een journey, zoals First Five, zie je in de relatie zelf: waar iemand staat en wat de volgende stap is. Het operationele werk eromheen leeft onder Beheer, als Testerbeheer.', 'reveal'); break;
     case 'groei': node = viewGroei(); break;
-    default: node = viewPlaceholder('Beheer', 'Templates, imports, instellingen en operationele controls. Alles wat nodig is, buiten de dagelijkse aandacht gehouden.', 'work');
+    default: node = viewPlaceholder('Beheer', 'Templates, imports, instellingen en operationele controls. Buiten de dagelijkse aandacht gehouden, hier wanneer je het nodig hebt.', 'work');
   }
   view.appendChild(node);
 
@@ -1028,31 +1154,106 @@ function render() {
   const groeiNav = document.getElementById('nav-groei');
   if (groeiNav) groeiNav.classList.toggle('hidden', !hasPattern());
 
-  // reflect nav + screen controls (reveal maps to Vandaag, work to Gesprekken)
+  // reflect the single (left) nav: reveal maps to Vandaag, work to Gesprekken
   const navKey = scn === 'reveal' ? 'vandaag' : scn === 'work' ? 'gesprekken' : scn;
   document.querySelectorAll('[data-nav]').forEach(a => {
     a.removeAttribute('aria-current');
     if (a.getAttribute('data-nav') === navKey) a.setAttribute('aria-current', 'page');
   });
-  document.querySelectorAll('[data-scn]').forEach(b => b.setAttribute('aria-pressed', String(b.getAttribute('data-scn') === scn)));
+  if (proto.open) buildDevPanel(); // keep the dev panel in sync with state
 }
 
 function setDir(d) {
   dir = d;
   shell.setAttribute('data-direction', d);
-  document.querySelectorAll('[data-dir]').forEach(b => b.setAttribute('aria-pressed', String(b.getAttribute('data-dir') === d)));
 }
 
-/* wire controls */
-document.querySelectorAll('[data-dir]').forEach(b => b.addEventListener('click', () => setDir(b.getAttribute('data-dir'))));
-document.querySelectorAll('[data-scn]').forEach(b => b.addEventListener('click', () => { scn = b.getAttribute('data-scn'); render(); }));
+/* product navigation: the ONLY nav a real user sees is the left rail */
 document.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', e => {
   e.preventDefault();
   scn = NAV_TO_SCN[a.getAttribute('data-nav')] || 'vandaag';
   render();
 }));
 
-/* boot with deep-link support: ?dir=C&scn=vandaag&day=busy&rev=r-saar&seg=stil */
+/* =====================================================================
+   PROTOTYPE CONTROLS — deliberately OUTSIDE the product. A discrete
+   launcher opens a drawer with everything we need to test states,
+   directions and days. None of this is future product UI.
+   ===================================================================== */
+const proto = { open: false };
+const protoToggle = document.getElementById('proto-toggle');
+const protoPanel = document.getElementById('proto-panel');
+const protoScrim = document.getElementById('proto-scrim');
+
+function setProtoOpen(v) {
+  proto.open = v;
+  protoToggle.setAttribute('aria-expanded', String(v));
+  protoPanel.hidden = !v; protoScrim.hidden = !v;
+  protoPanel.classList.toggle('open', v);
+  if (v) buildDevPanel();
+}
+protoToggle.addEventListener('click', () => setProtoOpen(!proto.open));
+protoScrim.addEventListener('click', () => setProtoOpen(false));
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && proto.open) setProtoOpen(false); });
+
+function buildDevPanel() {
+  const STATES = [
+    ['Vandaag · rustig', () => { scn = 'vandaag'; day = 'quiet'; }],
+    ['Vandaag · één ding', () => { scn = 'vandaag'; day = 'one'; }],
+    ['Vandaag · normaal', () => { scn = 'vandaag'; day = 'normal'; }],
+    ['Vandaag · druk (patroon)', () => { scn = 'vandaag'; day = 'busy'; }],
+    ['Relaties · Maculis kiest', () => { scn = 'relaties'; relMode = 'maculis'; }],
+    ['Relaties · zelf werken', () => { scn = 'relaties'; relMode = 'work'; }],
+    ['Gesprekken', () => { scn = 'gesprekken'; }],
+    ['Gesprek · work space', () => { scn = 'work'; }],
+    ['Groei (patroon)', () => { scn = 'groei'; day = 'busy'; }],
+    ['Reveal · Kim', () => { scn = 'reveal'; revealWhich = 'r-kim'; }],
+    ['Reveal · Saar (kwam terug)', () => { scn = 'reveal'; revealWhich = 'r-saar'; }],
+    ['Reveal · toekomstige lens', () => { scn = 'reveal'; revealWhich = 'r-lens'; }],
+  ];
+  protoPanel.innerHTML =
+    `<div class="dp-head">
+       <span class="dp-title">Prototype controls</span>
+       <button class="dp-close" aria-label="Sluiten">✕</button>
+     </div>
+     <p class="dp-note">Alleen voor ontwerp en test. Geen onderdeel van het product. Een echte gebruiker ziet dit niet.</p>
+     <div class="dp-group">
+       <div class="dp-label">Visuele richting</div>
+       <div class="dp-seg" id="dp-dir">
+         <button data-d="C" aria-pressed="${dir === 'C'}">C · Reveal/Work</button>
+         <button data-d="A" aria-pressed="${dir === 'A'}">A · Deep</button>
+       </div>
+     </div>
+     <div class="dp-group">
+       <div class="dp-label">Spring naar een state</div>
+       <div class="dp-states" id="dp-states"></div>
+     </div>`;
+  protoPanel.querySelector('.dp-close').addEventListener('click', () => setProtoOpen(false));
+  protoPanel.querySelectorAll('#dp-dir button').forEach(b => b.addEventListener('click', () => { setDir(b.getAttribute('data-d')); buildDevPanel(); render(); }));
+  const list = protoPanel.querySelector('#dp-states');
+  const cur = curStateKey();
+  STATES.forEach(([lbl, fn], i) => {
+    const b = el('button', 'dp-state', esc(lbl));
+    b.addEventListener('click', () => { fn(); render(); buildDevPanel(); });
+    list.appendChild(b);
+  });
+  // mark current
+  markCurrentState();
+}
+function curStateKey() {
+  return scn === 'reveal' ? `reveal-${revealWhich}` : scn === 'relaties' ? `relaties-${relMode}` : scn === 'vandaag' ? `vandaag-${day}` : scn;
+}
+function markCurrentState() {
+  const labelFor = {
+    'vandaag-quiet': 'Vandaag · rustig', 'vandaag-one': 'Vandaag · één ding', 'vandaag-normal': 'Vandaag · normaal', 'vandaag-busy': 'Vandaag · druk (patroon)',
+    'relaties-maculis': 'Relaties · Maculis kiest', 'relaties-work': 'Relaties · zelf werken',
+    'gesprekken': 'Gesprekken', 'work': 'Gesprek · work space', 'groei': 'Groei (patroon)',
+    'reveal-r-kim': 'Reveal · Kim', 'reveal-r-saar': 'Reveal · Saar (kwam terug)', 'reveal-r-lens': 'Reveal · toekomstige lens',
+  }[curStateKey()];
+  protoPanel.querySelectorAll('.dp-state').forEach(b => b.setAttribute('aria-current', String(b.textContent === labelFor)));
+}
+
+/* boot with deep-link support (params are for us, not product UI) */
 const params = new URLSearchParams(location.search);
 const wantDir = (params.get('dir') || 'C').toUpperCase();
 setDir(['A', 'C'].includes(wantDir) ? wantDir : 'C');
@@ -1062,9 +1263,8 @@ const wantDay = params.get('day');
 if (['quiet', 'one', 'normal', 'busy'].includes(wantDay)) day = wantDay;
 const wantRev = params.get('rev');
 if (['r-kim', 'r-saar', 'r-lens'].includes(wantRev)) revealWhich = wantRev;
-const wantSeg = params.get('seg');
-if (SEGMENTS.some(s => s.key === wantSeg)) relSeg = wantSeg;
-if (params.get('showall') === '1') relShowAll = true;
+if (params.get('relmode') === 'work' || params.get('showall') === '1') relMode = 'work';
+if (params.get('proto') === '1') setProtoOpen(true);
 
 /* nav counts: attention only, never a notification pile */
 document.getElementById('nc-vandaag').textContent = '5';
