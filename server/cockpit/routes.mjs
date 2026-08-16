@@ -1,0 +1,258 @@
+// Maculis Future Cockpit — orchestration / application layer (Slice 1).
+//
+// The ONE meaning-first API between the frozen Cockpit UX and the existing
+// Communication Layer. The frontend asks cockpit-shaped questions ("wat vraagt nu
+// aandacht?", "wat weet Maculis over deze relatie?", "open het gesprek", "verstuur")
+// and NEVER orchestrates the underlying services itself. Everything here is a thin
+// wrapper over verified Communication Layer functions — no new engine, no fixtures.
+//
+// Slice 1 scope: Vandaag (attention) -> dossier -> gesprek -> AI-prepared draft ->
+// human review/edit -> explicit approval -> consent-gated EMAIL send -> result back
+// in Maculis -> observation confirmed/rejected into durable memory.
+//
+// Hard invariants enforced here:
+//   - fail-closed: 503 unless the Communication Layer is enabled (db + flag);
+//   - admin session required for everything except /config;
+//   - reads are SIDE-EFFECT-FREE (unlike the comm conversation GET, which mutates);
+//   - sending goes ONLY through the consent-gated + audited draft-approve-send path;
+//   - EMAIL is the only digitally sendable channel in Slice 1 (others are rejected).
+
+import { commEnabled, query } from '../comm/db.mjs';
+import { getDefaultTenantId } from '../comm/tenant.mjs';
+import { attentionOverview, markConversationRead } from '../comm/attention.mjs';
+import { getRelationship } from '../comm/relationship.mjs';
+import * as drafts from '../comm/drafts.mjs';
+import { sendOnChannel } from '../comm/send.mjs';
+import { confirmMemory, dismissMemory } from '../comm/memory.mjs';
+import { channelConsentState } from '../comm/consent.mjs';
+import { config } from '../config.mjs';
+
+const UUID = '([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})';
+
+function json(res, status, data) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(JSON.stringify(data));
+}
+function readJson(req, limit = 1024 * 1024) {
+  return new Promise((resolve) => {
+    let raw = ''; let size = 0;
+    req.on('data', (c) => { size += c.length; if (size > limit) { req.destroy(); resolve(null); return; } raw += c; });
+    req.on('end', () => { try { resolve(JSON.parse(raw || '{}')); } catch { resolve(null); } });
+    req.on('error', () => resolve(null));
+  });
+}
+const ipRefOf = (req) => (req.socket && req.socket.remoteAddress ? String(req.socket.remoteAddress).slice(0, 40) : null);
+
+// ---- meaning-first shaping ---------------------------------------------------
+
+// Human reason per attention state (meaning over backend jargon).
+const STATE_REASON = {
+  DELIVERY_PROBLEM: 'Je vorige bericht kwam niet aan',
+  REPLY_READY: 'Een concept staat voor je klaar',
+  NEW: 'Nieuw gesprek, nog niet bekeken',
+  UNREAD: 'Nieuw bericht, nog niet gelezen',
+  NEEDS_ACTION: 'Wacht op jou',
+};
+// Which tier a state belongs to on Vandaag (attention only — no reveal-noise).
+function tierOf(state) {
+  if (state === 'REPLY_READY') return 'ready';
+  return 'now';
+}
+
+// EMAIL is the only channel that can actually deliver in Slice 1. The reachability
+// zone stays honest about the three separate layers: the datum exists, consent
+// allows it, and a real send/call adapter exists.
+function reachability(rel) {
+  const ids = rel.identities || [];
+  const val = (ch) => { const i = ids.find((x) => x.channel === ch); return i ? i.value : null; };
+  const consent = rel.consent || {};
+  const email = val('EMAIL') || (rel.contact && rel.contact.email) || null;
+  const phone = val('PHONE') || (rel.contact && rel.contact.mobile) || null;
+  return {
+    email: email ? { value: email, sendable: consent.EMAIL ? consent.EMAIL.allowed : true, adapter: 'A' } : null,
+    phone: phone ? { value: phone, sendable: false, note: 'bellen als menselijke actie', adapter: 'A_human' } : null,
+    // WhatsApp/SMS are NOT presented as a working capability in Slice 1.
+    whatsapp: null, sms: null,
+    consent,
+  };
+}
+
+// ---- handler ----------------------------------------------------------------
+
+export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
+  if (!pathname.startsWith('/api/cockpit/')) return false;
+  const u = new URL(req.url, 'http://x');
+
+  // /config is safe pre-auth: it lets the page decide real-data mode vs a
+  // fail-closed "niet geconfigureerd" state. No secrets.
+  if (pathname === '/api/cockpit/config' && method === 'GET') {
+    json(res, 200, {
+      commEnabled: commEnabled(),
+      authed: isAuthed(req),
+      emailOnly: true,
+      // Only EMAIL can actually deliver; a real transport must be configured for Phase B.
+      mailConfigured: Boolean(config.mailTransport && config.mailApiKey),
+      slice: 'slice-1',
+    });
+    return true;
+  }
+
+  // Fail-closed: the whole real-data surface is dark unless the Communication Layer
+  // is enabled (COMM_LAYER_ENABLED=1 + DATABASE_URL). Never pretend.
+  if (!commEnabled()) { json(res, 503, { error: 'comm_layer_disabled' }); return true; }
+  if (!isAuthed(req)) { json(res, 401, { error: 'Niet ingelogd' }); return true; }
+  const tenantId = await getDefaultTenantId();
+
+  // ---- Vandaag: what needs my attention now (attention only, no reveal-noise) --
+  if (pathname === '/api/cockpit/today' && method === 'GET') {
+    const ov = await attentionOverview(tenantId);
+    const groups = { now: [], ready: [] };
+    for (const c of ov.queue) {
+      const item = {
+        conversationId: c.id, contactId: c.contactId || null, name: c.name, org: c.org,
+        channel: c.channel, state: c.state, reason: STATE_REASON[c.state] || 'Vraagt aandacht',
+        preview: c.preview, hasPrepared: !!c.hasAiProposed,
+      };
+      groups[tierOf(c.state)].push(item);
+    }
+    json(res, 200, {
+      headline: ov.summary.headline,          // server-computed, never drifts
+      counts: { actionable: ov.summary.actionable, ready: ov.summary.readyCount },
+      groups,
+      source: 'communication-layer/attention',
+    });
+    return true;
+  }
+
+  // ---- Dossier: what does Maculis really know about this relation --------------
+  const relMatch = pathname.match(new RegExp(`^/api/cockpit/relation/${UUID}$`));
+  if (relMatch && method === 'GET') {
+    const rel = await getRelationship(tenantId, { contactId: relMatch[1] });
+    if (!rel || !rel.contact) { json(res, 404, { error: 'Relatie niet gevonden' }); return true; }
+    const c = rel.contact;
+    const name = [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || 'Onbekend';
+    // Observation vs durable memory stays explicit (proposed vs confirmed).
+    const observed = (rel.memory || []).filter((m) => m.confidence === 'proposed');
+    const remembered = (rel.memory || []).filter((m) => m.confidence !== 'proposed');
+    // The conversation to open: prefer one with an actionable/ai-ready state.
+    const convs = rel.conversations || [];
+    const primaryConv = convs.find((cv) => cv.ai_ready) || convs.find((cv) => cv.unread > 0) || convs[0] || null;
+    json(res, 200, {
+      identity: {
+        contactId: c.id, name, role: c.role || null,
+        org: rel.organization ? rel.organization.name : null,
+        stage: rel.stage || null,
+      },
+      reachability: reachability(rel),
+      now: rel.summary ? rel.summary.nextAction : null,   // meaning-first "wat speelt er nu"
+      journey: rel.journey ? { campaign: rel.journey.campaign, status: rel.journey.status } : null,
+      conversations: convs.map((cv) => ({
+        id: cv.id, subject: cv.subject, channel: cv.channel, status: cv.status,
+        lastMessageAt: cv.last_message_at, unread: cv.unread, aiReady: cv.ai_ready,
+      })),
+      primaryConversationId: primaryConv ? primaryConv.id : null,
+      observed,        // AI observations awaiting human confirm/reject
+      remembered,      // durable, human-confirmed memory
+      followups: rel.followUps || [],
+      orgContacts: rel.orgContacts || [],
+      summary: rel.summary || null,
+    });
+    return true;
+  }
+
+  // ---- Gesprek: SIDE-EFFECT-FREE read (thread + prepared draft) ----------------
+  // The comm GET /conversations/:id mutates (NEW->OPEN + marks read). The cockpit
+  // read must not: opening the dossier/preview must never silently clear attention.
+  const convMatch = pathname.match(new RegExp(`^/api/cockpit/conversation/${UUID}$`));
+  if (convMatch && method === 'GET') {
+    const id = convMatch[1];
+    const conv = (await query(
+      `select c.id, c.subject, c.status, c.channel, c.is_privacy, c.contact_id, c.organization_id,
+              ct.first_name, ct.last_name, ct.email, o.name as org
+         from conversation c left join contact ct on ct.id=c.contact_id left join organization o on o.id=c.organization_id
+        where c.id=$1 and c.tenant_id=$2`, [id, tenantId])).rows[0];
+    if (!conv) { json(res, 404, { error: 'Gesprek niet gevonden' }); return true; }
+    if (conv.is_privacy) { json(res, 403, { error: 'privacy_conversation' }); return true; }
+    const messages = (await query(
+      `select id, direction, channel, from_address, subject, body_text, delivery, created_at
+         from message where conversation_id=$1 order by created_at asc`, [id])).rows;
+    const proposal = (await query(
+      `select summary, intent, suggested_reply from ai_draft
+        where conversation_id=$1 and status='proposed' order by created_at desc limit 1`, [id])).rows[0] || null;
+    const working = (await query(
+      `select id, status, channel, subject, body, ai_generated, human_edited, version
+         from comm_draft where conversation_id=$1 and status='draft' order by created_at desc limit 1`, [id])).rows[0] || null;
+    const consent = conv.contact_id ? await channelConsentState(tenantId, conv.contact_id) : null;
+    json(res, 200, {
+      conversation: {
+        id: conv.id, subject: conv.subject, status: conv.status, channel: conv.channel,
+        who: [conv.first_name, conv.last_name].filter(Boolean).join(' ') || conv.email || 'Onbekend',
+        org: conv.org, contactId: conv.contact_id,
+      },
+      messages, proposal, workingDraft: working, consent,
+    });
+    return true;
+  }
+
+  // ---- Open (or reuse) the working draft for a conversation (EMAIL) ------------
+  const draftOpen = pathname.match(new RegExp(`^/api/cockpit/conversation/${UUID}/draft$`));
+  if (draftOpen && method === 'POST') {
+    const result = await drafts.openDraft({ tenantId, conversationId: draftOpen[1], channel: 'EMAIL' });
+    json(res, result.ok ? 200 : 400, result);
+    return true;
+  }
+
+  // ---- Human edits the draft (direct edit) ------------------------------------
+  const draftEdit = pathname.match(new RegExp(`^/api/cockpit/draft/${UUID}$`));
+  if (draftEdit && method === 'PATCH') {
+    const body = await readJson(req) || {};
+    json(res, 200, await drafts.humanEdit({ draftId: draftEdit[1], body: body.body ?? '', subject: body.subject, channel: 'EMAIL' }));
+    return true;
+  }
+
+  // ---- AI revises the SAME draft (warmer/shorter) — still human-approved later -
+  const draftRevise = pathname.match(new RegExp(`^/api/cockpit/draft/${UUID}/revise$`));
+  if (draftRevise && method === 'POST') {
+    const body = await readJson(req) || {};
+    if (!body.instruction) { json(res, 400, { error: 'no_instruction' }); return true; }
+    json(res, 200, await drafts.aiRevise({ draftId: draftRevise[1], instruction: body.instruction, tenantId }));
+    return true;
+  }
+
+  // ---- Approve + send: the last human step. EMAIL-only, consent-gated, audited -
+  // Mirrors the verified comm draft-send path. Never the legacy /reply path (which
+  // bypasses the consent gate). Non-email channels are refused, not faked.
+  const draftSend = pathname.match(new RegExp(`^/api/cockpit/draft/${UUID}/send$`));
+  if (draftSend && method === 'POST') {
+    const state = await drafts.getDraftState(draftSend[1]);
+    if (!state) { json(res, 404, { error: 'not_found' }); return true; }
+    const d = state.draft;
+    if (d.channel !== 'EMAIL') { json(res, 400, { error: 'kanaal_niet_beschikbaar', channel: d.channel }); return true; }
+    if (d.status !== 'draft') { json(res, 400, { error: 'already_' + d.status }); return true; }
+    if (!d.body || !String(d.body).trim()) { json(res, 400, { error: 'empty_body' }); return true; }
+    await query("update comm_draft set status='approved', approved_at=now() where id=$1", [d.id]);
+    const result = await sendOnChannel({
+      tenantId, conversationId: d.conversation_id, contactId: d.contact_id, organizationId: d.organization_id,
+      channel: 'EMAIL', subject: d.subject, text: d.body, draftId: d.id, ipRef: ipRefOf(req),
+    });
+    if (!result.ok) await query("update comm_draft set status='draft', approved_at=null where id=$1", [d.id]);
+    json(res, result.ok ? 200 : 400, result);
+    return true;
+  }
+
+  // ---- Settle: a handled item falls back to rest (read watermark) --------------
+  const settle = pathname.match(new RegExp(`^/api/cockpit/conversation/${UUID}/settle$`));
+  if (settle && method === 'POST') {
+    json(res, 200, await markConversationRead(tenantId, settle[1], { userId: null }));
+    return true;
+  }
+
+  // ---- Observation -> durable memory: confirm or reject an AI observation ------
+  const memConfirm = pathname.match(new RegExp(`^/api/cockpit/memory/${UUID}/confirm$`));
+  if (memConfirm && method === 'POST') { json(res, 200, await confirmMemory(tenantId, memConfirm[1])); return true; }
+  const memReject = pathname.match(new RegExp(`^/api/cockpit/memory/${UUID}$`));
+  if (memReject && method === 'DELETE') { json(res, 200, await dismissMemory(tenantId, memReject[1])); return true; }
+
+  json(res, 404, { error: 'unknown_cockpit_route' });
+  return true;
+}

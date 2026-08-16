@@ -1,0 +1,355 @@
+/* =====================================================================
+   Maculis Future Cockpit — OPERATIONAL client, Slice 1 (real data only).
+   Every screen here is fed by /api/cockpit/*. There are NO fixtures. If the
+   Communication Layer is not configured, this page fails closed and says so;
+   it never shows invented data as if it were real (trust invariant).
+   Reuses /cockpit.css so the look matches the frozen prototype exactly.
+   ===================================================================== */
+'use strict';
+
+const shell = document.getElementById('shell');
+const view = document.getElementById('view');
+
+/* ---------- helpers ---------- */
+function el(tag, cls, html) { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function initials(name) { const p = String(name || '').trim().split(/\s+/); return (((p[0] || '')[0] || '') + ((p[p.length - 1] || '')[0] || '')).toUpperCase(); }
+const CHAN_ICO = { EMAIL: '✉', WHATSAPP: '◇', SMS: '▤', PHONE: '☎' };
+
+async function api(path, opts) {
+  const r = await fetch(path, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, ...opts });
+  let data = null; try { data = await r.json(); } catch { /* no body */ }
+  return { ok: r.ok, status: r.status, data };
+}
+
+/* ---------- state ---------- */
+let scn = 'vandaag';
+let activeContactId = null;
+let activeConvId = null;
+let activeDraft = null; // full draft state
+
+/* ---------- boot ---------- */
+async function boot() {
+  const { data: cfg } = await api('/api/cockpit/config');
+  if (!cfg || !cfg.commEnabled) return renderDisabled();
+  if (!cfg.authed) return renderLogin();
+  wireNav();
+  render();
+}
+
+function renderDisabled() {
+  shell.setAttribute('data-space', 'reveal');
+  view.innerHTML = '';
+  const s = el('div', 'silence');
+  s.innerHTML = `<h2>Nog niet geconfigureerd.</h2>
+    <p>De Communication Layer staat uit (database of <code>COMM_LAYER_ENABLED</code> ontbreekt).</p>
+    <div class="whisper">Deze cockpit toont alleen echte data. Zolang die er niet is, tonen we niets in plaats van iets te verzinnen.</div>`;
+  view.appendChild(s);
+}
+
+function renderLogin() {
+  shell.setAttribute('data-space', 'work');
+  view.innerHTML = '';
+  const wrap = el('div', 'view-enter');
+  wrap.appendChild(el('h1', 'work-h1', 'Inloggen'));
+  const form = el('form', 'rel-find');
+  form.innerHTML = `<span class="search big"><input type="password" id="pw" placeholder="Adminwachtwoord" aria-label="Adminwachtwoord"></span><button class="btn btn-primary" type="submit">Inloggen</button>`;
+  const err = el('p', 'lead-note'); err.style.color = 'var(--danger)';
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const pw = form.querySelector('#pw').value;
+    const r = await api('/api/login', { method: 'POST', body: JSON.stringify({ password: pw }) });
+    if (r.ok) boot(); else { err.textContent = (r.data && r.data.error) || 'Onjuist wachtwoord'; }
+  });
+  wrap.appendChild(form); wrap.appendChild(err);
+  view.appendChild(wrap);
+}
+
+function wireNav() {
+  document.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', e => {
+    e.preventDefault(); scn = a.getAttribute('data-nav'); activeContactId = null; activeConvId = null; render();
+  }));
+}
+
+function lightNav(key) {
+  document.querySelectorAll('[data-nav]').forEach(a => {
+    a.removeAttribute('aria-current');
+    if (a.getAttribute('data-nav') === key) a.setAttribute('aria-current', 'page');
+  });
+}
+
+/* ---------- router ---------- */
+async function render() {
+  view.innerHTML = '';
+  if (scn === 'vandaag') { shell.setAttribute('data-space', 'reveal'); lightNav('vandaag'); return renderVandaag(); }
+  if (scn === 'dossier') { shell.setAttribute('data-space', 'work'); lightNav('relaties'); return renderDossier(activeContactId); }
+  if (scn === 'gesprek') { shell.setAttribute('data-space', 'work'); lightNav('gesprekken'); return renderGesprek(activeConvId); }
+  // Not wired in Slice 1 — honest placeholder, never fixtures.
+  shell.setAttribute('data-space', 'work'); lightNav(scn);
+  const wrap = el('div', 'view-enter');
+  wrap.appendChild(el('div', 'eyebrow-line', scn.charAt(0).toUpperCase() + scn.slice(1)));
+  wrap.appendChild(el('h1', 'work-h1', scn.charAt(0).toUpperCase() + scn.slice(1)));
+  wrap.appendChild(el('p', 'lead-note', 'Deze weergave is in deze fase (Slice 1) nog niet op echte data aangesloten. Er wordt hier bewust niets getoond in plaats van prototype-data.'));
+  view.appendChild(wrap);
+}
+
+/* ---------- Vandaag (attention only) ---------- */
+async function renderVandaag() {
+  const { ok, data } = await api('/api/cockpit/today');
+  const wrap = el('div', 'view-enter');
+  if (!ok) { wrap.appendChild(el('p', 'lead-note', 'Kon aandacht niet laden.')); view.appendChild(wrap); return; }
+  const h = data.headline || { primary: '', secondary: null, zero: false };
+  document.getElementById('nc-vandaag').textContent = data.counts && data.counts.actionable ? String(data.counts.actionable) : '';
+
+  if (h.zero) {
+    // Calm state: the silence block carries the message; no duplicate headline above it.
+    wrap.appendChild(el('div', 'eyebrow', 'Vandaag'));
+    const s = el('div', 'silence');
+    s.innerHTML = `<h2>${esc(h.primary || 'Je bent bij.')}</h2>${h.secondary ? `<p>${esc(h.secondary)}</p>` : ''}
+      <div class="whisper">Maculis kijkt verder. Als er iets werkelijk toe doet, zie je het hier.</div>`;
+    wrap.appendChild(s); view.appendChild(wrap); return;
+  }
+
+  const greet = el('div', 'greet');
+  greet.innerHTML = `<div class="eyebrow">Vandaag</div><h1>${esc(h.primary)}</h1>${h.secondary ? `<p class="sub">${esc(h.secondary)}</p>` : ''}`;
+  wrap.appendChild(greet);
+  const tiers = [['now', 'Nu', 'vraagt jou'], ['ready', 'Klaar', 'Maculis heeft iets voorbereid']];
+  for (const [key, label, hint] of tiers) {
+    const items = (data.groups[key] || []);
+    if (!items.length) continue;
+    const g = el('div', 'attn-group');
+    g.appendChild(tierHead(key === 'ready' ? 'ready' : 'now', label, hint));
+    items.forEach(it => g.appendChild(attnCard(it)));
+    wrap.appendChild(g);
+  }
+  view.appendChild(wrap);
+}
+
+function tierHead(cls, label, hint) {
+  const h = el('div', 'attn-head');
+  h.innerHTML = `<span class="tier ${cls}"><span class="pip"></span><b>${esc(label)}</b></span>${hint ? `<span class="hint">${esc(hint)}</span>` : ''}`;
+  return h;
+}
+
+function attnCard(it) {
+  const b = el('article', 'item openable'); b.tabIndex = 0; b.setAttribute('role', 'button');
+  b.innerHTML =
+    `<div class="row1">
+       <span class="who">${esc(it.name)}</span>
+       <span class="chan">${esc(CHAN_ICO[it.channel] || '')} ${esc((it.channel || '').toLowerCase())}</span>
+       <span class="go-chevron" aria-hidden="true">›</span>
+     </div>
+     ${it.preview ? `<div class="line">${esc(it.preview)}</div>` : ''}
+     <div class="tags">
+       <span class="chip ${it.state === 'REPLY_READY' ? 'ready' : 'now'}"><span class="k"></span>${esc(it.reason)}</span>
+       ${it.org ? `<span class="chip">${esc(it.org)}</span>` : ''}
+     </div>`;
+  const open = () => {
+    if (it.contactId) { activeContactId = it.contactId; scn = 'dossier'; render(); }
+    else { activeConvId = it.conversationId; scn = 'gesprek'; render(); }
+  };
+  b.addEventListener('click', open);
+  b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  return b;
+}
+
+/* ---------- Dossier ---------- */
+function provChip(cls) {
+  const m = { A: ['in Maculis', 'a'], B: ['afgeleid', 'b'], C: ['toekomstig', 'c'] };
+  const [lbl, k] = m[cls] || m.A;
+  return `<span class="prov-chip ${k}">${lbl}</span>`;
+}
+
+async function renderDossier(contactId) {
+  view.innerHTML = ''; // idempotent: also called directly after a memory action, not only via render()
+  const { ok, data } = await api('/api/cockpit/relation/' + contactId);
+  const wrap = el('div', 'view-enter wide');
+  if (!ok) { wrap.appendChild(el('p', 'lead-note', 'Relatie niet gevonden.')); view.appendChild(wrap); return; }
+
+  const crumbs = el('div', 'crumbs');
+  const back = el('button', 'crumb-link', 'Vandaag'); back.addEventListener('click', () => { scn = 'vandaag'; render(); });
+  crumbs.appendChild(back); crumbs.appendChild(el('span', 'crumb-sep', '›')); crumbs.appendChild(el('span', 'crumb-cur', data.identity.name));
+  wrap.appendChild(crumbs);
+
+  const id = data.identity;
+  const idc = el('div', 'dos-id');
+  idc.innerHTML =
+    `<span class="dos-av">${esc(initials(id.name))}</span>
+     <div class="dos-idmain"><div class="dos-name">${esc(id.name)}</div>
+       <div class="dos-sub">${esc(id.role || 'Contactpersoon')}${id.org ? ' · ' + esc(id.org) : ''}</div></div>
+     <div class="dos-meta">${id.stage ? `<span class="dos-stage">${esc(id.stage)}</span>` : ''}</div>`;
+  wrap.appendChild(idc);
+
+  // reachability zone (honest 3 layers; email is the only sendable channel in Slice 1)
+  const rc = data.reachability || {};
+  const reach = el('div', 'dos-reach');
+  const parts = [];
+  if (rc.email) parts.push(`<span class="reach-item"><span class="reach-ic">✉</span><span class="reach-v">${esc(rc.email.value)}</span></span>`);
+  if (rc.phone) parts.push(`<span class="reach-item"><span class="reach-ic">☎</span><span class="reach-v">${esc(rc.phone.value)}</span></span>`);
+  const cons = rc.consent && rc.consent.EMAIL;
+  const consentHint = cons && cons.allowed === false ? '<span class="reach-consent out">E-mail: geen toestemming</span>' : '';
+  reach.innerHTML = `<div class="reach-lines">${parts.join('')}${consentHint}</div>`;
+  wrap.appendChild(reach);
+
+  // NU
+  const now = el('section', 'dos-now');
+  now.appendChild(el('div', 'dos-now-h', 'Wat speelt er nu'));
+  if (data.now) {
+    const item = el('div', 'dos-now-item now');
+    const canOpen = data.primaryConversationId;
+    item.innerHTML = `<div class="dni-top"><span class="chip now"><span class="k"></span>${esc(data.now.label || 'Vraagt aandacht')}</span></div>`;
+    if (canOpen) { const btn = el('button', 'btn btn-primary', 'Open het gesprek'); btn.addEventListener('click', () => { activeConvId = data.primaryConversationId; scn = 'gesprek'; render(); }); item.appendChild(btn); }
+    now.appendChild(item);
+  } else { now.appendChild(el('p', 'muted', 'Er speelt nu niets bij deze relatie. Dat is ook een status.')); }
+  wrap.appendChild(now);
+
+  // sections
+  const secWrap = el('div', 'dos-sections');
+  secWrap.appendChild(dosSection('Gesprekshistorie', 'A', true, () => {
+    const b = el('div', 'dos-timeline');
+    if (!data.conversations.length) b.innerHTML = '<p class="muted">Nog geen gesprekken.</p>';
+    data.conversations.forEach(cv => { b.innerHTML += `<div class="tl-ev"><span class="tl-when">${esc((cv.channel || '').toLowerCase())}</span><p>${esc(cv.subject || 'Gesprek')} · ${esc(cv.status)}${cv.aiReady ? ' · concept klaar' : ''}</p></div>`; });
+    return b;
+  }));
+  // Observation vs durable memory, kept explicit.
+  secWrap.appendChild(dosSection('Wat Maculis zag', 'B', true, () => {
+    const b = el('div', 'dos-memory');
+    if (!data.observed.length) b.innerHTML = '<p class="muted">Geen open observaties. Wat bevestigd is, staat onder Geheugen.</p>';
+    data.observed.forEach(m => b.appendChild(memoryCard(m, true)));
+    return b;
+  }));
+  secWrap.appendChild(dosSection('Geheugen', 'A', false, () => {
+    const b = el('div', 'dos-memory');
+    if (!data.remembered.length) b.innerHTML = '<p class="muted">Nog niets duurzaam onthouden.</p>';
+    data.remembered.forEach(m => b.appendChild(memoryCard(m, false)));
+    return b;
+  }));
+  secWrap.appendChild(dosSection('Open acties en follow-ups', 'A', false, () => {
+    const b = el('div', '');
+    if (!data.followups.length) b.innerHTML = '<p class="muted">Geen open acties.</p>';
+    data.followups.forEach(f => { b.innerHTML += `<div class="fact"><span class="k">${f.overdue ? 'verlopen' : 'open'}</span><span class="v">${esc(f.title)}</span></div>`; });
+    return b;
+  }));
+  secWrap.appendChild(dosSection('Contact en identiteiten', 'A', false, () => {
+    const b = el('div', 'dos-facts');
+    if (rc.email) b.innerHTML += `<div class="fact"><span class="k">e-mail</span><span class="v">${esc(rc.email.value)}</span></div>`;
+    if (rc.phone) b.innerHTML += `<div class="fact"><span class="k">telefoon</span><span class="v">${esc(rc.phone.value)}</span></div>`;
+    b.innerHTML += `<p class="dos-note">E-mail is het enige digitaal verzendbare kanaal in deze fase. Bellen is een menselijke actie. WhatsApp/SMS ${provChip('C')} volgen later.</p>`;
+    return b;
+  }));
+  wrap.appendChild(secWrap);
+  view.appendChild(wrap);
+}
+
+function dosSection(title, prov, open, bodyFn) {
+  const sec = el('div', 'dos-sec');
+  const head = el('button', 'dos-sec-head');
+  head.setAttribute('aria-expanded', String(open));
+  head.innerHTML = `<span class="dss-title">${esc(title)}</span>${provChip(prov)}<span class="dss-arw">${open ? '▾' : '▸'}</span>`;
+  const body = el('div', 'dos-sec-body' + (open ? '' : ' hidden'));
+  body.appendChild(bodyFn());
+  head.addEventListener('click', () => { const o = body.classList.toggle('hidden') === false; head.setAttribute('aria-expanded', String(o)); head.querySelector('.dss-arw').textContent = o ? '▾' : '▸'; });
+  sec.appendChild(head); sec.appendChild(body);
+  return sec;
+}
+
+function memoryCard(m, isObservation) {
+  const c = el('div', 'mem');
+  const tag = isObservation ? '<span class="mem-ai">AI-voorstel</span>' : '<span class="mem-conf">Bevestigd</span>';
+  c.innerHTML = `<div class="mem-top">${tag}<span class="mem-when">${esc(m.kind || '')}</span></div><p>${esc(m.content)}</p>`;
+  if (isObservation) {
+    const acts = el('span', 'mem-acts');
+    const conf = el('button', 'linkbtn', 'Bevestigen');
+    const rej = el('button', 'linkbtn', 'Verwerpen');
+    conf.addEventListener('click', async () => { await api('/api/cockpit/memory/' + m.id + '/confirm', { method: 'POST' }); renderDossier(activeContactId); });
+    rej.addEventListener('click', async () => { await api('/api/cockpit/memory/' + m.id, { method: 'DELETE' }); renderDossier(activeContactId); });
+    acts.appendChild(conf); acts.appendChild(document.createTextNode(' · ')); acts.appendChild(rej);
+    c.appendChild(acts);
+  }
+  return c;
+}
+
+/* ---------- Gesprek (thread + prepared draft + human-in-the-loop send) ---------- */
+async function renderGesprek(convId) {
+  view.innerHTML = ''; // idempotent: also called directly by the send-failure retry, not only via render()
+  const { ok, data } = await api('/api/cockpit/conversation/' + convId);
+  const wrap = el('div', 'view-enter wide');
+  if (!ok) { wrap.appendChild(el('p', 'lead-note', 'Gesprek niet gevonden.')); view.appendChild(wrap); return; }
+  const conv = data.conversation;
+
+  const head = el('div', 'work-head');
+  head.innerHTML = `<div class="eyebrow-line">Gesprek</div>`;
+  if (conv.contactId) { const openRel = el('button', 'back-btn', `Open relatie: ${esc(conv.who)} →`); openRel.addEventListener('click', () => { activeContactId = conv.contactId; scn = 'dossier'; render(); }); head.appendChild(openRel); }
+  wrap.appendChild(head);
+
+  const grid = el('div', 'work-grid');
+  const thread = el('div', 'thread');
+  let msgs = '';
+  data.messages.forEach(m => { msgs += `<div class="msg ${m.direction === 'OUTBOUND' ? 'out' : 'in'}"><div class="who">${esc(m.direction === 'OUTBOUND' ? 'Maculis · jij' : conv.who)} · ${esc((m.channel || '').toLowerCase())}${m.delivery ? ' · ' + esc(m.delivery) : ''}</div><div class="b">${esc(m.body_text || '')}</div></div>`; });
+  thread.innerHTML = `<div class="th-head"><h2>${esc(conv.subject || 'Gesprek')}</h2><div class="meta">${esc(conv.who)}${conv.org ? ' · ' + esc(conv.org) : ''} · ${esc((conv.channel || '').toLowerCase())} · ${esc(conv.status)}</div></div><div class="msgs">${msgs}</div>`;
+
+  // composer / draft
+  const composer = el('div', 'composer');
+  thread.appendChild(composer);
+  await renderComposer(composer, convId, data);
+
+  grid.appendChild(thread);
+  wrap.appendChild(grid);
+  view.appendChild(wrap);
+}
+
+async function renderComposer(composer, convId, data) {
+  composer.innerHTML = '';
+  const consentBlocked = data.consent && data.consent.EMAIL && data.consent.EMAIL.allowed === false;
+  let draft = data.workingDraft;
+
+  if (!draft) {
+    // no working draft yet — offer to open one (seeded from the AI proposal if present)
+    const info = el('p', 'draftby', data.proposal ? 'Maculis heeft een concept voorbereid.' : 'Nog geen concept.');
+    composer.appendChild(info);
+    const openBtn = el('button', 'btn btn-primary', data.proposal ? 'Concept openen' : 'Concept schrijven');
+    openBtn.addEventListener('click', async () => {
+      const r = await api('/api/cockpit/conversation/' + convId + '/draft', { method: 'POST' });
+      if (r.ok && r.data && r.data.draft) { data.workingDraft = r.data.draft; renderComposer(composer, convId, data); }
+    });
+    composer.appendChild(openBtn);
+    return;
+  }
+
+  const ta = el('textarea'); ta.id = 'draft'; ta.rows = 10; ta.setAttribute('aria-label', 'Antwoord'); ta.value = draft.body || '';
+  composer.appendChild(ta);
+  const bar = el('div', 'bar');
+  const note = el('span', 'draftby', draft.ai_generated ? 'Maculis stelde dit voor. Jij houdt het laatste woord.' : 'Jouw concept.');
+  bar.appendChild(note);
+
+  const warmer = el('button', 'btn btn-ghost', 'Warmer');
+  const korter = el('button', 'btn btn-ghost', 'Korter');
+  const send = el('button', 'btn btn-primary', 'Goedkeuren en verzenden');
+  if (consentBlocked) { send.disabled = true; send.title = 'Geen toestemming voor e-mail'; }
+
+  async function saveEdit() { const r = await api('/api/cockpit/draft/' + draft.id, { method: 'PATCH', body: JSON.stringify({ body: ta.value }) }); if (r.ok && r.data && r.data.draft) draft = r.data.draft; }
+  async function revise(instruction) { await saveEdit(); const r = await api('/api/cockpit/draft/' + draft.id + '/revise', { method: 'POST', body: JSON.stringify({ instruction }) }); if (r.ok && r.data && r.data.draft) { draft = r.data.draft; ta.value = draft.body || ''; } }
+  warmer.addEventListener('click', () => revise('warmer'));
+  korter.addEventListener('click', () => revise('korter'));
+  send.addEventListener('click', async () => {
+    send.disabled = true; send.textContent = 'Bezig…';
+    await saveEdit();
+    const r = await api('/api/cockpit/draft/' + draft.id + '/send', { method: 'POST' });
+    composer.innerHTML = '';
+    if (r.ok && r.data && r.data.ok) {
+      composer.appendChild(el('p', 'draftby', '✓ Verzonden. Het gesprek is bijgewerkt en valt weg uit Vandaag.'));
+      await api('/api/cockpit/conversation/' + convId + '/settle', { method: 'POST' });
+      const backBtn = el('button', 'btn btn-ghost', 'Terug naar Vandaag'); backBtn.addEventListener('click', () => { scn = 'vandaag'; render(); });
+      composer.appendChild(backBtn);
+    } else {
+      const reason = (r.data && (r.data.reason || r.data.error)) || 'onbekend';
+      const map = { consent_blocked: 'Geen toestemming voor dit kanaal.', no_recipient: 'Geen geldig e-mailadres.', empty_body: 'Het concept is leeg.', email_transport_not_configured: 'E-mailverzending is niet geconfigureerd.' };
+      composer.appendChild(el('p', 'draftby', '✗ Niet verzonden: ' + (map[reason] || esc(reason)) + ' Het concept blijft staan.'));
+      const retry = el('button', 'btn btn-ghost', 'Terug'); retry.addEventListener('click', () => renderGesprek(convId)); composer.appendChild(retry);
+    }
+  });
+  bar.appendChild(warmer); bar.appendChild(korter); bar.appendChild(send);
+  composer.appendChild(bar);
+}
+
+boot();

@@ -21,6 +21,7 @@ import {
   cookieHeaderFor,
 } from './auth.mjs';
 import { handleComm } from './comm/routes.mjs';
+import { handleCockpit } from './cockpit/routes.mjs';
 import { migrateOnBoot } from './comm/migrate.mjs';
 import { commEnabled } from './comm/db.mjs';
 import { bridgePassTheLens } from './comm/pass-the-lens.mjs';
@@ -224,6 +225,13 @@ async function handleApi(req, res, pathname) {
   // existing Invitation Manager / First Five routes.
   if (pathname.startsWith('/api/comm/')) {
     const handled = await handleComm(req, res, { pathname, method, isAuthed });
+    if (handled) return;
+  }
+
+  // Future Cockpit orchestration layer (Slice 1). Meaning-first, fail-closed inside
+  // handleCockpit (503 unless the Communication Layer is enabled). Additive.
+  if (pathname.startsWith('/api/cockpit/')) {
+    const handled = await handleCockpit(req, res, { pathname, method, isAuthed });
     if (handled) return;
   }
 
