@@ -26,6 +26,7 @@ const AREAS = {
   first_five: ['technical-signals', 'post-reveal-flow', 'reveal-gate', 'journey-state-machine', 'lens'],
   relationship: ['communication-layer', 'testerbeheer', 'invitation-manager', 'consent', 'inbox'],
   website: ['public-web', 'wow-laag', 'seo', 'growbrain-facing'],
+  orchestrator: ['control-plane', 'routing', 'runner', 'lifecycle', 'governance', 'registry', 'decision-ledger', 'evidence-intake'],
 };
 
 function epicsForRepo(repo) {

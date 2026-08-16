@@ -207,3 +207,52 @@ export async function runLiveProbe() {
   log({ step: 'summary', passed, total: results.length, results });
   return { passed, total: results.length, results };
 }
+
+// Bootstrap EXIT test (control-plane bootstrap §): after the fix is deployed, a
+// NEUTRAL central engineering command submitted through the NORMAL ChatGPT/API route
+// must auto-classify as `orchestrator` (not First Five, not Relationship) and must not
+// be blocked, then execute on the real runner. Real evidence via the deployed route.
+export async function runBootstrapProbe() {
+  const base = loopbackBase();
+  const clients = loadClients();
+  const tok = (id) => clients[id] || clients.default || '';
+  log({ step: 'bootstrap_start', base, runner: config.runner.mode });
+  await publicEdgeChecks(tok);
+
+  async function http(method, path, { token, body } = {}) {
+    const headers = { 'content-type': 'application/json' };
+    if (token) headers['authorization'] = 'Bearer ' + token;
+    const r = await fetch(base + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    let json = null; try { json = await r.json(); } catch { /* non-json */ }
+    return { status: r.status, json };
+  }
+
+  const results = [];
+  const record = (name, pass, detail) => { results.push({ name, pass }); log({ test: name, pass, detail }); };
+
+  // Neutral central engineering command — no product terms, no paused-scope terms.
+  const request = 'Read-only analyse (geen wijzigingen): breng de routing- en runner-lifecycle van de Maculis Orchestrator control plane in kaart en rapporteer de structuur.';
+  try {
+    const submit = await http('POST', '/tasks', { token: tok('chatgpt'), body: { request } });
+    const task = submit.json?.task || {};
+    log({ test: 'BOOTSTRAP.submit', status: submit.status, task_id: task.task_id, routed_to: task.selected_agent, task_status: task.status });
+    record('BOOTSTRAP_routed_to_orchestrator', task.selected_agent === 'orchestrator', { routed_to: task.selected_agent, repository: task.repository });
+    record('BOOTSTRAP_not_first_five_or_relationship', task.selected_agent !== 'first_five' && task.selected_agent !== 'relationship', { routed_to: task.selected_agent });
+    record('BOOTSTRAP_not_blocked', task.status !== 'BLOCKED', { task_status: task.status });
+
+    // Real runner completes it (read-only analysis on the public repo).
+    let final = null, done = false;
+    for (let i = 0; i < 120 && !done; i++) {
+      await sleep(2000);
+      const t = (await http('GET', `/tasks/${task.task_id}`, { token: tok('chatgpt') })).json?.task;
+      final = t;
+      if (t && ['COMPLETED', 'FAILED', 'CANCELLED'].includes(t.status)) done = true;
+      if (i % 5 === 0) log({ test: 'BOOTSTRAP.poll', i, status: t?.status });
+    }
+    record('BOOTSTRAP_real_runner_completed', final?.status === 'COMPLETED', { status: final?.status, agent: final?.selected_agent });
+  } catch (e) { record('BOOTSTRAP_routed_to_orchestrator', false, { error: String(e.message || e) }); }
+
+  const passed = results.filter((r) => r.pass).length;
+  log({ step: 'bootstrap_summary', passed, total: results.length, results });
+  return { passed, total: results.length, results };
+}

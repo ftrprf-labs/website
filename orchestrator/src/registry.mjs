@@ -135,6 +135,56 @@ const AGENTS = [
       'never a faked "live connected" result. Auditability matters. ' +
       'In visible public copy use no hyphen/dash as a stylistic pause (repo copy rule).',
   },
+  {
+    agent_id: 'orchestrator',
+    name: 'Orchestrator',
+    public: true,                 // lives in the public ftrprf-labs/website repo → cloneable tokenless
+    description:
+      'The Maculis Development Orchestrator itself: the central CONTROL PLANE — routing/classification, ' +
+      'task lifecycle, runner, acceptance/verification, governance, registry, store, decompose/epics, ' +
+      'origin & return, decision ledger, evidence intake, workstreams, monitoring. Central engineering ' +
+      'of the Orchestrator, NOT one of the three products and NOT the Relationship product under server/.',
+    repository: 'ftrprf-labs/website',            // SAME physical repo as Relationship (Orchestrator lives under orchestrator/)
+    working_directory: 'orchestrator',
+    // Path ownership scoped to the orchestrator/ subtree — this is what functionally
+    // separates it from Relationship (server/) inside the same physical repository.
+    ownership_patterns: [
+      'orchestrator/', 'orchestrator/src/', 'orchestrator/bin/', 'orchestrator/mcp/', 'orchestrator/config/',
+      'src/router.mjs', 'src/engine.mjs', 'src/decompose.mjs', 'src/registry.mjs', 'src/governance.mjs',
+      'src/store.mjs', 'src/decisions.mjs', 'src/evidence.mjs', 'src/workstreams.mjs', 'src/liveprobe.mjs',
+    ],
+    // Central control-plane terms (brief bootstrap §5). Deliberately distinct from the
+    // Relationship/First Five/Website keyword sets so the domains stay separable.
+    keywords: [
+      'orchestrator', 'control plane', 'control-plane', 'task router', 'routing engine', 'router', 'routing',
+      'runner', 'lifecycle', 'acceptance', 'verification', 'governance', 'registry', 'decompose', 'epic engine',
+      'permission broker', 'origin and return', 'origin & return', 'decision ledger', 'evidence intake',
+      'orchestrator store', 'orchestrator engine', 'orchestrator router', 'classification', 'workstream identities',
+      'cockpit', 'status overview', 'bootstrap', 'routing defect',
+    ],
+    entities: [],                 // no product entities — central engineering, not a product
+    // Real capability manifest (verified: Node ESM, node --test — same repo as Relationship).
+    test_commands: { lint: null, typecheck: null, unit: 'npm test', build: null, e2e: null },
+    build_commands: [],
+    // Real deployment: Render, this very service.
+    deploy: {
+      provider: 'render', production_branch: 'main', auto_deploy: true,
+      preview: false, health_path: '/healthz', production_url: 'https://maculis-orchestrator.onrender.com',
+      verify: 'healthz', rollback: 'render-rollback-previous-deploy',
+    },
+    deploy_targets: ['NO_DEPLOY', 'STAGING', 'PRODUCTION'],
+    permission_profile: 'agent-worktree',
+    system_instructions:
+      'You own the Maculis Development Orchestrator itself (the central control plane; Node ESM, zero runtime ' +
+      'deps, tests via node --test). Work ONLY under orchestrator/. This is NOT one of the three products and ' +
+      'NOT the Relationship / Communication Layer product under server/. Strict separation: never edit server/ ' +
+      '(Relationship) from an orchestrator task, and never edit orchestrator/ from a Relationship task; the two ' +
+      'share ONE physical repo and ONE write lock, so never assume you are the only writer. Registry is data — ' +
+      'never hardcode routing branches. Never weaken the permission deny-list, never push to main, never rewrite ' +
+      'history, never print secrets/PII. Do NOT modify, weaken or bypass DEC-1 (EPIC-3 PAUSED) or any decision; ' +
+      'do not resume EPIC-3, open Lens 2, or change First Five. ' +
+      'In visible public copy use no hyphen/dash as a stylistic pause (repo copy rule).',
+  },
 ];
 
 // Optional: merge extra agents from config/agents.d/*.json so new domains can be

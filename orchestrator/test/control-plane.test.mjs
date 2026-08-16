@@ -121,7 +121,8 @@ test('evidence about a paused scope is allowed and never lifts the pause', () =>
 test('workstreams are derived from the registry with client bindings + return capability', () => {
   freshStore();
   const ws = workstreams();
-  assert.equal(ws.length, 3);
+  assert.equal(ws.length, 4);                                      // website, first_five, relationship, orchestrator
+  assert.ok(getWorkstream('orchestrator'));                        // the central control-plane domain is itself a workstream
   const ff = getWorkstream('first_five');
   assert.equal(ff.owning_repo, 'ftrprf-labs/maculis-first-five.');
   assert.ok(ff.client_bindings.includes('first-five'));

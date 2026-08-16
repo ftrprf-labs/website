@@ -180,6 +180,18 @@ async function main() {
           } catch (e) { console.log('[live-e2e] error: ' + e.message); }
         });
       }
+      // Optional one-shot BOOTSTRAP EXIT test: a neutral central engineering command via
+      // the normal API route must auto-classify as `orchestrator`. Unset after capture.
+      if (process.env.MACULIS_BOOT_BOOTSTRAP_PROBE) {
+        setImmediate(async () => {
+          try {
+            await new Promise((r) => setTimeout(r, 1500));
+            const { runBootstrapProbe } = await import('../src/liveProbe.mjs');
+            const out = await runBootstrapProbe();
+            console.log(`[live-e2e] BOOTSTRAP DONE passed=${out.passed}/${out.total}`);
+          } catch (e) { console.log('[live-e2e] bootstrap error: ' + e.message); }
+        });
+      }
       // Optional one-shot boot self-test (diagnostic, brief §4/§6 online verification).
       // When MACULIS_BOOT_SELFTEST is set, submit exactly one task on startup, run
       // it, and log the outcome (runner mode, status, cost) so an operator can prove

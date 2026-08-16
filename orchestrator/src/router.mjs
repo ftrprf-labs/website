@@ -23,6 +23,46 @@ function flat(s) {
   return norm(s).replace(/[-\s]+/g, ' ');
 }
 
+// --- Negative / exclusion context (bootstrap §6) ---------------------------
+// A protective mention ("do not touch First Five", "keep Lens 2 paused") must NOT
+// score as positive intent for that domain. We split the request into clauses and
+// drop any clause that is an exclusion/protection statement BEFORE domain scoring.
+// Deliberately narrow, multi-word cues so a genuine bug like "reveal does not show"
+// or a read-only "geen wijzigingen" ask is NOT mistaken for a domain exclusion.
+const EXCLUSION_CUES = [
+  'do not touch', "don't touch", 'dont touch', 'not touch', 'never touch', 'hands off',
+  'do not resume', "don't resume", 'not resume', 'never resume', 'niet hervatten',
+  'do not modify', 'do not change', 'do not edit', 'do not alter', 'do not adjust',
+  'do not start', 'do not open', 'do not build', 'do not implement', 'do not add', 'do not create',
+  'must not touch', 'must not resume', 'must not change', 'must not modify', 'must not start', 'must not open',
+  'niet aanraken', 'niet openen', 'niet starten', 'niet wijzigen aan first', 'met rust laten',
+  'leave first five', 'leave it alone', 'leave alone', 'zonder first five', 'zonder eerste',
+];
+
+// Clause boundaries: sentence marks, semicolons, newlines, and coordinating words —
+// so a positive clause can be isolated from an exclusion clause in the same request.
+function splitClauses(flatText) {
+  return flatText
+    .split(/[.;\n]+|,| and | en | & | plus | but | maar /)
+    .map((c) => c.trim())
+    .filter(Boolean);
+}
+
+function isExclusionClause(clause) {
+  if (EXCLUSION_CUES.some((c) => clause.includes(c))) return true;
+  // A clause about something being/remaining paused/parked is protective, not a
+  // positive build instruction — it must not pull routing toward that domain.
+  if (/\b(paused|gepauzeerd|geparkeerd|parked)\b/.test(clause)) return true;
+  return false;
+}
+
+// The text used for DOMAIN scoring: only the non-exclusion clauses. Task type and
+// risk still use the full text (those are not domain routing). If EVERYTHING is an
+// exclusion clause, the positive text is empty → no domain signal → routing review.
+function positiveText(flatText) {
+  return splitClauses(flatText).filter((c) => !isExclusionClause(c)).join(' . ');
+}
+
 // Count non-overlapping keyword hits, longer phrases weighted higher (a 2-word
 // phrase like "micro reveal" is a stronger signal than the bare word "reveal").
 function scoreKeywords(text, keywords) {
@@ -108,8 +148,10 @@ function requiredChecks(agent, taskType) {
 }
 
 // Score every agent, return them sorted best-first with the signal breakdown.
+// Domain scoring runs on the POSITIVE (non-exclusion) text so a protective mention
+// of a domain does not route work to it (bootstrap §6).
 export function scoreAgents(request) {
-  const text = flat(request);
+  const text = positiveText(flat(request));
   return getAgents()
     .map((agent) => {
       const kw = scoreKeywords(text, agent.keywords || []);
