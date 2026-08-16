@@ -781,3 +781,69 @@ body {
   .orient-close { align-self: flex-start; }
   .item .open-hint { margin-left: 0; }
 }
+
+/* =====================================================================
+   MEANING-FIRST ROUND — 5.000 relations, shrunken nav, conditional Groei
+   ===================================================================== */
+
+/* discreet Beheer in the rail foot, plus a conditional Groei entry */
+.rail .foot .beheer-link {
+  display: flex; align-items: center; gap: var(--s3); text-decoration: none;
+  color: var(--faint); font-size: 13px; padding: var(--s2) var(--s3); border-radius: 10px;
+  margin-bottom: var(--s3);
+}
+.rail .foot .beheer-link .ico { width: 18px; text-align: center; }
+.rail .foot .beheer-link:hover { color: var(--muted); background: var(--surface-2); }
+.rail .foot .beheer-link[aria-current="page"] { color: var(--text); background: var(--primary-soft); }
+.nav a.conditional { position: relative; }
+.nav a.conditional .lbl { color: var(--primary); }
+.new-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); padding: 0; min-width: 0; }
+
+/* Relaties meaning-first */
+.search.big { padding: 11px var(--s4); font-size: var(--t-body); }
+.rel-meaning { margin: var(--s2) 0 var(--s6); }
+.rel-count { font-family: var(--serif); font-size: var(--t-title); color: var(--text); margin: 0 0 var(--s2); font-weight: 500; }
+.rel-count b { color: var(--primary); font-weight: 600; }
+.rel-sub { color: var(--muted); font-size: var(--t-body); max-width: 62ch; margin: 0; }
+
+/* mover cards: rich, not a table row */
+.mover {
+  display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: var(--s3);
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+  padding: var(--s4) var(--s5); margin-bottom: var(--s3); cursor: pointer;
+  transition: transform .16s var(--ease), border-color .16s var(--ease);
+}
+.mover:hover, .mover:focus-visible { transform: translateY(-1px); border-color: var(--border-strong); }
+.mover .av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 600; color: var(--primary-text); background: var(--primary); font-family: var(--serif); }
+.mover-main { min-width: 0; }
+.mover-top { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+.mover-name { font-family: var(--serif); font-size: var(--t-lead); color: var(--text); }
+.mover-touch { margin-left: auto; font-size: 12px; color: var(--faint); }
+.mover-org { color: var(--muted); font-size: 12px; margin-top: 1px; }
+.mover-reason { color: var(--text); font-size: 13px; margin-top: 6px; }
+.mover .go-chevron { color: var(--faint); font-size: 20px; transition: transform .2s var(--ease), color .2s var(--ease); }
+.mover:hover .go-chevron { color: var(--primary); transform: translateX(3px); }
+
+/* the full list, deliberately de-emphasized */
+.rel-all { margin-top: var(--s6); border-top: 1px solid var(--hair); padding-top: var(--s5); }
+.rel-all-note { color: var(--faint); font-size: 13px; max-width: 62ch; margin: 0 0 var(--s3); }
+.rel-all-toggle {
+  border: 1px solid var(--border); background: var(--field); color: var(--muted);
+  border-radius: 999px; padding: 8px 16px; font-size: 13px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: var(--s2);
+}
+.rel-all-toggle:hover { border-color: var(--border-strong); color: var(--text); }
+.rel-all-toggle .arw { transition: transform .2s var(--ease); }
+.rel-all-toggle[aria-expanded="true"] .arw { transform: rotate(90deg); }
+.rel-all-body { margin-top: var(--s4); }
+.rel-all-body.hidden { display: none; }
+
+/* the growth-pattern teaser is a reveal teaser with a Groei mark */
+.rt-recur.groei { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
+.pattern-teaser { border-style: dashed; }
+
+@media (max-width: 860px) {
+  .mover { grid-template-columns: 34px 1fr auto; }
+  .mover .av { width: 34px; height: 34px; }
+  .mover-touch { margin-left: 0; }
+}

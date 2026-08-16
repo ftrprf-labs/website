@@ -245,7 +245,47 @@ function buildRelationships(n) {
   }
   return out;
 }
-const RELATIONSHIPS = buildRelationships(520);
+const RELATIONSHIPS = buildRelationships(5000);
+
+/* A cross-relationship pattern. This is what Groei is: meaning Maculis only sees
+   across many relationships. It exists in the world here, so it can surface. When
+   no such pattern exists (e.g. a quiet day), Groei is nowhere to be found. */
+const PATTERN = {
+  id: 'p-firstfive-silence', who: { name: 'Patroon over meerdere relaties', org: 'Groei' },
+  noticed: 'Iets over meerdere relaties', headline: 'Drie ondernemers vielen stil na dezelfde stap.',
+  relto: 'Groei · patroon over 3 relaties',
+  why: 'Maculis zag hetzelfde verloop bij meerdere mensen, niet bij één. Daarom verschijnt dit hier, als groei-patroon, en niet als losse reveal bij één relatie.',
+  layers: [
+    { prov: 'fact', tag: 'Feit', text: 'Drie relaties werden stil binnen twee weken na hun First Five evaluatie.',
+      evidence: 'Saar, plus twee anderen met hetzelfde tijdsverloop.', conf: null },
+    { prov: 'observation', tag: 'Observatie', text: 'Bij alle drie bleef een vraag van hun kant onbeantwoord.',
+      evidence: 'In elk van de drie gesprekken staat een laatste inbound vraag zonder antwoord.', conf: 0.66 },
+    { prov: 'inference', tag: 'Gevolgtrekking', text: 'De stilte lijkt eerder een gemiste terugkoppeling dan verlies van interesse.',
+      evidence: 'Een samenval, geen bewezen oorzaak. Het patroon is zwak maar consistent over de drie.', conf: 0.42 },
+    { prov: 'suggestion', tag: 'Suggestie', text: 'Een korte terugkoppeling vlak na de evaluatie zou dit kunnen voorkomen.',
+      evidence: 'Geldt voor deze drie. Nog geen bewijs dat het breder speelt. Maculis trekt het niet groter dan het is.', conf: null },
+  ],
+  members: ['Saar · Saar Keramiek', 'Twee vergelijkbare relaties, zelfde verloop'],
+  fixture: false,
+};
+
+/* What moves NOW: a small curated set, the same size at 50 or 5.000 relations.
+   This is the meaning-first surface. It never grows with the population. */
+const MOVERS = [
+  { group: 'beweegt', name: 'Kim Deraedt', org: 'Fietsatelier Deraedt', reason: 'Reageert anders dan eerst', touch: 'reveal beschikbaar', reveal: true },
+  { group: 'beweegt', name: 'Saar', org: 'Saar Keramiek', reason: 'Kwam terug na zeven weken stilte', touch: 'opende je oude mail', reveal: true },
+  { group: 'nu', name: 'Jean-Baptiste Vandenberghe', org: 'Coöperatie Noorderlicht Zorg en Welzijn', reason: 'Wacht twee dagen op je', touch: 'e-mail' },
+  { group: 'nu', name: 'Bram Peeters', org: 'Peeters Interim en Detachering', reason: 'Nieuw bericht, nog niet gelezen', touch: 'whatsapp' },
+  { group: 'klaar', name: 'Nadia el Amrani', org: 'Studio Noord', reason: 'Antwoord staat klaar', touch: 'e-mail' },
+  { group: 'klaar', name: 'Federico Gonçalves da Silva', org: 'zelfstandig, zonder organisatie', reason: 'Antwoord staat klaar', touch: 'sms eerder' },
+  { group: 'stil', name: 'Lieselotte Vandewalle', org: 'Advocatenkantoor Vandewalle en Partners', reason: 'Lang stil, was eerder actief', touch: 'vier dagen' },
+];
+const MOVER_GROUPS = [
+  { key: 'nu', tier: 'now', label: 'Vraagt jou' },
+  { key: 'beweegt', tier: 'beweging', label: 'Er beweegt iets' },
+  { key: 'klaar', tier: 'ready', label: 'Klaar' },
+  { key: 'stil', tier: 'quiet', label: 'Dreigt uit beeld te raken' },
+];
 
 /* Maculis-proposed segments (saved views) over the population. */
 const SEGMENTS = [
@@ -290,23 +330,6 @@ function greetBlock(sub) {
      <h1>${greeting()}, Ludwig.</h1>
      <p class="sub">${esc(sub)}</p>`;
   return g;
-}
-
-/* A quiet, one-time orientation. Not a wizard. It states the whole promise in
-   three lines so a new colleague can start without learning any structure. */
-function orientation() {
-  if (!firstDay) return null;
-  const o = el('aside', 'orient');
-  o.setAttribute('aria-label', 'Zo werkt Maculis');
-  o.innerHTML =
-    `<div class="orient-body">
-       <p class="orient-lead">Nieuw hier? Je hoeft niets te leren om te beginnen.</p>
-       <p class="orient-p">Maculis kijkt mee met je relaties en gesprekken. Maculis onthoudt wat speelt. En als iets ertoe doet, laat Maculis het hier zien. De rest blijft rustig.</p>
-       <p class="orient-p muted">Begin gewoon bovenaan. Klik iets aan en Maculis brengt je naar het juiste gesprek of de juiste relatie. Zoeken en verder werk vind je links, wanneer je het nodig hebt.</p>
-     </div>
-     <button class="orient-close" aria-label="Sluiten">Ik snap het</button>`;
-  o.querySelector('.orient-close').addEventListener('click', () => { firstDay = false; render(); });
-  return o;
 }
 
 function tierHead(cls, label, hint) {
@@ -418,7 +441,6 @@ function viewVandaag() {
 
   if (day === 'quiet') {
     wrap.appendChild(greetBlock('Er is vanmorgen niets dat je aandacht vraagt.'));
-    appendIf(wrap, orientation());
     wrap.appendChild(dayBar('quiet'));
     const s = el('div', 'silence');
     s.innerHTML =
@@ -432,7 +454,6 @@ function viewVandaag() {
 
   if (day === 'one') {
     wrap.appendChild(greetBlock('Vandaag verdient één ding je aandacht.'));
-    appendIf(wrap, orientation());
     wrap.appendChild(dayBar('one'));
     const rest = restArea();
     const one = el('div', 'attn-group one-thing');
@@ -440,13 +461,12 @@ function viewVandaag() {
     one.appendChild(attnItem(NU.waiting, rest));
     wrap.appendChild(one);
     wrap.appendChild(rest);
-    wrap.appendChild(quietTail('Verder is alles rustig. 519 relaties, niets dat nu iets van je vraagt.'));
+    wrap.appendChild(quietTail('Verder is alles rustig. Bijna vijfduizend relaties, niets anders dat nu iets van je vraagt.'));
     return wrap;
   }
 
   if (day === 'busy') {
     wrap.appendChild(greetBlock('Er gebeurde veel vannacht. Maculis koos wat telt.'));
-    appendIf(wrap, orientation());
     wrap.appendChild(dayBar('busy'));
     const rest = restArea();
 
@@ -459,6 +479,7 @@ function viewVandaag() {
     bw.appendChild(tierHead('beweging', 'Beweging', 'betekenisvol, geen directe actie'));
     bw.appendChild(revealTeaser(REVEAL_RELATIONSHIP));
     bw.appendChild(revealTeaser(REVEAL_SAAR));
+    bw.appendChild(patternTeaser(PATTERN)); // a cross-relationship pattern surfaces Groei
     wrap.appendChild(bw);
 
     const kl = el('div', 'attn-group');
@@ -478,7 +499,6 @@ function viewVandaag() {
 
   // normal day
   wrap.appendChild(greetBlock('Twee gesprekken vragen je aandacht. Eén antwoord staat klaar. Bij één relatie beweegt iets.'));
-  appendIf(wrap, orientation());
   wrap.appendChild(dayBar('normal'));
   const rest = restArea();
 
@@ -498,7 +518,7 @@ function viewVandaag() {
   wrap.appendChild(kl);
 
   wrap.appendChild(rest);
-  wrap.appendChild(quietTail('De overige relaties zijn rustig. Ze blijven bereikbaar onder Relaties.'));
+  wrap.appendChild(quietTail('Bijna vijfduizend relaties. De meeste rustig. Ze blijven bereikbaar via zoeken onder Relaties, niet als lijst die zich opdringt.'));
   return wrap;
 }
 
@@ -542,6 +562,22 @@ function revealTeaser(data) {
   t.addEventListener('click', () => { scn = 'reveal'; revealWhich = data.id; render(); });
   return t;
 }
+
+/* A pattern teaser surfaces Groei, but only because a real cross-relationship
+   pattern exists. It routes into Groei; it is never a permanent destination. */
+function patternTeaser(data) {
+  const t = el('button', 'reveal-teaser pattern-teaser');
+  t.innerHTML =
+    `<span class="rt-noticed">${esc(data.noticed)}<span class="rt-recur groei">Groei</span></span>
+     <span class="rt-head">${esc(data.headline)}</span>
+     <span class="rt-rel">${esc(data.relto)}</span>
+     <span class="rt-go">Bekijk het patroon <span class="arw" aria-hidden="true">→</span></span>`;
+  t.addEventListener('click', () => { scn = 'groei'; render(); });
+  return t;
+}
+
+/* Groei exists only when Maculis actually sees a pattern across relationships. */
+function hasPattern() { return day === 'busy'; }
 
 /* =====================================================================
    REVEAL — full flow
@@ -655,6 +691,47 @@ function viewReveal() {
 }
 
 /* =====================================================================
+   GROEI — appears only because a real cross-relationship pattern exists.
+   Reached from the pattern, not from a permanent tab. Remembered, not ephemeral.
+   ===================================================================== */
+function viewGroei() {
+  const wrap = el('div', 'view-enter');
+  wrap.appendChild(spaceBadge('reveal'));
+
+  if (!hasPattern()) {
+    // Honest empty state: no pattern, so Groei has nothing to say.
+    const s = el('div', 'silence');
+    s.innerHTML =
+      `<div class="eye" aria-hidden="true">${eyeSvg()}</div>
+       <h2>Nog geen patroon.</h2>
+       <p>Groei laat pas iets zien wanneer Maculis betekenis ziet over meerdere relaties heen.</p>
+       <div class="whisper">Tot die tijd is hier niets, en dat is goed.</div>`;
+    wrap.appendChild(s);
+    return wrap;
+  }
+
+  const intro = el('div', '');
+  intro.innerHTML =
+    `<div class="eyebrow-line">Groei · patroon over meerdere relaties</div>
+     <p class="lead-note">Dit is geen losse reveal bij één relatie. Maculis zag hetzelfde verloop bij meerdere mensen. Daarom verschijnt het hier, en alleen nu het bestaat.</p>`;
+  wrap.appendChild(intro);
+
+  wrap.appendChild(revealBlock(PATTERN));
+
+  const who = el('div', 'panel');
+  who.style.marginTop = 'var(--s5)';
+  let wh = '<h3>Over welke relaties</h3>';
+  PATTERN.members.forEach(m => { wh += `<div class="fact"><span class="v">${esc(m)}</span></div>`; });
+  who.innerHTML = wh;
+  wrap.appendChild(who);
+
+  const remembered = el('p', 'scale-note');
+  remembered.textContent = 'Maculis onthoudt dit patroon. Ook als het straks van Vandaag verdwijnt, blijft het terugvindbaar in de betrokken relaties. Groei verdwijnt niet zomaar.';
+  wrap.appendChild(remembered);
+  return wrap;
+}
+
+/* =====================================================================
    RELATIES — scale with depth
    ===================================================================== */
 
@@ -662,63 +739,89 @@ function viewRelaties() {
   const wrap = el('div', 'view-enter wide');
   wrap.appendChild(spaceBadge('work'));
 
+  const total = RELATIONSHIPS.length;
+  const totalText = total.toLocaleString('nl-NL');
+
+  // Search first: with thousands of relations, search is how you reach anyone.
   const top = el('div', 'rel-top');
   top.innerHTML =
-    `<h1>Relaties</h1><span class="n">${RELATIONSHIPS.length} in beeld</span>
-     <span class="search"><span aria-hidden="true">⌕</span><input type="text" id="relsearch" placeholder="Zoek een persoon, organisatie, gesprek of onderwerp" aria-label="Zoeken"></span>`;
+    `<h1>Relaties</h1>
+     <span class="search big"><span aria-hidden="true">⌕</span><input type="text" id="relsearch" placeholder="Zoek een naam, organisatie of onderwerp bij ${totalText} relaties" aria-label="Zoeken bij ${totalText} relaties"></span>`;
   wrap.appendChild(top);
 
-  const lead = el('p', 'lead-note');
-  lead.textContent = 'Met vijfhonderd relaties toont Maculis eerst wat beweegt en groepeert het de rest. De volledige lijst blijft één klik weg. Zo wordt het waardevoller, niet drukker.';
+  // The meaning statement: a handful move, the size does not grow with the total.
+  const lead = el('div', 'rel-meaning');
+  lead.innerHTML =
+    `<p class="rel-count">Van je <b>${totalText}</b> relaties bewegen er nu <b>${MOVERS.length}</b>.</p>
+     <p class="rel-sub">Bij vijftig relaties zag je hier hetzelfde soort selectie. Maculis kiest wat beweegt, jij hoeft niet te scrollen. De rest is rustig en blijft bereikbaar via zoeken.</p>`;
   wrap.appendChild(lead);
 
-  // Maculis-proposed segments (saved views), each with a count
-  const segs = el('div', 'segments');
-  segs.setAttribute('role', 'group');
-  segs.setAttribute('aria-label', 'Voorgestelde weergaven');
-  SEGMENTS.forEach(s => {
-    const count = RELATIONSHIPS.filter(s.test).length;
-    const b = el('button', 'segment');
-    b.setAttribute('aria-pressed', String(s.key === relSeg));
-    b.innerHTML = `<span class="seg-l">${esc(s.label)}</span><span class="seg-d">${esc(s.desc)}</span><span class="seg-c">${count}</span>`;
-    b.addEventListener('click', () => { relSeg = s.key; render(); });
-    segs.appendChild(b);
-  });
-  wrap.appendChild(segs);
-
-  const list = el('div', 'rel-list');
-  wrap.appendChild(list);
-  const foot = el('div', 'scale-note');
-  wrap.appendChild(foot);
-
-  const seg = SEGMENTS.find(s => s.key === relSeg) || SEGMENTS[0];
-  let rows = RELATIONSHIPS.filter(seg.test);
-  const cap = relSeg === 'alles' ? 40 : rows.length;
-  const shown = rows.slice(0, cap);
-
-  shown.forEach(r => {
-    const row = el('article', 'rel' + (r.surfaced ? ' surfaced' : ''));
-    row.tabIndex = 0;
-    const revealBadge = r.mv.cls === 'reveal' ? `<span class="rev-badge">Reveal</span>` : '';
-    row.innerHTML =
-      `<span class="movement" aria-hidden="true"></span>
-       <span class="av" aria-hidden="true">${esc(initials(r.name))}</span>
-       <span class="nm">${esc(r.name)}<small>${esc(r.hint)}</small></span>
-       <span class="org">${esc(r.org)}</span>
-       <span class="state ${r.mv.cls}"><span class="k"></span>${esc(r.mv.label)} ${revealBadge}</span>
-       <span class="act">
-         <button title="Open relatie" aria-label="Open relatie ${esc(r.name)}">◇</button>
-         <button title="Gesprek" aria-label="Open gesprek met ${esc(r.name)}">❯</button>
-       </span>`;
-    row.querySelector('.act').addEventListener('click', e => { e.stopPropagation(); scn = 'gesprekken'; render(); });
-    row.addEventListener('click', () => { scn = 'gesprekken'; render(); });
-    list.appendChild(row);
+  // What moves now, grouped by reason. Rich cards, not a dense table.
+  MOVER_GROUPS.forEach(g => {
+    const members = MOVERS.filter(m => m.group === g.key);
+    if (!members.length) return;
+    const group = el('div', 'attn-group');
+    group.appendChild(tierHead(g.tier, g.label, ''));
+    members.forEach(m => group.appendChild(moverCard(m)));
+    wrap.appendChild(group);
   });
 
-  foot.textContent = relSeg === 'alles'
-    ? `Eerste 40 van ${RELATIONSHIPS.length} getoond. Bij duizenden relaties is bladeren niet meer het startpunt. Zoeken, betekenis en voorgestelde weergaven wel.`
-    : `${shown.length} van ${RELATIONSHIPS.length} relaties. Maculis koos deze op recent movement, niet op alfabet. De rest is rustig en blijft bereikbaar.`;
+  // The full universe: present, but deliberately not the primary experience.
+  const allWrap = el('div', 'rel-all');
+  const toggle = el('button', 'rel-all-toggle', `Toon de volledige lijst van ${totalText} <span class="arw" aria-hidden="true">›</span>`);
+  toggle.setAttribute('aria-expanded', String(relShowAll));
+  const body = el('div', 'rel-all-body' + (relShowAll ? '' : ' hidden'));
+  toggle.addEventListener('click', () => { relShowAll = !relShowAll; render(); });
+  allWrap.appendChild(el('p', 'rel-all-note', 'De volledige lijst is er, maar je hoeft er zelden doorheen. Zoeken en bovenstaande selectie brengen je sneller bij wie ertoe doet.'));
+  allWrap.appendChild(toggle);
+  allWrap.appendChild(body);
+  wrap.appendChild(allWrap);
+
+  if (relShowAll) {
+    const list = el('div', 'rel-list');
+    const shown = RELATIONSHIPS.slice(0, 40);
+    shown.forEach(r => {
+      const row = el('article', 'rel' + (r.surfaced ? ' surfaced' : ''));
+      row.tabIndex = 0;
+      row.innerHTML =
+        `<span class="movement" aria-hidden="true"></span>
+         <span class="av" aria-hidden="true">${esc(initials(r.name))}</span>
+         <span class="nm">${esc(r.name)}<small>${esc(r.hint)}</small></span>
+         <span class="org">${esc(r.org)}</span>
+         <span class="state ${r.mv.cls}"><span class="k"></span>${esc(r.mv.label)}</span>
+         <span class="act">
+           <button title="Open relatie" aria-label="Open relatie ${esc(r.name)}">◇</button>
+           <button title="Gesprek" aria-label="Open gesprek met ${esc(r.name)}">❯</button>
+         </span>`;
+      row.querySelector('.act').addEventListener('click', e => { e.stopPropagation(); scn = 'gesprekken'; render(); });
+      row.addEventListener('click', () => { scn = 'gesprekken'; render(); });
+      list.appendChild(row);
+    });
+    body.appendChild(list);
+    body.appendChild(el('p', 'scale-note', `Eerste 40 van ${totalText} getoond, op alfabet. Bij duizenden relaties is dit bewust niet het startpunt. Zoeken en betekenis wel.`));
+  }
   return wrap;
+}
+
+/* A rich card for a relation that moves now: who, why it moved, and one action. */
+function moverCard(m) {
+  const c = el('article', 'mover openable');
+  c.tabIndex = 0;
+  c.setAttribute('role', 'button');
+  c.setAttribute('aria-label', `${m.name}: ${m.reason}. Openen.`);
+  const badge = m.reveal ? `<span class="rev-badge">Reveal</span>` : '';
+  c.innerHTML =
+    `<span class="av" aria-hidden="true">${esc(initials(m.name))}</span>
+     <div class="mover-main">
+       <div class="mover-top"><span class="mover-name">${esc(m.name)}</span> ${badge}<span class="mover-touch">${esc(m.touch)}</span></div>
+       <div class="mover-org">${esc(m.org)}</div>
+       <div class="mover-reason">${esc(m.reason)}</div>
+     </div>
+     <span class="go-chevron" aria-hidden="true">›</span>`;
+  const open = () => { scn = m.reveal ? 'reveal' : 'gesprekken'; if (m.reveal && m.name.startsWith('Saar')) revealWhich = 'r-saar'; else if (m.reveal) revealWhich = 'r-kim'; render(); };
+  c.addEventListener('click', open);
+  c.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  return c;
 }
 
 /* =====================================================================
@@ -729,11 +832,14 @@ function viewGesprekken() {
   const wrap = el('div', 'view-enter wide');
   wrap.appendChild(spaceBadge('work'));
 
+  const nuCount = CONVERSATIONS.filter(c => c.tier === 'nu').length;
+  const klaarCount = CONVERSATIONS.filter(c => c.tier === 'klaar').length;
   const head = el('div', '');
   head.innerHTML =
-    `<div class="eyebrow-line">Gesprekken · Work space</div>
+    `<div class="eyebrow-line">Gesprekken · om te werken</div>
      <h1 class="work-h1">Gesprekken</h1>
-     <p class="lead-note">Een gesprek hoort bij een relatie, niet bij een kanaal. E-mail nu, WhatsApp, SMS en telefoon later. Het kanaal is context, geen apart product. Eén aandachtsmodel over alles.</p>`;
+     <span class="search big" style="max-width:520px"><span aria-hidden="true">⌕</span><input type="text" placeholder="Zoek een gesprek, persoon of onderwerp" aria-label="Zoek een gesprek"></span>
+     <p class="lead-note" style="margin-top:var(--s4)">Van al je gesprekken vragen er nu ${nuCount} iets, ${klaarCount} antwoorden staan klaar. De rest is rustig. Een gesprek hoort bij een relatie, niet bij een kanaal: e-mail, WhatsApp, SMS en telefoon lopen door hetzelfde aandachtsmodel.</p>`;
   wrap.appendChild(head);
 
   const tiers = [
@@ -895,7 +1001,7 @@ let scn = 'vandaag';
 let day = 'normal';
 let revealWhich = 'r-kim';
 let relSeg = 'beweegt';
-let firstDay = true; // show the one-time orientation on Vandaag (toggle with ?firstday=0)
+let relShowAll = false; // the full 5.000 list stays behind a de-emphasized toggle
 
 const NAV_TO_SCN = { vandaag: 'vandaag', relaties: 'relaties', gesprekken: 'gesprekken', journeys: 'journeys', groei: 'groei', beheer: 'beheer' };
 const SPACE = { vandaag: 'reveal', reveal: 'reveal', journeys: 'reveal', groei: 'reveal',
@@ -911,15 +1017,20 @@ function render() {
     case 'relaties': node = viewRelaties(); break;
     case 'gesprekken': node = viewGesprekken(); break;
     case 'work': node = viewWork(); break;
-    case 'journeys': node = viewPlaceholder('Journeys', 'First Five en toekomstige journeys. Uitnodigingen, voortgang, evaluaties. Testerbeheer leeft hier verder als operationele journey view. Je komt hier zelden vanuit het niets. Meestal brengt Vandaag of een relatie je hier.', 'reveal'); break;
-    case 'groei': node = viewPlaceholder('Groei', 'Hier verschijnt betekenis die Maculis over meerdere relaties heen ziet. Wanneer eenzelfde patroon bij verschillende mensen terugkomt, of wanneer losse reveals samen iets groters vertellen, landt dat hier. Geen upgrade knop. Een verdieping, wanneer er iets onder zit.', 'reveal'); break;
+    case 'journeys': node = viewPlaceholder('Journeys', 'Een journey, zoals First Five, is geen aparte bestemming meer. Je ziet hem in de relatie zelf: waar iemand staat, wat de volgende stap is. De operationele kant (uitnodigen, pipeline, evaluaties) leeft onder Beheer, als Testerbeheer. Zo hoef je hier zelden vanuit het niets te zijn.', 'reveal'); break;
+    case 'groei': node = viewGroei(); break;
     default: node = viewPlaceholder('Beheer', 'Templates, imports, instellingen en operationele controls. Alles wat nodig is, buiten de dagelijkse aandacht gehouden.', 'work');
   }
   view.appendChild(node);
 
-  // reflect nav + screen controls
-  const navKey = scn === 'reveal' || scn === 'work' ? (scn === 'work' ? 'gesprekken' : 'vandaag') : scn;
-  document.querySelectorAll('#nav a').forEach(a => {
+  // Groei is not a permanent destination: its nav entry appears only when a real
+  // cross-relationship pattern exists, and disappears otherwise.
+  const groeiNav = document.getElementById('nav-groei');
+  if (groeiNav) groeiNav.classList.toggle('hidden', !hasPattern());
+
+  // reflect nav + screen controls (reveal maps to Vandaag, work to Gesprekken)
+  const navKey = scn === 'reveal' ? 'vandaag' : scn === 'work' ? 'gesprekken' : scn;
+  document.querySelectorAll('[data-nav]').forEach(a => {
     a.removeAttribute('aria-current');
     if (a.getAttribute('data-nav') === navKey) a.setAttribute('aria-current', 'page');
   });
@@ -935,7 +1046,7 @@ function setDir(d) {
 /* wire controls */
 document.querySelectorAll('[data-dir]').forEach(b => b.addEventListener('click', () => setDir(b.getAttribute('data-dir'))));
 document.querySelectorAll('[data-scn]').forEach(b => b.addEventListener('click', () => { scn = b.getAttribute('data-scn'); render(); }));
-document.querySelectorAll('#nav a').forEach(a => a.addEventListener('click', e => {
+document.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', e => {
   e.preventDefault();
   scn = NAV_TO_SCN[a.getAttribute('data-nav')] || 'vandaag';
   render();
@@ -953,7 +1064,7 @@ const wantRev = params.get('rev');
 if (['r-kim', 'r-saar', 'r-lens'].includes(wantRev)) revealWhich = wantRev;
 const wantSeg = params.get('seg');
 if (SEGMENTS.some(s => s.key === wantSeg)) relSeg = wantSeg;
-if (params.get('firstday') === '0') firstDay = false;
+if (params.get('showall') === '1') relShowAll = true;
 
 /* nav counts: attention only, never a notification pile */
 document.getElementById('nc-vandaag').textContent = '5';

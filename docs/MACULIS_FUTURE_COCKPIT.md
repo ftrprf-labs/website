@@ -21,7 +21,13 @@ Schrijfregel gerespecteerd: geen koppeltekens of gedachtestreepjes als stijlmidd
 > uit de primaire navigatie gehaald**: een lens is hoe Maculis kijkt, geen bestemming. Lens-uitkomsten
 > landen nu als reveal op Vandaag, als geheugen in de relatie ("Wat Maculis zag") en als patroon in
 > Groei. De navigatie is gesplitst in drie dagelijkse bestemmingen plus een rustige groep "Verder".
-> Waar §0 tot §17 nog "Lenzen" als navigatiebestemming noemen, geldt §19 als de actuele stand.
+>
+> **Update na de meaning-first ronde (§20).** De permanente navigatie is verder teruggebracht tot
+> **Vandaag, Relaties, Gesprekken plus een discrete Beheer**. Journeys is geen vaste bestemming meer
+> (context binnen de relatie); Groei verschijnt alleen wanneer er echt een patroon over meerdere
+> relaties bestaat. Relaties is herontworpen vanuit de 5.000-vraag: meaning-first, geen CRM-lijst. Het
+> uitlegblok is weg; gedrag leert de gebruiker. §20 bevat ook de gevraagde tegengas op dit reduceren.
+> Waar eerdere secties nog Journeys of Groei als vaste bestemming noemen, geldt §20 als de actuele stand.
 > Nog steeds geen productie-rewrite en geen migratie uitgevoerd.
 
 ---
@@ -802,3 +808,102 @@ vóór je kijkt en je alleen lastigvalt wanneer iets ertoe doet.
 
 Nog geen productie, geen migratie, geen nieuwe functionaliteit. Alleen richting C op dit fundamentele
 punt aangescherpt.
+
+---
+
+## 20. Meaning-first: nog kleinere navigatie, schaal tot 5.000, gedrag dat leert
+
+Deze ronde maakt Maculis radicaal meaning-first, tot in de navigatie en tot op de schaal van 5.000
+relaties. Richting C en de dual-space blijven. Geen productie, geen migratie, geen cosmetische polish.
+
+### 20.1 De permanente navigatie krimpt
+
+Getest en doorgevoerd: de permanente navigatie kan terug naar drie bestemmingen plus een discrete
+Beheer.
+
+- **Vandaag, Relaties, Gesprekken** zijn de enige permanente bestemmingen.
+- **Beheer** staat discreet onderaan de rail, niet tussen het dagelijkse werk.
+- **Journeys is geen permanente bestemming meer.** Een journey (First Five) is context en flow binnen
+  een relatie: je ziet in de relatie waar iemand staat en wat de volgende stap is. De operationele
+  kant (uitnodigen, pipeline, evaluaties) leeft onder Beheer, als Testerbeheer.
+- **Groei is geen permanente bestemming meer.** Groei verschijnt in de navigatie alleen wanneer
+  Maculis daadwerkelijk een betekenisvol patroon over meerdere relaties ziet. Bestaat dat niet, dan is
+  Groei nergens. Je bereikt het via het patroon zelf, op Vandaag, niet via een vast tabblad.
+- **Reveal is nergens een bibliotheek of feature.** Er is geen plek die "alle reveals" toont. Een
+  reveal verschijnt uitsluitend waar en wanneer hij relevant is: op Vandaag, in een relatie, of als
+  groei-patroon.
+
+### 20.2 Schaal: wat gebeurt er bij 5.000 relaties?
+
+Relaties is herontworpen vanuit deze ene vraag. Het resultaat mag geen CRM-lijst met slimmere filters
+zijn, en is dat ook niet.
+
+- Relaties opent niet met een lijst. Het opent met **betekenis**: "Van je 5.000 relaties bewegen er nu
+  7." Die selectie is even groot bij 50 als bij 5.000 relaties. Maculis kiest; de gebruiker scrollt niet.
+- De bewegende relaties staan als **rijke kaarten**, gegroepeerd op reden (vraagt jou, er beweegt iets,
+  klaar, dreigt uit beeld), niet als tabelrijen.
+- **Zoeken is de manier** om iemand anders te bereiken, prominent bovenaan. De volledige lijst van 5.000
+  is er wel, maar bewust niet het startpunt: hij zit achter een rustige "Toon de volledige lijst", met
+  de tekst "je hoeft er zelden doorheen".
+- Cognitief kost 5.000 daardoor nauwelijks meer dan 50. De hoeveelheid die je ziet groeit niet mee met
+  de populatie. Dat is het hele punt.
+
+Hetzelfde principe stuurt Vandaag ("Bijna vijfduizend relaties, de meeste rustig") en Gesprekken ("Van
+al je gesprekken vragen er nu drie iets").
+
+### 20.3 De tweede first-day test, zonder uitlegblok
+
+Het eerdere orientatieblok is verwijderd. Een nieuwe collega moet Maculis door gedrag begrijpen, niet
+door een tekst. Getest op de drie vragen die er op dag één toe doen:
+
+- **Wat vraagt mijn aandacht?** De begroeting zegt het in mensentaal ("Twee gesprekken vragen je
+  aandacht. Eén antwoord staat klaar."). Daaronder staan de items onder heldere koppen: Nu, Beweging,
+  Klaar, Rust. Je hoeft niets te leren om dit te lezen.
+- **Waarom?** Elk item heeft "Waarom zie ik dit?" dat in één regel de herkomst toont. Geen jargon,
+  geen paneel. De reden staat er zodra je erom vraagt.
+- **Wat kan ik nu doen?** Elk item is een duidelijke deur: "Open het gesprek" met een pijl en een
+  chevron, de hele kaart opent het gesprek, ook met toetsenbord. De route van aandacht naar gesprek
+  naar relatie leert zichzelf door te klikken.
+
+De navigatie helpt mee: drie bestemmingen zijn in één oogopslag te bevatten, en Journeys en Groei
+staan er niet om te verwarren. Groei verschijnt alleen wanneer er echt iets te zien is, met een
+duidelijke ingang vanuit Vandaag. Zo leert het product zichzelf uit, zonder wizard.
+
+### 20.4 Tegengas: waar het reduceren risico heeft
+
+De brief vroeg expliciet om tegengas als het uit de navigatie halen van Journeys of Groei een slecht
+idee blijkt. Drie eerlijke risico's.
+
+1. **Journeys als operationeel werk heeft een echt thuis nodig.** Een journey is prima context binnen
+   één relatie, maar het *beheren* van een journey over veel mensen (vijftig testers importeren,
+   uitnodigingen versturen, de funnel bewaken) is relatie-overstijgend werk. Als jij dat vaak en in
+   volume doet, is het wegstoppen onder Beheer een verstopping, geen vereenvoudiging. Advies: houd het
+   onder Beheer zolang het incidenteel is, maar als batch-journeywerk dagelijks terugkeert, verdient
+   het een eigen operationele oppervlakte. Dan is het geen manier van kijken, maar een werkplek, en
+   hoort het terug, alleen niet als "lens".
+
+2. **Conditionele Groei is een ontdekbaarheidsrisico.** Iets dat alleen verschijnt wanneer er een
+   patroon is, kan onopgemerkt blijven, en een eerder getoond patroon kan onvindbaar worden. In het
+   prototype is dat deels ondervangen: het patroon wordt onthouden in de betrokken relaties en de
+   nav-ingang verschijnt wanneer het speelt. Maar een nav-item dat komt en gaat kan onrustig voelen.
+   Advies: laat Groei alleen verschijnen bij een echt patroon (rustig, voorspelbaar), en geef eerdere
+   patronen een duurzame vindplaats (bijvoorbeeld onder Beheer of in de relatie), zodat waarde niet
+   verdampt zodra het van Vandaag verdwijnt.
+
+3. **Een navigatie van drie legt alle druk op Maculis' selectie en op zoeken.** Met minder handmatige
+   ingangen moet de selectie op Vandaag kloppen en moet zoeken uitstekend zijn, want zoeken wordt de
+   voornaamste manier om iemand te bereiken die niet toevallig vandaag beweegt. Als de selectie ooit
+   incompleet is, heeft de gebruiker minder vangnet. Dit is geen reden om het niet te doen, wel om
+   zoekkwaliteit als eerste-klas eis te behandelen, niet als bijzaak.
+
+Netto: het reduceren is juist, mits deze drie randvoorwaarden bewust worden bewaakt. Journeys en Groei
+horen niet als vaste dagelijkse tabbladen, maar hun onderliggende werk en waarde mogen niet verdwijnen,
+alleen verhuizen naar waar ze thuishoren.
+
+### 20.5 In het prototype te zien
+
+- Kleinere nav en Relaties meaning-first bij 5.000: `/cockpit.html?dir=C&scn=relaties`
+- De volledige lijst als bewuste fallback: `...&showall=1`
+- Groei die verschijnt door een patroon (drukke dag): `?scn=vandaag&day=busy`, dan het patroon openen
+- De Groei-patroonweergave: `?scn=groei&day=busy` (en de eerlijke lege staat: `?scn=groei&day=normal`)
+- Gedrag dat leert, zonder uitlegblok: `?scn=vandaag&day=normal`
