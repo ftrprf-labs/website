@@ -16,6 +16,25 @@ No production code is modified. The harness lives here and imports the First Fiv
 
 See `results.txt` for the recorded run and `docs/FIRST_FIVE_1_1_DEEP_DIVE.md` for the analysis.
 
+## Second round: real live pipeline + prototype extractors
+
+After GO for the minimal deepening, a second harness drives the **entire real live pipeline**
+(`analyseWebsite`, i.e. frozen engine + `absenceDefensible` guard + PatternReader v1 fallback +
+silence observations) with **real prototype extractors**, not hand-authored evidence:
+
+- `prototype-extractors.ts` — the five minimal evidence extensions as a real `ClaimExtractor`.
+- `eval-live-pipeline.ts` — runs `analyseWebsite` CURRENT vs NEW over 11 cases (3 real content
+  fixtures from the First Five test suite + representative cases), and Part B uses the real observed
+  technical signals of ama-ned.nl / hema.nl / oca.nl to show Reveal vs technical duiding are
+  separate layers.
+- `results-live-pipeline.txt` — the recorded run.
+
+Run: `node_modules/.bin/tsx <this-folder>/eval-live-pipeline.ts` from the First Five repo.
+
+Outcome and the per-extension go/no-go are in `docs/FIRST_FIVE_1_1_GONOGO.md`. Note: the frozen
+engine and Gate are untouched in both rounds; the second round additionally discovered that the live
+reveal runs the frozen engine first and PatternReader v1 only on its SILENCE.
+
 ## Run it
 
 Requires the First Five repo checked out and its deps installed:

@@ -1,0 +1,89 @@
+
+================ PART A — CONTENT REVEAL (real live pipeline) ================
+
+### brandingbysam (REAL fixture)
+  expect : CURRENT PatternReader reveal (value_open); NEW should PRESERVE, not replace with audit
+  CURRENT: REVEAL[pattern:IDENTITY_OFFER_CLEAR__VALUE_OPEN]
+  NEW ev : (none accepted)
+  NEW    : REVEAL[pattern:IDENTITY_OFFER_CLEAR__VALUE_OPEN]   cands=[-] gatePassed=[-]
+
+### praktijk (REAL fixture)
+  expect : CURRENT waittime CONTRADICTION reveal; NEW preserves
+  CURRENT: REVEAL[frozen:CONTRADICTION]
+  NEW ev : (none accepted)
+  NEW    : REVEAL[frozen:CONTRADICTION]   cands=[CONTRADICTION] gatePassed=[CONTRADICTION]
+
+### coherent (REAL fixture)
+  expect : SILENCE (thin, modest) -> silence duiding only
+  CURRENT: REVEAL[pattern:IDENTITY_OFFER_CLEAR__VALUE_OPEN]
+  NEW ev : (none accepted)
+  NEW    : REVEAL[pattern:IDENTITY_OFFER_CLEAR__VALUE_OPEN]   cands=[-] gatePassed=[-]
+
+### amaned-like
+  expect : REGRESSION: well-built industrial, modest+proven -> SILENCE both
+  CURRENT: SILENCE
+  NEW ev : (none accepted)
+  NEW    : SILENCE   cands=[-] gatePassed=[-]
+
+### premium-studio
+  expect : value-claim absence: does NEW help, or is it audit-like / does it preempt PatternReader?
+  CURRENT: REVEAL[pattern:IDENTITY_OFFER_CLEAR__VALUE_OPEN]
+  NEW ev : value-positioning:premium studio, value-positioning:hoogwaardige interieurs maat
+  NEW    : REVEAL[pattern:IDENTITY_OFFER_CLEAR__VALUE_OPEN]   cands=[-] gatePassed=[-]
+
+### bouwadvies-prijs
+  expect : NEW: price promise-vs-fact CONTRADICTION
+  CURRENT: SILENCE
+  NEW ev : promise-fact:prijzen, promise-fact:prijzen
+  NEW    : REVEAL[frozen:CONTRADICTION]   cands=[CONTRADICTION] gatePassed=[CONTRADICTION]
+  wording: Je belofte is "transparante prijzen". Je eigen site zegt óók "Neem contact op voor een offerte".
+
+### snel-vs-review
+  expect : NEW: MISCAST via one public review echo (belofte vs buitenwereld)
+  CURRENT: REVEAL[pattern:IDENTITY_OFFER_CLEAR__VALUE_OPEN]
+  NEW ev : review-echo:begeleiding
+  NEW    : REVEAL[frozen:MISCAST]   cands=[MISCAST] gatePassed=[MISCAST]
+  wording: In je etalage staat "begeleiding" niet voorop. Maar je klanten noemen juist dát.
+
+### drift-training
+  expect : NEW: DRIFT (advertised service no longer delivered)
+  CURRENT: SILENCE
+  NEW ev : drift:trainingen
+  NEW    : REVEAL[frozen:DRIFT]   cands=[DRIFT] gatePassed=[DRIFT]
+  wording: Je site biedt "trainingen" nog aan. Maar dat lever je niet meer.
+
+### daktuin-proof
+  expect : REGRESSION: specialism WITH proof + a public review -> SILENCE (proof suppresses; review must not force)
+  CURRENT: SILENCE
+  NEW ev : review-echo:daktuinen
+  NEW    : SILENCE   cands=[-] gatePassed=[-]
+
+### wallpaper-co
+  expect : REGRESSION: pure wallpaper -> SILENCE both
+  CURRENT: SILENCE
+  NEW ev : (none accepted)
+  NEW    : SILENCE   cands=[-] gatePassed=[-]
+
+### maatwerk-proof
+  expect : REGRESSION: value claim WITH proof -> NEW must NOT reveal
+  CURRENT: SILENCE
+  NEW ev : value-positioning:hoogwaardig maatwerk meubelen
+  NEW    : SILENCE   cands=[-] gatePassed=[-]
+
+---- AGGREGATE (Part A) ----
+cases: 11
+CURRENT reveals: 5 | NEW reveals: 7
+SILENCE->REVEAL flips: bouwadvies-prijs(REVEAL[frozen:CONTRADICTION]), drift-training(REVEAL[frozen:DRIFT])
+reveals preserved: brandingbysam, praktijk, coherent, premium-studio, snel-vs-review
+reveal KIND changed by NEW (watch: audit preempting synthesis): snel-vs-review REVEAL[pattern:IDENTITY_OFFER_CLEAR__VALUE_OPEN]->REVEAL[frozen:MISCAST]
+regressions wrongly turned to REVEAL (must be 0): coherent
+
+================ PART B — TECHNICAL SIGNALS ARE A SEPARATE LAYER (REAL data) ================
+
+ama-ned.nl   technical teaser: null (fail-closed, nothing forced)
+hema.nl      technical teaser: PRESENT (seo: Je homepage heeft geen H1. Dat is de belangrijkste kop waarmee een pagina zichzelf aankondigt.)
+oca.nl       technical teaser: PRESENT (accessibility: 104 van je 143 afbeeldingen missen een tekstalternatief.)
+
+Interpretation: a site can correctly receive NO reveal yet still get evidence-based technical duiding
+(hema/oca), while a genuinely well-built site (ama-ned) gets neither a forced reveal nor a forced teaser.
+Reveal, contextual duiding, and technical signals stay SEPARATE layers.
