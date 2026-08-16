@@ -688,6 +688,11 @@ server.listen(config.port, bindHost, () => {
           const res = await migrateInvitations(store.listInvitations());
           console.log(`  Comm     : relaties ${res.contactsCreated} nieuw, ${res.contactsLinked} bijgewerkt`);
         } catch (e) { console.log(`  Comm     : relatie-migratie uitgesteld (${e.message})`); }
+        // Preview-only demonstration seed (PREVIEW_SEED). Inert in production and in tests.
+        try {
+          const { previewSeedOnBoot } = await import('./comm/preview-seed.mjs');
+          await previewSeedOnBoot();
+        } catch (e) { console.log(`  Preview  : seed overgeslagen (${e.message})`); }
       } else if (!r.skipped) console.log(`  Comm     : migrations pending (${r.error})`);
     });
   }
