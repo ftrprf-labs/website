@@ -34,7 +34,14 @@ Schrijfregel gerespecteerd: geen koppeltekens of gedachtestreepjes als stijlmidd
 > heeft nu twee modi: Maculis kiest, of jij hebt het stuur met een echte high-density werkruimte
 > (zoeken, combineerbare filters, sorteren, selectie, bulkacties). §21 bevat de derde first-day test, de
 > vier-intent stresstest, uitgebreide tegengas, en de aanbeveling dat de IA klaar is voor visuele
-> verfijning. Nog steeds geen productie-rewrite en geen migratie uitgevoerd.
+> verfijning.
+>
+> **Update na de dossier-ronde (§22).** Het bestaande Testerbeheer is getrouw teruggeplaatst onder
+> Beheer › Testerbeheer (lifecycle, consent fail-closed, invite-flows, Pass the Lens, evaluaties), op
+> basis van de echte code. En het ontbrekende niveau is toegevoegd: een volwaardig relatiedossier,
+> meaning-first met detail-on-demand, waarin elke sectie eerlijk gelabeld is als A (in Maculis),
+> B (afgeleid) of C (toekomstig). De navigatie Vandaag ↔ relatie ↔ gesprek ↔ overzicht is sluitend.
+> Nog steeds geen productie-rewrite en geen migratie uitgevoerd.
 
 ---
 
@@ -1086,3 +1093,138 @@ gaten. Ze hoeven visuele verfijning niet te blokkeren, mits we ze als bekende dr
 
 Advies: ga naar visuele verfijning van richting C, met deze IA als vaste basis, en houd de drie open
 punten op de agenda voor het moment dat echt gebruik ze afdwingt.
+
+---
+
+## 22. Testerbeheer terug op zijn plek, en het relatiedossier (dossier-ronde)
+
+Deze ronde lost twee gaten op: waar het bestaande Testerbeheer landt, en het ontbrekende niveau
+tussen de relatietabel en het gesprek: het relatiedossier. Eerst is de echte code geïnventariseerd,
+daarna gebouwd. Prototype only, geen productie, geen migratie, bestaande functionaliteit ongewijzigd.
+
+### 22.1 Testerbeheer: hergebruikt, niet opnieuw bedacht
+
+Op basis van een inventarisatie van de echte implementatie (`server/store.mjs`, `server/index.mjs`,
+`public/app.js`, `server/import.mjs`, `server/maculis-sessions.mjs`) landt Testerbeheer nu onder
+**Beheer › Testerbeheer**, getrouw aan wat er is:
+
+- **Lifecycle** DRAFT, SENT, OPENED, COMPLETED, plus DECLINED en ERROR (in de UI: Concept,
+  Uitgenodigd, Gestart, Afgerond, Afgewezen, Fout). Systeemgestuurd; OPENED en COMPLETED komen alleen
+  uit echte Maculis-sessie-events.
+- **Consent fail-closed**: `mayContact` = alleen OPTED_IN. In de tabel zijn WhatsApp en e-mail
+  uitgeschakeld bij Onbekend of Geen toestemming (Federico, Lieselotte, Milan).
+- **Hoe Maculis aan/uit gaat voor een tester** (letterlijk zo in de code): toestemming vastleggen,
+  de uitnodiging met de persoonlijke link versturen (e-mail of de tweestaps WhatsApp-flow), de tester
+  opent de link (gestart) en rondt First Five af. De persoonlijke link/token is de toegang.
+  "Publiceer naar Maculis" is een personalisatie van de begroeting, geen toegangsschakelaar, en vuurt
+  automatisch mee op elke uitnodiging.
+- **Kolommen** Naam, Bedrijf, Contact, Persoonlijke link, Status, Toestemming, Acties. Bulk:
+  Publiceer naar Maculis, Via e-mail uitnodigen, Via WhatsApp uitnodigen. Toolbar: Sjabloon,
+  Importeren, Tester toevoegen. Footer met per-status telling.
+- **Pass the Lens** kandidaten staan er als Concept met consent Onbekend en het label "Pass the Lens
+  · via <verwijzer>".
+- **Evaluaties en inzichten** als sub-tab: read-only uit Maculis (Option B), Maculis blijft de bron.
+
+In het prototype zijn de acties inert; de echte Testerbeheer in productie blijft ongewijzigd. Dit is
+een getrouwe weergave zodat je de bestaande beheerlogica herkent, geen nieuw beheerproduct.
+
+### 22.2 Het relatiedossier: meaning-first, detail-on-demand
+
+Nieuwe laag in de hiërarchie: Relaties › overzicht (Maculis kiest) of zelf werken › **relatiedossier**
+› gesprek. Het dossier opent niet met veertig CRM-velden. Het opent met **Wat speelt er nu**: de
+handeling of observatie die er op dit moment toe doet, met een directe actie ("Open het gesprek",
+of een donkere reveal-aperture met "Bekijk de reveal"). Pas daaronder staan uitklapbare
+detailsecties, dichtgeklapt tenzij je ze nodig hebt.
+
+Dezelfde filosofie als elders: **Maculis heeft iets voor jou** (de Nu-hero) versus **jij wilt iets van
+Maculis** (de detailsecties die je zelf opent). Meaning-first, detail-on-demand, zonder informatie of
+controle weg te nemen.
+
+### 22.3 Eerlijk over data: A, B, C
+
+Elke dossiersectie draagt een zichtbaar herkomstlabel, zodat niets wordt gemockt alsof het al bestaat.
+Gebaseerd op een inventarisatie van de echte relatiedata (`server/comm/relationship.mjs`, de migraties
+`001`–`005`, `memory.mjs`, `followups.mjs`, `consent.mjs`, `store.mjs`).
+
+| Dossierelement | Klasse | Grond |
+|---|---|---|
+| Identiteit, organisatie, stage | **A** in Maculis | `contact`, `organization`, `relationship_stage` |
+| Contact- en gesprekshistorie (e-mail) | **A** | `conversation` + `message` met delivery; alleen e-mail wordt echt ingelezen |
+| Historie via WhatsApp, SMS, telefoon | **C** toekomstig | schema aanwezig, nog geen writer/adapter |
+| First Five status (concept/uitgenodigd/gestart/afgerond) | **A** | `invitation.status` |
+| Detail per sessie en stap | **C** | leeft deels in de JSON-store, niet in de relatieview |
+| Wat Maculis zag (geheugen, bevestigd en AI-voorstel) | **A** | `relationship_memory`, met confirm/dismiss |
+| Open acties en follow-ups (met verlopen) | **A** | `follow_up` |
+| Toestemming per kanaal + provenance | **A** | `communication_preference` |
+| Eén gedeelde consent-versie over beide systemen | **C** | versie leeft alleen in de JSON-store |
+| Pass the Lens herkomst | **A** | activity + memory + `introductions[]` |
+| Eigenaar/verantwoordelijke van de relatie | **C** | bestaat alleen per gesprek/taak, niet op relatieniveau |
+| Reveals eerder getoond (wanneer en waarom) | **C** | **de enige echt ontbrekende pijler: nergens opgeslagen** |
+| Vrije notities op relatieniveau | **C** | alleen gespreks-notities bestaan |
+| "Wat speelt er nu" per relatie | **B** afgeleid | `deriveAttention()` bestaat, wordt nog niet in de relatieview aangeroepen |
+| Tags op relatieniveau | **C** | alleen ongebruikte `conversation.tags` |
+
+De belangrijkste eerlijke boodschap: een **duurzame reveal-historie bestaat nog niet**. In het dossier
+staat die sectie er wel, maar expliciet gemarkeerd als toekomstig, met de tekst dat dit is hoe het
+eruit zou zien, geen echte data. Zo blijft de belofte scheidbaar van de werkelijkheid.
+
+### 22.4 Eén samenhangend navigatiemodel
+
+De schermen zijn nu één geheel, binnen dezelfde linkernavigatie:
+
+- **Vandaag → gesprek → relatie**: een aandachtsitem opent het gesprek; in het gesprek staat
+  "Open relatie" naar het dossier.
+- **Relatieoverzicht → dossier**: klik op een persoon (mover-kaart of tabelrij) opent diens dossier.
+- **Dossier → gesprek**: elke dossier heeft "Open het gesprek".
+- **Reveal → relatie**: een reveal op Vandaag opent de relatie waar hij bij hoort.
+
+Broodkruimels ("Relaties › Jean-Baptiste", "Beheer › Testerbeheer") houden je georiënteerd, en de
+linkerrail licht de juiste bestemming op (dossier onder Relaties, Testerbeheer onder Beheer). Geen
+tweede navigatiesysteem.
+
+### 22.5 First-day test: "wat speelt er bij klant X?"
+
+De taak: "Ik wil weten wat er speelt bij klant X, wat we eerder hebben besproken, waar hij in zijn
+journey staat en wat ik nu moet doen." Doorlopen zonder uitleg:
+
+1. Relaties openen. Ofwel klant X beweegt (dan staat hij in de selectie), ofwel je zoekt hem via
+   "Zelf zoeken" en typt zijn naam.
+2. Klik op de naam. Het dossier opent met **Wat speelt er nu** bovenaan: precies "wat er speelt" en
+   "wat ik nu moet doen", met een knop.
+3. "Wat Maculis zag" en "Gesprekshistorie" openklappen: "wat we eerder hebben besproken".
+4. "First Five en journey": "waar hij in zijn journey staat".
+5. "Open het gesprek" om te handelen.
+
+Alle vijf deelvragen zijn zonder uitleg beantwoordbaar, binnen één scherm plus een gesprek. Het
+meaning-first-hero beantwoordt de twee belangrijkste vragen (wat speelt er, wat nu) meteen; de rest is
+detail-on-demand.
+
+### 22.6 Hergebruikt / aangepast / bewust niet gebouwd
+
+- **Hergebruikt (als bron, getrouw weergegeven):** de volledige Testerbeheer-logica (lifecycle,
+  consent, invite-flows, Pass the Lens, evaluaties) en het relatie-aggregatiemodel (identiteit,
+  historie, geheugen, follow-ups, consent, provenance).
+- **Aangepast (alleen prototype-presentatie):** Testerbeheer meaning-bewust onder Beheer geplaatst;
+  de relatie krijgt een dossier met een Nu-hero en uitklapbare secties; navigatie tussen Vandaag,
+  relatie, gesprek en overzicht sluitend gemaakt; de weergavebreedte van de brede views gecorrigeerd.
+- **Bewust niet gebouwd (C, geen fake):** duurzame reveal-historie, relatie-eigenaar op relatieniveau,
+  non-e-mail kanaalhistorie, per-sessie journeydetail, relatie-notities, unified consent-versie, tags.
+  Deze vragen backendwerk en zijn in het dossier zichtbaar als toekomstig gemarkeerd. Ook geen echte
+  Testerbeheer-acties (inert), geen productie, geen migratie, geen Lens 2, geen uitbreiding van Reveal
+  Engine of Gate.
+
+### 22.7 In het prototype te zien
+
+- Beheer: `/cockpit.html?dir=C&scn=beheer` → Testerbeheer: `?scn=testerbeheer` (sub-tab Evaluaties via
+  de prototype-lade of de tab zelf)
+- Relatiedossier: open een persoon vanuit Relaties, of via de prototype-lade
+  ("Relatiedossier · Jean-Baptiste", "Relatiedossier · Saar (reveal)")
+- De loop: Vandaag → item → gesprek → "Open relatie" → dossier → "Open het gesprek"
+
+### 22.8 Aanbeveling
+
+Met Testerbeheer op zijn plek, een volwaardig relatiedossier en een sluitend navigatiemodel werken
+Vandaag, Relaties, dossier, gesprek en Beheer nu als één coherent geheel. De open punten zijn eerlijk
+afgebakend als C (met de reveal-historie als enige echt ontbrekende pijler). De IA is hiermee stabiel
+genoeg om breed naar visuele verfijning te gaan, met de C-punten als bekende, meetbare vervolgstappen
+die backendwerk vragen wanneer echt gebruik ze afdwingt.

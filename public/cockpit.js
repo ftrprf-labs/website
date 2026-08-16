@@ -213,6 +213,27 @@ const CONVERSATIONS = [
     snippet: 'Zou het lukken om er nog eens naar te kijken? (onbeantwoord)' },
 ];
 
+/* =====================================================================
+   TESTERBEHEER — faithful to the existing Invitation Manager (store.mjs,
+   app.js, index.mjs). Lifecycle DRAFT/SENT/OPENED/COMPLETED (+DECLINED/ERROR),
+   consent fail-closed (OPTED_IN gates all outbound), personal link = access,
+   Pass the Lens candidates arrive DRAFT + consent UNKNOWN. Prototype view of
+   real functionality; actions are inert here.
+   ===================================================================== */
+const LIFECYCLE = { DRAFT: 'Concept', SENT: 'Uitgenodigd', OPENED: 'Gestart', COMPLETED: 'Afgerond', DECLINED: 'Afgewezen', ERROR: 'Fout' };
+const CONSENT_LBL = { OPTED_IN: 'Toestemming gegeven', UNKNOWN: 'Onbekend', OPTED_OUT: 'Geen toestemming' };
+const TESTERS = [
+  { fn: 'Kim', ln: 'Deraedt', company: 'Fietsatelier Deraedt', email: 'kim@fietsatelierderaedt.be', mobile: '+32 470 11 22 33', domain: 'fietsatelierderaedt.be', status: 'OPENED', consent: 'OPTED_IN', source: 'csv' },
+  { fn: 'Jean-Baptiste', ln: 'Vandenberghe', company: 'Coöperatie Noorderlicht Zorg en Welzijn', email: 'jean-baptiste.vandenberghe@noorderlicht-zorgenwelzijn.coop', mobile: '+32 471 44 55 66', domain: 'noorderlicht-zorgenwelzijn.coop', status: 'OPENED', consent: 'OPTED_IN', source: 'manual' },
+  { fn: 'Nadia', ln: 'el Amrani', company: 'Studio Noord', email: 'nadia@studionoord.nl', mobile: '+31 6 12 34 56 78', domain: 'studionoord.nl', status: 'COMPLETED', consent: 'OPTED_IN', source: 'csv' },
+  { fn: 'Bram', ln: 'Peeters', company: 'Peeters Interim en Detachering', email: 'bram.peeters@peeters-interim.be', mobile: '+32 472 77 88 99', domain: 'peeters-interim.be', status: 'SENT', consent: 'OPTED_IN', source: 'xlsx' },
+  { fn: 'Tom', ln: 'Vervoort', company: 'Vervoort Bouw', email: 'tom@vervoortbouw.be', mobile: '+32 473 10 20 30', domain: 'vervoortbouw.be', status: 'SENT', consent: 'OPTED_IN', source: 'manual', flag: 'Levering mislukt' },
+  { fn: 'Federico', ln: 'Gonçalves da Silva', company: 'zelfstandig, zonder organisatie', email: 'federico.goncalves.dasilva@proton.me', mobile: '', domain: '', status: 'DRAFT', consent: 'UNKNOWN', source: 'manual' },
+  { fn: 'Lieselotte', ln: 'Vandewalle', company: 'Advocatenkantoor Vandewalle en Partners', email: 'l.vandewalle@vandewalle-partners.be', mobile: '+32 474 55 66 77', domain: 'vandewalle-partners.be', status: 'DRAFT', consent: 'UNKNOWN', source: 'pass_the_lens', introducer: 'Kim Deraedt' },
+  { fn: 'Milan', ln: 'De Smet', company: 'Praktijk voor Loopbaan en Werk', email: 'milan@loopbaanenwerk.be', mobile: '+32 475 33 22 11', domain: 'loopbaanenwerk.be', status: 'DECLINED', consent: 'OPTED_OUT', source: 'csv' },
+];
+function testerToken(t, i) { return 'p_' + (t.fn[0] + t.ln[0]).toLowerCase() + Math.abs((i * 2654435761) % 100000).toString(36); }
+
 /* ----- Scale fixtures: 520 relationships, deterministic, varied lengths ----- */
 const FIRST = ['Kim', 'Bram', 'Nadia', 'Tom', 'Sanne', 'Joris', 'Lea', 'Milan', 'Fatima', 'Ruben', 'Iris', 'Daan', 'Yassine', 'Noor', 'Wout', 'Emma', 'Karel', 'Lotte', 'Jean-Baptiste', 'Federico', 'Lieselotte', 'Saar', 'Amber', 'Koen', 'Sofie', 'Niels', 'Eva', 'Jesse', 'Lieke', 'Anna-Maria'];
 const LAST = ['Deraedt', 'Peeters', 'el Amrani', 'Vervoort', 'Janssen', 'De Vos', 'Vandenberghe', 'Gonçalves da Silva', 'Vandewalle', 'Hendrickx', 'Claes', 'Smit', 'Vermeulen', 'Aerts', 'Mertens', 'Wouters', 'De Smet', 'Jacobs', 'Goossens', ''];
@@ -909,10 +930,14 @@ function viewRelatiesWork() {
   });
   table.querySelectorAll('.wt-row').forEach(row => {
     const id = Number(row.getAttribute('data-id'));
+    const rel = RELATIONSHIPS[id];
     row.querySelector('input').addEventListener('change', e => {
+      e.stopPropagation();
       if (e.target.checked) relSelected.add(id); else relSelected.delete(id);
       renderSelBar();
     });
+    // clicking the row (not the checkbox) opens the dossier
+    row.querySelector('.wt-rel').addEventListener('click', () => openDossier(rel));
   });
   listWrap.appendChild(table);
 
@@ -944,7 +969,8 @@ function moverCard(m) {
        <div class="mover-reason">${esc(m.reason)}</div>
      </div>
      <span class="go-chevron" aria-hidden="true">›</span>`;
-  const open = () => { scn = m.reveal ? 'reveal' : 'gesprekken'; if (m.reveal && m.name.startsWith('Saar')) revealWhich = 'r-saar'; else if (m.reveal) revealWhich = 'r-kim'; render(); };
+  // clicking a person in the overview opens their dossier (not straight to a gesprek)
+  const open = () => openDossier({ name: m.name, org: m.org, hadReveal: !!m.reveal, mv: { cls: m.group === 'stil' ? 'quiet' : 'active', label: m.reason } });
   c.addEventListener('click', open);
   c.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   return c;
@@ -1016,8 +1042,11 @@ function viewWork() {
   const wrap = el('div', 'view-enter wide');
   wrap.appendChild(spaceBadge('work'));
 
-  const head = el('div', '');
+  const head = el('div', 'work-head');
   head.innerHTML = `<div class="eyebrow-line">Gesprek</div>`;
+  const openRel = el('button', 'back-btn', `Open relatie: ${esc(THREAD.who.name)} →`);
+  openRel.addEventListener('click', () => openDossier({ name: THREAD.who.name, org: THREAD.who.org }));
+  head.appendChild(openRel);
   wrap.appendChild(head);
 
   const grid = el('div', 'work-grid');
@@ -1117,6 +1146,385 @@ function viewPlaceholder(title, body, space) {
 }
 
 /* =====================================================================
+   BEHEER — quiet section. Testerbeheer is the real operational tool here.
+   ===================================================================== */
+function viewBeheer() {
+  const wrap = el('div', 'view-enter wide');
+  wrap.appendChild(spaceBadge('work'));
+  wrap.appendChild(el('div', 'eyebrow-line', 'Beheer'));
+  wrap.appendChild(el('h1', 'work-h1', 'Beheer'));
+  wrap.appendChild(el('p', 'lead-note', 'Operationele controls, buiten de dagelijkse aandacht gehouden. Hier wanneer je ze nodig hebt.'));
+
+  const areas = [
+    { key: 'testerbeheer', title: 'Testerbeheer', sub: 'Beheer wie Maculis gebruikt: nodig testers uit, volg hun status, leg toestemming vast.', n: `${TESTERS.length} testers`, primary: true },
+    { key: null, title: 'Berichtsjablonen', sub: 'De e-mail- en WhatsApp-uitnodiging met variabelen.', n: '' },
+    { key: null, title: 'Imports', sub: 'Testers importeren uit CSV of Excel.', n: '' },
+    { key: null, title: 'Instellingen', sub: 'Campagne, domeinen en technische controls.', n: '' },
+  ];
+  const grid = el('div', 'beheer-grid');
+  areas.forEach(a => {
+    const c = el(a.key ? 'button' : 'div', 'beheer-card' + (a.primary ? ' primary' : '') + (a.key ? ' clickable' : ' muted'));
+    c.innerHTML = `<div class="bc-title">${esc(a.title)}</div><div class="bc-sub">${esc(a.sub)}</div>${a.n ? `<div class="bc-n">${esc(a.n)}</div>` : '<div class="bc-soon">binnenkort in de cockpit</div>'}`;
+    if (a.key) c.addEventListener('click', () => { scn = a.key; render(); });
+    grid.appendChild(c);
+  });
+  wrap.appendChild(grid);
+  return wrap;
+}
+
+/* =====================================================================
+   TESTERBEHEER — the existing Invitation Manager, faithfully represented.
+   ===================================================================== */
+function viewTesterbeheer() {
+  const wrap = el('div', 'view-enter wide');
+  wrap.appendChild(spaceBadge('work'));
+
+  const crumbs = el('div', 'crumbs');
+  const back = el('button', 'crumb-link', 'Beheer');
+  back.addEventListener('click', () => { scn = 'beheer'; render(); });
+  crumbs.appendChild(back);
+  crumbs.appendChild(el('span', 'crumb-sep', '›'));
+  crumbs.appendChild(el('span', 'crumb-cur', 'Testerbeheer'));
+  wrap.appendChild(crumbs);
+
+  const head = el('div', 'tb-head');
+  head.innerHTML =
+    `<div>
+       <h1 class="work-h1">Testerbeheer</h1>
+       <p class="lead-note" style="max-width:64ch">Zo gaat Maculis aan voor een tester: leg toestemming vast, verstuur de uitnodiging met de persoonlijke link, de tester opent hem (gestart) en rondt First Five af. De persoonlijke link is de toegang; publiceren personaliseert alleen de begroeting.</p>
+     </div>
+     <div class="tb-tools">
+       <button class="btn btn-ghost">Sjabloon</button>
+       <button class="btn btn-ghost">Importeren</button>
+       <button class="btn btn-primary">Tester toevoegen</button>
+     </div>`;
+  wrap.appendChild(head);
+
+  // sub-tabs: testers | evaluaties (Evaluaties is read-only pull from Maculis)
+  const tabs = el('div', 'tb-tabs');
+  tabs.innerHTML =
+    `<button class="tb-tab" aria-pressed="${tbTab === 'testers'}" data-t="testers">Testers</button>
+     <button class="tb-tab" aria-pressed="${tbTab === 'eval'}" data-t="eval">Evaluaties en inzichten</button>`;
+  tabs.querySelectorAll('.tb-tab').forEach(b => b.addEventListener('click', () => { tbTab = b.getAttribute('data-t'); render(); }));
+  wrap.appendChild(tabs);
+
+  if (tbTab === 'eval') { wrap.appendChild(tbEvaluations()); return wrap; }
+
+  // bulk actions (act on selection); consent-gated ones read as quiet
+  const bulk = el('div', 'tb-bulk');
+  const nSel = tbSelected.size;
+  bulk.innerHTML =
+    `<span class="tb-selc">${nSel ? `${nSel} geselecteerd` : 'Selecteer testers voor een actie'}</span>
+     <button class="btn btn-ghost" ${nSel ? '' : 'disabled'}>Publiceer naar Maculis</button>
+     <button class="btn btn-ghost" ${nSel ? '' : 'disabled'}>Via e-mail uitnodigen</button>
+     <button class="btn btn-primary" ${nSel ? '' : 'disabled'}>Via WhatsApp uitnodigen</button>`;
+  wrap.appendChild(bulk);
+
+  const table = el('div', 'tb-table');
+  const allSel = TESTERS.every((t, i) => tbSelected.has(i));
+  let html =
+    `<div class="tb-row tb-headrow">
+       <span class="tb-check"><input type="checkbox" id="tb-all" aria-label="Selecteer alle" ${allSel ? 'checked' : ''}></span>
+       <span>Naam</span><span>Bedrijf</span><span>Contact</span><span>Persoonlijke link</span><span>Status</span><span>Toestemming</span><span>Acties</span>
+     </div>`;
+  TESTERS.forEach((t, i) => {
+    const may = t.consent === 'OPTED_IN';
+    const ptl = t.source === 'pass_the_lens' ? `<span class="ptl-tag">Pass the Lens · via ${esc(t.introducer)}</span>` : '';
+    const link = `${testerToken(t, i)}`;
+    html +=
+      `<div class="tb-row" data-i="${i}">
+         <span class="tb-check"><input type="checkbox" ${tbSelected.has(i) ? 'checked' : ''} aria-label="Selecteer ${esc(t.fn)} ${esc(t.ln)}"></span>
+         <span class="tb-nm"><button class="linkname" data-open="${i}">${esc(t.fn)} ${esc(t.ln)}</button>${ptl}</span>
+         <span class="tb-co">${esc(t.company)}</span>
+         <span class="tb-contact">${esc(t.email || '—')}${t.mobile ? `<small>${esc(t.mobile)}</small>` : ''}</span>
+         <span class="tb-link"><code>maculis.nl/?p=${esc(link)}</code></span>
+         <span class="tb-status"><span class="badge st-${t.status}">${esc(LIFECYCLE[t.status])}</span></span>
+         <span class="tb-consent"><span class="badge cs-${t.consent}">${esc(CONSENT_LBL[t.consent])}</span></span>
+         <span class="tb-acts">
+           <button title="Open relatie" aria-label="Open relatie">◇</button>
+           <button title="WhatsApp${may ? '' : ' (geen toestemming)'}" aria-label="WhatsApp" ${may ? '' : 'disabled'}>◐</button>
+           <button title="E-mail${may ? '' : ' (geen toestemming)'}" aria-label="E-mail" ${may ? '' : 'disabled'}>✉</button>
+           <button title="Historie" aria-label="Historie">◔</button>
+           <button title="Bewerken" aria-label="Bewerken">✎</button>
+         </span>
+       </div>`;
+  });
+  table.innerHTML = html;
+  table.querySelector('#tb-all').addEventListener('change', e => {
+    if (e.target.checked) TESTERS.forEach((_, i) => tbSelected.add(i)); else tbSelected.clear();
+    render();
+  });
+  table.querySelectorAll('.tb-row[data-i]').forEach(row => {
+    const i = Number(row.getAttribute('data-i'));
+    row.querySelector('.tb-check input').addEventListener('change', e => { if (e.target.checked) tbSelected.add(i); else tbSelected.delete(i); render(); });
+    row.querySelector('.linkname').addEventListener('click', () => openDossier(relFromTester(TESTERS[i])));
+  });
+  wrap.appendChild(table);
+
+  const counts = {};
+  TESTERS.forEach(t => counts[t.status] = (counts[t.status] || 0) + 1);
+  const foot = el('div', 'tb-foot');
+  foot.textContent = `${TESTERS.length} testers · ` + Object.entries(counts).map(([k, v]) => `${v} ${LIFECYCLE[k]}`).join(' · ');
+  wrap.appendChild(foot);
+
+  const src = el('p', 'scale-note');
+  src.style.textAlign = 'left';
+  src.innerHTML = 'Getrouw aan de bestaande implementatie (server/store.mjs, public/app.js). In dit prototype zijn de acties inert; de echte Testerbeheer blijft ongewijzigd in productie.';
+  wrap.appendChild(src);
+  return wrap;
+}
+
+function tbEvaluations() {
+  const box = el('div', '');
+  const kpis = [['Testers', TESTERS.length], ['Uitgenodigd', TESTERS.filter(t => ['SENT', 'OPENED', 'COMPLETED'].includes(t.status)).length], ['Gestart', TESTERS.filter(t => ['OPENED', 'COMPLETED'].includes(t.status)).length], ['Afgerond', TESTERS.filter(t => t.status === 'COMPLETED').length]];
+  const row = el('div', 'kpi-row');
+  kpis.forEach(([k, v]) => { const c = el('div', 'kpi'); c.innerHTML = `<div class="kpi-n">${v}</div><div class="kpi-l">${esc(k)}</div>`; row.appendChild(c); });
+  box.appendChild(row);
+  const note = el('p', 'lead-note');
+  note.textContent = 'Read-only uit Maculis (Option B): Maculis blijft de bron van waarheid voor First Five resultaten. De volledige funnel, antwoordverdelingen en open inzichten komen hier zoals in de bestaande Evaluaties-view.';
+  box.appendChild(note);
+  return box;
+}
+
+/* build a relationship object from a tester so its dossier opens */
+function relFromTester(t) {
+  return { name: `${t.fn} ${t.ln}`.trim(), org: t.company, owner: 'Ludwig', firstFive: LIFECYCLE[t.status], lastDays: 3, channel: 'e-mail', hadReveal: false, mv: { cls: 'active', label: 'Actief gesprek' }, consent: t.consent, fromTester: t };
+}
+
+/* =====================================================================
+   RELATIEDOSSIER — meaning-first 360, detail-on-demand. Every section is
+   tagged with its data provenance: A "in Maculis" (bestaat), B "afgeleid"
+   (uit bestaande data), C "toekomstig" (bestaat nog niet, geen fake data).
+   Grounded in the real model (server/comm/relationship.mjs + store.mjs).
+   ===================================================================== */
+
+// curated rich content for the relationships that carry real fixtures
+const DOSSIER_OVERRIDES = {
+  'Jean-Baptiste Vandenberghe': {
+    role: 'Coördinator', owner: 'Ludwig', stage: 'Actief',
+    now: [{ kind: 'gesprek', tone: 'now', label: 'Wacht op jou', line: 'Vroeg of de tweede sessie deze week nog past. Twee dagen stil.' }],
+    reveal: null,
+    memory: [
+      { text: 'Het team praatte de dag na de eerste sessie lang na over de vraag "wat als niemand het ooit zou weten".', source: 'human', confidence: 'confirmed', when: '5 augustus' },
+      { text: 'Noemt tijdsdruk, maar vraagt niet om uitstel. Vraagt om een goede keuze.', source: 'ai', confidence: 'proposed', when: 'vandaag' },
+    ],
+    journey: 'First Five · sessie 1 van 5 afgerond · tweede sessie in overleg',
+    followups: [{ title: 'Twee sessiemomenten voorstellen', due: 'vandaag', overdue: false }],
+    provenance: null,
+  },
+  'Kim Deraedt': {
+    role: 'Eigenaar', owner: 'Ludwig', stage: 'Actief', revealId: 'r-kim',
+    now: [{ kind: 'reveal', tone: 'beweging', label: 'Er valt iets op', line: 'Kim reageert anders dan eerst.' }],
+    memory: [{ text: 'Werkt het liefst op dinsdag.', source: 'human', confidence: 'confirmed', when: '2 augustus' }],
+    journey: 'First Five · sessie 2 van 5',
+    followups: [],
+    provenance: null,
+  },
+  'Saar': {
+    role: 'Keramist', owner: 'Sanne', stage: 'Dreigt uit beeld', revealId: 'r-saar',
+    now: [{ kind: 'reveal', tone: 'beweging', label: 'Kwam terug', line: 'Saar raakt langzaam uit beeld, en opende vandaag je oude mail opnieuw.' }],
+    memory: [{ text: 'Laatste vraag van haar bleef zeven weken onbeantwoord.', source: 'ai', confidence: 'proposed', when: 'vandaag' }],
+    journey: 'First Five · afgerond',
+    followups: [{ title: 'Terugkoppeling op haar laatste vraag', due: '3 dagen geleden', overdue: true }],
+    provenance: null,
+  },
+  'Lieselotte Vandewalle': {
+    role: 'Advocaat', owner: 'Sanne', stage: 'Kandidaat',
+    now: [{ kind: 'consent', tone: 'now', label: 'Nog geen toestemming', line: 'Aangedragen via Pass the Lens. Eerst toestemming vastleggen voordat je uitnodigt.' }],
+    memory: [],
+    journey: 'First Five · nog niet gestart',
+    followups: [],
+    provenance: 'Pass the Lens · via Kim Deraedt',
+  },
+};
+
+function provChip(cls) {
+  const m = { A: ['in Maculis', 'a'], B: ['afgeleid', 'b'], C: ['toekomstig', 'c'] };
+  const [lbl, k] = m[cls];
+  return `<span class="prov-chip ${k}" title="${cls === 'A' ? 'Bestaat al in Maculis' : cls === 'B' ? 'Afgeleid uit bestaande data' : 'Bestaat nog niet, vraagt later backendwerk'}">${lbl}</span>`;
+}
+
+function dossierFor(rel) {
+  const name = rel.name;
+  const ov = DOSSIER_OVERRIDES[name] || {};
+  const d = {
+    name, org: rel.org || 'zelfstandig, zonder organisatie',
+    role: ov.role || 'Contactpersoon',
+    owner: ov.owner || rel.owner || 'Ludwig',
+    stage: ov.stage || (rel.mv && rel.mv.label) || 'Relatie',
+    now: ov.now || deriveNow(rel),
+    revealId: ov.revealId || (rel.hadReveal ? 'r-kim' : null),
+    identities: [
+      { channel: 'e-mail', value: (rel.fromTester && rel.fromTester.email) || emailFor(name, rel.org), cls: 'A' },
+      { channel: 'telefoon', value: (rel.fromTester && rel.fromTester.mobile) || '+32 4xx xx xx xx', cls: 'A' },
+      { channel: 'whatsapp', value: 'zelfde nummer, koppeling nog niet actief', cls: 'C' },
+    ],
+    journey: ov.journey || `First Five · ${rel.firstFive || 'status onbekend'}`,
+    memory: ov.memory || [{ text: 'Nog geen vastgelegde afspraken. Maculis stelt ze voor zodra er iets speelt.', source: 'ai', confidence: 'proposed', when: '' }],
+    followups: ov.followups || (rel.openAction ? [{ title: 'Open follow-up', due: 'deze week', overdue: false }] : []),
+    consentStatus: rel.consent || 'OPTED_IN',
+    provenance: ov.provenance || null,
+    lastDays: rel.lastDays != null ? rel.lastDays : 3,
+    channel: rel.channel || 'e-mail',
+  };
+  return d;
+}
+function emailFor(name, org) {
+  const fn = name.split(' ')[0].toLowerCase().replace(/[^a-z]/g, '');
+  const dom = (org || 'voorbeeld.nl').toLowerCase().replace(/[^a-z]/g, '').slice(0, 14) || 'voorbeeld';
+  return `${fn}@${dom}.nl`;
+}
+function deriveNow(rel) {
+  const c = rel.mv && rel.mv.cls;
+  if (rel.hadReveal) return [{ kind: 'reveal', tone: 'beweging', label: 'Er valt iets op', line: 'Er brak een patroon in het contact met deze relatie.' }];
+  if (c === 'active' || c === 'moving') return [{ kind: 'gesprek', tone: 'now', label: 'Actief gesprek', line: 'Er loopt een gesprek dat mogelijk je aandacht vraagt.' }];
+  return [{ kind: 'quiet', tone: 'quiet', label: 'Rustig', line: 'Er speelt nu niets bij deze relatie. Dat is ook een status.' }];
+}
+
+function viewDossier() {
+  const rel = activeRel || (PEOPLE.jb ? { name: PEOPLE.jb.name, org: PEOPLE.jb.org } : { name: 'Onbekend', org: '' });
+  const d = dossierFor(rel);
+  const wrap = el('div', 'view-enter wide');
+  wrap.appendChild(spaceBadge('work'));
+
+  // breadcrumb keeps you oriented within the single (left) nav
+  const crumbs = el('div', 'crumbs');
+  const back = el('button', 'crumb-link', 'Relaties');
+  back.addEventListener('click', () => { scn = 'relaties'; render(); });
+  crumbs.appendChild(back);
+  crumbs.appendChild(el('span', 'crumb-sep', '›'));
+  crumbs.appendChild(el('span', 'crumb-cur', d.name));
+  wrap.appendChild(crumbs);
+
+  // identity strip
+  const idc = el('div', 'dos-id');
+  idc.innerHTML =
+    `<span class="dos-av">${esc(initials(d.name))}</span>
+     <div class="dos-idmain">
+       <div class="dos-name">${esc(d.name)}</div>
+       <div class="dos-sub">${esc(d.role)} · ${esc(d.org)}</div>
+     </div>
+     <div class="dos-meta">
+       <span class="dos-stage">${esc(d.stage)}</span>
+       <span class="dos-owner">Eigenaar: ${esc(d.owner)} ${provChip('C')}</span>
+     </div>`;
+  wrap.appendChild(idc);
+
+  // NU — meaning first: what to understand and do now
+  const now = el('section', 'dos-now');
+  now.appendChild(el('div', 'dos-now-h', 'Wat speelt er nu'));
+  d.now.forEach(n => {
+    if (n.kind === 'reveal' && d.revealId) {
+      const rev = { 'r-kim': REVEAL_RELATIONSHIP, 'r-saar': REVEAL_SAAR }[d.revealId] || REVEAL_RELATIONSHIP;
+      const ap = el('div', 'aperture');
+      ap.innerHTML =
+        `<div class="ap-noticed">${esc(n.label)}</div>
+         <p class="ap-text">${esc(rev.headline)}</p>
+         <button class="btn btn-primary" data-go="reveal">Bekijk de reveal</button>`;
+      ap.querySelector('[data-go]').addEventListener('click', () => { revealWhich = d.revealId; scn = 'reveal'; render(); });
+      now.appendChild(ap);
+    } else {
+      const item = el('div', 'dos-now-item ' + n.tone);
+      const act = n.kind === 'gesprek' ? '<button class="btn btn-primary" data-go="work">Open het gesprek</button>'
+        : n.kind === 'consent' ? '<button class="btn btn-primary" data-go="tb">Naar Testerbeheer</button>' : '';
+      item.innerHTML = `<div class="dni-top"><span class="chip ${n.tone === 'now' ? 'now' : ''}"><span class="k"></span>${esc(n.label)}</span></div><p class="dni-line">${esc(n.line)}</p>${act}`;
+      const b = item.querySelector('[data-go]');
+      if (b) b.addEventListener('click', () => { const g = b.getAttribute('data-go'); scn = g === 'tb' ? 'testerbeheer' : g; render(); });
+      now.appendChild(item);
+    }
+  });
+  wrap.appendChild(now);
+
+  // detail-on-demand sections, each with a provenance chip
+  const sections = [
+    { key: 'contact', title: 'Contact en identiteiten', prov: 'A', open: false, body: () => {
+        const b = el('div', 'dos-facts');
+        d.identities.forEach(id => { b.innerHTML += `<div class="fact"><span class="k">${esc(id.channel)}</span><span class="v">${esc(id.value)} ${id.cls === 'C' ? provChip('C') : ''}</span></div>`; });
+        return b;
+      } },
+    { key: 'history', title: 'Gesprekshistorie', prov: 'A', open: true, body: () => {
+        const b = el('div', 'dos-timeline');
+        b.innerHTML =
+          `<div class="tl-ev"><span class="tl-when">vandaag</span><span class="tl-ch">e-mail</span><p>Laatste bericht van ${esc(d.name.split(' ')[0])}, nog niet beantwoord.</p></div>
+           <div class="tl-ev out"><span class="tl-when">maandag</span><span class="tl-ch">e-mail</span><p>Jouw vorige antwoord. Afgeleverd.</p></div>
+           <div class="tl-ev"><span class="tl-when">vorige week</span><span class="tl-ch">e-mail</span><p>Eerste contact na de sessie.</p></div>
+           <p class="dos-note">E-mail is volledig aanwezig. WhatsApp, SMS en telefonie ${provChip('C')} lopen door hetzelfde model zodra de kanalen gekoppeld zijn.</p>`;
+        return b;
+      } },
+    { key: 'journey', title: 'First Five en journey', prov: 'A', open: false, body: () => {
+        const b = el('div', '');
+        b.innerHTML = `<div class="memory" style="border-color:var(--ok)">${esc(d.journey)}</div><p class="dos-note">De status (concept, uitgenodigd, gestart, afgerond) is in Maculis. Detail per sessie en per stap ${provChip('C')} bestaat nog niet.</p>`;
+        return b;
+      } },
+    { key: 'zag', title: 'Wat Maculis zag', prov: 'A', open: true, body: () => {
+        const b = el('div', 'dos-memory');
+        if (!d.memory.length) b.innerHTML = '<p class="muted">Nog niets vastgelegd.</p>';
+        d.memory.forEach(m => {
+          const tag = m.source === 'ai' && m.confidence === 'proposed' ? '<span class="mem-ai">AI-voorstel</span>' : '<span class="mem-conf">Bevestigd</span>';
+          const act = m.source === 'ai' && m.confidence === 'proposed' ? '<span class="mem-acts"><button class="linkbtn">Bevestigen</button> · <button class="linkbtn">Verwerpen</button></span>' : '';
+          b.innerHTML += `<div class="mem"><div class="mem-top">${tag}<span class="mem-when">${esc(m.when || '')}</span></div><p>${esc(m.text)}</p>${act}</div>`;
+        });
+        return b;
+      } },
+    { key: 'reveals', title: 'Reveals eerder getoond', prov: 'C', open: false, body: () => {
+        const b = el('div', '');
+        b.innerHTML =
+          `<p class="dos-note dos-c">Een duurzame historie van welke reveal wanneer en waarom is getoond, bestaat nog niet in Maculis ${provChip('C')}. Dit is hoe het eruit zou zien, geen echte data.</p>` +
+          (d.revealId
+            ? `<div class="dos-timeline"><div class="tl-ev"><span class="tl-when">vandaag</span><span class="tl-ch">reveal</span><p>${esc(({ 'r-kim': 'Kim reageert anders dan eerst', 'r-saar': 'Saar raakt langzaam uit beeld' })[d.revealId])}. Getoond omdat een gemeten patroon brak.</p></div></div>`
+            : `<p class="muted">Nog geen reveal bij deze relatie getoond.</p>`);
+        return b;
+      } },
+    { key: 'acties', title: 'Open acties en follow-ups', prov: 'A', open: false, body: () => {
+        const b = el('div', '');
+        if (!d.followups.length) b.innerHTML = '<p class="muted">Geen open acties.</p>';
+        d.followups.forEach(f => { b.innerHTML += `<div class="fact"><span class="k">${f.overdue ? '<span class="dot-open"></span> verlopen' : 'open'}</span><span class="v">${esc(f.title)} · ${esc(f.due)}</span></div>`; });
+        return b;
+      } },
+    { key: 'notities', title: 'Notities', prov: 'C', open: false, body: () => {
+        const b = el('div', '');
+        b.innerHTML = `<p class="dos-note dos-c">Vrije notities op relatieniveau bestaan nog niet ${provChip('C')}. Interne notities per gesprek bestaan wel ${provChip('A')} en worden nooit extern verzonden.</p>`;
+        return b;
+      } },
+    { key: 'consent', title: 'Toestemming en metadata', prov: 'A', open: false, body: () => {
+        const b = el('div', 'dos-facts');
+        b.innerHTML =
+          `<div class="fact"><span class="k">Toestemming</span><span class="v"><span class="badge cs-${d.consentStatus}">${esc(CONSENT_LBL[d.consentStatus])}</span></span></div>
+           <div class="fact"><span class="k">Per kanaal</span><span class="v">E-mail toegestaan, WhatsApp vereist expliciete opt-in</span></div>
+           <div class="fact"><span class="k">Versie</span><span class="v">één gedeelde consent-versie over beide systemen ${provChip('C')}</span></div>`;
+        return b;
+      } },
+  ];
+  if (d.provenance) sections.push({ key: 'herkomst', title: 'Herkomst', prov: 'A', open: false, body: () => { const b = el('div', ''); b.innerHTML = `<div class="memory">${esc(d.provenance)}</div>`; return b; } });
+
+  const secWrap = el('div', 'dos-sections');
+  sections.forEach(s => {
+    const sec = el('div', 'dos-sec');
+    const head = el('button', 'dos-sec-head');
+    head.setAttribute('aria-expanded', String(s.open));
+    head.innerHTML = `<span class="dss-title">${esc(s.title)}</span>${provChip(s.prov)}<span class="dss-arw" aria-hidden="true">${s.open ? '▾' : '▸'}</span>`;
+    const body = el('div', 'dos-sec-body' + (s.open ? '' : ' hidden'));
+    body.appendChild(s.body());
+    head.addEventListener('click', () => {
+      const open = body.classList.toggle('hidden') === false;
+      head.setAttribute('aria-expanded', String(open));
+      head.querySelector('.dss-arw').textContent = open ? '▾' : '▸';
+    });
+    sec.appendChild(head); sec.appendChild(body);
+    secWrap.appendChild(sec);
+  });
+  wrap.appendChild(secWrap);
+
+  // always a way onward to the conversation
+  const foot = el('div', 'dos-foot');
+  const g = el('button', 'btn btn-ghost', 'Open het gesprek →');
+  g.addEventListener('click', () => { scn = 'work'; render(); });
+  foot.appendChild(g);
+  wrap.appendChild(foot);
+  return wrap;
+}
+
+/* =====================================================================
    ROUTER + STATE
    ===================================================================== */
 
@@ -1128,10 +1536,17 @@ let relMode = 'maculis'; // 'maculis' (selects) | 'work' (you drive)
 let relFilters = { q: '', org: '', ff: '', last: '', owner: '', open: false, reveal: false };
 let relSort = 'beweging';
 let relSelected = new Set();
+let activeRel = null;     // the relationship whose dossier is open
+let tbTab = 'testers';    // Testerbeheer sub-tab
+let tbSelected = new Set();
+let dosSection = null;    // which dossier detail section is expanded
 
 const NAV_TO_SCN = { vandaag: 'vandaag', relaties: 'relaties', gesprekken: 'gesprekken', journeys: 'journeys', groei: 'groei', beheer: 'beheer' };
 const SPACE = { vandaag: 'reveal', reveal: 'reveal', journeys: 'reveal', groei: 'reveal',
-                relaties: 'work', gesprekken: 'work', work: 'work', beheer: 'work' };
+                relaties: 'work', gesprekken: 'work', work: 'work', dossier: 'work', beheer: 'work', testerbeheer: 'work' };
+
+/* Open a relationship dossier. Accepts a rich fixture person or a generated row. */
+function openDossier(rel) { activeRel = rel; scn = 'dossier'; render(); }
 
 function render() {
   shell.setAttribute('data-space', SPACE[scn] || 'reveal');
@@ -1143,9 +1558,12 @@ function render() {
     case 'relaties': node = viewRelaties(); break;
     case 'gesprekken': node = viewGesprekken(); break;
     case 'work': node = viewWork(); break;
+    case 'dossier': node = viewDossier(); break;
     case 'journeys': node = viewPlaceholder('Journeys', 'Een journey, zoals First Five, zie je in de relatie zelf: waar iemand staat en wat de volgende stap is. Het operationele werk eromheen leeft onder Beheer, als Testerbeheer.', 'reveal'); break;
     case 'groei': node = viewGroei(); break;
-    default: node = viewPlaceholder('Beheer', 'Templates, imports, instellingen en operationele controls. Buiten de dagelijkse aandacht gehouden, hier wanneer je het nodig hebt.', 'work');
+    case 'testerbeheer': node = viewTesterbeheer(); break;
+    case 'beheer': node = viewBeheer(); break;
+    default: node = viewBeheer();
   }
   view.appendChild(node);
 
@@ -1154,8 +1572,12 @@ function render() {
   const groeiNav = document.getElementById('nav-groei');
   if (groeiNav) groeiNav.classList.toggle('hidden', !hasPattern());
 
-  // reflect the single (left) nav: reveal maps to Vandaag, work to Gesprekken
-  const navKey = scn === 'reveal' ? 'vandaag' : scn === 'work' ? 'gesprekken' : scn;
+  // reflect the single (left) nav. Sub-screens light up their parent destination:
+  // reveal→Vandaag; gesprek(work)→Gesprekken; dossier→Relaties; testerbeheer→Beheer.
+  const navKey = scn === 'reveal' ? 'vandaag'
+    : scn === 'work' ? 'gesprekken'
+    : scn === 'dossier' ? 'relaties'
+    : scn === 'testerbeheer' ? 'beheer' : scn;
   document.querySelectorAll('[data-nav]').forEach(a => {
     a.removeAttribute('aria-current');
     if (a.getAttribute('data-nav') === navKey) a.setAttribute('aria-current', 'page');
@@ -1210,6 +1632,11 @@ function buildDevPanel() {
     ['Reveal · Kim', () => { scn = 'reveal'; revealWhich = 'r-kim'; }],
     ['Reveal · Saar (kwam terug)', () => { scn = 'reveal'; revealWhich = 'r-saar'; }],
     ['Reveal · toekomstige lens', () => { scn = 'reveal'; revealWhich = 'r-lens'; }],
+    ['Relatiedossier · Jean-Baptiste', () => { activeRel = { name: PEOPLE.jb.name, org: PEOPLE.jb.org }; scn = 'dossier'; }],
+    ['Relatiedossier · Saar (reveal)', () => { activeRel = { name: 'Saar', org: 'Saar Keramiek', hadReveal: true }; scn = 'dossier'; }],
+    ['Beheer', () => { scn = 'beheer'; }],
+    ['Beheer · Testerbeheer', () => { scn = 'testerbeheer'; tbTab = 'testers'; }],
+    ['Testerbeheer · Evaluaties', () => { scn = 'testerbeheer'; tbTab = 'eval'; }],
   ];
   protoPanel.innerHTML =
     `<div class="dp-head">
@@ -1258,7 +1685,7 @@ const params = new URLSearchParams(location.search);
 const wantDir = (params.get('dir') || 'C').toUpperCase();
 setDir(['A', 'C'].includes(wantDir) ? wantDir : 'C');
 const wantScn = params.get('scn');
-if (['vandaag', 'reveal', 'relaties', 'gesprekken', 'work', 'journeys', 'groei', 'beheer'].includes(wantScn)) scn = wantScn;
+if (['vandaag', 'reveal', 'relaties', 'gesprekken', 'work', 'dossier', 'journeys', 'groei', 'beheer', 'testerbeheer'].includes(wantScn)) scn = wantScn;
 const wantDay = params.get('day');
 if (['quiet', 'one', 'normal', 'busy'].includes(wantDay)) day = wantDay;
 const wantRev = params.get('rev');
