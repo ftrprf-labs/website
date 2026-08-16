@@ -5,6 +5,35 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-16 — Slice 3 Readiness: Relaties en Gesprekken als werkende overzichten (voorbereiding)
+
+**Geen productwijziging, geen deploy, geen redesign.** Nachtvoorbereiding zodat Relaties en Gesprekken
+in de bestaande live cockpit werkende overzichten kunnen worden, gevoed uit dezelfde Comm
+Layer/Postgres-state. Volledige analyse in `docs/SLICE_3_READINESS_BRIEF.md`.
+
+**Kernbevinding.** De databronnen bestaan al en zijn tenant-scoped en privacy-veilig:
+`listRelationships` (`GET /api/comm/relationships`) voor Relaties, en `inboxConversations` plus
+`inboxSummary` (`GET /api/comm/inbox`) voor Gesprekken. Het Gesprekkenoverzicht bestaat feitelijk al
+als de centrale Inbox. Het Relatiesoverzicht is het enige echt ontbrekende UI-oppervlak en kan zonder
+nieuw backendwerk worden gebouwd. Navigatie overzicht naar dossier of gesprek loopt op bestaande
+conventies (`/workspace.html?contact=`, `/comm.html#conv=`).
+
+**Vannacht veilig voorbereid (aparte commit, test-only, geen productgedrag):** een gedeelde DB-harnas
+`tests/helpers/comm-fixtures.mjs` (skip-guard, migrate plus reset, deterministische seeders, geen
+top-level `pg`-import) en twee karakterisatietests
+(`tests/comm-relations-overview.test.mjs`, `tests/comm-conversations-overview.test.mjs`) die de exacte
+datacontracten vastleggen die de UI morgen bindt: tenant-isolatie, privacy-split, zoeken, ordening,
+attention-tags, summary-tellers en provenance.
+
+**Openstaande keuzes voor Lud (na zijn live gebruiksronde):** losse pagina's of cockpit-views, scope
+van Relaties (contact of ook organisatie), sortering en paginatie, en of `open_convs` privacy moet
+uitsluiten. Geen infrastructuur- of onomkeerbare beslissing.
+
+**Tests:** volledige suite groen (66 tests, 55 pass, 11 skip, 0 fail). Slice 1/2 en previewarchitectuur
+intact; Testerbeheer, First Five, outbound mail en Phase B ongemoeid.
+
+---
+
 ## 2026-08-15 — Scope & ownership: Communication Layer grens (productbeslissing)
 
 **Geen code-wijziging. Uitsluitend een vastgelegde scope/ownership-grens** (op verzoek), zodat
