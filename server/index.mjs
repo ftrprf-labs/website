@@ -716,6 +716,22 @@ server.listen(config.port, bindHost, () => {
             const { previewSeedOnBoot } = await import('./comm/preview-seed.mjs');
             await previewSeedOnBoot();
           } catch (e) { console.log(`  Preview  : seed overgeslagen (${e.message})`); }
+          // Preview-only, one-shot live-model validation (COMM_AI_VALIDATION=1). Runs the EXISTING
+          // Gesprekken functions over disposable fixtures and prints compact per-line JSON to the log
+          // so the run can be read back where direct HTTP to the preview is not permitted. Guarded by
+          // PREVIEW_SEED + the flag; refuses unless the live provider is active. Remove the flag after.
+          if (/^(1|true|yes|on)$/i.test(process.env.COMM_AI_VALIDATION || '') && /^(1|true|yes|on)$/i.test(process.env.PREVIEW_SEED || '')) {
+            try {
+              const { getDefaultTenantId } = await import('./comm/tenant.mjs');
+              const { runGesprekkenValidation } = await import('./cockpit/validation.mjs');
+              const tid = await getDefaultTenantId();
+              const out = await runGesprekkenValidation(tid);
+              console.log('##VAL## RUNTIME ' + JSON.stringify(out.runtime || {}));
+              for (const s of (out.scenarios || [])) console.log('##VAL## SCENARIO ' + JSON.stringify(s));
+              console.log('##VAL## GUARDRAILS ' + JSON.stringify(out.guardrails || {}));
+              console.log('##VAL## DONE ' + JSON.stringify({ ok: out.ok, error: out.error || null }));
+            } catch (e) { console.log('##VAL## ERROR ' + JSON.stringify({ error: String(e && e.message || e) })); }
+          }
         }
       } else if (!r.skipped) console.log(`  Schema   : migrations pending (${r.error})`);
     });
