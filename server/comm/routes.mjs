@@ -92,6 +92,27 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
     return true;
   }
 
+  // ---- Mijn Maculis preview seeding (admin-gated; PREVIEW ONLY) -------------------------------
+  // Triple-guarded so it can never seed real data: (1) admin session, (2) explicit env flag
+  // MIJN_PREVIEW_SEED=1 (unset on production), (3) refuses if the tenant has any real (non-preview)
+  // customer. Creates only clearly-marked is_preview fixtures. Returns the preview link (token).
+  if (pathname === '/api/comm/mijn-seed-preview' && method === 'POST') {
+    if (!/^(1|true|yes|on)$/i.test(process.env.MIJN_PREVIEW_SEED || '')) {
+      json(res, 403, { ok: false, error: 'Preview-seeding is niet ingeschakeld (MIJN_PREVIEW_SEED ontbreekt).' });
+      return true;
+    }
+    const { seedPreviewCore, assertNoRealCustomers } = await import('../mijn/seed.mjs');
+    try {
+      await assertNoRealCustomers(tenantId);
+      const r = await seedPreviewCore({ tenantId });
+      await recordAudit({ tenantId, action: 'mijn_preview_seeded', entityType: 'organization', entityId: r.organizationId, meta: { org: r.organizationName } });
+      json(res, 200, { ok: true, organization: r.organizationName, link: r.link });
+    } catch (e) {
+      json(res, 400, { ok: false, error: e.message });
+    }
+    return true;
+  }
+
   // ---- Inbox (attention model, §22) ----------------------------------------------------------
   if (pathname === '/api/comm/inbox' && method === 'GET') {
     const box = u.searchParams.get('box') === 'privacy' ? 'privacy' : 'communication';

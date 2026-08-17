@@ -134,10 +134,27 @@ async function ensurePreviewOrg(client, tenantId) {
   return ins.id;
 }
 
+// Safety gate for seeding on a running (possibly production-mode) preview service: refuse if the
+// tenant already has ANY real (non-preview) customer access grant. Preview fixtures may therefore
+// only ever be created on a tenant that has no real customers — they can never mix with real data.
+export async function assertNoRealCustomers(tenantId) {
+  const n = (await query(
+    'select count(*)::int c from customer_access where tenant_id=$1 and is_preview=false and revoked_at is null',
+    [tenantId])).rows[0].c;
+  if (n > 0) throw new Error('tenant heeft echte klanttoegang; preview-seeding geweigerd');
+}
+
+// The CLI entry point. Hard-refuses NODE_ENV=production so a local/CLI run can never seed production.
+// A preview SERVICE (which runs with NODE_ENV=production for parity) seeds through the admin-gated,
+// flag-gated, no-real-customers endpoint that calls seedPreviewCore directly.
+export async function seedPreview({ tenantId = null } = {}) {
+  if (config.production) throw new Error('refusing to seed preview fixtures with NODE_ENV=production (use the guarded admin endpoint on a preview service)');
+  return seedPreviewCore({ tenantId });
+}
+
 // Seed (or re-seed) the preview environment. Idempotent: preview rows for the preview org are
 // cleared and re-created, so running it twice yields the same clean state. Returns the preview link.
-export async function seedPreview({ tenantId = null } = {}) {
-  if (config.production) throw new Error('refusing to seed preview fixtures with NODE_ENV=production');
+export async function seedPreviewCore({ tenantId = null } = {}) {
   if (!commEnabled()) throw new Error('Communication Layer is off (need COMM_LAYER_ENABLED + DATABASE_URL)');
   const tid = tenantId || await getDefaultTenantId();
 
