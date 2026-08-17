@@ -76,47 +76,89 @@
     return `<span class="share-tag">${ICON.lock}Alleen voor jou</span>`;
   }
 
-  // The Maculis signature: loose signals → coherence → pattern → insight. Layered rings with a soft
-  // luminous core, signal points at varying distance, and faint links resolving toward the centre.
-  // Abstract, intelligent, elegant — never a sci-fi HUD. Motion (breathing points, a slow drift,
-  // a softly pulsing core) is defined in CSS and gated by prefers-reduced-motion.
-  const ORBIT = `<svg class="orbit" viewBox="0 0 360 360" aria-hidden="true">
+  // The Maculis signature: loose signals → coherence → pattern → insight. A luminous core blooming
+  // softly from a white centre, fine multi-scale rings (some elliptical/rotated for asymmetry, part
+  // running off the frame), many signal points at varying distance (violet + copper), and faint links
+  // resolving toward the centre. Abstract organisation-intelligence — never an orb, galaxy or HUD.
+  // Motion (breathing points, a very slow drift, a softly pulsing bloom) lives in CSS, reduced-motion safe.
+  const ORBIT = `<svg class="orbit" viewBox="0 0 440 440" aria-hidden="true">
     <defs>
-      <radialGradient id="sfCore" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stop-color="#8574e2" stop-opacity="0.92"/>
-        <stop offset="42%" stop-color="#6857cc" stop-opacity="0.5"/>
+      <radialGradient id="sfBloom" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.98"/>
+        <stop offset="16%" stop-color="#b3a6f2" stop-opacity="0.82"/>
+        <stop offset="42%" stop-color="#6857cc" stop-opacity="0.42"/>
         <stop offset="100%" stop-color="#6857cc" stop-opacity="0"/>
       </radialGradient>
-      <radialGradient id="sfField" cx="50%" cy="50%" r="55%">
-        <stop offset="0%" stop-color="#efecfa" stop-opacity="0.9"/>
-        <stop offset="100%" stop-color="#efecfa" stop-opacity="0"/>
+      <radialGradient id="sfHalo" cx="50%" cy="50%" r="55%">
+        <stop offset="0%" stop-color="#efeafc" stop-opacity="0.8"/>
+        <stop offset="100%" stop-color="#efeafc" stop-opacity="0"/>
       </radialGradient>
-      <filter id="sfSoft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="5"/></filter>
+      <filter id="sfGlow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="7"/></filter>
+      <filter id="sfDot" x="-260%" y="-260%" width="620%" height="620%"><feGaussianBlur stdDeviation="2.4"/></filter>
     </defs>
-    <circle cx="180" cy="180" r="150" fill="url(#sfField)"/>
-    <g class="sf-rot" fill="none" stroke="#6857cc"><ellipse cx="180" cy="180" rx="150" ry="145" stroke-opacity="0.09" stroke-dasharray="1 8"/></g>
+    <circle cx="220" cy="215" r="200" fill="url(#sfHalo)"/>
+    <g class="sf-rot" fill="none">
+      <ellipse cx="220" cy="215" rx="192" ry="182" stroke="#6857cc" stroke-opacity="0.06" stroke-dasharray="1 10"/>
+      <ellipse cx="220" cy="215" rx="160" ry="172" stroke="#6857cc" stroke-opacity="0.05" transform="rotate(16 220 215)"/>
+    </g>
     <g fill="none" stroke="#6857cc">
-      <circle cx="180" cy="180" r="120" stroke-opacity="0.09"/>
-      <circle cx="180" cy="180" r="86" stroke-opacity="0.13"/>
-      <circle cx="180" cy="180" r="52" stroke-opacity="0.18"/>
+      <circle cx="220" cy="215" r="146" stroke-opacity="0.07"/>
+      <circle cx="220" cy="215" r="104" stroke-opacity="0.10"/>
+      <circle cx="220" cy="215" r="64" stroke-opacity="0.15"/>
     </g>
-    <g stroke="#6857cc" stroke-opacity="0.13">
-      <line x1="180" y1="180" x2="264" y2="150"/>
-      <line x1="180" y1="180" x2="120" y2="94"/>
-      <line x1="180" y1="180" x2="150" y2="258"/>
-      <line x1="180" y1="180" x2="90" y2="196"/>
+    <g stroke="#6857cc" stroke-opacity="0.11">
+      <line x1="220" y1="215" x2="338" y2="176"/>
+      <line x1="220" y1="215" x2="132" y2="120"/>
+      <line x1="220" y1="215" x2="182" y2="332"/>
+      <line x1="220" y1="215" x2="322" y2="300"/>
+      <line x1="220" y1="215" x2="98" y2="252"/>
+      <line x1="220" y1="215" x2="286" y2="96"/>
     </g>
-    <circle class="sf-core" cx="180" cy="180" r="50" fill="url(#sfCore)" filter="url(#sfSoft)"/>
-    <circle cx="180" cy="180" r="9" fill="#6857cc"/>
-    <circle cx="180" cy="180" r="9" fill="#8574e2" fill-opacity="0.45"/>
-    <circle class="sf-dot" style="--o:.72;--d:6s" cx="264" cy="150" r="4.6" fill="#6857cc"/>
-    <circle class="sf-dot" style="--o:.5;--d:8s" cx="120" cy="94" r="3.6" fill="#6857cc"/>
-    <circle class="sf-dot" style="--o:.55;--d:7s" cx="150" cy="258" r="3.6" fill="#6857cc"/>
-    <circle class="sf-dot" style="--o:.5;--d:9s" cx="252" cy="244" r="3" fill="#b0762f"/>
-    <circle class="sf-dot" style="--o:.46;--d:6.5s" cx="90" cy="196" r="3" fill="#b0762f"/>
-    <circle class="sf-dot" style="--o:.4;--d:10s" cx="216" cy="86" r="2.6" fill="#6857cc"/>
-    <circle class="sf-dot" style="--o:.34;--d:7.5s" cx="304" cy="198" r="2.4" fill="#6857cc"/>
-    <circle class="sf-dot" style="--o:.3;--d:11s" cx="70" cy="120" r="2.2" fill="#b0762f"/>
+    <circle class="sf-core" cx="220" cy="215" r="72" fill="url(#sfBloom)" filter="url(#sfGlow)"/>
+    <circle cx="220" cy="215" r="6.5" fill="#fff"/>
+    <circle cx="220" cy="215" r="13" fill="#7b69dd" fill-opacity="0.45" filter="url(#sfDot)"/>
+    <circle class="sf-dot sf-lit" style="--o:.8;--d:6s" cx="338" cy="176" r="5" fill="#6857cc" filter="url(#sfDot)"/>
+    <circle class="sf-dot" style="--o:.62;--d:8s" cx="132" cy="120" r="4" fill="#6857cc"/>
+    <circle class="sf-dot" style="--o:.6;--d:7s" cx="182" cy="332" r="4" fill="#6857cc"/>
+    <circle class="sf-dot sf-lit" style="--o:.66;--d:9s" cx="322" cy="300" r="3.6" fill="#b0762f" filter="url(#sfDot)"/>
+    <circle class="sf-dot" style="--o:.5;--d:6.5s" cx="98" cy="252" r="3.4" fill="#b0762f"/>
+    <circle class="sf-dot" style="--o:.46;--d:10s" cx="286" cy="96" r="3" fill="#6857cc"/>
+    <circle class="sf-dot" style="--o:.4;--d:7.5s" cx="378" cy="238" r="2.8" fill="#6857cc"/>
+    <circle class="sf-dot" style="--o:.42;--d:11s" cx="70" cy="150" r="2.6" fill="#b0762f"/>
+    <circle class="sf-dot" style="--o:.34;--d:8.5s" cx="250" cy="386" r="2.6" fill="#6857cc"/>
+    <circle class="sf-dot" style="--o:.3;--d:12s" cx="404" cy="150" r="2.2" fill="#6857cc"/>
+    <circle class="sf-dot" style="--o:.32;--d:9.5s" cx="150" cy="66" r="2.2" fill="#b0762f"/>
+    <circle class="sf-dot" style="--o:.28;--d:13s" cx="60" cy="330" r="2" fill="#6857cc"/>
+  </svg>`;
+
+  // An abstract Maculis atmosphere: a warm dawn horizon with a soft luminous sun and layered mist —
+  // the "special moment" behind the shared next step. Evokes the reference's atmospheric image while
+  // staying abstract and self-contained (inline SVG, no external asset, CSP-safe).
+  const HORIZON = `<svg class="horizon-img" viewBox="0 0 600 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs>
+      <linearGradient id="hzSky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#cdc2e6"/>
+        <stop offset="40%" stop-color="#e0cdcf"/>
+        <stop offset="72%" stop-color="#f0d9bd"/>
+        <stop offset="100%" stop-color="#f6ecd7"/>
+      </linearGradient>
+      <radialGradient id="hzSun" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#fff6e6" stop-opacity="0.98"/>
+        <stop offset="38%" stop-color="#f3d29a" stop-opacity="0.7"/>
+        <stop offset="100%" stop-color="#f3d29a" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="hzScrim" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#f7eede" stop-opacity="0.9"/>
+        <stop offset="60%" stop-color="#f7eede" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <rect width="600" height="320" fill="url(#hzSky)"/>
+    <circle cx="430" cy="150" r="150" fill="url(#hzSun)"/>
+    <circle cx="430" cy="150" r="30" fill="#fff3da" opacity="0.92"/>
+    <path d="M0 232 Q 140 196 300 224 T 600 214 V320 H0 Z" fill="#b7a9c9" opacity="0.42"/>
+    <path d="M0 262 Q 170 232 350 258 T 600 250 V320 H0 Z" fill="#8f82a6" opacity="0.4"/>
+    <path d="M0 292 Q 200 270 400 288 T 600 286 V320 H0 Z" fill="#6f6486" opacity="0.42"/>
+    <rect width="440" height="320" fill="url(#hzScrim)"/>
   </svg>`;
 
   // ---- navigation / router ----
@@ -189,16 +231,26 @@
 
     const step = c.nextStep;
     const laatste = `
-      <section class="panel laatste">
-        <div class="laatste-ico">${ICON.handshake}</div>
-        <p>${esc(step ? (step.detail || step.title) : 'Zodra we samen een volgende stap afspreken, zie je die hier.')}</p>
-        <button class="btn btn-amber" data-nav="samenwerking">Bekijk alle afspraken</button>
+      <section class="atmos-card">
+        ${HORIZON}
+        <div class="atmos-inner">
+          <span class="atmos-eyebrow">Onze laatste stap</span>
+          <p class="atmos-line">${esc(step ? (step.detail || step.title) : 'Zodra we samen een volgende stap afspreken, zie je die hier.')}</p>
+          <button class="btn atmos-btn" data-nav="samenwerking">Bekijk alle afspraken ${ICON.arrow}</button>
+        </div>
+      </section>`;
+
+    // A quiet reflective epigraph in the environment's own voice — a calm moment, not a testimonial.
+    const epigraph = `
+      <section class="epigraph">
+        <p>Losse signalen krijgen hier langzaam betekenis, tot je ziet wat er werkelijk speelt.</p>
+        <span class="epigraph-src"><span class="brand-ring" aria-hidden="true"></span>Mijn Maculis</span>
       </section>`;
 
     view.innerHTML = `
       <div class="ov-grid">
         <div class="ov-col">${hero}${recentPanel}</div>
-        <div class="ov-col">${glance}${laatste}</div>
+        <div class="ov-col">${glance}${laatste}${epigraph}</div>
       </div>
       ${privacyRow()}`;
     wireNav();
@@ -218,14 +270,18 @@
     const leftMark = (i.attention && i.status === 'new')
       ? '<span class="badge badge-new">Nieuw</span>'
       : (i.developed ? '<span class="chip-updated">Bijgewerkt</span>' : '<span></span>');
+    const when = fmtDate(i.updated_at || i.created_at, false);
     return `<button class="icard ${tintClass(i)}" data-nav="inzicht/${esc(i.id)}">
       <div class="icard-top">
-        ${leftMark}
         ${shareTag(i.sharing)}
+        ${leftMark}
       </div>
       <h3>${esc(i.title)}</h3>
       <p>${esc(i.observation || '')}</p>
-      <span class="btn-link">Bekijk inzicht ${ICON.arrow}</span>
+      <div class="icard-foot">
+        <span class="icard-when">${esc(when)}</span>
+        <span class="icard-go" aria-hidden="true">${ICON.arrow}</span>
+      </div>
     </button>`;
   }
 
@@ -240,12 +296,34 @@
     </section>`;
   }
 
+  // De Spiegel — editorial composition: one dominant insight carrying the signal field, then the rest
+  // in an airy grid. Different visual weight makes hierarchy readable without a dashboard.
+  function spiegelHero(i) {
+    return `<button class="spiegel-hero ${tintClass(i)}" data-nav="inzicht/${esc(i.id)}">
+      ${ORBIT}
+      <div class="spiegel-hero-inner">
+        <div class="detail-head">
+          <span class="chip stance-${esc(i.stance)}"><span class="dot"></span>${esc(stanceLabel(i.stance))}</span>
+          ${shareTag(i.sharing)}
+          ${i.developed ? '<span class="chip-updated">Bijgewerkt</span>' : ''}
+        </div>
+        <h2>${esc(i.title)}</h2>
+        <p>${esc(i.observation || '')}</p>
+        <span class="btn-link">Bekijk inzicht ${ICON.arrow}</span>
+      </div>
+    </button>`;
+  }
+
   async function renderInsights() {
     skeleton();
     const { data } = await api('/api/mijn/insights');
     const items = data.insights || [];
     if (!items.length) { view.innerHTML = '<p class="empty">Er zijn nog geen inzichten om te tonen.</p>'; return; }
-    view.innerHTML = `<div class="spiegel-grid">${items.map(insightCard).join('')}</div>`;
+    const dominant = items.find((i) => i.attention) || items[0];
+    const rest = items.filter((i) => i.id !== dominant.id);
+    view.innerHTML = `
+      ${spiegelHero(dominant)}
+      ${rest.length ? `<p class="section-label spiegel-more">Meer wat we zien</p><div class="spiegel-grid">${rest.map(insightCard).join('')}</div>` : ''}`;
     wireNav();
   }
 

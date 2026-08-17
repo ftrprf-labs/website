@@ -432,8 +432,127 @@ body.mijn {
 .empty { color: var(--muted); padding: 34px 2px; font-family: var(--serif); font-style: italic; }
 .skel { color: var(--faint); padding: 22px 2px; }
 
+/* ============================================================================
+   Reference art-direction refinement — atmospheric light, a luminous signal
+   field, editorial cards, and a few signature moments. Presentation only.
+   ============================================================================ */
+
+/* Atmospheric light in the parchment world: warm illumination top-right, a faint cool pool. */
+.main {
+  background:
+    radial-gradient(64% 46% at 80% 0%, rgba(224, 188, 132, 0.12), transparent 62%),
+    radial-gradient(52% 40% at 8% 6%, rgba(104, 87, 204, 0.05), transparent 60%),
+    radial-gradient(90% 60% at 82% -6%, var(--canvas-top), transparent 60%),
+    linear-gradient(180deg, var(--canvas-top), var(--canvas) 34%);
+}
+
+/* The dark anchor comes quietly alive: faint signal points and soft glows in the sidebar. */
+.side {
+  background:
+    radial-gradient(2.4px 2.4px at 60% 42%, rgba(207, 147, 70, 0.6), transparent 62%),
+    radial-gradient(2px 2px at 28% 66%, rgba(207, 147, 70, 0.42), transparent 62%),
+    radial-gradient(1.8px 1.8px at 74% 76%, rgba(133, 116, 226, 0.6), transparent 62%),
+    radial-gradient(150px 150px at 18% 82%, rgba(104, 87, 204, 0.12), transparent 72%),
+    radial-gradient(130px 130px at 82% 16%, rgba(207, 147, 70, 0.08), transparent 72%),
+    linear-gradient(185deg, var(--ink-800) 0%, var(--ink-900) 64%);
+}
+.side::after {
+  content: ""; position: absolute; left: 46%; top: 58%; width: 3px; height: 3px; border-radius: 50%;
+  background: rgba(179, 166, 242, 0.7); box-shadow: 0 0 8px 1px rgba(133, 116, 226, 0.5); pointer-events: none;
+}
+
+/* Signal field: larger, brighter, bleeding a little off the frame (controlled asymmetry). */
+.orbit { width: 420px; height: 420px; right: -66px; top: 48%; }
+
+/* Hero: more typographic authority; the field is part of the same composition. */
+.hero { padding: 44px 44px 42px; }
+.hero-inner { max-width: 62%; }
+.hero h2 { font-size: 37px; line-height: 1.12; margin: 16px 0 14px; }
+.hero p { font-size: 17px; }
+.badge-new, .hero .badge { background: linear-gradient(160deg, var(--violet-hi), var(--violet)); }
+
+/* Editorial insight cards: lighter containers, a date + a circular "go" affordance. */
+.icard {
+  gap: 12px; padding: 20px 20px 18px; box-shadow: var(--sh-1);
+  border-color: color-mix(in srgb, var(--violet-line) 70%, transparent);
+  background: linear-gradient(170deg, var(--violet-tint-2), var(--surface) 72%);
+}
+.icard.tint-green { border-color: color-mix(in srgb, var(--jade-line) 70%, transparent); }
+.icard.tint-blue { border-color: color-mix(in srgb, var(--ice-line) 70%, transparent); }
+.icard h3 { font-size: 18.5px; }
+.icard p { flex: 1; }
+.icard-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; }
+.icard-when { font-size: 12.5px; color: var(--faint); letter-spacing: 0.01em; }
+.icard-go {
+  width: 30px; height: 30px; border-radius: 50%; flex: none; display: grid; place-items: center;
+  border: 1px solid var(--line); background: var(--surface); color: var(--violet-ink);
+  transition: background 0.16s var(--ease), color 0.16s var(--ease), border-color 0.16s var(--ease), transform 0.16s var(--ease);
+}
+.icard-go svg { width: 15px; height: 15px; }
+.icard:hover .icard-go { background: var(--violet); color: #fff; border-color: var(--violet); transform: translateX(1px); }
+.icard.tint-green:hover .icard-go { background: var(--jade); border-color: var(--jade); color: #fff; }
+.icard.tint-blue:hover .icard-go { background: var(--ice); border-color: var(--ice); color: #fff; }
+
+/* Atmospheric "onze laatste stap" — the special moment. */
+.atmos-card { position: relative; overflow: hidden; border-radius: var(--r-lg); border: 1px solid var(--line-soft); box-shadow: var(--sh-2); min-height: 232px; display: flex; }
+.horizon-img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.atmos-inner { position: relative; z-index: 2; padding: 24px 24px 26px; display: flex; flex-direction: column; justify-content: flex-end; gap: 12px; }
+.atmos-eyebrow { font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--copper-ink); font-weight: 700; }
+.atmos-line { font-family: var(--serif); font-size: 20px; line-height: 1.32; color: #2c2418; margin: 0; max-width: 24ch; }
+.atmos-btn { align-self: flex-start; background: rgba(255, 253, 249, 0.82); backdrop-filter: blur(4px); border-color: rgba(255, 255, 255, 0.7); color: var(--ink); }
+.atmos-btn:hover { background: rgba(255, 255, 255, 0.95); }
+.atmos-btn svg { width: 15px; height: 15px; }
+
+/* A quiet reflective epigraph. */
+.epigraph { position: relative; padding: 22px 24px; border-radius: var(--r-lg); background: linear-gradient(180deg, var(--surface-2), rgba(255, 253, 249, 0.4)); border: 1px solid var(--line-soft); }
+.epigraph p { font-family: var(--serif); font-style: italic; font-size: 16px; line-height: 1.55; color: var(--ink-soft); margin: 0 0 14px; }
+.epigraph p::before { content: "\201C"; position: absolute; left: 14px; top: 2px; font-family: var(--serif); font-size: 46px; line-height: 1; color: var(--copper-line); }
+.epigraph p { padding-left: 22px; }
+.epigraph-src { display: inline-flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--muted); font-weight: 600; padding-left: 22px; }
+.epigraph-src .brand-ring { width: 18px; height: 18px; box-shadow: none; }
+
+/* De Spiegel — dominant insight carrying the signal field. */
+.spiegel-hero {
+  position: relative; overflow: hidden; display: block; width: 100%; text-align: left; cursor: pointer; font: inherit; color: inherit;
+  background: radial-gradient(120% 130% at 88% 28%, var(--violet-tint) 0%, var(--surface) 52%), linear-gradient(180deg, var(--surface), var(--surface-2));
+  border: 1px solid var(--violet-line); border-radius: var(--r-xl); box-shadow: var(--sh-3);
+  padding: 42px 44px; margin-bottom: 30px; isolation: isolate;
+  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.spiegel-hero.tint-green { background: radial-gradient(120% 130% at 88% 28%, var(--jade-tint) 0%, var(--surface) 52%), linear-gradient(180deg, var(--surface), var(--surface-2)); border-color: var(--jade-line); }
+.spiegel-hero.tint-blue { background: radial-gradient(120% 130% at 88% 28%, var(--ice-tint) 0%, var(--surface) 52%), linear-gradient(180deg, var(--surface), var(--surface-2)); border-color: var(--ice-line); }
+.spiegel-hero::before { content: ""; position: absolute; inset: 0; z-index: 0; background: radial-gradient(46% 60% at 84% 44%, var(--violet-glow), transparent 70%); pointer-events: none; }
+.spiegel-hero:hover { transform: translateY(-2px); box-shadow: 0 3px 8px rgba(32, 26, 17, 0.06), 0 34px 66px -22px rgba(46, 33, 12, 0.26); }
+.spiegel-hero-inner { position: relative; z-index: 2; max-width: 62%; }
+.spiegel-hero .detail-head { margin-bottom: 14px; }
+.spiegel-hero h2 { font-family: var(--serif); font-weight: 600; font-size: 31px; line-height: 1.16; letter-spacing: -0.3px; margin: 0 0 12px; text-wrap: balance; }
+.spiegel-hero p { color: var(--ink-soft); font-size: 16px; margin: 0 0 18px; max-width: 44ch; }
+.spiegel-more { margin: 30px 0 16px; }
+
+/* Insight detail — a very subtle contextual signal wash (desktop only), content stays dominant. */
+.detail { position: relative; }
+.detail::before {
+  content: ""; position: absolute; z-index: -1; top: -30px; right: -140px; width: 340px; height: 340px;
+  background: radial-gradient(circle, var(--violet-glow), transparent 66%); opacity: 0.6; pointer-events: none;
+}
+
+@media (max-width: 1080px) {
+  .spiegel-hero-inner { max-width: 100%; }
+  .spiegel-hero .orbit { opacity: 0.3; right: -90px; }
+  .detail::before { display: none; }
+}
+@media (max-width: 720px) {
+  .hero h2 { font-size: 25px; }
+  .spiegel-hero { padding: 26px 22px; border-radius: var(--r-lg); }
+  .spiegel-hero h2 { font-size: 23px; }
+  .spiegel-hero .orbit { display: none; }
+  .atmos-card { min-height: 200px; }
+  .atmos-line { font-size: 18px; }
+}
+
 /* ---- signature signal-field motion ---- */
-@keyframes rise { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+/* Entrance is a slide only — never an opacity hide — so content is always visible even mid-anim. */
+@keyframes rise { from { transform: translateY(10px); } to { transform: none; } }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sfBreath { 0%, 100% { opacity: var(--o, 0.5); } 50% { opacity: calc(var(--o, 0.5) * 0.38); } }
 @keyframes sfPulse { 0%, 100% { opacity: 0.92; } 50% { opacity: 0.6; } }
