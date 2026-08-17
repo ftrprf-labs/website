@@ -122,16 +122,19 @@ function internalQualify({ candidate, known, externalSignals = [], verification 
     evidence.push({ sourceType: 'internal_db', sourceRef: { type: 'activity' }, detail: `${known.activityCount} eerdere activiteit(en) vastgelegd.`, provider: 'internal' });
   }
 
-  // --- official verification (KVK/KBO): strong FACT + identity anchor (none live yet) ----------
-  let verificationFit = 0; let verified = false; let vCount = 0;
+  // --- official verification (KVK/KBO): an IDENTITY anchor, NOT a fit source ------------------
+  // A verification match raises identity confidence and lands as a FACT, but never adds directly to
+  // fit confidence (identity and fit stay separate axes). Only a VERIFIED decision counts; an
+  // UNCERTAIN/NONE match (explicit status) never verifies. Its only fit-relevant effect is indirect:
+  // a verified identity lets external evidence bind (upstream) and lifts the external gate below.
+  let verified = false;
   for (const m of verification || []) {
     if (!m || !m.name) continue;
-    vCount += 1; verified = true;
-    verificationFit += vCount === 1 ? FIT.VERIFICATION_FIRST : FIT.VERIFICATION_MORE;
+    if (m.status && m.status !== 'VERIFIED') continue; // UNCERTAIN / NONE never verify
+    verified = true;
     identityReasons.push(`officieel geverifieerd via ${m.source || 'register'}`);
     evidence.push({ sourceType: 'official_register', source: m.source || 'register', url: m.url || null, sourceRef: m.kvkNumber ? { kvkNumber: m.kvkNumber } : {}, detail: `Officieel geverifieerd (${m.source || 'register'}): ${m.name}${m.kvkNumber ? ` (KVK ${m.kvkNumber})` : ''}${m.place ? `, ${m.place}` : ''}.`, provider: m.provider || m.source || 'register' });
   }
-  verificationFit = Math.min(verificationFit, FIT.VERIFICATION_CAP);
 
   // --- identity status: unverified -> probable -> verified ------------------------------------
   let identityStatus = 'unverified';
@@ -143,10 +146,10 @@ function internalQualify({ candidate, known, externalSignals = [], verification 
     identityReasons.push('alleen naam-match; identiteit niet bevestigd');
   }
 
-  // --- fit: internal + identity-gated external + verification ---------------------------------
+  // --- fit: internal + identity-gated external (NO direct verification term) ------------------
   const gate = FIT.EXTERNAL_GATE[identityStatus];
   const externalApplied = Math.min(gate, externalRaw + corroboration);
-  const fitConfidence = round2(clamp(internal + externalApplied + verificationFit, 0, 0.99));
+  const fitConfidence = round2(clamp(internal + externalApplied, 0, 0.99));
 
   // An 'approval' ask is only justified when the evidence is strong AND we are at least probably
   // sure of the identity. A cold, unverified lead is therefore never an automatic approval.
@@ -186,7 +189,7 @@ function internalQualify({ candidate, known, externalSignals = [], verification 
       externalRaw: round2(externalRaw),
       corroboration,
       externalApplied: round2(externalApplied),
-      verification: round2(verificationFit),
+      verification: 0, // verification is identity-only; it never contributes to fit
       gate: identityStatus,
       gateCap: gate,
       total: fitConfidence,

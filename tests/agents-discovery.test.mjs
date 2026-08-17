@@ -216,11 +216,22 @@ test('a cold lead with website + TED is probable-identity awareness, never a 0.9
   assert.ok(q.fitConfidence < 0.6, `fit stays modest for a cold lead (was ${q.fitConfidence})`);
 });
 
-test('official verification lifts identity to verified and unlocks the approval decision', () => {
-  const q = internalQualify({ candidate: { name: 'X', domain: 'x.nl' }, known: NONE(), externalSignals: [...website(3), ...ted(3)], verification: kvk });
-  assert.equal(q.identityStatus, 'verified');
-  assert.equal(q.decision, 'approval', 'verified identity + strong fit can be approved');
-  assert.ok(q.fitConfidence >= FIT.APPROVE_FIT);
+test('official verification lifts IDENTITY to verified but never raises FIT (two separate axes)', () => {
+  const ext = [...website(3), ...ted(3)];
+  const withoutV = internalQualify({ candidate: { name: 'X', domain: 'x.nl' }, known: NONE(), externalSignals: ext });
+  const withV = internalQualify({ candidate: { name: 'X', domain: 'x.nl' }, known: NONE(), externalSignals: ext, verification: kvk });
+  assert.equal(withoutV.identityStatus, 'probable');
+  assert.equal(withV.identityStatus, 'verified');
+  assert.equal(withV.fitConfidence, withoutV.fitConfidence, 'verification changes identity, not fit');
+  assert.equal(withV.fitBreakdown.verification, 0, 'no direct verification contribution to fit');
+  // official verification still lands as a FACT about identity
+  assert.ok(withV.evidence.some((e) => e.sourceType === 'official_register'));
+});
+
+test('an UNCERTAIN verification never verifies identity and never lands as a fact', () => {
+  const q = internalQualify({ candidate: { name: 'X', domain: 'x.nl' }, known: NONE(), externalSignals: website(1), verification: [{ source: 'KVK', name: 'X B.V.', status: 'UNCERTAIN' }] });
+  assert.equal(q.identityStatus, 'probable', 'UNCERTAIN does not verify');
+  assert.ok(!q.evidence.some((e) => e.sourceType === 'official_register'), 'no verified FACT from an UNCERTAIN match');
 });
 
 test('buildEvidence keeps FACT / OBSERVATION / INFERENCE / HYPOTHESIS separate and carries identity', () => {

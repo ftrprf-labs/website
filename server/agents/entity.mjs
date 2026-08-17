@@ -20,15 +20,22 @@ export function normName(s) {
 }
 function tokenSet(s) { return new Set(normName(s).split(' ').filter(Boolean)); }
 
+// Graded token-set (Jaccard) similarity, 0..1. The building block for both binding and KVK scoring.
+export function nameSimilarity(a, b) {
+  const A = tokenSet(a); const B = tokenSet(b);
+  if (!A.size || !B.size) return 0;
+  let inter = 0; for (const t of A) if (B.has(t)) inter += 1;
+  return inter / (A.size + B.size - inter);
+}
+
 // Strong match: identical normalized token sets, or high Jaccard overlap. A single shared generic
 // token (e.g. "oca") is DELIBERATELY not enough — that is exactly the namesake trap.
 export function strongNameMatch(a, b) {
   const A = tokenSet(a); const B = tokenSet(b);
   if (!A.size || !B.size) return false;
   let inter = 0; for (const t of A) if (B.has(t)) inter += 1;
-  const union = A.size + B.size - inter;
   const equal = A.size === B.size && inter === A.size;
-  return equal || (inter / union) >= 0.6;
+  return equal || (inter / (A.size + B.size - inter)) >= 0.6;
 }
 
 function hostOf(url) { try { return new URL(url).host.replace(/^www\./, '').toLowerCase(); } catch { return null; } }
@@ -36,7 +43,9 @@ function hostOf(url) { try { return new URL(url).host.replace(/^www\./, '').toLo
 // Resolve which entity we actually investigate. Verification (KVK/KBO, injected in phase 1) is the
 // ONLY thing that yields a legal identity; a website makes identity 'probable', never 'verified'.
 export function resolveTargetEntity({ candidate = {}, known = {}, verification = [] }) {
-  const v = (verification || []).find((m) => m && m.name) || null;
+  // Only a VERIFIED verification decision yields a legal identity. UNCERTAIN/NONE never verify (a
+  // legacy match without an explicit status is treated as verified, for injected simple verifiers).
+  const v = (verification || []).find((m) => m && m.name && (m.status === 'VERIFIED' || m.status == null)) || null;
   const domain = (candidate.domain || '').toLowerCase() || null;
   return {
     name: candidate.name || null,
