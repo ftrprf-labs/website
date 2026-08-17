@@ -196,3 +196,41 @@ export async function seedPreviewCore({ tenantId = null } = {}) {
     link: `/mijn.html?t=${encodeURIComponent(access.token)}`,
   };
 }
+
+// PREVIEW-ONLY live self-check. Runs the whole sharing boundary against the REAL preview database and
+// logs each result, so the deployment can be verified from the server logs (the CI test proves the
+// same on a local Postgres). It self-cleans (revokes what it shares) so the customer starts from a
+// clean PRIVATE state. Never runs unless MIJN_PREVIEW_SEED is on; never touches production.
+export async function previewSelfCheck({ tenantId, organizationId }) {
+  const { boundaryProof, visibleInsights, insightForCustomer, shareInsight, revokeInsight } = await import('./sharing.mjs');
+  const log = (m) => console.log(`  [mijn/preview] ${m}`);
+
+  const b0 = await boundaryProof(tenantId, organizationId);
+  log(`na seed: intern geautoriseerd=${b0.sharedCount} (gedeeld), privé onzichtbaar voor Maculis=${b0.withheldPrivateCount}`);
+
+  const all = await visibleInsights(tenantId, organizationId);
+  const att = all.find((i) => i.attention && i.sharing === 'PRIVATE') || all.find((i) => i.sharing === 'PRIVATE');
+  if (!att) { log('WARNING: geen PRIVATE-inzicht gevonden'); return; }
+
+  await shareInsight(tenantId, organizationId, att.id, { actorLabel: 'preview-selfcheck' });
+  const b1 = await boundaryProof(tenantId, organizationId);
+  const nowAuthorized = b1.authorized.some((x) => x.id === att.id);
+  log(`na expliciet delen "${att.title.slice(0, 34)}…": intern geautoriseerd=${b1.sharedCount}, privé onzichtbaar=${b1.withheldPrivateCount}, gedeelde nu intern zichtbaar=${nowAuthorized}`);
+
+  // Isolation: a foreign org id cannot read this insight, and a random id in this org resolves to null.
+  const crossOrg = await insightForCustomer(tenantId, '11111111-1111-1111-1111-111111111111', att.id);
+  const crossId = await insightForCustomer(tenantId, organizationId, '00000000-0000-0000-0000-000000000000');
+  log(`org-isolatie: vreemde org leest inzicht=${crossOrg ? 'LEK!' : 'nee'}, onbekende id in eigen org=${crossId ? 'LEK!' : 'nee'}`);
+
+  await revokeInsight(tenantId, organizationId, att.id, { actorLabel: 'preview-selfcheck' });
+  const b2 = await boundaryProof(tenantId, organizationId);
+  log(`na intrekken (schone startstaat): intern geautoriseerd=${b2.sharedCount}, privé onzichtbaar=${b2.withheldPrivateCount}`);
+
+  const pass = b0.sharedCount === 1 && b0.withheldPrivateCount >= 1
+    && b1.sharedCount === b0.sharedCount + 1 && nowAuthorized
+    && !crossOrg && !crossId
+    && b2.sharedCount === b0.sharedCount;
+  log(pass
+    ? 'SELF-CHECK PASSED: PRIVATE → expliciet delen → SHARED → intern zichtbaar; overige PRIVATE blijft onzichtbaar; org-isolatie OK.'
+    : 'SELF-CHECK WARNING: onverwachte waarden, controleer handmatig.');
+}
