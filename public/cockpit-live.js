@@ -161,6 +161,9 @@ function openScoutModal() {
   if (document.getElementById('scout-modal')) return; // already open
   const back = el('div', 'scout-modal'); back.id = 'scout-modal';
   back.setAttribute('role', 'dialog'); back.setAttribute('aria-modal', 'true'); back.setAttribute('aria-label', 'Vraag Scout');
+  // The theme tokens (--field, --surface, --text, ...) live on [data-direction] on the shell; the
+  // modal is a body child outside that subtree, so carry the shell's direction onto it for legibility.
+  back.setAttribute('data-direction', shell.getAttribute('data-direction') || 'C');
   const card = el('div', 'scout-modal-card');
   card.innerHTML = `
     <div class="scout-modal-head">

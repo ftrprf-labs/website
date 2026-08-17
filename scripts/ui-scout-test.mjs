@@ -82,7 +82,7 @@ const ok = (name, cond) => { checks.push({ name, pass: !!cond }); console.log(`$
 
 const browser = await chromium.launch({ executablePath: CHROME_BIN, args: ['--no-sandbox'] });
 try {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, colorScheme: 'dark' });
   await page.goto(`http://localhost:${PORT}/`);
 
   // login
@@ -98,6 +98,21 @@ try {
   await page.click('#ask-scout');
   await page.waitForSelector('#scout-modal', { state: 'visible' });
   ok('modal exposes organisatie/website/context fields', (await page.locator('#sc-name').count()) && (await page.locator('#sc-site').count()) && (await page.locator('#sc-note').count()));
+
+  // dark-mode contrast regression: the field must be a legible, distinct plane (real tokens resolved).
+  const contrast = await page.evaluate(() => {
+    const parse = (c) => (String(c).match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+    const lum = (rgb) => { const a = rgb.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2]; };
+    const ratio = (c1, c2) => { const l1 = lum(parse(c1)), l2 = lum(parse(c2)); const hi = Math.max(l1, l2), lo = Math.min(l1, l2); return (hi + 0.05) / (lo + 0.05); };
+    const inp = document.querySelector('#sc-name');
+    const card = document.querySelector('.scout-modal-card');
+    const cs = getComputedStyle(inp); const ph = getComputedStyle(inp, '::placeholder'); const cardBg = getComputedStyle(card).backgroundColor;
+    return { textContrast: ratio(cs.color, cs.backgroundColor), phContrast: ratio(ph.color, cs.backgroundColor),
+      distinctFromCard: cs.backgroundColor !== cardBg, inputBg: cs.backgroundColor, cardBg };
+  });
+  ok('input field is a distinct plane from the modal (not blended)', contrast.distinctFromCard);
+  ok('typed text has strong contrast on the field (>= 4.5)', contrast.textContrast >= 4.5);
+  ok('placeholder is visible but secondary (>= 2.2)', contrast.phContrast >= 2.2);
 
   // capture a Vandaag sentinel + scroll position; run must not move/re-render the page
   const before = await page.evaluate(() => {
@@ -148,7 +163,7 @@ try {
   ok('evidence still shows waarneming (external) + feit', (await page.locator('[data-attn-id="attn-1"] .ev-k.obs').count()) >= 1 && (await page.locator('[data-attn-id="attn-1"] .ev-k.fact').count()) >= 1);
 
   // mobile viewport: entry usable + modal fits
-  const m = await browser.newPage({ viewport: { width: 390, height: 780 } });
+  const m = await browser.newPage({ viewport: { width: 390, height: 780 }, colorScheme: 'dark' });
   await m.goto(`http://localhost:${PORT}/`);
   // already authed on the server; reloading lands straight in Vandaag
   await m.waitForSelector('#ask-scout', { state: 'visible' });

@@ -54,31 +54,44 @@
     .ask-scout:focus-visible{outline:2px solid color-mix(in srgb,var(--gold,#c8894a) 65%,transparent);outline-offset:2px}
     .ask-scout .ask-dot{width:.55rem;height:.55rem;border-radius:999px;background:var(--gold,#c8894a);flex:none;
       box-shadow:0 0 0 3px color-mix(in srgb,var(--gold,#c8894a) 20%,transparent)}
-    /* Compact modal that opens over the cockpit; the page beneath does not move. */
+    /* Compact modal that opens over the cockpit; the page beneath does not move.
+       Colours use the real cockpit.css tokens so the fields sit legibly in the warm dark theme:
+       modal = --surface (calm dark plane), input = --field (a distinct, slightly darker plane with a
+       warm --border), text = --text, placeholder = --faint, focus = --primary. */
     .scout-modal{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
       padding:1rem;background:color-mix(in srgb,#000 55%,transparent)}
     .scout-modal-card{width:min(460px,92vw);max-height:90vh;overflow:auto;padding:1.1rem 1.2rem 1.2rem;
-      border:1px solid var(--line,#3a2e20);border-radius:16px;background:var(--bg-1,#1c140c);
-      box-shadow:0 24px 60px rgba(0,0,0,.45)}
+      border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)}
     .scout-modal-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.2rem}
-    .scout-modal-head .colleague-dot{width:.6rem;height:.6rem;border-radius:999px;background:var(--gold,#c8894a);flex:none;
-      box-shadow:0 0 0 3px color-mix(in srgb,var(--gold,#c8894a) 22%,transparent)}
-    .scout-x{margin-left:auto;border:0;background:none;color:var(--ink-2,#b3a48f);font-size:1.3rem;line-height:1;cursor:pointer;padding:.1rem .3rem}
+    .scout-modal-head .colleague-dot{width:.6rem;height:.6rem;border-radius:999px;background:var(--primary);flex:none;
+      box-shadow:0 0 0 3px var(--primary-soft)}
+    .scout-x{margin-left:auto;border:0;background:none;color:var(--muted);font-size:1.3rem;line-height:1;cursor:pointer;padding:.1rem .3rem}
+    .scout-x:hover{color:var(--text)}
     .scout-id{display:flex;align-items:baseline;gap:.5rem}
-    .scout-id b{font-size:1rem}
-    .scout-role{font-size:.72rem;letter-spacing:.04em;color:var(--ink-2,#b3a48f)}
+    .scout-id b{font-size:1rem;color:var(--text)}
+    .scout-role{font-size:.72rem;letter-spacing:.04em;color:var(--muted)}
     .scout-form{margin-top:.6rem;display:flex;flex-direction:column;gap:.7rem}
-    .scout-explain{margin:0;font-size:.86rem;line-height:1.5;color:var(--ink-2,#b3a48f)}
-    .scout-f{display:flex;flex-direction:column;gap:.28rem;font-size:.8rem;color:var(--ink-2,#b3a48f)}
-    .scout-f em{font-style:normal;opacity:.7}
-    .scout-f input{padding:.55rem .7rem;border:1px solid var(--line,#3a2e20);border-radius:10px;
-      background:color-mix(in srgb,#000 12%,transparent);color:var(--ink,#f0e6d6);font-size:.95rem}
-    .scout-f input:focus{outline:none;border-color:color-mix(in srgb,var(--gold,#c8894a) 55%,transparent)}
+    .scout-explain{margin:0;font-size:.86rem;line-height:1.5;color:var(--muted)}
+    .scout-f{display:flex;flex-direction:column;gap:.28rem;font-size:.8rem;color:var(--muted)}
+    .scout-f em{font-style:normal;color:var(--faint)}
+    .scout-f input{padding:.55rem .7rem;border:1px solid var(--border);border-radius:10px;
+      background:var(--field);color:var(--text);font-size:.95rem;caret-color:var(--primary)}
+    .scout-f input::placeholder{color:var(--faint);opacity:1}
+    .scout-f input:hover{border-color:var(--border-strong)}
+    .scout-f input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+    .scout-f input:disabled{opacity:.55;cursor:not-allowed}
+    /* Keep browser autofill inside the warm dark theme instead of a white box with black text. */
+    .scout-f input:-webkit-autofill,
+    .scout-f input:-webkit-autofill:hover,
+    .scout-f input:-webkit-autofill:focus{
+      -webkit-text-fill-color:var(--text);caret-color:var(--text);
+      -webkit-box-shadow:0 0 0 1000px var(--field) inset;box-shadow:0 0 0 1000px var(--field) inset;
+      border-color:var(--border)}
     /* Clear primary hierarchy: "Laat Scout kijken" leads; Annuleren stays quiet and secondary. */
     .scout-actions{display:flex;align-items:center;gap:.6rem;margin-top:.3rem}
     .scout-actions .btn-primary{flex:1;justify-content:center;font-weight:700;padding-top:.6rem;padding-bottom:.6rem}
     .scout-actions .btn-ghost{flex:none;opacity:.8;font-size:.9rem}
-    .scout-status{margin:.1rem 0 0;font-size:.84rem;color:var(--ink-2,#b3a48f);min-height:1em}
+    .scout-status{margin:.1rem 0 0;font-size:.84rem;color:var(--muted);min-height:1em}
     /* Calm post-run confirmation. It never moves the page; "Bekijk" jumps to the item on request. */
     .scout-toast{position:fixed;left:50%;bottom:1.4rem;transform:translateX(-50%);z-index:55;display:flex;align-items:center;gap:.8rem;
       max-width:min(560px,94vw);padding:.7rem .9rem .7rem 1rem;border:1px solid color-mix(in srgb,var(--ok,#5a9e7a) 45%,transparent);
