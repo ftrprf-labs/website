@@ -23,7 +23,11 @@ export function aiAvailable() {
 function anthropicProvider() {
   return {
     name: 'anthropic',
-    async generate({ system, prompt, maxTokens = 700, fetchImpl = fetch }) {
+    // maxTokens is a CEILING, not a target. Claude Sonnet 5 uses adaptive thinking that also consumes
+    // the output budget; 700 truncated the longer Gesprekken drafts. 1200 is a conservative headroom
+    // for this short use case (a concept plus its thinking) without inviting longer answers — length is
+    // steered by the prompt/output contract, not by this cap.
+    async generate({ system, prompt, maxTokens = 1200, fetchImpl = fetch }) {
       const res = await fetchImpl(ANTHROPIC_ENDPOINT, {
         method: 'POST',
         headers: {

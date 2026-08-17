@@ -18,6 +18,17 @@ export function available() { return aiAvailable(); }
 // comm-assistant role. No capability keeps its own tone copy any more (§ gedeeld DNA).
 const COMM_SYSTEM = systemForRole('comm_assistant');
 
+// Output contract for the drafting/revision capabilities: the model returns ONLY the message text
+// that is shown to the user as a concept — nothing around it. Keeps the first concept directly
+// usable and prevents scaffolding, subject lines and meta-commentary. This is a task-prompt rule for
+// the comm-assistant capability, NOT a change to the Constitution, the context selection or the
+// response-decision logic.
+const OUTPUT_CONTRACT = [
+  'OUTPUT: geef uitsluitend de tekst van het bericht zelf, precies zoals die als concept aan de gebruiker wordt getoond.',
+  'Dus geen aanhef zoals "Concept e-mail aan ...", geen onderwerpregel (tenzij de instructie er expliciet om vraagt),',
+  'geen uitleg of toelichting over je keuzes, geen varianten of opties A/B, en geen meta-commentaar. Alleen het concept.',
+].join(' ');
+
 // ---- channel-aware shaping (§AI MOET KANAAL BEGRIJPEN) --------------------------------------
 const CHANNEL_HINT = {
   EMAIL: 'E-mail: ruimte voor structuur en een nette afsluiting.',
@@ -128,7 +139,7 @@ export async function draftReply({ tenantId, conversationId, contactId, channel 
   if (!aiAvailable()) return { ok: true, body: mockDraftFromContext(ctx, channel), refs: ctx.refs, assessment };
   // Authorised work context only — the role's allowedSources gate what may reach the model.
   const { system, workContext, provenance } = assembleContext({ role, ctx });
-  const prompt = [workContext, CHANNEL_HINT[channel] || '', instruction ? `INSTRUCTIE: ${instruction}` : 'Schrijf een passend conceptantwoord op het laatste bericht.'].filter(Boolean).join('\n\n');
+  const prompt = [workContext, CHANNEL_HINT[channel] || '', instruction ? `INSTRUCTIE: ${instruction}` : 'Schrijf een passend conceptantwoord op het laatste bericht.', OUTPUT_CONTRACT].filter(Boolean).join('\n\n');
   const raw = await getProvider().generate({ system, prompt });
   return { ok: true, body: raw.trim().slice(0, 4000), refs: provenance, assessment };
 }
@@ -155,9 +166,10 @@ export async function reviseDraft({ currentBody, subject = null, instruction, ch
   const prompt = [
     assembled ? assembled.workContext : null,
     CHANNEL_HINT[channel] || '',
-    'Hieronder staat het HUIDIGE concept. Dit kan door een mens zijn aangepast — behoud die menselijke wijzigingen en de eerder gemaakte afspraken, en pas alleen aan wat de instructie vraagt. Geef het volledige nieuwe concept terug, zonder toelichting.',
+    'Hieronder staat het HUIDIGE concept. Dit kan door een mens zijn aangepast. Behoud die menselijke wijzigingen en de eerder gemaakte afspraken, en pas alleen aan wat de instructie vraagt. Geef het volledige nieuwe concept terug.',
     `HUIDIG CONCEPT:\n${currentBody || '(leeg)'}`,
     `INSTRUCTIE: ${instruction}`,
+    OUTPUT_CONTRACT,
   ].filter(Boolean).join('\n\n');
   const raw = await getProvider().generate({ system: assembled ? assembled.system : COMM_SYSTEM, prompt });
   return { ok: true, body: raw.trim().slice(0, 4000), subject };
