@@ -27,12 +27,16 @@ let scn = 'vandaag';
 let activeContactId = null;
 let activeConvId = null;
 let activeDraft = null; // full draft state
+let agentsOn = false;   // digital-colleague domain enabled (Scout can be asked to look)
+let scoutOpen = false;  // whether the "vraag Scout" panel is expanded in Vandaag
+let scoutNotice = null; // one-line outcome after a Scout run, shown once at the top of Vandaag
 
 /* ---------- boot ---------- */
 async function boot() {
   const { data: cfg } = await api('/api/cockpit/config');
   if (!cfg || !cfg.commEnabled) return renderDisabled();
   if (!cfg.authed) return renderLogin();
+  agentsOn = Boolean(cfg.agentsEnabled);
   wireNav();
   render();
 }
@@ -100,6 +104,8 @@ async function renderVandaag() {
   const { ok, data } = await api('/api/cockpit/today');
   const wrap = el('div', 'view-enter');
   if (!ok) { wrap.appendChild(el('p', 'lead-note', 'Kon aandacht niet laden.')); view.appendChild(wrap); return; }
+  // A calm one-line outcome after you asked Scout to look; shown once, then cleared.
+  if (scoutNotice) { wrap.appendChild(el('div', 'scout-notice', esc(scoutNotice))); scoutNotice = null; }
   const h = data.headline || { primary: '', secondary: null, zero: false };
   const buckets = data.buckets || { NU: [], KLAAR: [], RADAR: [] };
   const counts = data.counts || { nu: 0, klaar: 0, radar: 0 };
@@ -112,7 +118,9 @@ async function renderVandaag() {
     const s = el('div', 'silence');
     s.innerHTML = `<h2>${esc(h.primary || 'Je bent bij.')}</h2>${h.secondary ? `<p>${esc(h.secondary)}</p>` : ''}
       <div class="whisper">Maculis kijkt verder. Als er iets werkelijk toe doet, zie je het hier.</div>`;
-    wrap.appendChild(s); view.appendChild(wrap); return;
+    wrap.appendChild(s);
+    if (agentsOn) wrap.appendChild(scoutColleague());
+    view.appendChild(wrap); return;
   }
 
   const greet = el('div', 'greet');
@@ -133,7 +141,79 @@ async function renderVandaag() {
     items.forEach(c => g.appendChild(radarCard(c)));
     wrap.appendChild(g);
   }
+  if (agentsOn) wrap.appendChild(scoutColleague());
   view.appendChild(wrap);
+}
+
+/* ---------- Scout, a digital colleague you can ask to look ----------
+   Not an agent console: one calm colleague affordance inside Vandaag. You hand Scout an organisation
+   to look at; Scout observes PUBLIC sources (the organisation's own website + open EU tenders via TED),
+   checks whether we already know them, and lands ONE well-reasoned proposal in Vandaag. Scout never
+   sends anything and never contacts anyone: every next step is your decision on the card it prepares. */
+function scoutColleague() {
+  const box = el('section', 'scout');
+  const head = el('div', 'scout-head');
+  head.innerHTML = `<span class="colleague-dot" aria-hidden="true"></span>
+    <div class="scout-id"><b>Scout</b><span class="scout-role">groei-collega</span></div>
+    <p class="scout-line">Vindt en kwalificeert een organisatie uit openbare bronnen en zet een voorstel voor je klaar.</p>`;
+  box.appendChild(head);
+
+  if (!scoutOpen) {
+    const ask = el('button', 'btn btn-ghost scout-ask', 'Vraag Scout om te kijken');
+    ask.addEventListener('click', () => { scoutOpen = true; render(); });
+    box.appendChild(ask);
+    return box;
+  }
+
+  const form = el('form', 'scout-form');
+  form.innerHTML = `
+    <p class="scout-explain">Scout kijkt naar openbare bronnen: de eigen website van de organisatie en openbare EU aanbestedingen (TED). Scout maakt daar waarnemingen van, controleert of we de organisatie al kennen, en zet een voorstel klaar. Scout verstuurt niets en neemt geen contact op. Jij beslist.</p>
+    <label class="scout-f"><span>Organisatie</span><input type="text" id="sc-name" placeholder="Naam van de organisatie" autocomplete="off" required></label>
+    <label class="scout-f"><span>Website <em>(optioneel, helpt Scout kijken)</em></span><input type="text" id="sc-site" placeholder="bijv. voorbeeld.nl" autocomplete="off"></label>
+    <label class="scout-f"><span>Context <em>(optioneel)</em></span><input type="text" id="sc-note" placeholder="Waarom kijk je hiernaar?" autocomplete="off"></label>
+    <div class="scout-actions">
+      <button type="submit" class="btn btn-primary" id="sc-go">Laat Scout kijken</button>
+      <button type="button" class="btn btn-ghost" id="sc-cancel">Annuleren</button>
+    </div>
+    <p class="scout-status" id="sc-status" aria-live="polite"></p>`;
+  form.querySelector('#sc-cancel').addEventListener('click', () => { scoutOpen = false; render(); });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = form.querySelector('#sc-name').value.trim();
+    const domain = normalizeDomain(form.querySelector('#sc-site').value);
+    const note = form.querySelector('#sc-note').value.trim();
+    const status = form.querySelector('#sc-status');
+    const go = form.querySelector('#sc-go');
+    if (!name) { status.textContent = 'Geef eerst een organisatie op.'; return; }
+    go.disabled = true; go.textContent = 'Scout kijkt…'; status.textContent = 'Scout observeert openbare bronnen en weegt het af. Even geduld.';
+    const candidate = { name }; if (domain) candidate.domain = domain; if (note) candidate.note = note;
+    const r = await api('/api/agents/scout/run', { method: 'POST', body: JSON.stringify({ candidates: [candidate] }) });
+    if (!r.ok || !r.data || r.data.ok === false) {
+      go.disabled = false; go.textContent = 'Laat Scout kijken';
+      status.textContent = (r.data && (r.data.error || r.data.reason)) ? `Scout kon niet kijken: ${r.data.error || r.data.reason}` : 'Scout kon nu niet kijken.';
+      return;
+    }
+    const recorded = Number(r.data.recorded || 0);
+    scoutOpen = false;
+    // Re-render Vandaag so a landed proposal appears as Scout's card; carry a short outcome note.
+    scoutNotice = recorded > 0
+      ? (recorded === 1
+        ? `Scout heeft gekeken bij ${name}: 1 voorstel staat voor je klaar.`
+        : `Scout heeft gekeken bij ${name}: ${recorded} voorstellen staan voor je klaar.`)
+      : `Scout heeft gekeken bij ${name}, maar vond nu niets dat jouw aandacht verdient. Niets geforceerd.`;
+    render();
+  });
+  box.appendChild(form);
+  return box;
+}
+
+// Strip protocol, path and a leading www. so the website source gets a bare domain (voorbeeld.nl).
+function normalizeDomain(v) {
+  let s = String(v || '').trim().toLowerCase();
+  if (!s) return '';
+  s = s.replace(/^https?:\/\//, '').replace(/^www\./, '');
+  s = s.split(/[\/?#]/)[0];
+  return s;
 }
 
 // One aggregated relation on the radar: WIE, WAAROM NU (primary), wat er nog meespeelt (secondary),
@@ -187,14 +267,59 @@ function radarCard(c) {
   return b;
 }
 
-// A colleague's work item: what is proposed, why (evidence), and the human-in-the-loop actions.
+// How each piece of evidence is labelled, so a human can tell real external data from Scout's own
+// reasoning at a glance. This is the trust invariant made visible.
+const EV_KIND = {
+  FACT: { label: 'feit', cls: 'fact' },
+  OBSERVATION: { label: 'waarneming', cls: 'obs' },
+  INFERENCE: { label: 'afleiding', cls: 'inf' },
+  HYPOTHESIS: { label: 'hypothese', cls: 'hyp' },
+};
+
+// One evidence line: a kind chip, the text, and — for external observations — a linked source and any
+// uncertainty Scout flagged (e.g. "naam kan een naamgenoot zijn").
+function evItem(o) {
+  if (o == null) return null;
+  if (typeof o !== 'object') o = { kind: 'INFERENCE', text: String(o) };
+  const meta = EV_KIND[o.kind] || EV_KIND.INFERENCE;
+  const li = el('li', 'ev-item');
+  const src = o.url
+    ? ` <a class="ev-src" href="${esc(o.url)}" target="_blank" rel="noopener noreferrer">${esc(o.source || 'bron')}</a>`
+    : (o.source ? ` <span class="ev-src">${esc(o.source)}</span>` : '');
+  const unc = (o.uncertainties && o.uncertainties.length)
+    ? `<div class="ev-unc">${esc([].concat(o.uncertainties).join('; '))}</div>` : '';
+  li.innerHTML = `<span class="ev-k ${meta.cls}">${esc(meta.label)}</span><span class="ev-t">${esc(o.text || '')}${src}</span>${unc}`;
+  return li;
+}
+
+// Collect evidence in a stable order: prefer the combined observations list (already FACT → external
+// → inference → hypothesis); fall back to the structured arrays; tolerate legacy string observations.
+function evidenceItems(ev) {
+  const objs = Array.isArray(ev.observations) && ev.observations.some((o) => o && typeof o === 'object');
+  if (objs) return ev.observations;
+  const structured = [].concat(ev.facts || [], ev.external || [], ev.inferences || [], ev.hypotheses || []);
+  if (structured.length) return structured;
+  return Array.isArray(ev.observations) ? ev.observations : [];
+}
+
+// A colleague's work item: what is proposed, why (evidence, honestly labelled), and the actions.
 // onResolve defaults to a full re-render of Vandaag; the dossier passes its own refresh.
 function workBlock(w, onResolve) {
   const wrap = el('div', 'work-block');
-  const summary = (w.proposal && w.proposal.summary) ? `<div class="work-proposal">${esc(w.proposal.summary)}</div>` : '';
-  const obs = (w.evidence && Array.isArray(w.evidence.observations)) ? w.evidence.observations : [];
-  const ev = obs.length ? `<ul class="work-ev">${obs.slice(0, 3).map(o => `<li>${esc(o)}</li>`).join('')}</ul>` : '';
-  wrap.innerHTML = `${summary}${ev}`;
+  const ev = w.evidence || {};
+  if (w.proposal && w.proposal.summary) wrap.appendChild(el('div', 'work-proposal', esc(w.proposal.summary)));
+  // A demonstration/fixture is marked unmistakably so it can never read as a real find.
+  if (ev.demo) wrap.appendChild(el('div', 'work-demo', 'Demonstratie. Geen echte waarneming.'));
+  const items = evidenceItems(ev).map(evItem).filter(Boolean);
+  if (items.length) {
+    const ul = el('ul', 'work-ev');
+    items.slice(0, 6).forEach((li) => ul.appendChild(li));
+    wrap.appendChild(ul);
+  }
+  if (typeof ev.confidence === 'number') {
+    wrap.appendChild(el('div', 'ev-foot',
+      `Inschatting van Scout, vertrouwen ${Math.round(ev.confidence * 100)}%${ev.provider ? `, bron-motor ${esc(ev.provider)}` : ''}`));
+  }
   const bar = el('div', 'prepared-actions');
   (w.actions || []).filter(a => a !== 'view').forEach(action => {
     const btn = el('button', 'btn ' + (action === 'approve' ? 'btn-primary' : 'btn-ghost'), WORK_ACTION_LABEL[action] || action);

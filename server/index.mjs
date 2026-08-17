@@ -22,6 +22,7 @@ import {
 } from './auth.mjs';
 import { handleComm } from './comm/routes.mjs';
 import { handleAgents } from './agents/routes.mjs';
+import { sourceProviderStatus } from './agents/providers/registry.mjs';
 import { handleCockpit } from './cockpit/routes.mjs';
 import { migrateOnBoot } from './comm/migrate.mjs';
 import { commEnabled, agentsEnabled, dbFeaturesEnabled } from './comm/db.mjs';
@@ -686,6 +687,11 @@ server.listen(config.port, bindHost, () => {
   }
   console.log(`  Comm     : ${commEnabled() ? 'ENABLED (Postgres relationship layer)' : 'off (set COMM_LAYER_ENABLED + DATABASE_URL)'}`);
   console.log(`  Agents   : ${agentsEnabled() ? 'ENABLED (digital colleagues)' : 'off (set AGENTS_ENABLED + DATABASE_URL)'}`);
+  // When colleagues are on, print which external SOURCE providers are actually live, so the
+  // preview's signal activation (Website Signals / TED) is verifiable straight from the boot log.
+  if (agentsEnabled()) {
+    console.log(`  Sources  : ${sourceProviderStatus().map((s) => `${s.name}=${s.configured ? 'on' : 'off'}`).join(', ')}`);
+  }
   console.log('');
 
   // Apply DB migrations on boot when ANY DB-backed feature (Comm Layer or agents) is enabled. The

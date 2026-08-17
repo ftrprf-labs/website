@@ -17,7 +17,7 @@
 //   - sending goes ONLY through the consent-gated + audited draft-approve-send path;
 //   - EMAIL is the only digitally sendable channel in Slice 1 (others are rejected).
 
-import { commEnabled, query } from '../comm/db.mjs';
+import { commEnabled, agentsEnabled, query } from '../comm/db.mjs';
 import { getDefaultTenantId } from '../comm/tenant.mjs';
 import { attentionHeadline, markConversationRead } from '../comm/attention.mjs';
 import { buildRadar } from '../comm/signals.mjs';
@@ -141,6 +141,9 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
       emailOnly: true,
       // Only EMAIL can actually deliver; a real transport must be configured for Phase B.
       mailConfigured: Boolean(config.mailTransport && config.mailApiKey),
+      // Whether the digital-colleague domain is on. Lets Vandaag show Scout as a colleague you can
+      // ask to look, without turning the cockpit into an agent console when it is off.
+      agentsEnabled: agentsEnabled(),
       slice: 'slice-5',
     });
     return true;

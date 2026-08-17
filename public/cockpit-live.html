@@ -43,6 +43,46 @@
       color:var(--ink-2,#6b5e4f);border:1px solid var(--line,#e2d8c6);border-radius:999px;padding:.1em .5em}
     .fu-row .fu-k.overdue{color:var(--gold,#b0703a);border-color:color-mix(in srgb,var(--gold,#b0703a) 45%,transparent)}
     .fu-row .fu-title{font-size:.92rem}
+    /* Slice 5 — Scout as a colleague you can ask to look. One calm affordance in Vandaag, never a
+       technical agent console. Colours from cockpit.css tokens. */
+    .scout{margin:1.6rem 0 .4rem;padding:1rem 1.1rem;border:1px solid var(--line,#3a2e20);border-radius:14px;
+      background:color-mix(in srgb,var(--gold,#c8894a) 5%,transparent)}
+    .scout-head{display:grid;grid-template-columns:auto 1fr;gap:.35rem .65rem;align-items:center}
+    .scout .colleague-dot{width:.6rem;height:.6rem;border-radius:999px;background:var(--gold,#c8894a);
+      box-shadow:0 0 0 3px color-mix(in srgb,var(--gold,#c8894a) 22%,transparent);grid-row:1 / span 1}
+    .scout-id{display:flex;align-items:baseline;gap:.5rem}
+    .scout-id b{font-size:1rem}
+    .scout-role{font-size:.72rem;letter-spacing:.04em;color:var(--ink-2,#b3a48f)}
+    .scout-line{grid-column:2;margin:.1rem 0 0;font-size:.9rem;color:var(--ink-2,#b3a48f)}
+    .scout-ask{margin-top:.8rem}
+    .scout-form{margin-top:.9rem;display:flex;flex-direction:column;gap:.7rem}
+    .scout-explain{margin:0;font-size:.86rem;line-height:1.5;color:var(--ink-2,#b3a48f)}
+    .scout-f{display:flex;flex-direction:column;gap:.28rem;font-size:.8rem;color:var(--ink-2,#b3a48f)}
+    .scout-f em{font-style:normal;opacity:.7}
+    .scout-f input{padding:.55rem .7rem;border:1px solid var(--line,#3a2e20);border-radius:10px;
+      background:color-mix(in srgb,#000 12%,transparent);color:var(--ink,#f0e6d6);font-size:.95rem}
+    .scout-f input:focus{outline:none;border-color:color-mix(in srgb,var(--gold,#c8894a) 55%,transparent)}
+    .scout-actions{display:flex;gap:.5rem;margin-top:.1rem}
+    .scout-status{margin:.1rem 0 0;font-size:.84rem;color:var(--ink-2,#b3a48f);min-height:1em}
+    .scout-notice{margin:0 0 1rem;padding:.7rem .9rem;border:1px solid color-mix(in srgb,var(--ok,#5a9e7a) 45%,transparent);
+      border-radius:10px;background:color-mix(in srgb,var(--ok,#5a9e7a) 9%,transparent);font-size:.9rem}
+    /* Evidence, honestly labelled: real external observations must be distinguishable from Scout's
+       own inference and from a demonstration fixture. */
+    .work-demo{display:inline-block;margin:.2rem 0 .3rem;padding:.12em .55em;border-radius:999px;font-size:.7rem;
+      font-weight:600;color:var(--gold,#b0703a);border:1px dashed color-mix(in srgb,var(--gold,#c8894a) 55%,transparent)}
+    .work-ev .ev-item{list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:.45rem;margin:.3rem 0;
+      padding:0;font-size:.88rem;line-height:1.45}
+    .ev-k{flex:none;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;font-weight:700;
+      padding:.12em .5em;border-radius:999px;border:1px solid var(--line,#3a2e20);color:var(--ink-2,#b3a48f)}
+    .ev-k.fact{color:var(--ok,#7bbf9a);border-color:color-mix(in srgb,var(--ok,#5a9e7a) 45%,transparent)}
+    .ev-k.obs{color:var(--gold,#d79b5c);border-color:color-mix(in srgb,var(--gold,#c8894a) 55%,transparent)}
+    .ev-k.inf{color:var(--ink-2,#b3a48f)}
+    .ev-k.hyp{color:var(--ink-2,#b3a48f);border-style:dashed}
+    .ev-t{flex:1 1 60%}
+    .ev-src{white-space:nowrap;font-size:.8rem;color:var(--gold,#c8894a)}
+    a.ev-src{text-decoration:underline}
+    .ev-unc{flex-basis:100%;margin-left:.2rem;font-size:.78rem;font-style:italic;opacity:.7}
+    .ev-foot{margin-top:.5rem;font-size:.76rem;letter-spacing:.02em;color:var(--ink-2,#6b5e4f);opacity:.85}
   </style>
 </head>
 <body>
