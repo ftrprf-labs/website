@@ -104,6 +104,7 @@ export async function runScout({ tenantId, candidates = [], trigger = 'human', r
   const started = await startRun(tenantId, { actor: scout, trigger, autonomyUsed: scout.autonomy, inputRef: { candidates: candidates.length, scope }, dedupeKey: runDedupeKey });
   if (started.reused) return { ok: true, reused: true, runId: started.run.id, status: 'reused' };
   const runId = started.run.id;
+  console.log(`[scout] run ${runId} start: ${candidates.length} kandidaat(en), scope=${scope}, trigger=${trigger}`);
 
   try {
     await assertCan(scout, 'read_shared_truth', { tenantId, resource: { type: 'agent_run', id: runId } });
@@ -140,10 +141,22 @@ export async function runScout({ tenantId, candidates = [], trigger = 'human', r
       const q = await provider.qualify({ candidate, known: existence, externalSignals, verification });
       await recordCapabilityCall(tenantId, runId, { capability: 'qualify', note: `${key}:${q.confidence}` });
 
+      // Concise, non-PII trace so the external chain is verifiable straight from the logs: which
+      // sources produced observations, and the confidence. Logs the org name/domain (the operator's
+      // own business input), never a person's e-mail.
+      const sigBy = {};
+      for (const s of externalSignals) { const p = s.provider || s.source || 'external'; sigBy[p] = (sigBy[p] || 0) + 1; }
+      const sigStr = Object.keys(sigBy).length ? Object.entries(sigBy).map(([p, n]) => `${p}:${n}`).join(',') : 'geen';
+      const subj = candidate.name || candidate.domain || key;
+
       // Compression: below the relevance bar, record nothing (unless it touches a known relation,
       // which is always worth surfacing quietly).
       const touchesKnown = Boolean(existence.organization || existence.contact);
-      if (q.confidence < MIN_RECORD_CONFIDENCE && !touchesKnown) { skipped += 1; continue; }
+      if (q.confidence < MIN_RECORD_CONFIDENCE && !touchesKnown) {
+        skipped += 1;
+        console.log(`[scout] run ${runId} · ${subj}: waarnemingen=${sigStr}, verificatie=${verification.length}, vertrouwen=${q.confidence} -> overgeslagen (onder drempel ${MIN_RECORD_CONFIDENCE})`);
+        continue;
+      }
 
       const warm = Boolean(existence.contacts && existence.contacts.length);
       const needs = (warm || q.confidence >= 0.55) ? 'approval' : 'awareness';
@@ -201,11 +214,15 @@ export async function runScout({ tenantId, candidates = [], trigger = 'human', r
         dedupKey: `lead:${key}`,
       };
       const res = await recordWorkItem(tenantId, input);
-      if (res.ok) { landed.push({ id: res.id, deduped: Boolean(res.deduped), key }); recorded += 1; if (touchesKnown) known += 1; }
+      if (res.ok) {
+        landed.push({ id: res.id, deduped: Boolean(res.deduped), key }); recorded += 1; if (touchesKnown) known += 1;
+        console.log(`[scout] run ${runId} · ${subj}: waarnemingen=${sigStr}, verificatie=${verification.length}, vertrouwen=${q.confidence}, bekend=${touchesKnown} -> ${res.deduped ? 'bestond al' : 'geland'} attention_item ${res.id}`);
+      }
     }
 
     const output = { candidates: candidates.length, recorded, skipped, touchesKnown: known, landed: landed.map((l) => l.id), provider: provider.name };
     await finishRun(tenantId, runId, { actor: scout, outputRef: output });
+    console.log(`[scout] run ${runId} klaar: kandidaten=${candidates.length}, geland=${recorded}, overgeslagen=${skipped}, items=[${landed.map((l) => l.id).join(', ')}]`);
     return { ok: true, runId, ...output, landed };
   } catch (err) {
     await failRun(tenantId, runId, err.message || String(err), { actor: scout });
