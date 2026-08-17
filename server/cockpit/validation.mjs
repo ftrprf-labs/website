@@ -19,7 +19,7 @@ import { query } from '../comm/db.mjs';
 import { getProvider, aiAvailable } from '../comm/ai/provider.mjs';
 import { config } from '../config.mjs';
 import { draftReply, reviseDraft, assessConversation } from '../comm/ai/service.mjs';
-import { buildRelationshipContext, renderContextForModel } from '../comm/ai/context.mjs';
+import { buildRelationshipContext } from '../comm/ai/context.mjs';
 import { assembleContext, decisionLabel } from '../comm/ai/context-layer.mjs';
 import { createFollowUp } from '../comm/followups.mjs';
 
@@ -197,7 +197,8 @@ export async function runGesprekkenValidation(tenantId) {
     for (const s of SCENARIOS) {
       const { contactId, convId } = await seedScenario(tenantId, s, track);
 
-      // Context actually assembled for the model (read-only, same functions the draft uses).
+      // Context actually assembled for the model (read-only, same functions the draft uses). asm is
+      // the result of BOTH gates: authorizeContext (privacy/role) then selectTaskRelevance (task need).
       const ctx = await buildRelationshipContext(tenantId, { conversationId: convId });
       const asm = assembleContext({ role: 'comm_assistant', ctx });
 
@@ -209,8 +210,10 @@ export async function runGesprekkenValidation(tenantId) {
       const rec = {
         key: s.key, title: s.title,
         expected: s.expect,
-        context: renderContextForModel(ctx),
-        excludedSources: asm.excluded,
+        context: asm.workContext,                                   // exactly what the model received (post BOTH gates)
+        excludedSources: asm.excluded,                              // removed by authorisation (privacy/role)
+        relevance: asm.relevance,                                   // per memory item: kept/withheld + why
+        withheldFromModel: (asm.withheld || []).map((m) => ({ kind: m.kind, content: m.content })),
         assessment: { decision: assess.decision, label: decisionLabel(assess.decision), reason: assess.reason, provenance: assess.provenance, matchesExpected: assess.decision === s.expect },
         firstConcept: draft.v.ok ? draft.v.body : `(geen concept: ${draft.v.reason})`,
         firstConceptMs: draft.ms,

@@ -93,15 +93,90 @@ export function authorizeContext(ctx, { role = 'comm_assistant' } = {}) {
   return out;
 }
 
-// Assemble the system + work-context prompt for a role. Provider-agnostic. Returns the authorised
-// context and its provenance refs so the caller can keep explaining WHY.
+// ---- TASK RELEVANCE: the SECOND gate ----------------------------------------------------------
+// available context → authorization/privacy → TASK RELEVANCE → model. Authorisation decides what a
+// role MAY ever see; this decides what THIS task actually NEEDS. It runs AFTER authorizeContext, so
+// privacy/role gating stays fully intact, and it ONLY ever WITHHOLDS available-but-irrelevant items —
+// it never adds, unlocks or reaches past the authorisation gate. "Geautoriseerd is nog niet relevant."
+//
+// Category model (memory items):
+//   1. relationeel_commitment  — an agreement/reminder. A promise. NEVER dropped, so a toezegging is
+//      never lost by filtering. This is relationship continuity, independent of today's topic.
+//   2. relationeel_communicatievorm — a preference that shapes HOW we communicate (channel/tone).
+//      Kept because it demonstrably influences the answer's form.
+//   3. direct_relevant — a plain fact that demonstrably overlaps the current task (a shared content
+//      term with the last inbound + subject). Kept, with the matched term(s) recorded.
+//   4. beschikbaar_irrelevant — true, confirmed, authorised, but with NO demonstrable link to this
+//      task. Withheld. A fact is never included just because it is true, confirmed or recent.
+
+// Compact Dutch stopword set (only tokens of length >= 4 matter; shorter ones are filtered anyway).
+const NL_STOP = new Set([
+  'deze', 'dese', 'dezelfde', 'zijn', 'wordt', 'worden', 'jullie', 'hebben', 'heeft', 'hebt', 'moet',
+  'moeten', 'kunnen', 'willen', 'zou', 'zouden', 'graag', 'even', 'eens', 'over', 'naar', 'door',
+  'waarop', 'wanneer', 'waarom', 'elkaar', 'iets', 'iemand', 'alles', 'allemaal', 'gaan', 'gaat',
+  'komt', 'komen', 'laat', 'laten', 'weten', 'gerust', 'gewoon', 'misschien', 'mogelijk', 'niet',
+  'geen', 'maar', 'ook', 'onze', 'jouw', 'hierbij', 'verder', 'dank', 'bedankt', 'groet', 'beste',
+  'hallo', 'wij', 'want', 'omdat', 'zodat', 'terug', 'nogmaals', 'alvast',
+]);
+
+function contentTokens(text) {
+  // Lowercase, then split on anything that is not an unaccented letter/digit. Accented characters
+  // (ö, é, ...) simply act as token boundaries; that is fine here because relevance is judged on
+  // plain content words, never on names/organisations.
+  return new Set(String(text || '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 4 && !NL_STOP.has(w)));
+}
+
+// A preference that shapes the communication itself (channel, medium, tone, availability).
+const COMM_PREF_RE = /\b(bel|bellen|telefo|mail|e-?mail|whatsapp|\bsms\b|app(en|je)?|schrijf|schrijv|spreek|sprek|mondeling|contact|bereikbaar|videobel|langskom|afspre|voicemail|nieuwsbrief)/i;
+
+// Decide, per memory item, whether the CURRENT task needs it. Returns the kept memory, the withheld
+// memory, and a per-item decision log (for transparency + tests). Deterministic, no model, no I/O.
+export function selectTaskRelevance(ctx) {
+  const memory = Array.isArray(ctx.memory) ? ctx.memory : [];
+  const lastInbound = [...(ctx.recent || [])].reverse().find((m) => m.direction === 'INBOUND');
+  const taskText = [lastInbound && lastInbound.body_text, ctx.conversation && ctx.conversation.subject].filter(Boolean).join(' ');
+  const taskSet = contentTokens(taskText);
+  const kept = []; const withheld = []; const decisions = [];
+  for (const m of memory) {
+    const kind = m.kind || 'fact';
+    if (kind === 'agreement' || kind === 'reminder') {
+      kept.push(m); decisions.push({ kind, category: 'relationeel_commitment', content: m.content, kept: true });
+      continue;
+    }
+    if (kind === 'preference' && COMM_PREF_RE.test(m.content || '')) {
+      kept.push(m); decisions.push({ kind, category: 'relationeel_communicatievorm', content: m.content, kept: true });
+      continue;
+    }
+    // A plain fact (or a preference that does NOT shape communication): needs a demonstrable link.
+    const shared = [...contentTokens(m.content)].filter((w) => taskSet.has(w));
+    if (taskSet.size && shared.length) {
+      kept.push(m); decisions.push({ kind, category: 'direct_relevant', content: m.content, kept: true, matched: shared });
+    } else {
+      withheld.push(m); decisions.push({ kind, category: 'beschikbaar_irrelevant', content: m.content, kept: false });
+    }
+  }
+  return { memory: kept, withheldMemory: withheld, relevance: decisions };
+}
+
+// Assemble the system + work-context prompt for a role. Provider-agnostic. Runs BOTH gates:
+// authorizeContext (privacy/role) THEN selectTaskRelevance (task need). Returns the task-selected
+// context, what authorisation excluded, what relevance withheld, and provenance refs so the caller
+// can keep explaining WHY. draftReply and reviseDraft both call this, so the first concept and
+// Warmer/Korter share exactly the same task-selected context (no source can slip back in on a revise).
 export function assembleContext({ role = 'comm_assistant', ctx }) {
   const authCtx = authorizeContext(ctx, { role });
+  const rel = selectTaskRelevance(authCtx);
+  const taskCtx = { ...authCtx, memory: rel.memory };
   return {
     system: systemForRole(role),
-    workContext: renderContextForModel(authCtx),
-    authCtx,
-    excluded: authCtx.excluded,
+    workContext: renderContextForModel(taskCtx),
+    authCtx: taskCtx,
+    excluded: authCtx.excluded,          // removed by the AUTHORISATION gate (privacy/role)
+    withheld: rel.withheldMemory,        // withheld by the TASK-RELEVANCE gate (available but irrelevant)
+    relevance: rel.relevance,            // per-item decisions, for transparency + tests
     provenance: authCtx.refs || [],
   };
 }
