@@ -3,6 +3,13 @@
 **Design system discovery. Analyse only.**
 Datum: 2026-08-17 · Status: ter beoordeling · Niets gebouwd, niets gewijzigd, niets gedeployed.
 
+> **Vervolg.** Dit document is de feitelijke code-audit en blijft ongewijzigd als feitelijke basis.
+> Het ontwerpbesluit dat hierop voortbouwt, verrijkt met de referentieafbeelding "Maculis Visual
+> North Star", staat in `MACULIS_VISUAL_DNA_V1.md`. Dat document herziet twee conclusies uit deze
+> audit op grond van de referentie: de koele grond in Workspace en Inbox blijkt canon-waardig als
+> lichtkeuze (audit 1.4 en 9), en violet blijkt geen nieuwe kleur maar een bestaande betekenis
+> zonder naam (audit 15 en 26, beslissing 8).
+
 Legenda die overal in dit document geldt:
 
 * **FEIT** = direct afleesbaar uit code, met bestandspad en regelverwijzing.
