@@ -21,6 +21,7 @@ import {
   cookieHeaderFor,
 } from './auth.mjs';
 import { handleComm } from './comm/routes.mjs';
+import { handleMijn } from './mijn/routes.mjs';
 import { migrateOnBoot } from './comm/migrate.mjs';
 import { commEnabled } from './comm/db.mjs';
 import { bridgePassTheLens } from './comm/pass-the-lens.mjs';
@@ -224,6 +225,13 @@ async function handleApi(req, res, pathname) {
   // existing Invitation Manager / First Five routes.
   if (pathname.startsWith('/api/comm/')) {
     const handled = await handleComm(req, res, { pathname, method, isAuthed });
+    if (handled) return;
+  }
+
+  // Mijn Maculis — customer-facing routes (token-authenticated, NOT admin-gated). Additive; shares
+  // the Communication Layer's Postgres. Never touches the Invitation Manager / First Five routes.
+  if (pathname.startsWith('/api/mijn/')) {
+    const handled = await handleMijn(req, res, { pathname, method });
     if (handled) return;
   }
 

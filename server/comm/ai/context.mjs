@@ -8,6 +8,7 @@
 
 import { query } from './../db.mjs';
 import { stripForContext } from '../signature.mjs';
+import { sharedContextForOrg } from '../../mijn/sharing.mjs';
 
 export async function buildRelationshipContext(tenantId, { conversationId = null, contactId = null, limitMessages = 8 } = {}) {
   const refs = [];
@@ -25,7 +26,7 @@ export async function buildRelationshipContext(tenantId, { conversationId = null
   const isPrivacy = conv ? conv.is_privacy : false;
 
   const contact = cId ? (await query(
-    `select id, first_name, last_name, email, mobile, role, relationship_stage from contact where id=$1 and tenant_id=$2`,
+    `select id, organization_id, first_name, last_name, email, mobile, role, relationship_stage from contact where id=$1 and tenant_id=$2`,
     [cId, tenantId])).rows[0] : null;
   if (contact) add('contact', contact.id, [contact.first_name, contact.last_name].filter(Boolean).join(' ') || contact.email);
 
@@ -69,11 +70,18 @@ export async function buildRelationshipContext(tenantId, { conversationId = null
         and (valid_until is null or valid_until > now()) order by created_at desc limit 8`, [tenantId, cId])).rows : [];
   for (const m of memory) add('memory', m.id, m.content);
 
+  // Mijn Maculis bridge (§5): customer insights the customer DELIBERATELY SHARED become authorized
+  // internal context. This goes through the sharing boundary, which by construction returns ONLY
+  // sharing='SHARED' — a PRIVATE customer insight can never enter model context from here. Never
+  // pulled into a privacy@ conversation.
+  const sharedInsights = (org && !isPrivacy) ? await sharedContextForOrg(tenantId, org.id) : [];
+  for (const s of sharedInsights) add('shared_insight', s.id, s.title);
+
   return {
     tenantId, isPrivacy,
     contact, org, journey,
     conversation: conv ? { id: conv.id, subject: conv.subject, status: conv.status, channel: conv.channel } : null,
-    recent, followUps, prefs, identities, memory,
+    recent, followUps, prefs, identities, memory, sharedInsights,
     refs,
   };
 }
@@ -86,11 +94,13 @@ export function renderContextForModel(ctx) {
   const history = ctx.recent.map((m) => `${m.direction === 'INBOUND' ? 'ZIJ' : 'MACULIS'} (${m.channel}): ${stripForContext(m.body_text || '').slice(0, 400)}`).join('\n');
   const fu = ctx.followUps.map((f) => `- ${f.title}${f.due_at ? ' (uiterlijk ' + new Date(f.due_at).toLocaleDateString('nl-NL') + ')' : ''}`).join('\n');
   const mem = (ctx.memory || []).map((m) => `- [${m.kind}] ${m.content}`).join('\n');
+  const shared = (ctx.sharedInsights || []).map((s) => `- ${s.title}${s.observation ? ': ' + stripForContext(s.observation).slice(0, 240) : ''}`).join('\n');
   return [
     `CONTACT: ${who}`,
     `ORGANISATIE: ${org}${stage ? ` (relatie: ${stage})` : ''}`,
     ctx.journey ? `FIRST FIVE: ${ctx.journey.status || 'onbekend'}` : null,
     mem ? `VASTGELEGDE AFSPRAKEN EN FEITEN:\n${mem}` : null,
+    shared ? `DOOR DE KLANT GEDEELDE INZICHTEN (Mijn Maculis):\n${shared}` : null,
     `RECENTE COMMUNICATIE:\n${history || '(geen eerdere berichten)'}`,
     fu ? `OPEN FOLLOW-UPS:\n${fu}` : null,
   ].filter(Boolean).join('\n\n');

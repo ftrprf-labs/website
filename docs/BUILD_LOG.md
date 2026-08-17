@@ -5,6 +5,81 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-17 — Mijn Maculis (klantomgeving) V1: inzichten, sharing boundary, Cockpit-brug
+
+**Product.** De eerste verticale slice van **Mijn Maculis**, het klantgerichte perspectief op
+dezelfde werkelijkheid als de interne Cockpit, met een **harde, server-afgedwongen grens** tussen
+PRIVATE (alleen de klant), SHARED (bewust met Maculis gedeeld) en AGGREGATED. Informatiearchitectuur:
+Overzicht / Inzichten (De Spiegel) / Samenwerking. Rustig, reflectief, mobile-first, eigen visuele
+taal (licht canvas, donkere sidebar, violet accent) maar duidelijk familie van Maculis.
+
+**Scope-respect.** Geen Reveal Engine / Reveal Gate / Lens 1-2 gebouwd (die horen bij de
+Lens/First Five-workstream, zie 2026-08-15). Mijn Maculis **consumeert** inzichten als een
+deelbaar, epistemisch object; de inzichtcontent zelf is **preview-only fixture** (er is geen live
+Lens-pijplijn in deze repo). Reveal/non-reveal blijven behouden als `stance`
+(reveal | non_reveal | tension | consistency | unknown); een non_reveal ("we zien géén verschil") is
+een volwaardig inzicht, niet "niets gevonden".
+
+**Architectuur (additief; hergebruikt bestaande primitieven, geen parallelle modellen).**
+- **Migratie `006_mijn_maculis.sql`** (additief, backwards-compatible, veilig op elke boot):
+  `customer_insight` (tenant + org scoped, `stance`, vier mensgerichte velden, `sharing`,
+  internal-only `provenance` jsonb, `is_preview`), `insight_share_event` (append-only sharing-audit,
+  §18), `customer_access` (opaque org-scoped token; **alleen SHA-256 opgeslagen**, nooit de ruwe
+  token), `collaboration_item` (alleen `customer_visible` items = Samenwerking, niet de interne
+  takenlijst, §13).
+- **Sharing boundary als centrale primitive** (`server/mijn/sharing.mjs`): beide kanten gaan hier
+  langs. Klant leest eigen PRIVATE + SHARED; de interne kant (`sharedContextForOrg`) kan **per SQL
+  alleen `sharing='SHARED'`** zien. Een PRIVATE-inzicht kan daardoor **structureel** niet in een
+  interne weergave, modelprompt, log of andere agent belanden. Grens = architectuur, geen
+  promptinstructie, en wordt vóór elke modelcall afgedwongen omdat de Context Engine de data via deze
+  functie ophaalt. Crossing (PRIVATE → SHARED) is uitsluitend een expliciete, menselijke,
+  klant-geïnitieerde actie en wordt geaudit; intrekken (SHARED → PRIVATE) haalt het inzicht direct
+  weer uit de interne context.
+- **Klant-API** `/api/mijn/*` (token-authed via `x-mijn-token`, **niet** de admin-gate; token nooit
+  in de URL/log): session / overview / insights / insight-detail / share / revoke / collaboration.
+  Alles tenant + org scoped uit de resolved access-grant, nooit uit client-input → directe
+  id/URL-manipulatie lekt niets (cross-org read → 404).
+- **Cockpit-brug** (`ai/context.mjs`, `relationship.mjs`): een SHARED-inzicht wordt geautoriseerde
+  interne context in de relatie-aggregatie én de model-context. Nevenfix: contact-only context
+  resolvet nu ook de organisatie (contact.organization_id), zodat de brug werkt zonder conversation.
+- **Frontend** `public/mijn.{html,css,js}`: CSP-safe (externe JS, geen inline handlers), hash-router
+  (Overzicht/De Spiegel/Inzichtdetail/Samenwerking), share-flow met heldere bevestiging (§20), geen
+  dark patterns. Schrijfregel gerespecteerd (geen streepjes als stijlmiddel).
+- **Preview-fixtures** (`server/mijn/seed.mjs`, `scripts/seed-mijn-preview.mjs`): demo-org
+  "De Voorbeeld Groep", volledige epistemische spreiding, `is_preview=true`. **HARD REFUSE bij
+  `NODE_ENV=production`** → geen fictieve klantdata in productie.
+
+**Getest (fictieve data, echte Postgres).** Volledige comm-suite serieel **66/66** (was 65; +1 nieuw
+bestand `mijn-maculis.test.mjs`, 13 assertions in één E2E): Mijn Maculis laadt voor geautoriseerde
+klant; ongeldig/geen token → 401; tenant/org-isolatie (org B ziet alleen eigen, cross-org read →
+404); PRIVATE zichtbaar voor eigen klant, `provenance` nooit in klant-payload; PRIVATE **niet** in
+interne SHARED-context / relatie-aggregatie / modelprompt; expliciet delen → precies dat inzicht
+SHARED; daarna intern beschikbaar; andere PRIVATE blijft PRIVATE; provenance behouden + share
+geaudit (`insight_share_event` + `audit_event`); Samenwerking toont geen interne taak; intrekken
+haalt het weer uit interne context. Zonder DB skippen de DB-tests netjes (build-box-pariteit
+behouden). **Browser (Playwright, desktop 1440 + mobiel 390):** 0 console-errors, geen horizontale
+scroll, share-flow end-to-end geverifieerd; screenshots van Overzicht, inzichtdetail (PRIVATE),
+deel-bevestiging, na delen, De Spiegel, Samenwerking, mobiel.
+
+**Productie onaangeroerd.** Gebouwd/gevalideerd op preview/lokaal; **geen deploy uitgevoerd**, geen
+nieuwe provider/credential/betaalde dienst. Op de designated feature-branch
+`claude/mijn-maculis-customer-v1-d29lib` (niet de deploybranch). De additieve migratie 006 wordt pas
+op productie toegepast bij een bewuste merge/deploy van de deploybranch (menselijke beslissing);
+tot dan blijft productie functioneel inert (lege tabellen, geen `customer_access` → elk token 401).
+
+**Privacy proof.** PRIVATE Lens-inzicht "Jullie positionering wordt intern niet overal hetzelfde
+ervaren": zichtbaar voor de klant, **niet** in `sharedContextForOrg`/Cockpit/modelprompt. Klant deelt
+expliciet → SHARED → vanaf dat moment geautoriseerde interne context. Negatief bewijs: een tweede
+PRIVATE-inzicht ("Tussen jullie belofte en wat klanten ervaren zien we geen kloof", non_reveal) blijft
+intern onzichtbaar. Bewezen in `tests/mijn-maculis.test.mjs`.
+
+**Open punten (klant-GO nodig).** (a) Echte klanttoegang: `customer_access`-grant + eigen
+opaque-tokenuitgifte/e-mail (nu handmatig/preview). (b) Productie-deploy van migratie 006 (bewuste
+merge). (c) Live Lens → `customer_insight`-ingest (aparte Lens-workstream). (d) Echte
+klant-authenticatie (SSO) i.p.v. losse opaque link, bij opschaling.
+
+---
+
 ## 2026-08-15 — Scope & ownership: Communication Layer grens (productbeslissing)
 
 **Geen code-wijziging. Uitsluitend een vastgelegde scope/ownership-grens** (op verzoek), zodat
