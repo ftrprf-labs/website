@@ -55,14 +55,14 @@ test('Slice 4 — prepared work: create via next-move, see, complete (idempotent
     assert.equal(n, 1, 'exactly one follow-up exists');
   });
 
-  await t.test('03 Vandaag surfaces the prepared work', async () => {
+  await t.test('03 Vandaag surfaces the prepared work (Slice 5 radar: on the relation card)', async () => {
     const { data } = await call('GET', '/api/cockpit/today');
-    assert.ok(Array.isArray(data.preparedWork));
-    assert.equal(data.counts.prepared, 1);
-    const item = data.preparedWork.find((f) => f.id === fuId);
-    assert.ok(item, 'the follow-up is on Vandaag');
-    assert.equal(item.who, 'Kim De Vos');
-    assert.equal(item.contactId, contact);
+    // Kim has an unanswered inbound (NU) with a prepared follow-up folded onto her card.
+    const all = [...data.buckets.NU, ...data.buckets.KLAAR, ...data.buckets.RADAR];
+    const card = all.find((c) => c.contactId === contact);
+    assert.ok(card, 'the relation is on Vandaag');
+    assert.equal(card.who, 'Kim De Vos');
+    assert.ok(card.followUps.some((f) => f.id === fuId), 'the prepared follow-up is completable from the card');
   });
 
   await t.test('04 the actions list shows it', async () => {
@@ -84,7 +84,9 @@ test('Slice 4 — prepared work: create via next-move, see, complete (idempotent
     const { data } = await call('GET', '/api/cockpit/actions');
     assert.equal(data.count, 0, 'completed work leaves the actions list');
     const today = await call('GET', '/api/cockpit/today');
-    assert.equal(today.data.counts.prepared, 0);
+    const all = [...today.data.buckets.NU, ...today.data.buckets.KLAAR, ...today.data.buckets.RADAR];
+    const card = all.find((c) => c.contactId === contact);
+    assert.ok(!card || card.followUps.length === 0, 'completed follow-up no longer rides on the card');
   });
 
   await t.test('N1 completing an unknown follow-up -> 404', async () => {

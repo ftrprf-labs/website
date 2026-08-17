@@ -51,7 +51,7 @@ export async function previewSeedOnBoot() {
     const tenantId = await getDefaultTenantId();
     const existing = (await query('select count(*)::int n from contact where tenant_id=$1', [tenantId])).rows[0].n;
     let seeded = 0;
-    if (existing > 0) { await ensureDemoFollowUp(tenantId); return { skipped: true, reason: 'already seeded', ensuredFollowUp: true }; }
+    if (existing > 0) { await ensureDemoFollowUp(tenantId); await ensureRadarDemo(tenantId); return { skipped: true, reason: 'already seeded', ensuredFollowUp: true, ensuredRadar: true }; }
 
     for (const r of RELATIONS) {
       const org = (await query(
@@ -76,6 +76,7 @@ export async function previewSeedOnBoot() {
       seeded += 1;
     }
     await ensureDemoFollowUp(tenantId);
+    await ensureRadarDemo(tenantId);
     console.log(`  Preview  : ${seeded} demonstratierelatie(s) geseed (echte copilot-output)`);
     return { ok: true, seeded };
   } catch (e) {
@@ -103,4 +104,56 @@ async function ensureDemoFollowUp(tenantId) {
     });
     console.log('  Preview  : 1 demonstratie-follow-up klaargezet');
   } catch { /* best-effort; never breaks boot */ }
+}
+
+// Slice 5 — make the RELATIONAL RADAR visible on the existing preview with three purpose-built,
+// clearly-labelled demonstration relations whose conversations are already ANSWERED (so the radar
+// reason is the follow-up / the silence, not an open inbound): one follow-up due today, one three
+// days overdue, and one relation that has been quiet for about fifty days. Additive and idempotent:
+// each relation is created only when its e-mail does not yet exist, so re-booting or completing a
+// follow-up never resurrects or duplicates demonstration state.
+async function ensureRadarDemo(tenantId) {
+  const DAY = 86400000;
+  // An answered exchange `daysAgo` old (inbound then our successful reply), optionally with a
+  // follow-up. Returns silently if the relation already exists.
+  const ensureRelation = async ({ email, first, last, org, domain, role, subject, inbound, daysAgo, followUp = null }) => {
+    const exists = (await query('select id from contact where tenant_id=$1 and lower(email)=lower($2) limit 1', [tenantId, email])).rows[0];
+    if (exists) return false;
+    const now = Date.now();
+    const orgId = (await query('insert into organization(tenant_id,name,primary_domain) values ($1,$2,$3) returning id', [tenantId, org, domain])).rows[0].id;
+    const contactId = (await query(
+      'insert into contact(tenant_id,organization_id,identity_key,first_name,last_name,email,role) values ($1,$2,$3,$4,$5,$6,$7) returning id',
+      [tenantId, orgId, email, first, last, email, role])).rows[0].id;
+    await query("insert into channel_identity(tenant_id,contact_id,channel,value,is_primary) values ($1,$2,'EMAIL',$3,true)", [tenantId, contactId, email]);
+    const inAt = new Date(now - daysAgo * DAY).toISOString();
+    const outAt = new Date(now - daysAgo * DAY + 3600000).toISOString();
+    const conv = (await query(
+      "insert into conversation(tenant_id,contact_id,organization_id,channel,is_privacy,status,subject,last_message_at,last_inbound_at) values ($1,$2,$3,'EMAIL',false,'ANSWERED',$4,$5,$6) returning id",
+      [tenantId, contactId, orgId, subject, outAt, inAt])).rows[0].id;
+    await query("insert into message(tenant_id,conversation_id,direction,channel,from_address,subject,body_text,delivery,created_at) values ($1,$2,'INBOUND','EMAIL',$3,$4,$5,'RECEIVED',$6)", [tenantId, conv, email, subject, inbound, inAt]);
+    await query("insert into message(tenant_id,conversation_id,direction,channel,from_address,subject,body_text,delivery,created_at) values ($1,$2,'OUTBOUND','EMAIL','hello@maculis.nl',$3,'Dank je, we houden contact.','SENT',$4)", [tenantId, conv, 'Re: ' + subject, outAt]);
+    if (followUp) {
+      await createFollowUp(tenantId, { contactId, organizationId: orgId, conversationId: conv, title: followUp.title, channelHint: 'EMAIL', dueAt: followUp.dueAt });
+    }
+    return true;
+  };
+  try {
+    const now = Date.now();
+    let made = 0;
+    made += await ensureRelation({
+      email: 'lars@dewissel.be', first: 'Lars', last: 'Peeters', org: 'De Wissel', domain: 'dewissel.be', role: 'Coördinator',
+      subject: 'Vervolg workshopreeks', inbound: 'Bedankt voor het overzicht, ik kom er zeker op terug.', daysAgo: 6,
+      followUp: { title: 'Opvolgen: workshopreeks inplannen', dueAt: new Date(now + 4 * 3600000).toISOString() }, // due today
+    }) ? 1 : 0;
+    made += await ensureRelation({
+      email: 'anke@ritmiek.be', first: 'Anke', last: 'Verhoeven', org: 'Ritmiek', domain: 'ritmiek.be', role: 'Zakelijk leider',
+      subject: 'Offerte doorgesproken', inbound: 'We hebben het intern besproken, ik laat snel iets weten.', daysAgo: 9,
+      followUp: { title: 'Terugkoppeling van Anke navragen', dueAt: new Date(now - 3 * DAY).toISOString() }, // 3 days overdue
+    }) ? 1 : 0;
+    made += await ensureRelation({
+      email: 'noor@stadslab.be', first: 'Noor', last: 'Aziz', org: 'Stadslab Ode', domain: 'stadslab.be', role: 'Programmamaker',
+      subject: 'Terugblik samenwerking', inbound: 'Fijn dat we samen konden optrekken dit voorjaar.', daysAgo: 51, // quiet
+    }) ? 1 : 0;
+    if (made) console.log(`  Preview  : radar-demonstratie klaargezet (${made} relatie(s): due, overdue, stille relatie)`);
+  } catch (e) { console.log(`  Preview  : radar-demo uitgesteld (${e.message})`); }
 }

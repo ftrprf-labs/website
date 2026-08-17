@@ -1778,3 +1778,67 @@ van organisatie wisselen.
 Geen aparte contactpagina, geen CRM-contactkaart, geen losse kanaalknoppen, geen dialer/verzendadapter,
 geen nieuwe hoofdnavigatie, geen extra scherm. De architectuur uit §24 blijft ongewijzigd. Testsuite
 groen; nul console-errors.
+
+---
+
+## 26. Relationele radar (Slice 4-correctie + Slice 5)
+
+### 26.1 Slice 4-correctie: aandacht is afgeleid, nooit een momentopname
+
+Aandacht wordt na iedere betekenisvolle transitie opnieuw uit de actuele autoritatieve state
+afgeleid (`server/comm/attention.mjs`, `deriveAttention`). De kern: een succesvol verzonden
+antwoord dat later valt dan de laatste inbound *settelt* die inbound. Versturen is een sterker
+"afgehandeld"-signaal dan het menselijke leeswatermerk (de cockpit-lees is bewust bijwerkingsvrij,
+dus het watermerk schuift niet mee bij verzenden). Een FAILED-verzending settelt niet en blijft als
+`DELIVERY_PROBLEM` aandacht vragen. Een delivery-probleem wordt afgeleid uit de *laatste*
+outbound-poging: een oude FAILED die door een latere SENT is opgevolgd, vraagt geen aandacht meer,
+terwijl het FAILED-record als systeemhistorie bewaard blijft.
+
+### 26.2 Attention Signal
+
+Het radarmodel (`server/comm/signals.mjs`) werkt met kleine, bron-agnostische, deterministisch
+*afgeleide* signalen:
+
+```
+BRON → SIGNAAL → RELATIONELE BETEKENIS → AANDACHT → VOORBEREID WERK → MENSELIJKE BESLISSING
+```
+
+Een signaal draagt: `source`, `type`, `contactId`, menselijke `reason`, `bucket`, `priority`,
+`occurredAt`/`relevantAt`, optionele conversation/follow-up-referenties en expliciete `provenance`
+(`source`, `sourceId`, `rule`, `derivedAt`). Geen opgeslagen score, geen LLM die feiten verzint:
+elk signaal wordt telkens opnieuw uit de werkelijkheid berekend, dus zodra de reden verdwijnt,
+verdwijnt het signaal.
+
+**Radarregels in Slice 5 (alleen betrouwbaar afleidbaar uit de huidige state):**
+
+- COMM: `DELIVERY_PROBLEM`, `INBOUND_QUESTION`, `INBOUND_MESSAGE` (een onbeantwoorde inbound blijft NU,
+  ook als er al een concept klaarstaat; het concept is een attribuut, geen kalmere bucket).
+- FOLLOW_UP: `FOLLOWUP_OVERDUE`, `FOLLOWUP_DUE` (NU) en `FOLLOWUP_UPCOMING` (KLAAR).
+- RADAR: `QUIET_RELATIONSHIP`, conservatief. Vuurt alleen als er aantoonbaar eerder contact was
+  (laatste `last_message_at` bekend), de stilte een centrale drempel (45 dagen) overschrijdt en er
+  geen open aandacht is. Copy blijft feitelijk ("Al 45 dagen geen contact"), nooit een vermoeden.
+
+**Buckets (geen mysterieuze score):** `NU` (mens nodig), `KLAAR` (Maculis zette iets klaar),
+`OP DE RADAR` (uitlegbare reden, geen directe actie).
+
+**Aggregatie en ranking:** per relatie één kaart met een primaire reden plus secundaire redenen
+(geen kaart-explosie). Ranking is deterministisch: direct onbeantwoorde inbound, dan overdue
+follow-up, dan due, dan voorbereid werk, dan radar/stilte.
+
+**Datagat (bewust niet gefaket):** `OPEN_COMMITMENT` als losse MEMORY-afleiding ontbreekt, omdat er
+geen gestructureerde toezegging-met-deadline in de huidige state zit. De follow-up dekt dit
+betrouwbaar, dus een aparte afleiding is uitgesteld en wordt als `dataGaps` teruggegeven.
+
+### 26.3 Één werkelijkheid
+
+Vandaag en het relatiedossier lezen dezelfde `buildRadar`; het dossier roept hem gescoped op één
+relatie aan (`buildRadar(tenantId, { contactId })`). De primaire reden bovenin het dossier is per
+definitie gelijk aan de reden op Vandaag.
+
+### 26.4 First Lens-hook (nu niet geïntegreerd)
+
+De attention-laag is geschreven tegen een `source`, niet tegen "alleen conversations". De
+`SIGNAL_SOURCES` bevatten al `FIRST_LENS`, `MEMORY`, `MANUAL` en `OTHER_LENS`. Later kan First Lens
+als bron een observatie/signaal aanleveren dat via dezelfde aggregatie, ranking en buckets op
+Vandaag verschijnt, met dezelfde provenance-eisen. Er is nu bewust niets van First Lens herbouwd of
+geïntegreerd; alleen het contract is source-agnostisch gemaakt.

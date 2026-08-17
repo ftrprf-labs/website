@@ -54,11 +54,11 @@ test('Slice 1 — full vertical loop + negative paths', opts, async (t) => {
   await t.test('01 Vandaag shows the real attention item (REPLY_READY, answer ready)', async () => {
     const { status, data } = await call('GET', '/api/cockpit/today');
     assert.equal(status, 200);
-    assert.equal(data.counts.actionable, 1);
+    assert.equal(data.counts.nu, 1);
     assert.ok(data.headline.secondary && /klaar/i.test(data.headline.secondary), 'headline states an answer is ready');
-    const item = (data.groups.ready[0] || data.groups.now[0]);
-    assert.equal(item.name, 'Jean-Baptiste Vandenberghe');
-    assert.equal(item.hasPrepared, true);
+    const item = data.buckets.NU[0];
+    assert.equal(item.who, 'Jean-Baptiste Vandenberghe');
+    assert.equal(item.hasPrepared, true, 'an unanswered inbound with a prepared concept');
     assert.equal(item.contactId, contact);
   });
 
@@ -124,7 +124,7 @@ test('Slice 1 — full vertical loop + negative paths', opts, async (t) => {
     const settled = await call('POST', '/api/cockpit/conversation/' + conv + '/settle', { body: {} });
     assert.equal(settled.status, 200);
     const { data } = await call('GET', '/api/cockpit/today');
-    assert.equal(data.counts.actionable, 0, 'answered conversation left Vandaag');
+    assert.equal(data.counts.nu, 0, 'answered conversation left Vandaag');
     assert.equal(data.headline.zero, true);
   });
 

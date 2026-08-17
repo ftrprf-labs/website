@@ -56,11 +56,11 @@ test('Slice 2 — understanding + prepared next moves (real copilot output)', op
   await t.test('01 Vandaag shows the copilot understanding as the grounded why', async () => {
     const { status, data } = await call('GET', '/api/cockpit/today');
     assert.equal(status, 200);
-    const item = (data.groups.ready[0] || data.groups.now[0]);
+    const item = data.buckets.NU[0];
     assert.ok(item, 'the item is on Vandaag');
-    assert.equal(item.reasonSource, 'ai', 'the reason is grounded in the AI reading');
-    assert.equal(item.reason, draft.summary, 'the reason IS the real ai_draft summary (provenance)');
-    assert.equal(item.intent, 'kans', 'the intent is rendered in human words');
+    assert.equal(item.primary.source, 'COMM', 'the reason is derived from the conversation');
+    assert.equal(item.primary.reason, draft.summary, 'the reason IS the real ai_draft summary (grounded provenance)');
+    assert.equal(item.hasPrepared, true, 'an unanswered inbound with a concept prepared');
   });
 
   await t.test('02 Gesprek surfaces the reading + prepared next moves', async () => {
@@ -110,14 +110,17 @@ test('Slice 2 — understanding + prepared next moves (real copilot output)', op
   });
 
   await t.test('N3 Fail-closed: without a reading, Vandaag falls back to the neutral reason (no invented why)', async () => {
-    // A second conversation with an inbound but NO copilot run -> no ai_draft.
-    const c2 = (await query("insert into conversation(tenant_id,contact_id,organization_id,channel,is_privacy,status,subject,last_message_at,last_inbound_at) values ($1,$2,$3,'EMAIL',false,'NEW','Zonder analyse', now(), now()) returning id", [tenantId, contact, org])).rows[0].id;
-    await query("insert into message(tenant_id,conversation_id,direction,channel,from_address,body_text,delivery,created_at) values ($1,$2,'INBOUND','EMAIL','kim@noorderlicht.coop','Een kort bericht.','RECEIVED', now())", [tenantId, c2]);
+    // A SECOND relation (own contact) with an inbound but NO copilot run -> no ai_draft. A separate
+    // contact so aggregation keeps it a distinct card.
+    const org2 = (await query("insert into organization(tenant_id,name) values ($1,'Zonder Analyse vzw') returning id", [tenantId])).rows[0].id;
+    const contact2 = (await query("insert into contact(tenant_id,organization_id,identity_key,first_name,last_name,email) values ($1,$2,'stil@zonder.be','Stil','Persoon','stil@zonder.be') returning id", [tenantId, org2])).rows[0].id;
+    const c2 = (await query("insert into conversation(tenant_id,contact_id,organization_id,channel,is_privacy,status,subject,last_message_at,last_inbound_at) values ($1,$2,$3,'EMAIL',false,'NEW','Zonder analyse', now(), now()) returning id", [tenantId, contact2, org2])).rows[0].id;
+    await query("insert into message(tenant_id,conversation_id,direction,channel,from_address,body_text,delivery,created_at) values ($1,$2,'INBOUND','EMAIL','stil@zonder.be','Een kort bericht.','RECEIVED', now())", [tenantId, c2]);
     const { data } = await call('GET', '/api/cockpit/today');
-    const item = [...data.groups.now, ...data.groups.ready].find((x) => x.conversationId === c2);
+    const item = [...data.buckets.NU, ...data.buckets.KLAAR].find((x) => x.contactId === contact2);
     assert.ok(item, 'the un-analysed item still appears');
-    assert.equal(item.reasonSource, 'state', 'no AI reading -> neutral state reason');
-    assert.equal(item.intent, null, 'no invented intent');
+    assert.equal(item.hasPrepared, false, 'no concept prepared -> no "concept klaar"');
+    assert.ok(!/kans|opportunity/i.test(item.primary.reason), 'no invented intent/why in the reason');
     // and its gesprek has no understanding / no moves
     const g = await call('GET', '/api/cockpit/conversation/' + c2);
     assert.equal(g.data.understanding, null);

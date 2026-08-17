@@ -19,7 +19,8 @@
 
 import { commEnabled, query } from '../comm/db.mjs';
 import { getDefaultTenantId } from '../comm/tenant.mjs';
-import { attentionOverview, markConversationRead } from '../comm/attention.mjs';
+import { attentionHeadline, markConversationRead } from '../comm/attention.mjs';
+import { buildRadar } from '../comm/signals.mjs';
 import { getRelationship } from '../comm/relationship.mjs';
 import * as drafts from '../comm/drafts.mjs';
 import { sendOnChannel } from '../comm/send.mjs';
@@ -50,18 +51,17 @@ const ipRefOf = (req) => (req.socket && req.socket.remoteAddress ? String(req.so
 
 // ---- meaning-first shaping ---------------------------------------------------
 
-// Human reason per attention state (meaning over backend jargon).
-const STATE_REASON = {
-  DELIVERY_PROBLEM: 'Je vorige bericht kwam niet aan',
-  REPLY_READY: 'Een concept staat voor je klaar',
-  NEW: 'Nieuw gesprek, nog niet bekeken',
-  UNREAD: 'Nieuw bericht, nog niet gelezen',
-  NEEDS_ACTION: 'Wacht op jou',
-};
-// Which tier a state belongs to on Vandaag (attention only — no reveal-noise).
-function tierOf(state) {
-  if (state === 'REPLY_READY') return 'ready';
-  return 'now';
+// The canonical Vandaag headline over the radar buckets. Meaning over counts, grammatically correct,
+// honest about prepared work, calm when nothing is urgent. Never a dash as a stylistic pause.
+function radarHeadline({ nu, klaar, radar }, replyReady) {
+  if (nu > 0) return attentionHeadline(nu, replyReady);
+  if (klaar > 0) {
+    return { primary: 'Geen nieuwe vragen.', secondary: 'Wel werk dat Maculis voor je klaarzette.', zero: false };
+  }
+  if (radar > 0) {
+    return { primary: 'Rustig vandaag.', secondary: 'Een paar relaties staan op de radar.', zero: false };
+  }
+  return attentionHeadline(0, 0);
 }
 
 // Slice 2 — the intelligence the copilot already produces, made legible. Human words for the
@@ -140,7 +140,7 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
       emailOnly: true,
       // Only EMAIL can actually deliver; a real transport must be configured for Phase B.
       mailConfigured: Boolean(config.mailTransport && config.mailApiKey),
-      slice: 'slice-4',
+      slice: 'slice-5',
     });
     return true;
   }
@@ -151,44 +151,20 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
   if (!isAuthed(req)) { json(res, 401, { error: 'Niet ingelogd' }); return true; }
   const tenantId = await getDefaultTenantId();
 
-  // ---- Vandaag: what needs my attention now (attention only, no reveal-noise) --
+  // ---- Vandaag: the attention surface (the relational radar) -------------------
+  // Slice 5 — one meaning-first selection, not the inbox and not the relation list. Signals from
+  // several senses (COMM, FOLLOW_UP, ...) are derived from authoritative state, aggregated per
+  // relation and ranked into three buckets: NU (needs you), KLAAR (Maculis prepared something),
+  // OP DE RADAR (relevant, no action needed). Recomputed every call, so it can never go stale.
   if (pathname === '/api/cockpit/today' && method === 'GET') {
-    const ov = await attentionOverview(tenantId);
-    // Slice 2 — surface the copilot's real understanding as the grounded "why". One batch query for
-    // the newest proposed ai_draft per conversation; fall back honestly to the neutral state reason.
-    const ids = ov.queue.map((c) => c.id);
-    const understanding = new Map();
-    if (ids.length) {
-      const rows = (await query(
-        `select distinct on (conversation_id) conversation_id, summary, intent
-           from ai_draft where tenant_id=$1 and conversation_id = any($2::uuid[])
-             and status='proposed' and summary is not null
-          order by conversation_id, created_at desc`, [tenantId, ids])).rows;
-      for (const r of rows) understanding.set(r.conversation_id, r);
-    }
-    const groups = { now: [], ready: [] };
-    for (const c of ov.queue) {
-      const u = understanding.get(c.id);
-      const item = {
-        conversationId: c.id, contactId: c.contactId || null, name: c.name, org: c.org,
-        channel: c.channel, state: c.state,
-        // The AI's factual reading of what the sender wrote, when Maculis actually has one.
-        reason: (u && u.summary) ? u.summary : (STATE_REASON[c.state] || 'Vraagt aandacht'),
-        reasonSource: (u && u.summary) ? 'ai' : 'state',
-        intent: u ? intentLabel(u.intent) : null,
-        preview: c.preview, hasPrepared: !!c.hasAiProposed,
-      };
-      groups[tierOf(c.state)].push(item);
-    }
-    // Slice 4 — prepared work Maculis put ready for you (open follow-ups), surfaced on the
-    // highest-traffic screen so it is not lost. Human completes it; nothing auto-runs.
-    const preparedWork = (await listFollowUps(tenantId, { status: 'open' })).map(shapeFollowUp);
+    const radar = await buildRadar(tenantId);
     json(res, 200, {
-      headline: ov.summary.headline,          // server-computed, never drifts
-      counts: { actionable: ov.summary.actionable, ready: ov.summary.readyCount, prepared: preparedWork.length },
-      groups,
-      preparedWork,
-      source: 'communication-layer/attention',
+      headline: radarHeadline(radar.counts, radar.replyReady),
+      counts: radar.counts,
+      buckets: radar.buckets,          // { NU:[cards], KLAAR:[cards], RADAR:[cards] }
+      dataGaps: radar.dataGaps,
+      quietThresholdDays: radar.quietThresholdDays,
+      source: radar.source,
     });
     return true;
   }
@@ -263,6 +239,14 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
     // The conversation to open: prefer one with an actionable/ai-ready state.
     const convs = rel.conversations || [];
     const primaryConv = convs.find((cv) => cv.ai_ready) || convs.find((cv) => cv.unread > 0) || convs[0] || null;
+    // Slice 5 — the SAME radar, scoped to this relation, so the dossier tells exactly the story
+    // Vandaag tells (§ 20, één werkelijkheid). The primary attention reason drives "wat speelt er nu".
+    const relRadar = await buildRadar(tenantId, { contactId: c.id });
+    const relCards = [...relRadar.buckets.NU, ...relRadar.buckets.KLAAR, ...relRadar.buckets.RADAR];
+    const attentionNow = relCards.length
+      ? { bucket: relCards[0].bucket, reason: relCards[0].primary.reason, type: relCards[0].primary.type,
+          secondary: relCards[0].secondary, conversationId: relCards[0].conversationId }
+      : null;
     json(res, 200, {
       identity: {
         contactId: c.id, name, role: c.role || null,
@@ -270,7 +254,9 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
         stage: rel.stage || null,
       },
       reachability: reachability(rel),
-      now: rel.summary ? rel.summary.nextAction : null,   // meaning-first "wat speelt er nu"
+      attention: attentionNow,                            // radar reason, consistent with Vandaag
+      attentionSignals: relRadar.signals,                 // herleidbaar (provenance)
+      now: attentionNow ? { label: attentionNow.reason } : (rel.summary ? rel.summary.nextAction : null),
       journey: rel.journey ? { campaign: rel.journey.campaign, status: rel.journey.status } : null,
       conversations: convs.map((cv) => ({
         id: cv.id, subject: cv.subject, channel: cv.channel, status: cv.status,

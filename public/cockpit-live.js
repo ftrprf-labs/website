@@ -91,20 +91,22 @@ async function render() {
   const wrap = el('div', 'view-enter');
   wrap.appendChild(el('div', 'eyebrow-line', scn.charAt(0).toUpperCase() + scn.slice(1)));
   wrap.appendChild(el('h1', 'work-h1', scn.charAt(0).toUpperCase() + scn.slice(1)));
-  wrap.appendChild(el('p', 'lead-note', 'Deze weergave is in deze fase (Slice 1) nog niet op echte data aangesloten. Er wordt hier bewust niets getoond in plaats van prototype-data.'));
+  wrap.appendChild(el('p', 'lead-note', 'Dit onderdeel heeft nog geen eigen scherm in de cockpit. Er wordt hier bewust niets getoond in plaats van voorbeelddata.'));
   view.appendChild(wrap);
 }
 
-/* ---------- Vandaag (attention only) ---------- */
+/* ---------- Vandaag (the attention surface / relational radar) ---------- */
 async function renderVandaag() {
   const { ok, data } = await api('/api/cockpit/today');
   const wrap = el('div', 'view-enter');
   if (!ok) { wrap.appendChild(el('p', 'lead-note', 'Kon aandacht niet laden.')); view.appendChild(wrap); return; }
   const h = data.headline || { primary: '', secondary: null, zero: false };
-  const prepared = data.preparedWork || [];
-  document.getElementById('nc-vandaag').textContent = data.counts && data.counts.actionable ? String(data.counts.actionable) : '';
+  const buckets = data.buckets || { NU: [], KLAAR: [], RADAR: [] };
+  const counts = data.counts || { nu: 0, klaar: 0, radar: 0 };
+  document.getElementById('nc-vandaag').textContent = counts.nu ? String(counts.nu) : '';
+  const total = (buckets.NU || []).length + (buckets.KLAAR || []).length + (buckets.RADAR || []).length;
 
-  if (h.zero && !prepared.length) {
+  if (h.zero && !total) {
     // Calm state: the silence block carries the message; no duplicate headline above it.
     wrap.appendChild(el('div', 'eyebrow', 'Vandaag'));
     const s = el('div', 'silence');
@@ -114,55 +116,64 @@ async function renderVandaag() {
   }
 
   const greet = el('div', 'greet');
-  if (h.zero) {
-    // No new messages, but Maculis has prepared work waiting — say that honestly.
-    greet.innerHTML = `<div class="eyebrow">Vandaag</div><h1>Geen nieuwe berichten.</h1><p class="sub">Wel werk dat Maculis voor je klaarzette.</p>`;
-  } else {
-    greet.innerHTML = `<div class="eyebrow">Vandaag</div><h1>${esc(h.primary)}</h1>${h.secondary ? `<p class="sub">${esc(h.secondary)}</p>` : ''}`;
-  }
+  greet.innerHTML = `<div class="eyebrow">Vandaag</div><h1>${esc(h.primary)}</h1>${h.secondary ? `<p class="sub">${esc(h.secondary)}</p>` : ''}`;
   wrap.appendChild(greet);
-  const tiers = [['now', 'Nu', 'vraagt jou'], ['ready', 'Klaar', 'Maculis heeft iets voorbereid']];
-  for (const [key, label, hint] of tiers) {
-    const items = (data.groups[key] || []);
+
+  // Three meaningful buckets: what needs you now, what Maculis prepared, and what is on the radar.
+  const sections = [
+    ['NU', 'now', 'Nu', 'vraagt jou'],
+    ['KLAAR', 'ready', 'Klaargezet', 'werk dat Maculis voor je klaarzette'],
+    ['RADAR', 'quiet', 'Op de radar', 'reden dat dit nu meespeelt'],
+  ];
+  for (const [key, cls, label, hint] of sections) {
+    const items = buckets[key] || [];
     if (!items.length) continue;
     const g = el('div', 'attn-group');
-    g.appendChild(tierHead(key === 'ready' ? 'ready' : 'now', label, hint));
-    items.forEach(it => g.appendChild(attnCard(it)));
-    wrap.appendChild(g);
-  }
-  // Slice 4 — prepared work (follow-ups) Maculis put ready. You decide and complete it.
-  if (prepared.length) {
-    const g = el('div', 'attn-group');
-    g.appendChild(tierHead('ready', 'Klaargezet', 'werk dat Maculis voor je klaarzette'));
-    prepared.forEach(f => g.appendChild(preparedCard(f)));
+    g.appendChild(tierHead(cls, label, hint));
+    items.forEach(c => g.appendChild(radarCard(c)));
     wrap.appendChild(g);
   }
   view.appendChild(wrap);
 }
 
-function preparedCard(f) {
-  const b = el('article', 'item');
+// One aggregated relation on the radar: WIE, WAAROM NU (primary), wat er nog meespeelt (secondary),
+// wat Maculis klaarzette, en wat je kunt doen. The human decides; nothing runs on its own.
+function radarCard(c) {
+  const b = el('article', 'item openable'); b.tabIndex = 0; b.setAttribute('role', 'button');
   const chips = [];
-  if (f.overdue) chips.push('<span class="chip now"><span class="k"></span>verlopen</span>');
-  if (f.org) chips.push(`<span class="chip">${esc(f.org)}</span>`);
+  if (c.hasPrepared) chips.push('<span class="chip ready"><span class="k"></span>concept klaar</span>');
+  if (c.org) chips.push(`<span class="chip">${esc(c.org)}</span>`);
+  const secondary = (c.secondary || []).map(s => `<div class="echo">${esc(s.reason)}</div>`).join('');
   b.innerHTML =
-    `<div class="row1"><span class="who">${esc(f.title)}</span></div>
-     ${f.who ? `<div class="line">${esc(f.who)}</div>` : ''}
+    `<div class="row1">
+       <span class="who">${esc(c.who)}</span>
+       ${c.channel ? `<span class="chan">${esc(CHAN_ICO[c.channel] || '')} ${esc((c.channel || '').toLowerCase())}</span>` : ''}
+       <span class="go-chevron" aria-hidden="true">›</span>
+     </div>
+     <div class="line">${esc(c.primary.reason)}</div>
+     ${secondary}
      ${chips.length ? `<div class="tags">${chips.join('')}</div>` : ''}`;
-  const bar = el('div', 'prepared-actions');
-  const done = el('button', 'btn btn-ghost', 'Afronden');
-  done.addEventListener('click', async () => {
-    done.disabled = true; done.textContent = 'Bezig…';
-    const r = await api('/api/cockpit/followup/' + f.id + '/done', { method: 'POST' });
-    if (r.ok) render(); else { done.disabled = false; done.textContent = 'Afronden'; }
-  });
-  bar.appendChild(done);
-  if (f.contactId) {
-    const open = el('button', 'btn btn-ghost', 'Open relatie');
-    open.addEventListener('click', () => { activeContactId = f.contactId; scn = 'dossier'; render(); });
-    bar.appendChild(open);
+  // Prepared work (follow-ups) touching this relation can be completed straight from the card.
+  if (c.followUps && c.followUps.length) {
+    const bar = el('div', 'prepared-actions');
+    c.followUps.forEach(f => {
+      const done = el('button', 'btn btn-ghost', 'Follow-up afronden');
+      done.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        done.disabled = true; done.textContent = 'Bezig…';
+        const r = await api('/api/cockpit/followup/' + f.id + '/done', { method: 'POST' });
+        if (r.ok) render(); else { done.disabled = false; done.textContent = 'Follow-up afronden'; }
+      });
+      bar.appendChild(done);
+    });
+    b.appendChild(bar);
   }
-  b.appendChild(bar);
+  const open = () => {
+    if (c.contactId) { activeContactId = c.contactId; scn = 'dossier'; render(); }
+    else if (c.conversationId) { activeConvId = c.conversationId; scn = 'gesprek'; render(); }
+  };
+  b.addEventListener('click', open);
+  b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   return b;
 }
 
@@ -184,38 +195,6 @@ function tierHead(cls, label, hint) {
   const h = el('div', 'attn-head');
   h.innerHTML = `<span class="tier ${cls}"><span class="pip"></span><b>${esc(label)}</b></span>${hint ? `<span class="hint">${esc(hint)}</span>` : ''}`;
   return h;
-}
-
-function attnCard(it) {
-  const b = el('article', 'item openable'); b.tabIndex = 0; b.setAttribute('role', 'button');
-  const tier = it.state === 'REPLY_READY' ? 'ready' : 'now';
-  // Slice 2: when Maculis has a real reading (reasonSource='ai'), that grounded understanding is the
-  // main line and the raw quote becomes a quiet echo. Without a reading we fall back honestly to the
-  // preview and the neutral state reason — never an invented "why".
-  const grounded = it.reasonSource === 'ai';
-  const line = grounded ? it.reason : (it.preview || it.reason);
-  const echo = grounded && it.preview && it.preview !== it.reason ? `<div class="echo">“${esc(it.preview)}”</div>` : '';
-  const chips = [];
-  if (it.intent) chips.push(`<span class="intent-chip ${tier}">${esc(it.intent)}</span>`);
-  if (!grounded) chips.push(`<span class="chip ${tier}"><span class="k"></span>${esc(it.reason)}</span>`);
-  else if (it.hasPrepared) chips.push(`<span class="chip ${tier}"><span class="k"></span>concept klaar</span>`);
-  if (it.org) chips.push(`<span class="chip">${esc(it.org)}</span>`);
-  b.innerHTML =
-    `<div class="row1">
-       <span class="who">${esc(it.name)}</span>
-       <span class="chan">${esc(CHAN_ICO[it.channel] || '')} ${esc((it.channel || '').toLowerCase())}</span>
-       <span class="go-chevron" aria-hidden="true">›</span>
-     </div>
-     ${line ? `<div class="line">${esc(line)}</div>` : ''}
-     ${echo}
-     <div class="tags">${chips.join('')}</div>`;
-  const open = () => {
-    if (it.contactId) { activeContactId = it.contactId; scn = 'dossier'; render(); }
-    else { activeConvId = it.conversationId; scn = 'gesprek'; render(); }
-  };
-  b.addEventListener('click', open);
-  b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
-  return b;
 }
 
 /* ---------- Dossier ---------- */
@@ -256,10 +235,19 @@ async function renderDossier(contactId) {
   reach.innerHTML = `<div class="reach-lines">${parts.join('')}${consentHint}</div>`;
   wrap.appendChild(reach);
 
-  // NU
+  // NU — the SAME radar reason Vandaag shows (§ 20, één werkelijkheid).
   const now = el('section', 'dos-now');
   now.appendChild(el('div', 'dos-now-h', 'Wat speelt er nu'));
-  if (data.now) {
+  const att = data.attention;
+  if (att) {
+    const bucketCls = att.bucket === 'NU' ? 'now' : 'ready';
+    const item = el('div', 'dos-now-item ' + bucketCls);
+    const secondary = (att.secondary || []).map(s => `<div class="echo">${esc(s.reason)}</div>`).join('');
+    const canOpen = att.conversationId || data.primaryConversationId;
+    item.innerHTML = `<div class="dni-top"><span class="chip ${bucketCls}"><span class="k"></span>${esc(att.reason)}</span></div>${secondary}`;
+    if (canOpen) { const btn = el('button', 'btn btn-primary', 'Open het gesprek'); btn.addEventListener('click', () => { activeConvId = canOpen; scn = 'gesprek'; render(); }); item.appendChild(btn); }
+    now.appendChild(item);
+  } else if (data.now) {
     const item = el('div', 'dos-now-item now');
     const canOpen = data.primaryConversationId;
     item.innerHTML = `<div class="dni-top"><span class="chip now"><span class="k"></span>${esc(data.now.label || 'Vraagt aandacht')}</span></div>`;
