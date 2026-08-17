@@ -634,6 +634,13 @@ async function renderGesprek(convId) {
   // reading exists; never an invented understanding.
   if (data.understanding) thread.appendChild(lensPanel(data.understanding));
 
+  // Task context: what is relationally needed here, decided BEFORE any drafting.
+  if (data.assessment && data.assessment.label) {
+    const a = el('div', 'assess');
+    a.innerHTML = `<span class="assess-k" aria-hidden="true">◆</span><b>${esc(data.assessment.label)}.</b> ${esc(data.assessment.reason || '')}`;
+    thread.appendChild(a);
+  }
+
   // composer / draft
   const composer = el('div', 'composer');
   thread.appendChild(composer);

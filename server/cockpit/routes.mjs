@@ -23,6 +23,8 @@ import { attentionHeadline, markConversationRead } from '../comm/attention.mjs';
 import { buildRadar } from '../comm/signals.mjs';
 import { recordWorkItem, resolveWorkItem, listWorkItems, shapeWorkItem, WORK_ACTIONS } from '../comm/work.mjs';
 import { lensSummaryForContact } from '../comm/lens.mjs';
+import { assessConversation } from '../comm/ai/service.mjs';
+import { decisionLabel } from '../comm/ai/context-layer.mjs';
 import { getRelationship } from '../comm/relationship.mjs';
 import * as drafts from '../comm/drafts.mjs';
 import { sendOnChannel } from '../comm/send.mjs';
@@ -349,6 +351,9 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
       `select id, status, channel, subject, body, ai_generated, human_edited, version
          from comm_draft where conversation_id=$1 and status='draft' order by created_at desc limit 1`, [id])).rows[0] || null;
     const consent = conv.contact_id ? await channelConsentState(tenantId, conv.contact_id) : null;
+    // Task context: what is relationally needed here, decided BEFORE any drafting (§ context layer).
+    const assess = await assessConversation({ tenantId, conversationId: id });
+    const assessment = { decision: assess.decision, label: decisionLabel(assess.decision), reason: assess.reason };
     json(res, 200, {
       conversation: {
         id: conv.id, subject: conv.subject, status: conv.status, channel: conv.channel,
@@ -357,6 +362,7 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
       },
       messages, proposal, workingDraft: working, consent,
       understanding,   // what Maculis reads in this thread (grounded in a real ai_draft)
+      assessment,      // what is relationally needed now (decided before writing)
       nextMoves,       // prepared, not auto-executed; the human chooses
     });
     return true;

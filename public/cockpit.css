@@ -1190,3 +1190,8 @@ body {
 /* Lens — a calm, content-free hoofdlijn in the dossier. Never reveal content. */
 .dos-lens .lens-line { color: var(--text); font-size: .92rem; margin: .15rem 0; }
 .dos-lens .dos-note { margin-top: .5rem; }
+
+/* AI context layer — the relational assessment shown before drafting. */
+.assess { margin: .4rem 0 .2rem; padding: .5rem .7rem; border-left: 2px solid var(--primary); background: color-mix(in srgb, var(--primary) 5%, transparent); font-size: .88rem; color: var(--muted); border-radius: 0 8px 8px 0; }
+.assess b { color: var(--text); font-weight: 600; }
+.assess-k { color: var(--primary); margin-right: .35rem; }

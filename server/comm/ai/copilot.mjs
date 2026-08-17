@@ -9,6 +9,7 @@
 
 import { query } from '../db.mjs';
 import { getProvider } from './provider.mjs';
+import { constitutionText } from './constitution.mjs';
 import { recordActivity } from '../activity.mjs';
 import { buildRelationshipContext, renderContextForModel } from './context.mjs';
 import { stripForContext } from '../signature.mjs';
@@ -16,13 +17,13 @@ import { stripForContext } from '../signature.mjs';
 // Extensible intent vocabulary. Unknown labels from the model fall back to 'information'.
 export const INTENTS = ['question', 'interest', 'meeting', 'commercial_opportunity', 'objection', 'information', 'action_requested', 'no_action'];
 
+// Shared Maculis DNA (the Constitution) + this capability's output contract. No separate tone copy.
 const SYSTEM = [
-  'Je bent de Relationship Copilot van Maculis. Maculis kijkt met andere ogen naar wat er van',
-  'buitenaf zichtbaar is op de website van een organisatie. Je stelt een BEKNOPT concept op voor een',
-  'medewerker die het antwoord zelf controleert en verstuurt. Toon: rustig, persoonlijk, oprecht,',
-  'nooit verkoperig, nooit overdreven. Verzin geen feiten over de relatie. Antwoord UITSLUITEND met',
-  'geldige JSON: {"summary": string, "intent": string, "suggested_reply": string, "suggested_actions": array}.',
-].join(' ');
+  constitutionText(),
+  '',
+  'Je stelt een BEKNOPT concept op voor een medewerker die het antwoord zelf controleert en verstuurt.',
+  'Antwoord UITSLUITEND met geldige JSON: {"summary": string, "intent": string, "suggested_reply": string, "suggested_actions": array}.',
+].join('\n');
 
 // Build the prompt from the bounded Relationship Context Engine so the AUTOMATIC proposal is
 // genuinely relationship-aware: recent conversation, earlier communication, First Five status,
