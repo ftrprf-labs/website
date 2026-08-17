@@ -76,15 +76,47 @@
     return `<span class="share-tag">${ICON.lock}Alleen voor jou</span>`;
   }
 
-  const ORBIT = `<svg class="orbit" viewBox="0 0 320 320" aria-hidden="true">
-    <g fill="none" stroke="#6b5bd6" stroke-opacity="0.16">
-      <circle cx="160" cy="160" r="42"/><circle cx="160" cy="160" r="78"/><circle cx="160" cy="160" r="116"/><circle cx="160" cy="160" r="150"/>
+  // The Maculis signature: loose signals → coherence → pattern → insight. Layered rings with a soft
+  // luminous core, signal points at varying distance, and faint links resolving toward the centre.
+  // Abstract, intelligent, elegant — never a sci-fi HUD. Motion (breathing points, a slow drift,
+  // a softly pulsing core) is defined in CSS and gated by prefers-reduced-motion.
+  const ORBIT = `<svg class="orbit" viewBox="0 0 360 360" aria-hidden="true">
+    <defs>
+      <radialGradient id="sfCore" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#8574e2" stop-opacity="0.92"/>
+        <stop offset="42%" stop-color="#6857cc" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="#6857cc" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="sfField" cx="50%" cy="50%" r="55%">
+        <stop offset="0%" stop-color="#efecfa" stop-opacity="0.9"/>
+        <stop offset="100%" stop-color="#efecfa" stop-opacity="0"/>
+      </radialGradient>
+      <filter id="sfSoft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="5"/></filter>
+    </defs>
+    <circle cx="180" cy="180" r="150" fill="url(#sfField)"/>
+    <g class="sf-rot" fill="none" stroke="#6857cc"><ellipse cx="180" cy="180" rx="150" ry="145" stroke-opacity="0.09" stroke-dasharray="1 8"/></g>
+    <g fill="none" stroke="#6857cc">
+      <circle cx="180" cy="180" r="120" stroke-opacity="0.09"/>
+      <circle cx="180" cy="180" r="86" stroke-opacity="0.13"/>
+      <circle cx="180" cy="180" r="52" stroke-opacity="0.18"/>
     </g>
-    <circle cx="160" cy="160" r="15" fill="#6b5bd6" fill-opacity="0.9"/>
-    <circle cx="238" cy="160" r="4" fill="#6b5bd6" fill-opacity="0.55"/>
-    <circle cx="120" cy="82" r="3.5" fill="#6b5bd6" fill-opacity="0.4"/>
-    <circle cx="196" cy="262" r="3.5" fill="#6b5bd6" fill-opacity="0.4"/>
-    <circle cx="58" cy="196" r="3" fill="#c8894a" fill-opacity="0.5"/>
+    <g stroke="#6857cc" stroke-opacity="0.13">
+      <line x1="180" y1="180" x2="264" y2="150"/>
+      <line x1="180" y1="180" x2="120" y2="94"/>
+      <line x1="180" y1="180" x2="150" y2="258"/>
+      <line x1="180" y1="180" x2="90" y2="196"/>
+    </g>
+    <circle class="sf-core" cx="180" cy="180" r="50" fill="url(#sfCore)" filter="url(#sfSoft)"/>
+    <circle cx="180" cy="180" r="9" fill="#6857cc"/>
+    <circle cx="180" cy="180" r="9" fill="#8574e2" fill-opacity="0.45"/>
+    <circle class="sf-dot" style="--o:.72;--d:6s" cx="264" cy="150" r="4.6" fill="#6857cc"/>
+    <circle class="sf-dot" style="--o:.5;--d:8s" cx="120" cy="94" r="3.6" fill="#6857cc"/>
+    <circle class="sf-dot" style="--o:.55;--d:7s" cx="150" cy="258" r="3.6" fill="#6857cc"/>
+    <circle class="sf-dot" style="--o:.5;--d:9s" cx="252" cy="244" r="3" fill="#b0762f"/>
+    <circle class="sf-dot" style="--o:.46;--d:6.5s" cx="90" cy="196" r="3" fill="#b0762f"/>
+    <circle class="sf-dot" style="--o:.4;--d:10s" cx="216" cy="86" r="2.6" fill="#6857cc"/>
+    <circle class="sf-dot" style="--o:.34;--d:7.5s" cx="304" cy="198" r="2.4" fill="#6857cc"/>
+    <circle class="sf-dot" style="--o:.3;--d:11s" cx="70" cy="120" r="2.2" fill="#b0762f"/>
   </svg>`;
 
   // ---- navigation / router ----
