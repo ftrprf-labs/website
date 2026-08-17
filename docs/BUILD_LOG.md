@@ -5,6 +5,58 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-17 — Digitale collega's: gedeelde agentfundering + eerste collega (Scout, Growth/Lead)
+
+**Van onderzoek naar realisatie.** De eerste echte digitale collega is gebouwd op een minimale,
+gedeelde agentfundering die binnen dezelfde relationele werkelijkheid werkt. Geen parallel universum,
+geen tweede Cockpit, geen autonome externe acties. Additief en feature-flagged achter de bestaande
+`COMM_LAYER_ENABLED` + `DATABASE_URL`-gate. Niets gedeployed.
+
+**Datamodel (migratie `006_agent_foundation.sql`, additief, idempotent):** `actor` (HUMAN|AGENT|
+SYSTEM, met granted autonomie), `work_item` (het gedeelde werkobject), `agent_run` (één uitvoering,
+audit/kosten/idempotentie), `agent_finding` (evidence-gegronde bevinding = voorstel, met epistemische
+status en confidence), `agent_evidence` (herkomst per claim, expliciete `source_type`). Hergebruikt
+zonder duplicatie: `audit_event`, `activity`, `notification`, `relationship_memory` (proposed vs
+confirmed), `organization/contact.relationship_stage` (lead-lifecycle), `channel_identity`.
+
+**Mandaat en autonomie (veilig als default).** Ladder `OBSERVE -> PROPOSE -> PREPARE ->
+ACT_WITH_APPROVAL -> AUTONOMOUS`. Twee onafhankelijke gates in `server/agents/registry.mjs`:
+autonomie (hoe ver zelfstandig) en mandaat (welke resources/acties). Scout heeft `PREPARE`: mag
+observeren, voorstellen en voorbereiden, maar mag nooit zelf verzenden, promoveren, consent zetten,
+privacy lezen, identiteiten samenvoegen of extern web raadplegen. Elke weigering wordt geauditeerd
+(`mandate_denied`/`autonomy_denied`). Mandaat blokkeert ook een hoog-autonome agent.
+
+**Growth/Lead-collega (Scout), end-to-end.** `server/agents/scout/runner.mjs`: krijgt een
+`growth_discovery` work item met echte, aangedragen kandidaten, controleert per kandidaat of we de
+organisatie of personen al kennen (dedup), kwalificeert fit uit ECHTE signalen via een
+deterministische providergrens, bewaart evidence + confidence + epistemische status, stelt een
+volgende stap voor, en laat het als prepared work achter. Verzendt nooit. Promoveert nooit zelf.
+Promotie is een menselijke actie die een `LEAD` in de gedeelde waarheid zet plus een PROPOSED memory,
+zodat gevonden informatie, afleiding en bevestigde relationele state gescheiden blijven.
+
+**Providergrens (eerlijk).** `server/agents/providers/discovery.mjs`: de standaardprovider is
+deterministisch en intern (kwalificeert op basis van aangedragen of interne data, verzint niets). De
+externe web-provider is een stub die `configured:false` meldt en NIETS teruggeeft, zodat echte
+discovery later veilig kan worden aangesloten. Geen nepdata als echte leads.
+
+**Cockpit-integratiecontract.** `server/agents/cockpit.mjs` + `handleAgents` (`/api/agents/*`,
+admin-gated, gemount naast `handleComm`). De Cockpit consumeert findings als prepared work op Vandaag,
+per relatie op het dossier, met promote/dismiss als menselijke beslissing. Contract vastgelegd in
+`docs/architecture/COCKPIT_AGENT_INTEGRATION.md`.
+
+**Tests.** Nieuw: `tests/agents-registry.test.mjs` (pure unit, altijd groen: mandaat/autonomie,
+provider-eerlijkheid) en `tests/agents-scout.test.mjs` (DB-E2E: volledige lifecycle, tenant-isolatie,
+idempotentie/double-submit, provenance, geen externe actie zonder goedkeuring, state transitions,
+failure handling, promotie/afwijzing, en dat agent-output nooit stil als bevestigd feit belandt).
+Lokaal tegen een echte Postgres: 12/12 agent-tests groen; zonder DB skippen de E2E-tests netjes
+(66 pass / 10 skip). Eén bestaande comm-copilot-test (`comm-ai` test 2) faalt in deze lokale sandbox
+door een pre-existing race in de mock-copilot (reproduceert op de schone baseline zonder deze
+wijziging, en is groen in de echte CI volgens deze log); niet veroorzaakt door dit werk.
+
+**Commit:** branch `claude/maculis-team-agents-arch-cuybdp`. Geen deploy, geen infra/secret-wijziging.
+
+---
+
 ## 2026-08-15 — Scope & ownership: Communication Layer grens (productbeslissing)
 
 **Geen code-wijziging. Uitsluitend een vastgelegde scope/ownership-grens** (op verzoek), zodat

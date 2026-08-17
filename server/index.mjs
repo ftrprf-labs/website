@@ -21,6 +21,7 @@ import {
   cookieHeaderFor,
 } from './auth.mjs';
 import { handleComm } from './comm/routes.mjs';
+import { handleAgents } from './agents/routes.mjs';
 import { migrateOnBoot } from './comm/migrate.mjs';
 import { commEnabled } from './comm/db.mjs';
 import { bridgePassTheLens } from './comm/pass-the-lens.mjs';
@@ -224,6 +225,13 @@ async function handleApi(req, res, pathname) {
   // existing Invitation Manager / First Five routes.
   if (pathname.startsWith('/api/comm/')) {
     const handled = await handleComm(req, res, { pathname, method, isAuthed });
+    if (handled) return;
+  }
+
+  // Digital Colleagues (agents) routes — mounted only when the Communication Layer is enabled, and
+  // admin-gated inside handleAgents. Additive; the Cockpit consumes these, no send, no external calls.
+  if (pathname.startsWith('/api/agents/')) {
+    const handled = await handleAgents(req, res, { pathname, method, isAuthed });
     if (handled) return;
   }
 
