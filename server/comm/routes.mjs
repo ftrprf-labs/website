@@ -71,6 +71,27 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
     return true;
   }
 
+  // ---- Mijn Maculis boundary proof (admin-gated; §25 architecture/privacy proof) --------------
+  // Shows the sharing boundary from the INTERNAL side for one organization: exactly what Maculis is
+  // authorized to use (SHARED) and only a COUNT of the private insights that are withheld. No PRIVATE
+  // content is ever returned. Lets an admin verify that only the deliberately-shared insight is
+  // available internally and the others are not. Accepts ?org=<uuid> or ?name=<organisatienaam>.
+  if (pathname === '/api/comm/mijn-boundary' && method === 'GET') {
+    const { boundaryProof } = await import('../mijn/sharing.mjs');
+    const orgParam = u.searchParams.get('org');
+    const nameParam = u.searchParams.get('name');
+    let org = null;
+    if (orgParam) {
+      org = (await query('select id, name from organization where id=$1 and tenant_id=$2', [orgParam, tenantId])).rows[0] || null;
+    } else if (nameParam) {
+      org = (await query('select id, name from organization where lower(name)=lower($1) and tenant_id=$2 order by created_at limit 1', [nameParam, tenantId])).rows[0] || null;
+    }
+    if (!org) { json(res, 404, { error: 'Organisatie niet gevonden' }); return true; }
+    const proof = await boundaryProof(tenantId, org.id);
+    json(res, 200, { organization: org.name, organizationId: org.id, ...proof });
+    return true;
+  }
+
   // ---- Inbox (attention model, §22) ----------------------------------------------------------
   if (pathname === '/api/comm/inbox' && method === 'GET') {
     const box = u.searchParams.get('box') === 'privacy' ? 'privacy' : 'communication';

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mijn Maculis — grenscontrole (Cockpit)</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" href="/brand/maculis-eye.png" />
+  <link rel="stylesheet" href="/mijn.css" />
+</head>
+<body class="mijn">
+  <main class="main" style="min-height:100vh">
+    <header class="topbar">
+      <div class="topbar-text">
+        <h1 class="page-title">Grenscontrole</h1>
+        <p class="page-sub">Interne Cockpit-kant: wat Maculis van deze organisatie mag gebruiken, en wat privé blijft.</p>
+      </div>
+    </header>
+    <div class="view">
+      <div id="cc-status" class="skel">Controle wordt geladen…</div>
+      <div id="cc-body" class="hidden">
+        <div class="ov-grid">
+          <section class="panel">
+            <p class="section-label">Intern geautoriseerd — alleen gedeeld</p>
+            <div id="cc-authorized"></div>
+          </section>
+          <section class="panel laatste" style="align-items:stretch;text-align:left">
+            <p class="section-label">Privé — niet zichtbaar voor Maculis</p>
+            <p style="margin:0"><span id="cc-withheld" style="font-family:var(--serif);font-size:34px;font-weight:600"></span></p>
+            <p class="muted" id="cc-withheld-note" style="color:var(--muted);margin:6px 0 0"></p>
+            <p class="muted" style="color:var(--muted);font-size:13px;margin-top:14px">De inhoud en titels van privé-inzichten worden hier bewust niet getoond. Alleen het aantal is zichtbaar, als bewijs dat de grens sluit.</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script src="/cockpit-check.js" defer></script>
+</body>
+</html>

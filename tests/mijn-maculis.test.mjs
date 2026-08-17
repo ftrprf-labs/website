@@ -136,6 +136,18 @@ test('Mijn Maculis: isolation, PRIVATE/SHARED boundary, explicit sharing, Cockpi
     assert.ok(collabTitles.includes('A-visible-agreement'));
     assert.ok(!collabTitles.includes('A-internal-task'), 'internal task must not be visible to the customer');
 
+    // 10b) Boundary proof (admin/Cockpit side): shows the SHARED insight, withholds PRIVATE content,
+    //      and reports only a count of what is withheld.
+    const { boundaryProof } = await import('../server/mijn/sharing.mjs');
+    const proof = await boundaryProof(tid, orgA);
+    assert.equal(proof.authorized.length, 1, 'internal proof shows exactly the shared insight');
+    assert.equal(proof.authorized[0].title, 'A-private-shareable');
+    assert.equal(proof.sharedCount, 1);
+    assert.equal(proof.withheldPrivateCount, 1, 'one PRIVATE insight is withheld from Maculis');
+    // The proof must not carry any withheld PRIVATE title/content.
+    const proofBlob = JSON.stringify(proof);
+    assert.ok(!proofBlob.includes('A-private-stays'), 'withheld PRIVATE content never appears in the proof');
+
     // 11) The customer stays in control: withdrawing a share removes it from internal context again.
     const revoke = await mijnCall(handleMijn, 'POST', `/api/mijn/insights/${aShareable}/revoke`, { token: accessA.token, body: {} });
     assert.equal(revoke.json.sharing, 'PRIVATE');

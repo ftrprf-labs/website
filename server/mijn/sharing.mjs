@@ -65,6 +65,29 @@ export async function sharedContextForOrg(tenantId, organizationId) {
   return r.rows;
 }
 
+// PREVIEW / ARCHITECTURE PROOF (§25). Demonstrates the boundary from the INTERNAL side: what Maculis
+// is authorized to use (the SHARED insights, full) and HOW MANY private insights are withheld
+// (a count only, never their titles or content). This is a diagnostic surface for verification, not
+// a normal internal read path — the count is the one place we deliberately look at PRIVATE rows, and
+// even here nothing about their content crosses the boundary.
+export async function boundaryProof(tenantId, organizationId) {
+  const authorized = await sharedContextForOrg(tenantId, organizationId);
+  const totals = (await query(
+    `select
+        count(*) filter (where sharing='PRIVATE')::int as private,
+        count(*) filter (where sharing='SHARED')::int as shared,
+        count(*)::int as total
+       from customer_insight
+      where tenant_id=$1 and organization_id=$2 and status <> 'archived'`,
+    [tenantId, organizationId])).rows[0];
+  return {
+    authorized,                               // full: titles + observation of SHARED insights only
+    withheldPrivateCount: totals.private,     // count only — no PRIVATE content ever leaves the boundary
+    sharedCount: totals.shared,
+    totalCount: totals.total,
+  };
+}
+
 // Count only — used by the Cockpit to show "N gedeelde inzichten" without loading bodies.
 export async function sharedInsightCount(tenantId, organizationId) {
   if (!organizationId) return 0;
