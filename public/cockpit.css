@@ -1177,3 +1177,12 @@ body {
 .work-ev { margin: .1rem 0 .45rem; padding-left: 1.1rem; color: var(--muted); font-size: .82rem; }
 .work-ev li { margin: .12rem 0; }
 .dos-work .colleague { margin-top: .6rem; }
+
+/* Beheer → Testerbeheer: a compact admin form in the cockpit vormtaal. */
+.beheer-add { margin: .3rem 0 .2rem; display: flex; flex-direction: column; gap: .5rem; }
+.beheer-add .ba-row { display: flex; gap: .5rem; flex-wrap: wrap; }
+.beheer-add input { flex: 1 1 160px; min-width: 120px; padding: .55rem .7rem; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--primary) 4%, transparent); color: var(--text); font: inherit; }
+.beheer-add input:focus { outline: none; border-color: var(--primary); }
+.beheer-add .btn { flex: 0 0 auto; }
+.beheer-more { margin-top: 1rem; opacity: .85; }
+.beheer-more a { color: var(--primary); }

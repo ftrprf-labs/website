@@ -90,7 +90,7 @@ async function render() {
   if (scn === 'gesprek') { shell.setAttribute('data-space', 'work'); lightNav('gesprekken'); return renderGesprek(activeConvId); }
   if (scn === 'relaties') { shell.setAttribute('data-space', 'work'); lightNav('relaties'); return renderRelaties(); }
   if (scn === 'gesprekken') { shell.setAttribute('data-space', 'work'); lightNav('gesprekken'); return renderGesprekken(); }
-  // Only Beheer stays an honest placeholder in this slice — never fixtures.
+  if (scn === 'beheer') { shell.setAttribute('data-space', 'work'); lightNav('beheer'); return renderBeheer(); }
   shell.setAttribute('data-space', 'work'); lightNav(scn);
   const wrap = el('div', 'view-enter');
   wrap.appendChild(el('div', 'eyebrow-line', scn.charAt(0).toUpperCase() + scn.slice(1)));
@@ -700,6 +700,106 @@ function gespRow(c) {
   const open = () => { activeConvId = c.conversationId; scn = 'gesprek'; render(); };
   row.addEventListener('click', open);
   row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  return row;
+}
+
+/* ---------- Beheer → Testerbeheer (administrative; reuses the existing invitation tool) ---------- */
+// This is administrative functionality, not the relational workspace. It reads and writes the SAME
+// JSON invitation store as the standalone tool via /api/invitations (no new backend, no new
+// outbound). A tester here is NOT a Maculis relation: this view never touches the relational layer,
+// so nothing is silently promoted from tester to relation.
+const TESTER_STATUS = {
+  DRAFT: ['nog niet verstuurd', ''], SENT: ['uitnodiging verstuurd', 'ready'],
+  OPENED: ['link geopend', 'ready'], COMPLETED: ['afgerond', 'ready'],
+  DECLINED: ['afgewezen', 'now'], ERROR: ['fout', 'now'],
+};
+const TESTER_CONSENT = { OPTED_IN: ['toestemming', 'ready'], OPTED_OUT: ['geen toestemming', 'now'], UNKNOWN: ['toestemming onbekend', ''] };
+
+async function renderBeheer() {
+  const wrap = el('div', 'view-enter wide');
+  wrap.appendChild(el('div', 'eyebrow-line', 'Beheer'));
+  wrap.appendChild(el('h1', 'work-h1', 'Testerbeheer'));
+  wrap.appendChild(el('p', 'lead-note', 'Administratief. Testers en uitnodigingen voor de campagne. Dit staat los van je relaties: een tester wordt hier geen Maculis-relatie.'));
+
+  // Add a tester (reuses POST /api/invitations; creates a record + link, sends niets).
+  const form = el('form', 'beheer-add');
+  form.innerHTML =
+    `<div class="ba-row">
+       <input type="text" id="ba-first" placeholder="Voornaam" aria-label="Voornaam">
+       <input type="text" id="ba-last" placeholder="Achternaam" aria-label="Achternaam">
+       <input type="text" id="ba-org" placeholder="Organisatie" aria-label="Organisatie">
+     </div>
+     <div class="ba-row">
+       <input type="email" id="ba-email" placeholder="E-mail" aria-label="E-mail">
+       <input type="text" id="ba-mobile" placeholder="Mobiel" aria-label="Mobiel">
+       <button class="btn btn-primary" type="submit">Tester toevoegen</button>
+     </div>`;
+  const err = el('p', 'lead-note'); err.style.color = 'var(--danger)'; err.style.display = 'none';
+  wrap.appendChild(form); wrap.appendChild(err);
+
+  const meta = el('div', 'work-meta'); wrap.appendChild(meta);
+  const bar = el('div', 'filterbar');
+  bar.innerHTML = `<span class="search big"><span aria-hidden="true">⌕</span><input type="text" id="t-q" placeholder="Zoek een tester of organisatie" aria-label="Zoek tester"></span>`;
+  wrap.appendChild(bar);
+  const list = el('div', 'ck-list'); wrap.appendChild(list);
+
+  // A discreet bridge to the full tool for the heavier admin flows (import, e-mail, evaluaties),
+  // which keep their own tested safety rules; the cockpit does not rebuild them.
+  const more = el('p', 'lead-note beheer-more');
+  more.innerHTML = 'Importeren, uitnodigingen versturen en evaluaties: <a href="/index.html">open de volledige uitnodigingstool</a>.';
+  wrap.appendChild(more);
+  view.appendChild(wrap);
+
+  let all = [];
+  function draw(q) {
+    const needle = (q || '').toLowerCase();
+    const rows = all.filter((r) => !needle || (
+      `${r.first_name || ''} ${r.last_name || ''} ${r.company_name || ''} ${r.email || ''}`.toLowerCase().includes(needle)));
+    list.innerHTML = '';
+    meta.innerHTML = `<span class="wm-count"><b>${rows.length}</b> tester${rows.length === 1 ? '' : 's'}</span>`;
+    if (!rows.length) { list.appendChild(el('p', 'muted', all.length ? 'Geen tester gevonden.' : 'Nog geen testers. Voeg er hierboven een toe of importeer via de volledige tool.')); return; }
+    rows.forEach((r) => list.appendChild(testerRow(r)));
+  }
+  async function load() {
+    const { ok, data } = await api('/api/invitations');
+    if (!ok || !data) { list.appendChild(el('p', 'lead-note', 'Kon testers niet laden.')); return; }
+    all = data.invitations || [];
+    draw(bar.querySelector('#t-q').value.trim());
+  }
+  let t; bar.querySelector('#t-q').addEventListener('input', (e) => { clearTimeout(t); t = setTimeout(() => draw(e.target.value.trim()), 150); });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    err.style.display = 'none';
+    const body = {
+      first_name: form.querySelector('#ba-first').value.trim(),
+      last_name: form.querySelector('#ba-last').value.trim(),
+      company_name: form.querySelector('#ba-org').value.trim(),
+      email: form.querySelector('#ba-email').value.trim(),
+      mobile: form.querySelector('#ba-mobile').value.trim(),
+    };
+    const r = await api('/api/invitations', { method: 'POST', body: JSON.stringify(body) });
+    if (r.ok) { form.reset(); load(); } else { err.textContent = (r.data && r.data.error) || 'Kon tester niet toevoegen.'; err.style.display = ''; }
+  });
+  load();
+}
+
+function testerRow(r) {
+  const row = el('article', 'conv');
+  const name = [r.first_name, r.last_name].filter(Boolean).join(' ') || r.email || r.company_name || 'Onbekend';
+  const [stLbl, stCls] = TESTER_STATUS[r.status] || [(r.status || '').toLowerCase(), ''];
+  const [csLbl, csCls] = TESTER_CONSENT[r.consent_status] || ['', ''];
+  const chips = [`<span class="chip ${stCls}"><span class="k"></span>${esc(stLbl)}</span>`];
+  if (csLbl) chips.push(`<span class="chip ${csCls}">${esc(csLbl)}</span>`);
+  if (r.campaign) chips.push(`<span class="chip">${esc(r.campaign)}</span>`);
+  const contact = r.email || r.mobile || '';
+  row.innerHTML =
+    `<span class="av" aria-hidden="true">${esc(initials(name))}</span>
+     <div class="conv-main">
+       <div class="conv-top"><span class="conv-who">${esc(name)}</span></div>
+       ${r.company_name ? `<div class="conv-org">${esc(r.company_name)}</div>` : ''}
+       ${contact ? `<div class="conv-snip">${esc(contact)}</div>` : ''}
+       <div class="conv-tags">${chips.join('')}</div>
+     </div>`;
   return row;
 }
 
