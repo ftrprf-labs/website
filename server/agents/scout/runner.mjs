@@ -18,9 +18,6 @@ import { getDiscoveryProvider } from '../providers/discovery.mjs';
 import { gatherExternalSignals, gatherVerification } from '../providers/registry.mjs';
 import { emailDomain } from '../../comm/identity.mjs';
 
-// Only record work that clears a relevance bar (compression: protect attention at the source).
-const MIN_RECORD_CONFIDENCE = 0.35;
-
 function slug(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
 function candidateKey(c) { return (c.domain || '').toLowerCase() || (c.person && c.person.email ? String(c.person.email).toLowerCase() : '') || slug(c.name) || null; }
 
@@ -61,12 +58,14 @@ async function checkExistence(tenantId, candidate) {
 }
 
 // Turn provider output + DB facts into an evidence object with an EXPLICIT epistemic split, so the
-// human (and later a learning loop) can tell fact from inference from hypothesis.
-function buildEvidence(candidate, known, q) {
+// human (and later a learning loop) can tell fact from observation from inference from hypothesis.
+// It carries BOTH a fit confidence and an identity status, kept separate on purpose: an organisation
+// can have interesting signals while we are not yet sure the signals are about the same legal entity.
+export function buildEvidence(candidate, known, q) {
   const facts = [];
-  // Provided data is a fact about the input (what a human handed us), labelled honestly.
-  if (candidate.note) facts.push({ kind: 'FACT', text: `Aangedragen met context: ${candidate.note}` });
-  if (candidate.domain) facts.push({ kind: 'FACT', text: `Domein: ${candidate.domain}` });
+  // What a human handed us is CONTEXT, marked as provided so it never reads as evidence of fit.
+  if (candidate.note) facts.push({ kind: 'FACT', provided: true, text: `Aangedragen met context: ${candidate.note}` });
+  if (candidate.domain) facts.push({ kind: 'FACT', provided: true, text: `Aangedragen domein: ${candidate.domain}` });
   // Real DB facts from qualification evidence (existing org, known contact, prior activity).
   const externals = [];
   for (const e of q.evidence || []) {
@@ -78,15 +77,24 @@ function buildEvidence(candidate, known, q) {
   }
   const inferences = [{ kind: 'INFERENCE', text: q.summary }];
   const hypotheses = [];
-  if (!known.organization && !(known.contacts && known.contacts.length)) {
-    hypotheses.push({ kind: 'HYPOTHESIS', text: 'Mogelijke fit met Maculis. Nog niet bevestigd; menselijke beoordeling nodig.' });
+  if (q.identityStatus !== 'verified') {
+    hypotheses.push({ kind: 'HYPOTHESIS', text: q.identityStatus === 'unverified'
+      ? 'Identiteit niet bevestigd: de waarnemingen kunnen (deels) een naamgenoot betreffen.'
+      : 'Identiteit waarschijnlijk, maar niet officieel bevestigd.' });
   }
   const observations = [...facts, ...externals, ...inferences, ...hypotheses];
   const ev = {
     source: candidate.demo ? 'demo-fixture' : 'scout/internal',
     provider: q.providerName || 'internal',
-    confidence: q.confidence,
+    // Two distinct axes, never collapsed into one number.
+    fitConfidence: q.fitConfidence,
+    confidence: q.fitConfidence,           // backward-compatible alias (was the single score)
+    identityStatus: q.identityStatus,      // 'unverified' | 'probable' | 'verified'
+    identityConfidence: q.identityConfidence,
+    identityReasons: q.identityReasons || [],
+    decision: q.decision,                  // 'awareness' | 'approval'
     epistemicStatus: q.epistemicStatus,
+    fitBreakdown: q.fitBreakdown || null,
     observations,
     facts, external: externals, inferences, hypotheses,
   };
@@ -139,33 +147,33 @@ export async function runScout({ tenantId, candidates = [], trigger = 'human', r
       const verification = await gatherVerification({ name: candidate.name, domain: candidate.domain }, { sources: verificationSources });
       if (verification.length) await recordCapabilityCall(tenantId, runId, { capability: 'verify_identity', note: `${key}:${verification.length}` });
       const q = await provider.qualify({ candidate, known: existence, externalSignals, verification });
-      await recordCapabilityCall(tenantId, runId, { capability: 'qualify', note: `${key}:${q.confidence}` });
+      await recordCapabilityCall(tenantId, runId, { capability: 'qualify', note: `${key}:fit=${q.fitConfidence}:id=${q.identityStatus}` });
 
-      // Concise, non-PII trace so the external chain is verifiable straight from the logs: which
-      // sources produced observations, and the confidence. Logs the org name/domain (the operator's
-      // own business input), never a person's e-mail.
+      // Per-source breakdown for the trace (website vs ted vs other). Non-PII: sources + counts only.
       const sigBy = {};
-      for (const s of externalSignals) { const p = s.provider || s.source || 'external'; sigBy[p] = (sigBy[p] || 0) + 1; }
+      for (const s of externalSignals) { const p = /ted/i.test(s.provider || s.source || '') ? 'ted' : (/website/i.test(s.provider || s.source || '') ? 'website' : (s.provider || s.source || 'extern')); sigBy[p] = (sigBy[p] || 0) + 1; }
       const sigStr = Object.keys(sigBy).length ? Object.entries(sigBy).map(([p, n]) => `${p}:${n}`).join(',') : 'geen';
       const subj = candidate.name || candidate.domain || key;
 
-      // Compression: below the relevance bar, record nothing (unless it touches a known relation,
-      // which is always worth surfacing quietly).
+      // DEDUPE / one reality: a known organisation is recognised and NEVER re-proposed as a new
+      // relation; it only surfaces (new) signals. A truly new lead rides as a proposedRelation.
       const touchesKnown = Boolean(existence.organization || existence.contact);
-      if (q.confidence < MIN_RECORD_CONFIDENCE && !touchesKnown) {
+      // Compression: a NEW lead needs a concrete handle (domain, e-mail/person) or a real external
+      // signal to be worth surfacing; a bare vague name with nothing is dropped (no attention spam).
+      const recordable = touchesKnown || Boolean(candidate.domain) || Boolean(candidate.person && candidate.person.email) || externalSignals.length > 0;
+      if (!recordable) {
         skipped += 1;
-        console.log(`[scout] run ${runId} · ${subj}: waarnemingen=${sigStr}, verificatie=${verification.length}, vertrouwen=${q.confidence} -> overgeslagen (onder drempel ${MIN_RECORD_CONFIDENCE})`);
+        console.log(`[scout] run ${runId} · ${subj}: bronnen=${sigStr} fit=${q.fitConfidence} identiteit=${q.identityStatus} -> overgeslagen (geen concreet aanknopingspunt)`);
         continue;
       }
 
-      const warm = Boolean(existence.contacts && existence.contacts.length);
-      const needs = (warm || q.confidence >= 0.55) ? 'approval' : 'awareness';
+      // Decision -> needs. A known relation surfaces as calm awareness. A new lead follows Scout's
+      // fit+identity decision, which is never stronger than 'awareness' until identity is at least
+      // probable AND fit is strong (discovery.FIT). Human approval stays mandatory in every case.
+      const needs = touchesKnown ? 'awareness' : q.decision;
 
-      // Build the attention-item input per the cockpit contract.
       const evidence = buildEvidence(candidate, existence, q);
-      // ONE REALITY: reference what already exists; only propose a NEW relation when neither the
-      // person nor the organization is known. This also lets the cockpit fold work onto an existing
-      // relation card instead of adding a duplicate.
+
       const relation = {};
       let proposedRelation = null;
       if (existence.contact) {
@@ -188,18 +196,31 @@ export async function runScout({ tenantId, candidates = [], trigger = 'human', r
 
       const whoLabel = candidate.name || (proposedRelation && proposedRelation.name) || 'onbekend';
       const title = touchesKnown
-        ? `Scout ziet iets bij een bestaande relatie: ${whoLabel}`
-        : `Mogelijke nieuwe relatie: ${whoLabel}`;
+        ? `Scout ziet signalen bij een bestaande relatie: ${whoLabel}`
+        : (needs === 'approval' ? `Nieuwe relatie voorgesteld: ${whoLabel}` : `Mogelijke nieuwe relatie om te bekijken: ${whoLabel}`);
+      // Human-facing ask, matched to the decision so the card reads honestly.
+      const ask = touchesKnown
+        ? 'Scout ziet publieke signalen bij deze bestaande relatie.'
+        : (needs === 'approval'
+          ? 'Scout heeft voldoende onderbouwing. Wil je deze kandidaat opnemen?'
+          : 'Scout ziet iets dat kan passen. Wil je dit bekijken? De identiteit is nog niet bevestigd.');
       const proposal = {
-        summary: q.proposedAction.summary,
+        summary: ask,
         needs,
-        actions: q.proposedAction.kind === 'prepare_intro' ? ['view', 'approve', 'edit', 'reject'] : ['view', 'approve', 'reject'],
         step: q.proposedAction.kind,
+        fitConfidence: q.fitConfidence,
+        identityStatus: q.identityStatus,
       };
       // Preparing/recording work is within Scout's autonomy; asserted (audited on denial). Note that
       // any external step (mandate_required 'send') stays a proposal that a human must approve first.
       if (q.proposedAction.mandate_required === 'send') proposal.needsHumanBeforeContact = requiresApproval(scout, 'send_external');
       await assertCan(scout, 'record_work', { tenantId, resource: { type: 'attention_item', id: key } });
+
+      // A new lead dedups per candidate; signals on a KNOWN org dedup per org, so repeated runs
+      // update one card in place instead of stacking a second one (and never a second relation).
+      const dedupKey = touchesKnown
+        ? `signals:${existence.organization ? existence.organization.id : (existence.contact ? existence.contact.id : key)}`
+        : `lead:${key}`;
 
       const input = {
         origin: { kind: 'AGENT', key: scout.slug, label: scout.display_name },
@@ -211,12 +232,15 @@ export async function runScout({ tenantId, candidates = [], trigger = 'human', r
         reason: q.summary,
         evidence,
         proposal,
-        dedupKey: `lead:${key}`,
+        dedupKey,
       };
       const res = await recordWorkItem(tenantId, input);
       if (res.ok) {
         landed.push({ id: res.id, deduped: Boolean(res.deduped), key }); recorded += 1; if (touchesKnown) known += 1;
-        console.log(`[scout] run ${runId} · ${subj}: waarnemingen=${sigStr}, verificatie=${verification.length}, vertrouwen=${q.confidence}, bekend=${touchesKnown} -> ${res.deduped ? 'bestond al' : 'geland'} attention_item ${res.id}`);
+        const b = q.fitBreakdown || {};
+        const perSrc = Object.entries(b.perSource || {}).map(([p, n]) => `${p}:${n}`).join(',') || 'geen';
+        console.log(`[scout] run ${runId} · ${subj}: bronnen=${sigStr} fit=${q.fitConfidence} identiteit=${q.identityStatus} besluit=${needs} bekend=${touchesKnown} -> ${res.deduped ? 'bijgewerkt' : 'geland'} attention_item ${res.id}`);
+        console.log(`[scout] run ${runId} · ${subj}: fit-opbouw intern=${b.internal || 0} extern=${b.externalApplied || 0} (${perSrc}) corroboratie=${b.corroboration || 0} verificatie=${b.verification || 0} gate=${b.gate}(${b.gateCap})`);
       }
     }
 

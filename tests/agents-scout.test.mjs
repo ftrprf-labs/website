@@ -59,7 +59,12 @@ test('Scout lands well-reasoned work in the cockpit and only a human resolves it
   const kinds = veld.evidence.observations.map((o) => o.kind);
   assert.ok(kinds.includes('FACT') && kinds.includes('INFERENCE') && kinds.includes('HYPOTHESIS'),
     'found information, inference and hypothesis stay distinguishable');
-  assert.ok(veld.evidence.confidence > 0 && veld.evidence.confidence < 1);
+  // New epistemic model: fit and identity are separate, and a cold operator-provided lead with no
+  // external signal is low-fit, unverified identity, and an 'awareness' (investigate) ask — not approval.
+  assert.equal(typeof veld.evidence.fitConfidence, 'number');
+  assert.ok(veld.evidence.fitConfidence >= 0 && veld.evidence.fitConfidence < 1);
+  assert.equal(veld.evidence.identityStatus, 'unverified');
+  assert.equal(veld.needs, 'awareness', 'a cold, unverified lead only asks to be looked at');
 
   // --- 4) existing relation recognised; NOT proposed as a new one ------------------------------
   assert.equal(oca.proposedRelation, null, 'a known org is referenced, never re-proposed');
@@ -134,6 +139,47 @@ test('Scout lands well-reasoned work in the cockpit and only a human resolves it
   assert.equal((await items(tB)).every((i) => i.title.includes('Bravo')), true, 'tenant B only sees its own work');
   assert.equal((await items(t)).some((i) => i.title.includes('Bravo')), false, 'tenant A never sees tenant B work');
 
+  await closePool();
+});
+
+test('Dedupe/memory: after acceptance, a second run recognises the org and never duplicates it', opts, async () => {
+  await runMigrations({ silent: true });
+  await query('truncate attention_item, agent_run, activity, contact, organization, channel_identity, audit_event cascade');
+  const t = await getDefaultTenantId();
+
+  // Deterministic injected sources (real provider shapes; no live network) for TopzorgGroep.
+  const websiteLike = { name: 'website', signals: async ({ domain }) => domain ? { signals: [{ claim: 'Publieke positionering op de website.', confidence: 0.4, source: 'company-website', url: `https://${domain}/`, relevantNow: true }] } : { signals: [] } };
+  const tedLike = { name: 'ted', signals: async ({ name }) => name ? { signals: [{ claim: 'Recente EU-aanbesteding (TED).', confidence: 0.55, source: 'TED', sourceType: 'ted', url: 'https://ted.europa.eu/n/1', uncertainties: ['Naam-match kan een naamgenoot betreffen.'] }] } : { signals: [] } };
+  const src = { sources: [websiteLike, tedLike] };
+  const cand = { name: 'TopzorgGroep', domain: 'topzorggroep.nl' };
+
+  // 1) first run: a cold lead -> awareness (investigate), proposed as a NEW relation, identity probable.
+  const r1 = await runScout({ tenantId: t, trigger: 'human', ...src, candidates: [cand] });
+  assert.equal(r1.ok, true);
+  const first = (await items(t)).find((i) => i.title.includes('TopzorgGroep'));
+  assert.ok(first && first.proposedRelation, 'a not-yet-known org rides as a proposedRelation');
+  assert.equal(first.needs, 'awareness', 'cold + unverified -> awareness, not approval');
+  assert.equal(first.evidence.identityStatus, 'probable', 'the own website makes identity probable');
+
+  // 2) the human accepts it -> it materialises as exactly one organization + one contact.
+  const approved = await resolveWorkItem(t, first.id, 'approve', { actorKey: 'lud' });
+  assert.equal(approved.ok, true);
+  const orgCount = async () => Number((await query("select count(*)::int n from organization where lower(name)='topzorggroep'")).rows[0].n);
+  assert.equal(await orgCount(), 1, 'exactly one organization after acceptance');
+
+  // 3) SECOND run on the SAME org+domain: it must be recognised, never re-proposed, never duplicated.
+  const r2 = await runScout({ tenantId: t, trigger: 'human', ...src, candidates: [cand] });
+  assert.equal(r2.ok, true);
+  assert.equal(await orgCount(), 1, 'the second run creates NO second organization');
+  assert.equal(Number((await query("select count(*)::int n from contact c join organization o on o.id=c.organization_id where lower(o.name)='topzorggroep'")).rows[0].n), 1, 'no duplicate contact');
+
+  // The second run surfaces new signals against the EXISTING relation (no proposedRelation).
+  const open = (await items(t)).filter((i) => i.title.includes('TopzorgGroep'));
+  const fyi = open.find((i) => !i.proposedRelation);
+  assert.ok(fyi, 'the second run attaches to the existing relation');
+  assert.equal(fyi.proposedRelation, null, 'never a new relation for a known org');
+  assert.ok(fyi.contactId || fyi.org, 'it references the existing reality');
+  assert.equal(fyi.needs, 'awareness');
   await closePool();
 });
 

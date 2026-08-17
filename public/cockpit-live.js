@@ -302,7 +302,52 @@ function evidenceItems(ev) {
   return Array.isArray(ev.observations) ? ev.observations : [];
 }
 
-// A colleague's work item: what is proposed, why (evidence, honestly labelled), and the actions.
+// Fit is not the same as certainty about identity: keep them visually separate on the card.
+function fitLabel(v) {
+  if (typeof v !== 'number') return null;
+  const word = v >= 0.6 ? 'sterk' : v >= 0.35 ? 'redelijk' : v > 0 ? 'zwak' : 'nog geen';
+  const tone = v >= 0.6 ? 'hi' : v >= 0.35 ? 'mid' : 'lo';
+  return { word, pct: Math.round(v * 100), tone };
+}
+const IDENTITY_UI = {
+  verified: { label: 'ja, officieel bevestigd', cls: 'id-ok' },
+  probable: { label: 'waarschijnlijk, eigen website gezien', cls: 'id-maybe' },
+  unverified: { label: 'nog niet bevestigd, alleen naam-match', cls: 'id-no' },
+};
+// Plain-language reason Scout only asks to look, or asks for approval.
+function whyLine(needs, idStatus) {
+  if (needs === 'approval') return 'Scout vraagt je akkoord: onderbouwing en identiteit zijn sterk genoeg.';
+  if (idStatus === 'unverified') return 'Scout vraagt alleen om te kijken: de identiteit is nog niet bevestigd.';
+  return 'Scout vraagt om te kijken. Jij beslist of dit de moeite waard is.';
+}
+
+// The human-in-the-loop actions. A proposed NEW relation can be adopted or dismissed; an
+// existing-relation note (no proposedRelation) can only be dismissed. Approval stays a human act.
+function workActions(w, onResolve) {
+  const bar = el('div', 'prepared-actions');
+  let acts;
+  if (w.proposedRelation) {
+    acts = w.needs === 'approval'
+      ? [['approve', 'Opnemen', 'btn-primary'], ['reject', 'Afwijzen', 'btn-ghost']]
+      : [['approve', 'Opnemen als prospect', 'btn-primary'], ['reject', 'Niet nu', 'btn-ghost']];
+  } else {
+    acts = (w.actions || []).filter((a) => a !== 'view').map((a) => [a, WORK_ACTION_LABEL[a] || a, a === 'approve' ? 'btn-primary' : 'btn-ghost']);
+  }
+  acts.forEach(([action, label, cls]) => {
+    const btn = el('button', 'btn ' + cls, label);
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      btn.disabled = true; btn.textContent = 'Bezig…';
+      const r = await api('/api/cockpit/work/' + w.id + '/' + action, { method: 'POST' });
+      if (r.ok) { (onResolve || (() => render()))(); } else { btn.disabled = false; btn.textContent = label; }
+    });
+    bar.appendChild(btn);
+  });
+  return bar;
+}
+
+// A colleague's work item: what is proposed, how strong the fit is, whether we are sure of the
+// identity, the evidence (honestly labelled), and the human-in-the-loop actions.
 // onResolve defaults to a full re-render of Vandaag; the dossier passes its own refresh.
 function workBlock(w, onResolve) {
   const wrap = el('div', 'work-block');
@@ -310,28 +355,28 @@ function workBlock(w, onResolve) {
   if (w.proposal && w.proposal.summary) wrap.appendChild(el('div', 'work-proposal', esc(w.proposal.summary)));
   // A demonstration/fixture is marked unmistakably so it can never read as a real find.
   if (ev.demo) wrap.appendChild(el('div', 'work-demo', 'Demonstratie. Geen echte waarneming.'));
+
+  // Fit and identity, side by side but never merged into one number.
+  const fit = fitLabel(typeof ev.fitConfidence === 'number' ? ev.fitConfidence : ev.confidence);
+  const idStatus = ev.identityStatus || null;
+  if (fit || (idStatus && IDENTITY_UI[idStatus])) {
+    const rows = [];
+    if (fit) rows.push(`<div class="assess-row"><span class="assess-k">Aanwijzingen dat dit past</span><span class="assess-v fit-${fit.tone}">${esc(fit.word)}${fit.pct ? ` · ${fit.pct}%` : ''}</span></div>`);
+    if (idStatus && IDENTITY_UI[idStatus]) rows.push(`<div class="assess-row"><span class="assess-k">Zelfde organisatie?</span><span class="assess-v ${IDENTITY_UI[idStatus].cls}">${esc(IDENTITY_UI[idStatus].label)}</span></div>`);
+    wrap.appendChild(el('div', 'work-assess', rows.join('')));
+  }
+
   const items = evidenceItems(ev).map(evItem).filter(Boolean);
   if (items.length) {
     const ul = el('ul', 'work-ev');
     items.slice(0, 6).forEach((li) => ul.appendChild(li));
     wrap.appendChild(ul);
   }
-  if (typeof ev.confidence === 'number') {
-    wrap.appendChild(el('div', 'ev-foot',
-      `Inschatting van Scout, vertrouwen ${Math.round(ev.confidence * 100)}%${ev.provider ? `, bron-motor ${esc(ev.provider)}` : ''}`));
-  }
-  const bar = el('div', 'prepared-actions');
-  (w.actions || []).filter(a => a !== 'view').forEach(action => {
-    const btn = el('button', 'btn ' + (action === 'approve' ? 'btn-primary' : 'btn-ghost'), WORK_ACTION_LABEL[action] || action);
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      btn.disabled = true; btn.textContent = 'Bezig…';
-      const r = await api('/api/cockpit/work/' + w.id + '/' + action, { method: 'POST' });
-      if (r.ok) { (onResolve || (() => render()))(); } else { btn.disabled = false; btn.textContent = WORK_ACTION_LABEL[action] || action; }
-    });
-    bar.appendChild(btn);
-  });
-  wrap.appendChild(bar);
+
+  const why = whyLine(w.needs, idStatus);
+  if (why) wrap.appendChild(el('div', 'ev-foot', esc(why)));
+
+  wrap.appendChild(workActions(w, onResolve));
   return wrap;
 }
 

@@ -68,26 +68,30 @@ test('colleague card separates what is autonomous vs needs human approval', () =
 
 // ---- deterministic discovery provider (honest, evidence-grounded) ------------------------------
 
-test('provider qualifies a warm, already-known org as INFERENCE with high confidence + a prepared intro', () => {
+test('provider qualifies a warm, already-known org as INFERENCE with solid fit + a prepared intro', () => {
   const q = internalQualify({
     candidate: { name: 'OCA', domain: 'oca.nl' },
     known: { organization: { id: 'o1', name: 'OCA', stage: null }, contacts: [{ id: 'c1', first_name: 'Kim', last_name: 'de Vries', email: 'kim@oca.nl' }], activityCount: 2 },
   });
   assert.equal(q.epistemicStatus, 'INFERENCE');
-  assert.ok(q.confidence >= 0.8);
+  // An existing warm relationship is genuine fit evidence (not operator input), and a known org has
+  // at least a probable identity.
+  assert.ok(q.fitConfidence >= 0.4, 'a warm existing relationship is solid fit');
+  assert.equal(q.identityStatus, 'probable');
   assert.equal(q.proposedAction.kind, 'prepare_intro');
   assert.equal(q.proposedAction.approval_required, true, 'preparing an intro still needs human approval to actually contact');
-  // Evidence is grounded and labelled by source; nothing invented.
+  // Evidence is grounded and labelled by source; DB facts come from the internal provider.
   const sources = q.evidence.map((e) => e.sourceType);
   assert.ok(sources.includes('internal_db'));
-  assert.ok(q.evidence.every((e) => e.provider === 'internal'));
+  assert.ok(q.evidence.filter((e) => e.sourceType === 'internal_db').every((e) => e.provider === 'internal'));
 });
 
-test('provider qualifies a domain-only unknown org as OBSERVATION needing human review', () => {
+test('provider qualifies a domain-only unknown org as a weak HYPOTHESIS: a provided domain is not fit', () => {
   const q = internalQualify({ candidate: { name: 'Acme BV', domain: 'acme.nl' }, known: { organization: null, contacts: [], activityCount: 0 } });
-  assert.equal(q.epistemicStatus, 'OBSERVATION');
+  assert.equal(q.epistemicStatus, 'HYPOTHESIS', 'a provided domain alone is not an observation of fit');
+  assert.equal(q.identityStatus, 'unverified');
   assert.equal(q.proposedAction.kind, 'human_review');
-  assert.ok(q.confidence < 0.8 && q.confidence > 0.3);
+  assert.equal(q.fitConfidence, 0, 'operator-supplied input yields no fit evidence');
 });
 
 test('provider qualifies a bare name as a weak HYPOTHESIS, never a confident fact', () => {

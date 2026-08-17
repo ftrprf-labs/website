@@ -6,7 +6,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { websiteProvider, extractSignals, robotsAllows, fetchWebsiteSignals } from '../server/agents/providers/website.mjs';
 import { gatherExternalSignals, gatherVerification, sourceProviderStatus } from '../server/agents/providers/registry.mjs';
-import { internalQualify } from '../server/agents/providers/discovery.mjs';
+import { internalQualify, FIT } from '../server/agents/providers/discovery.mjs';
+import { buildEvidence } from '../server/agents/scout/runner.mjs';
 import { tedProvider, buildTedQuery, extractTedSignals, textOf, fetchTedSignals } from '../server/agents/providers/ted.mjs';
 import { kvkProvider, extractKvkMatches } from '../server/agents/providers/kvk.mjs';
 
@@ -160,11 +161,78 @@ test('external signals fold into Scout reasoning as EXTERNAL observations, never
   const withSignal = internalQualify({
     candidate: { name: 'Veldwerk', domain: 'veldwerk.be' },
     known: { organization: null, contacts: [], activityCount: 0 },
-    externalSignals: [{ claim: 'Vacaturepagina aanwezig', confidence: 0.5, source: 'company-website', url: 'https://veldwerk.be/', relevantNow: true, reason: 'werving zichtbaar' }],
+    externalSignals: [{ claim: 'Vacaturepagina aanwezig', confidence: 0.5, source: 'company-website', provider: 'website', url: 'https://veldwerk.be/', relevantNow: true, reason: 'werving zichtbaar' }],
   });
   assert.ok(withSignal.confidence > base.confidence, 'a relevant external signal raises confidence');
   const ext = withSignal.evidence.find((e) => e.sourceType === 'external');
   assert.ok(ext, 'the external observation is recorded');
   assert.equal(ext.url, 'https://veldwerk.be/');
   assert.notEqual(ext.sourceType, 'internal_db', 'external is never labelled as our own DB fact');
+});
+
+// ---- Epistemic recalibration (learned from the first live run: cold lead scored 0.95) ----------
+
+const NONE = () => ({ organization: null, contacts: [], activityCount: 0 });
+const website = (n) => Array.from({ length: n }, (_, i) => ({ claim: `Website-signaal ${i}`, confidence: 0.5, source: 'company-website', provider: 'website', url: 'https://x.nl/', relevantNow: true }));
+const ted = (n) => Array.from({ length: n }, (_, i) => ({ claim: `TED-signaal ${i}`, confidence: 0.55, source: 'TED', provider: 'ted', sourceType: 'ted', url: `https://ted.europa.eu/n/${i}`, uncertainties: ['Naam-match kan een naamgenoot betreffen.'] }));
+const kvk = [{ source: 'KVK', kvkNumber: '12345678', name: 'X BV', place: 'Gent' }];
+
+test('an operator-supplied domain is context, not fit: it does not raise fit confidence', () => {
+  const withDomain = internalQualify({ candidate: { name: 'X', domain: 'x.nl' }, known: NONE() });
+  const nameOnly = internalQualify({ candidate: { name: 'X' }, known: NONE() });
+  assert.equal(withDomain.fitConfidence, nameOnly.fitConfidence, 'a provided domain adds no fit');
+  assert.equal(withDomain.fitConfidence, 0, 'operator input alone yields no fit evidence');
+  assert.equal(withDomain.identityStatus, 'unverified');
+  // The domain is still recorded as CONTEXT (provided), never as fit evidence.
+  assert.ok(withDomain.evidence.some((e) => e.provided && /domein/i.test(e.detail)));
+});
+
+test('many light signals from ONE source cannot stack past that source cap (diminishing returns)', () => {
+  const one = internalQualify({ candidate: { name: 'X', domain: 'x.nl' }, known: NONE(), externalSignals: website(1) });
+  const three = internalQualify({ candidate: { name: 'X', domain: 'x.nl' }, known: NONE(), externalSignals: website(3) });
+  assert.ok(three.fitBreakdown.perSource.website <= FIT.SOURCE_CAP.website + 1e-9, 'per-source contribution is capped');
+  assert.ok(three.fitBreakdown.perSource.website < 3 * one.fitBreakdown.perSource.website, 'diminishing, not linear');
+});
+
+test('unverified TED name-matches alone stay weak and never reach approval', () => {
+  const q = internalQualify({ candidate: { name: 'TopzorgGroep' }, known: NONE(), externalSignals: ted(3) });
+  assert.equal(q.identityStatus, 'unverified', 'a TED name-match does not establish identity');
+  assert.ok(q.fitConfidence < 0.35, 'weak evidence stays weak');
+  assert.notEqual(q.decision, 'approval');
+});
+
+test('corroboration across independent sources weighs more than repetition within one', () => {
+  const twoWebsite = internalQualify({ candidate: { name: 'X', domain: 'x.nl' }, known: NONE(), externalSignals: website(2) });
+  const websitePlusTed = internalQualify({ candidate: { name: 'X', domain: 'x.nl' }, known: NONE(), externalSignals: [...website(1), ...ted(1)] });
+  assert.equal(websitePlusTed.fitBreakdown.corroboration, FIT.CORROBORATION);
+  assert.equal(twoWebsite.fitBreakdown.corroboration, 0);
+  assert.ok(websitePlusTed.fitConfidence > twoWebsite.fitConfidence, 'two independent sources beat two of the same');
+});
+
+test('a cold lead with website + TED is probable-identity awareness, never a 0.95 approval', () => {
+  const q = internalQualify({ candidate: { name: 'TopzorgGroep', domain: 'topzorggroep.nl' }, known: NONE(), externalSignals: [...website(3), ...ted(3)] });
+  assert.equal(q.identityStatus, 'probable', 'own website seen -> probable, not verified');
+  assert.equal(q.decision, 'awareness');
+  assert.ok(q.fitConfidence < 0.6, `fit stays modest for a cold lead (was ${q.fitConfidence})`);
+});
+
+test('official verification lifts identity to verified and unlocks the approval decision', () => {
+  const q = internalQualify({ candidate: { name: 'X', domain: 'x.nl' }, known: NONE(), externalSignals: [...website(3), ...ted(3)], verification: kvk });
+  assert.equal(q.identityStatus, 'verified');
+  assert.equal(q.decision, 'approval', 'verified identity + strong fit can be approved');
+  assert.ok(q.fitConfidence >= FIT.APPROVE_FIT);
+});
+
+test('buildEvidence keeps FACT / OBSERVATION / INFERENCE / HYPOTHESIS separate and carries identity', () => {
+  const candidate = { name: 'X', domain: 'x.nl', note: 'aangedragen door partner' };
+  const known = NONE();
+  const q = internalQualify({ candidate, known, externalSignals: website(1) });
+  const ev = buildEvidence(candidate, known, q);
+  const kinds = new Set(ev.observations.map((o) => o.kind));
+  assert.ok(kinds.has('FACT') && kinds.has('OBSERVATION') && kinds.has('INFERENCE') && kinds.has('HYPOTHESIS'));
+  assert.ok(ev.external.every((o) => o.kind === 'OBSERVATION'), 'an external signal never becomes a FACT');
+  assert.equal(ev.identityStatus, 'probable');
+  assert.equal(typeof ev.fitConfidence, 'number');
+  // The provided context is flagged so it can never read as observed fit evidence.
+  assert.ok(ev.facts.some((f) => f.provided));
 });

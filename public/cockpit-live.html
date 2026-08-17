@@ -83,6 +83,18 @@
     a.ev-src{text-decoration:underline}
     .ev-unc{flex-basis:100%;margin-left:.2rem;font-size:.78rem;font-style:italic;opacity:.7}
     .ev-foot{margin-top:.5rem;font-size:.76rem;letter-spacing:.02em;color:var(--ink-2,#6b5e4f);opacity:.85}
+    /* Fit vs identity, made legible: "interessant" is not the same as "we weten zeker wie dit is". */
+    .work-assess{display:flex;flex-direction:column;gap:.3rem;margin:.5rem 0 .2rem;padding:.55rem .7rem;
+      border:1px solid var(--line,#3a2e20);border-radius:10px;background:color-mix(in srgb,#000 10%,transparent)}
+    .assess-row{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;font-size:.86rem}
+    .assess-k{color:var(--ink-2,#b3a48f)}
+    .assess-v{font-weight:600;text-align:right}
+    .assess-v.fit-hi{color:var(--ok,#7bbf9a)}
+    .assess-v.fit-mid{color:var(--gold,#d79b5c)}
+    .assess-v.fit-lo{color:var(--ink-2,#b3a48f)}
+    .assess-v.id-ok{color:var(--ok,#7bbf9a)}
+    .assess-v.id-maybe{color:var(--gold,#d79b5c)}
+    .assess-v.id-no{color:var(--ink-2,#b3a48f)}
   </style>
 </head>
 <body>
