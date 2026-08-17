@@ -1842,3 +1842,48 @@ De attention-laag is geschreven tegen een `source`, niet tegen "alleen conversat
 als bron een observatie/signaal aanleveren dat via dezelfde aggregatie, ranking en buckets op
 Vandaag verschijnt, met dezelfde provenance-eisen. Er is nu bewust niets van First Lens herbouwd of
 geïntegreerd; alleen het contract is source-agnostisch gemaakt.
+
+---
+
+## 27. Collaboratieve cockpit (Slice 5, uitbreiding)
+
+De attention-laag draagt nu werk van menselijke én digitale collega's, in één model.
+
+### 27.1 Twee naturen van aandacht
+
+- **Afgeleide aandacht** (inbound, follow-up, stilte): berekend uit durende feiten, nooit opgeslagen,
+  kan niet driften. Blijft in `signals.mjs`.
+- **Geauthorde aandacht** (een bevinding, een voorstel, een goedkeuringsvraag): een echt artefact met
+  evidence en een voorstel, niet afleidbaar uit gespreksstate. Wordt gepersisteerd in
+  `attention_item` (migratie 006) via `server/comm/work.mjs`.
+
+`buildRadar` voegt beide samen tot één gerangschikte, gebuckette stream. Werk aggregeert per relatie
+(geen kaart-explosie, geen dubbele aandacht) en draagt origin, owner, evidence, voorstel en de
+toegestane acties.
+
+### 27.2 Origin, ownership, human-in-the-loop
+
+`origin_*` is wie het werk maakte (Growth, Relatiecollega, ...). `owner_*` is wie het nu vooruit
+moet brengen. Niets neemt aan dat werk altijd van één mens is. De mens beslist met
+view/approve/edit/take_over/reject/complete. Goedkeuren van een voorgestelde lead maakt de echte
+relatie aan in dezelfde werkelijkheid. Niets extern wordt verstuurd.
+
+### 27.3 Compressie
+
+De stream beschermt aandacht: een collega registreert alleen afwijkingen, beslissingen, kansen,
+risico's, werk dat goedkeuring vereist of betekenisvolle resultaten. Idempotency via `dedupKey`
+voorkomt herhaalspam aan de bron.
+
+### 27.4 Cadans-seam
+
+De stiltedrempel zit achter één functie, `expectedSilenceThreshold(rel)`. Vandaag een vlakke 45
+dagen; later de plek voor contextuele relatiecadans, zonder de radar te raken. Stilte betekent nooit
+"neem nu contact op", alleen "dit patroon kan aandacht verdienen".
+
+### 27.5 Eén werkelijkheid, twee domeinen
+
+Cockpit en Agents delen dezelfde Postgres en verwijzen naar bestaande domeinobjecten via ids. Geen
+tweede database, geen synchronisatie. Het integratiecontract staat in
+`docs/AGENT_COCKPIT_CONTRACT.md` (endpoint `POST /api/cockpit/agent/work`, resolutie via
+`POST /api/cockpit/work/:id/:action`). Preview toont het model met duidelijk als fixture gemarkeerde
+demonstratie-werkitems; nooit wordt gedaan alsof een agent echt iets extern vond.

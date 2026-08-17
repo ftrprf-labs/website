@@ -138,21 +138,31 @@ async function renderVandaag() {
 
 // One aggregated relation on the radar: WIE, WAAROM NU (primary), wat er nog meespeelt (secondary),
 // wat Maculis klaarzette, en wat je kunt doen. The human decides; nothing runs on its own.
+// How a digital colleague's contribution reads, by what it needs from you.
+const COLLEAGUE_VERB = { approval: 'vraagt jouw akkoord', review: 'heeft iets voorbereid', awareness: 'ziet iets' };
+const WORK_ACTION_LABEL = { approve: 'Goedkeuren', edit: 'Aanpassen', take_over: 'Overnemen', reject: 'Afwijzen', complete: 'Afronden' };
+
 function radarCard(c) {
   const b = el('article', 'item openable'); b.tabIndex = 0; b.setAttribute('role', 'button');
   const chips = [];
   if (c.hasPrepared) chips.push('<span class="chip ready"><span class="k"></span>concept klaar</span>');
   if (c.org) chips.push(`<span class="chip">${esc(c.org)}</span>`);
   const secondary = (c.secondary || []).map(s => `<div class="echo">${esc(s.reason)}</div>`).join('');
+  // When a digital colleague produced this, name them above the reason ("Growth vraagt jouw akkoord.").
+  const attribution = c.primary.origin && c.primary.origin.kind === 'AGENT'
+    ? `<div class="colleague"><span class="colleague-dot" aria-hidden="true"></span>${esc(c.primary.origin.label)} ${esc(COLLEAGUE_VERB[c.primary.needs] || 'heeft iets voor je')}.</div>` : '';
   b.innerHTML =
     `<div class="row1">
        <span class="who">${esc(c.who)}</span>
        ${c.channel ? `<span class="chan">${esc(CHAN_ICO[c.channel] || '')} ${esc((c.channel || '').toLowerCase())}</span>` : ''}
        <span class="go-chevron" aria-hidden="true">›</span>
      </div>
+     ${attribution}
      <div class="line">${esc(c.primary.reason)}</div>
      ${secondary}
      ${chips.length ? `<div class="tags">${chips.join('')}</div>` : ''}`;
+  // Colleague work touching this relation: proposal, evidence, and the actions the mandate allows.
+  (c.work || []).forEach(w => b.appendChild(workBlock(w)));
   // Prepared work (follow-ups) touching this relation can be completed straight from the card.
   if (c.followUps && c.followUps.length) {
     const bar = el('div', 'prepared-actions');
@@ -175,6 +185,29 @@ function radarCard(c) {
   b.addEventListener('click', open);
   b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   return b;
+}
+
+// A colleague's work item: what is proposed, why (evidence), and the human-in-the-loop actions.
+// onResolve defaults to a full re-render of Vandaag; the dossier passes its own refresh.
+function workBlock(w, onResolve) {
+  const wrap = el('div', 'work-block');
+  const summary = (w.proposal && w.proposal.summary) ? `<div class="work-proposal">${esc(w.proposal.summary)}</div>` : '';
+  const obs = (w.evidence && Array.isArray(w.evidence.observations)) ? w.evidence.observations : [];
+  const ev = obs.length ? `<ul class="work-ev">${obs.slice(0, 3).map(o => `<li>${esc(o)}</li>`).join('')}</ul>` : '';
+  wrap.innerHTML = `${summary}${ev}`;
+  const bar = el('div', 'prepared-actions');
+  (w.actions || []).filter(a => a !== 'view').forEach(action => {
+    const btn = el('button', 'btn ' + (action === 'approve' ? 'btn-primary' : 'btn-ghost'), WORK_ACTION_LABEL[action] || action);
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      btn.disabled = true; btn.textContent = 'Bezig…';
+      const r = await api('/api/cockpit/work/' + w.id + '/' + action, { method: 'POST' });
+      if (r.ok) { (onResolve || (() => render()))(); } else { btn.disabled = false; btn.textContent = WORK_ACTION_LABEL[action] || action; }
+    });
+    bar.appendChild(btn);
+  });
+  wrap.appendChild(bar);
+  return wrap;
 }
 
 // Slice 4 — an open follow-up rendered as an actionable row (used in the dossier).
@@ -284,6 +317,20 @@ async function renderDossier(contactId) {
     open.forEach((f) => b.appendChild(followUpRow(f)));
     return b;
   }));
+  // Slice 5 — what colleagues (human or digital) prepared or proposed for this relation.
+  const relWork = data.work || [];
+  if (relWork.length) {
+    secWrap.appendChild(dosSection('Werk van collega’s', 'A', true, () => {
+      const b = el('div', 'dos-work');
+      relWork.forEach((w) => {
+        const head = el('div', 'colleague');
+        head.innerHTML = `<span class="colleague-dot" aria-hidden="true"></span>${esc(w.origin.label)} ${esc(COLLEAGUE_VERB[w.needs] || 'heeft iets voor je')}: <b>${esc(w.title)}</b>`;
+        b.appendChild(head);
+        b.appendChild(workBlock(w, () => renderDossier(activeContactId)));
+      });
+      return b;
+    }));
+  }
   secWrap.appendChild(dosSection('Contact en identiteiten', 'A', false, () => {
     const b = el('div', 'dos-facts');
     if (rc.email) b.innerHTML += `<div class="fact"><span class="k">e-mail</span><span class="v">${esc(rc.email.value)}</span></div>`;

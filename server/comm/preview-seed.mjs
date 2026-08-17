@@ -18,6 +18,7 @@ import { query } from './db.mjs';
 import { getDefaultTenantId } from './tenant.mjs';
 import { runCopilot } from './ai/copilot.mjs';
 import { createFollowUp } from './followups.mjs';
+import { recordWorkItem } from './work.mjs';
 
 function enabled() {
   return /^(1|true|yes|on)$/i.test(process.env.PREVIEW_SEED || '');
@@ -51,7 +52,7 @@ export async function previewSeedOnBoot() {
     const tenantId = await getDefaultTenantId();
     const existing = (await query('select count(*)::int n from contact where tenant_id=$1', [tenantId])).rows[0].n;
     let seeded = 0;
-    if (existing > 0) { await ensureDemoFollowUp(tenantId); await ensureRadarDemo(tenantId); return { skipped: true, reason: 'already seeded', ensuredFollowUp: true, ensuredRadar: true }; }
+    if (existing > 0) { await ensureDemoFollowUp(tenantId); await ensureRadarDemo(tenantId); await ensureColleagueDemo(tenantId); return { skipped: true, reason: 'already seeded', ensuredFollowUp: true, ensuredRadar: true, ensuredColleagues: true }; }
 
     for (const r of RELATIONS) {
       const org = (await query(
@@ -77,6 +78,7 @@ export async function previewSeedOnBoot() {
     }
     await ensureDemoFollowUp(tenantId);
     await ensureRadarDemo(tenantId);
+    await ensureColleagueDemo(tenantId);
     console.log(`  Preview  : ${seeded} demonstratierelatie(s) geseed (echte copilot-output)`);
     return { ok: true, seeded };
   } catch (e) {
@@ -156,4 +158,79 @@ async function ensureRadarDemo(tenantId) {
     }) ? 1 : 0;
     if (made) console.log(`  Preview  : radar-demonstratie klaargezet (${made} relatie(s): due, overdue, stille relatie)`);
   } catch (e) { console.log(`  Preview  : radar-demo uitgesteld (${e.message})`); }
+}
+
+// Slice 5 collaborative cockpit — DEMONSTRATION colleague work, so the collaborative model is visible
+// before a real digital colleague is connected. Every item is explicitly marked as a fixture in its
+// evidence (evidence.demo=true, source 'demo-fixture'): preview-only, additive, idempotent, and it
+// NEVER claims a real external find. Once a real colleague lands work through recordWorkItem(), these
+// demo items sit alongside it identically. Guarded by PREVIEW_SEED (inert in production/tests).
+async function ensureColleagueDemo(tenantId) {
+  const demoEvidence = (observations) => ({ demo: true, source: 'demo-fixture', observations });
+  const has = async (originKey, dedupKey) =>
+    Boolean((await query('select 1 from attention_item where tenant_id=$1 and origin_key=$2 and dedup_key=$3 limit 1', [tenantId, originKey, dedupKey])).rows[0]);
+  const contactByEmail = async (email) =>
+    (await query('select id, organization_id from contact where tenant_id=$1 and lower(email)=lower($2) limit 1', [tenantId, email])).rows[0] || null;
+  const firstConv = async (contactId) =>
+    (await query("select id from conversation where tenant_id=$1 and contact_id=$2 and is_privacy=false order by created_at asc limit 1", [tenantId, contactId])).rows[0] || null;
+  try {
+    let made = 0;
+    // Growth: a possible new relation (a proposed lead, fictional). Approving it creates the relation.
+    if (!(await has('growth', 'demo:lead:tibo@veldwerk.be'))) {
+      await recordWorkItem(tenantId, {
+        origin: { kind: 'AGENT', key: 'growth', label: 'Growth' }, owner: { kind: 'HUMAN', key: 'lud' },
+        type: 'AGENT_PROPOSAL', proposedRelation: { name: 'Tibo Claes', org: 'Veldwerk Collectief', email: 'tibo@veldwerk.be' },
+        title: 'Mogelijke nieuwe relatie: Tibo Claes (Veldwerk Collectief)',
+        reason: 'Profiel sluit aan bij jullie werk rond buurtcommunicatie.',
+        evidence: demoEvidence(['Werkt aan buurtcommunicatie in dezelfde regio', 'Deelde recent een oproep die bij Maculis past']),
+        proposal: { summary: 'Toevoegen als prospect en later benaderen?', needs: 'approval', actions: ['create_relation'] },
+        dedupKey: 'demo:lead:tibo@veldwerk.be',
+      });
+      made += 1;
+    }
+    // Gesprekscollega: a prepared answer on Kim's existing conversation (review).
+    const kim = await contactByEmail('kim@debrug.be');
+    if (kim && !(await has('conversation', 'demo:draft:kim'))) {
+      const conv = await firstConv(kim.id);
+      await recordWorkItem(tenantId, {
+        origin: { kind: 'AGENT', key: 'conversation', label: 'Gesprekscollega' }, owner: { kind: 'HUMAN', key: 'lud' },
+        type: 'AGENT_FINDING', relation: { contactId: kim.id, organizationId: kim.organization_id, conversationId: conv ? conv.id : null },
+        title: 'Antwoord voorbereid voor Kim',
+        reason: 'Een concept staat klaar om te bekijken en te versturen.',
+        evidence: demoEvidence(['Kim vroeg naar arbeidsmarktcommunicatie']),
+        proposal: { summary: 'Bekijk het concept en verstuur het als het klopt.', needs: 'review', actions: [] },
+        dedupKey: 'demo:draft:kim',
+      });
+      made += 1;
+    }
+    // Relatiecollega: an unusual contact pattern on Samir (awareness → radar).
+    const samir = await contactByEmail('samir@lumen.city');
+    if (samir && !(await has('relationship', 'demo:pattern:samir'))) {
+      await recordWorkItem(tenantId, {
+        origin: { kind: 'AGENT', key: 'relationship', label: 'Relatiecollega' }, owner: { kind: 'HUMAN', key: 'lud' },
+        type: 'AGENT_FINDING', relation: { contactId: samir.id, organizationId: samir.organization_id },
+        title: 'Afwijkend contactpatroon bij Samir',
+        reason: 'Het contact met Samir verloopt anders dan de afgelopen maanden.',
+        evidence: demoEvidence(['Reactietijd nam toe', 'Toon werd korter dan gebruikelijk']),
+        proposal: { summary: 'Goed om te weten. Geen directe actie nodig.', needs: 'awareness', actions: [] },
+        dedupKey: 'demo:pattern:samir',
+      });
+      made += 1;
+    }
+    // Opvolgcollega: a compressed result — checked several, one needs you (approval).
+    const anke = await contactByEmail('anke@ritmiek.be');
+    if (anke && !(await has('followup', 'demo:check:anke'))) {
+      await recordWorkItem(tenantId, {
+        origin: { kind: 'AGENT', key: 'followup', label: 'Opvolgcollega' }, owner: { kind: 'HUMAN', key: 'lud' },
+        type: 'APPROVAL_REQUIRED', relation: { contactId: anke.id, organizationId: anke.organization_id },
+        title: 'Drie opvolgingen gecontroleerd. Eén vraagt jou.',
+        reason: 'Twee liepen op schema. De opvolging van Anke is te laat en vraagt jouw besluit.',
+        evidence: demoEvidence(['3 opvolgingen gecontroleerd', '2 op schema', '1 te laat: Anke']),
+        proposal: { summary: 'Zal ik een korte, vriendelijke opvolging voorbereiden voor Anke?', needs: 'approval', actions: ['prepare_followup_draft'] },
+        dedupKey: 'demo:check:anke',
+      });
+      made += 1;
+    }
+    if (made) console.log(`  Preview  : collega-demonstratie klaargezet (${made} werkitem(s): Growth, Gesprek, Relatie, Opvolg)`);
+  } catch (e) { console.log(`  Preview  : collega-demo uitgesteld (${e.message})`); }
 }
