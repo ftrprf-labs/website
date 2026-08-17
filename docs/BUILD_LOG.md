@@ -5,6 +5,29 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-17 · Kamer 5 (Maculis Atelier): conceptuele ontwerpstudie
+
+**Geen code-wijziging, geen productie, geen interface aangeraakt.** Uitsluitend een ontwerpstudie
+op verzoek, vastgelegd in `docs/kamer-5/`. Website, Lens, Mijn Maculis, Cockpit, Visual DNA en de
+Communication Layer zijn ongewijzigd. De visuele studie staat bewust **niet** in `public/`, zodat
+de server hem nergens kan uitserveren.
+
+**Uitkomst in het kort:** het concept klopt, de vijfde kamer niet. Advies is het substraat te
+bouwen (een ledger van vragen, besluiten, onzekerheden en bewijs in de repository) en Kamer 5 niet
+als kamer te bouwen. De studie bevat één correctie op de vraagstelling: het probleem is
+continuïteit over sessies heen, niet aandacht. Zes van de acht genoemde knelpunten zijn geheugen,
+één is aandacht, één staat al in CI.
+
+**Twee vastgelegde observaties die deze workstream raken:**
+1. Visual DNA v1.0 en de Visual North Star zijn **niet in deze repository te vinden**. Een agent
+   die de canon moet volgen, kan hem hier dus niet lezen. Dat is op zichzelf een bevinding.
+2. De entry van 15 augustus (scope/ownership, geen code) is feitelijk al een handgeschreven
+   ledger-regel. De behoefte is aantoonbaar, de vorm nog niet.
+
+**Ter beoordeling. Er is niets besloten en niets gebouwd.**
+
+---
+
 ## 2026-08-15 — Scope & ownership: Communication Layer grens (productbeslissing)
 
 **Geen code-wijziging. Uitsluitend een vastgelegde scope/ownership-grens** (op verzoek), zodat
