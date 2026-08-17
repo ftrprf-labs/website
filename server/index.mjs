@@ -22,6 +22,7 @@ import {
 } from './auth.mjs';
 import { handleComm } from './comm/routes.mjs';
 import { handleAgents } from './agents/routes.mjs';
+import { handleCockpit } from './cockpit/routes.mjs';
 import { migrateOnBoot } from './comm/migrate.mjs';
 import { commEnabled, agentsEnabled, dbFeaturesEnabled } from './comm/db.mjs';
 import { bridgePassTheLens } from './comm/pass-the-lens.mjs';
@@ -182,7 +183,10 @@ const securityHeaders = {
 
 async function serveStatic(req, res, urlPath) {
   let rel = decodeURIComponent(urlPath);
-  if (rel === '/' || rel === '') rel = '/index.html';
+  // PREVIEW ONLY: the staging cockpit serves the operational real-data cockpit at the root, so the
+  // preview URL opens Slice 1 + Slice 2 directly. Guarded by PREVIEW_COCKPIT_ROOT; in production this
+  // flag is unset and the root stays the Testerbeheer admin. Never touches production behaviour.
+  if (rel === '/' || rel === '') rel = config.previewCockpitRoot ? '/cockpit-live.html' : '/index.html';
   const full = normalize(join(PUBLIC, rel));
   if (!full.startsWith(PUBLIC)) {
     res.writeHead(403).end('Forbidden');
@@ -228,10 +232,18 @@ async function handleApi(req, res, pathname) {
     if (handled) return;
   }
 
-  // Digital Colleagues (agents) routes — mounted only when the Communication Layer is enabled, and
-  // admin-gated inside handleAgents. Additive; the Cockpit consumes these, no send, no external calls.
+  // Digital Colleagues (agents) runtime routes — mounted only when the agent domain is enabled
+  // (AGENTS_ENABLED), admin-gated inside handleAgents. The agent RUNS work here; it LANDS work into
+  // the cockpit via server/comm/work.mjs (recordWorkItem). No send, no external calls.
   if (pathname.startsWith('/api/agents/')) {
     const handled = await handleAgents(req, res, { pathname, method, isAuthed });
+    if (handled) return;
+  }
+
+  // Future Cockpit orchestration layer (Slice 1-5). Meaning-first, fail-closed inside
+  // handleCockpit (503 unless the Communication Layer is enabled). Owns work landing + resolution.
+  if (pathname.startsWith('/api/cockpit/')) {
+    const handled = await handleCockpit(req, res, { pathname, method, isAuthed });
     if (handled) return;
   }
 
@@ -683,14 +695,21 @@ server.listen(config.port, bindHost, () => {
     migrateOnBoot().then(async (r) => {
       if (r.ok) {
         console.log(`  Schema   : migrations ${r.ran && r.ran.length ? 'applied ' + r.ran.join(', ') : 'up to date'}`);
-        // Bridge existing Testerbeheer invitations into permanent Contact/Organization rows so the
-        // Relationship Workspace has data from day one (§9). Comm-specific; idempotent, best-effort.
+        // The following bootstraps are Comm-specific (they seed relationship data). They run only
+        // when the Communication Layer itself is on, so an agents-only deployment stays lean.
         if (commEnabled()) {
+          // Bridge existing Testerbeheer invitations into permanent Contact/Organization rows so the
+          // Relationship Workspace has data from day one (§9). Idempotent, additive, best-effort.
           try {
             const { migrateInvitations } = await import('./comm/repo.mjs');
             const res = await migrateInvitations(store.listInvitations());
             console.log(`  Comm     : relaties ${res.contactsCreated} nieuw, ${res.contactsLinked} bijgewerkt`);
           } catch (e) { console.log(`  Comm     : relatie-migratie uitgesteld (${e.message})`); }
+          // Preview-only demonstration seed (PREVIEW_SEED). Inert in production and in tests.
+          try {
+            const { previewSeedOnBoot } = await import('./comm/preview-seed.mjs');
+            await previewSeedOnBoot();
+          } catch (e) { console.log(`  Preview  : seed overgeslagen (${e.message})`); }
         }
       } else if (!r.skipped) console.log(`  Schema   : migrations pending (${r.error})`);
     });

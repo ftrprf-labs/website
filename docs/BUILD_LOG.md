@@ -97,6 +97,41 @@ wordt niet verlaagd. Dit wordt elders in de Lens/First Five-workstream opgepakt.
 
 ---
 
+## 2026-08-15 — Maculis Future Cockpit: onderzoek, architectuur en prototype (geen productie-rewrite)
+
+**Type.** Strategische product-, UX- en informatiearchitectuuropdracht met prototype. Uitkomst is
+besluitrijp, geen productie-vervanging. Productie (Testerbeheer, in/outbound mail, signature, Inbox,
+drafts, AI-suggesties, human approval, threading, Pass the Lens, consent, First Five, attention layer)
+bleef ongewijzigd. Alles additief onder `/cockpit.html`.
+
+**Recovery-uitkomst (eerlijk).** Er bestaat geen eerder groter wit dashboardproduct in de history.
+Wel: één licht/blauwe admin-skin (`2d49854`, FTRLABS-branding) die drie uur later donker herstyled werd
+(`cfc0711`, "no functional/layout/API changes"). Zelfde testertabel. Het "grotere" gevoel was puur
+esthetisch. Geen deleted files, geen mockups, geen designnotes van een groter dashboard.
+
+**Voorstel.** Vandaag als primaire home die selecteert boven een aandachtshiërarchie
+(Nu/Beweging/Klaar/Rust); Relaties als volledige universe; Gesprekken als omnichannel-laag binnen
+relaties; Reveal als productbrede interactietaal met gate en provenance (feit/observatie/gevolgtrekking/
+suggestie) in plaats van een First Five-feature. Aanbevolen visuele richting: C, Reveal / Work
+(dual-space: donker om te zien, licht om te werken), gestart als richting A. Tegengas expliciet gegeven
+(oud dashboard was niet groter; dual-space nooit meer dan twee ruimtes; Testerbeheer blijft als
+journey-view).
+
+**Prototype.** `public/cockpit.html` + `cockpit.css` + `cockpit.js`. CSP-safe (externe module, geen
+inline handlers). Zes scenario's (quiet/comm/reveal/lens/scale/work), drie richtingen (A/B/C), de
+"Kijk nog eens."-reveal met progressive disclosure, 520 fixture-relaties. Alle data gemarkeerd als
+PROTOTYPE DATA. Deep-links `?dir=`/`?scn=`/`?expand=1`. Toegankelijk (aria, toetsenbord, reduced-motion,
+mobile intent). Screenshots via headless Chromium (desktop + mobiel, alle richtingen en scenario's).
+
+**Durable output.** `docs/MACULIS_FUTURE_COCKPIT.md` (current state, recovery, IA, attention model,
+reveal model, relationship model, drie visuele richtingen, decision matrix, aanbeveling, tegengas,
+acceptance questions A-N, migratiestrategie, prototype, ultieme test).
+
+**Tests.** Bestaande suite ongewijzigd en groen (comm-tests skippen zonder DB, zoals ontworpen). Geen
+productielogica geraakt. Branch `claude/maculis-future-cockpit-z9naou`.
+
+---
+
 ## 2026-08-15 — Attention Cockpit + Living Signature + outbound delivery fix (productie)
 
 **1) Outbound delivery-incident opgelost (200 ≠ afgeleverd).** Root cause: de live-gate

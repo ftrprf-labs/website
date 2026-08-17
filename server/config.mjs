@@ -88,11 +88,17 @@ export const config = {
   commLayerEnabled: /^(1|true|yes|on)$/i.test(process.env.COMM_LAYER_ENABLED || ''),
   databaseUrl: process.env.DATABASE_URL || '',
   // Digital Colleagues (agents). Activatable INDEPENDENTLY of the Communication Layer: needs only
-  // this flag and a database. The agent schema (migration 006) shares the same Postgres and is
-  // applied on boot when either the Comm Layer or the agent domain is enabled. Discovery defaults
-  // to the deterministic internal provider; external web discovery is not wired in this build.
+  // this flag and a database. The shared agent-runtime schema (migration 007) lives in the same
+  // Postgres and is applied on boot when either the Comm Layer or the agent domain is enabled.
+  // Discovery defaults to the deterministic internal provider; external web discovery is not wired.
   agentsEnabled: /^(1|true|yes|on)$/i.test(process.env.AGENTS_ENABLED || ''),
   agentDiscoveryProvider: (process.env.AGENT_DISCOVERY_PROVIDER || 'internal').toLowerCase(),
+  // PREVIEW ONLY: when set, the site root "/" serves the operational cockpit (/cockpit-live.html)
+  // instead of the Testerbeheer admin. Off by default, so production Testerbeheer is unchanged.
+  previewCockpitRoot: /^(1|true|yes|on)$/i.test(process.env.PREVIEW_COCKPIT_ROOT || ''),
+  // Collaborative cockpit: a shared key that lets an out-of-process digital colleague (agent) land
+  // work into the cockpit's attention model. Optional; when unset, ingestion is admin-session only.
+  agentIngestKey: process.env.AGENT_INGEST_KEY || '',
   // Resend inbound (Receiving). MAIL_API_KEY (already used for outbound) doubles as the
   // Receiving-API key; the webhook signing secret is set AFTER the webhook is created in Resend.
   resendWebhookSecret: process.env.RESEND_WEBHOOK_SECRET || '',

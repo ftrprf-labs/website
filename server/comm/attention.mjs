@@ -21,18 +21,46 @@ export const ATTENTION_STATES = ['DELIVERY_PROBLEM', 'REPLY_READY', 'NEW', 'UNRE
 // and RESOLVED are calm states — visible, but never a red badge.
 export const ACTIONABLE_STATES = new Set(['DELIVERY_PROBLEM', 'REPLY_READY', 'NEW', 'UNREAD', 'NEEDS_ACTION']);
 
-// Pure derivation from three durable facts. No DB, no clock: fully testable.
-//   row = { status, last_inbound_at, last_read_at, last_dir, has_ai_proposed, has_delivery_problem, contact_id }
+// Pure derivation from durable facts. No DB, no clock: fully testable.
+//   row = { status, last_inbound_at, last_read_at, last_outbound_at, last_outbound_delivery,
+//           last_dir, has_ai_proposed, contact_id }
+//
+// The pivot of Slice 4's correction: a successful OUTBOUND reply that lands after their last inbound
+// SETTLES that inbound. Sending an answer is a stronger "handled" signal than the human read
+// watermark (the cockpit read is deliberately side-effect-free), so an answered question can never
+// keep asking. A FAILED answer is NOT settling: it surfaces as a delivery problem instead. And a
+// delivery problem is derived from the LATEST outbound attempt only — a historical FAILED that a
+// later successful send superseded is not a current problem, so old FAILED records (kept as system
+// history) never re-raise attention on a conversation that has since been answered.
 export function deriveAttention(row) {
   const inboundAt = row.last_inbound_at ? new Date(row.last_inbound_at).getTime() : null;
   const readAt = row.last_read_at ? new Date(row.last_read_at).getTime() : null;
-  const unread = inboundAt != null && (readAt == null || inboundAt > readAt);
-  const neverRead = inboundAt != null && readAt == null;
+  const outboundAt = row.last_outbound_at ? new Date(row.last_outbound_at).getTime() : null;
   const closed = row.status === 'CLOSED' || row.status === 'RESOLVED';
 
+  // Did our most recent outbound attempt fail (and was it NOT superseded by a later success)?
+  // `has_delivery_problem` stays supported as an explicit override for pure unit callers.
+  const latestOutboundFailed = row.has_delivery_problem === true
+    ? true
+    : (row.last_outbound_delivery
+        ? ['FAILED', 'BOUNCED'].includes(String(row.last_outbound_delivery).toUpperCase())
+        : false);
+
+  // A successful reply AFTER their last inbound settles it. (Requires a real outbound timestamp; the
+  // legacy pure callers that omit it keep their prior semantics.)
+  const answered = inboundAt != null && outboundAt != null && outboundAt >= inboundAt && !latestOutboundFailed;
+
+  // A delivery problem: the latest outbound failed and it was (at least) our reply to the last
+  // inbound. A newer inbound arriving after the failure takes precedence over the failure.
+  const deliveryProblem = latestOutboundFailed && (outboundAt == null || inboundAt == null || outboundAt >= inboundAt);
+
+  // "Unread" is an inbound the human has neither read NOR already answered.
+  const unread = inboundAt != null && (readAt == null || inboundAt > readAt) && !answered;
+  const neverRead = inboundAt != null && readAt == null && !answered;
+
   let state;
-  if (row.has_delivery_problem) {
-    // A failed/bounced outbound always surfaces — a "sent" that never arrived is the worst silent gap.
+  if (deliveryProblem) {
+    // A "sent" that never arrived is the worst silent gap — it always surfaces.
     state = 'DELIVERY_PROBLEM';
   } else if (closed && !unread) {
     state = 'RESOLVED';
@@ -42,6 +70,8 @@ export function deriveAttention(row) {
     state = 'NEW';                     // first contact, no human has opened it yet
   } else if (unread) {
     state = 'UNREAD';                  // new inbound in a thread previously read
+  } else if (answered) {
+    state = 'WAITING_FOR_CUSTOMER';   // we successfully replied to their last inbound; ball in their court
   } else if (row.last_dir === 'INBOUND') {
     state = 'NEEDS_ACTION';           // opened/read, but the last word is theirs — still owed a reply
   } else if (row.last_dir === 'OUTBOUND' && !closed) {
@@ -53,6 +83,7 @@ export function deriveAttention(row) {
   return {
     state,
     unread,
+    answered,
     actionable: ACTIONABLE_STATES.has(state),
     unknownContact: !row.contact_id,
     hasAiProposed: !!row.has_ai_proposed,
@@ -72,8 +103,10 @@ export async function attentionOverview(tenantId, { limit = 500 } = {}) {
             (select body_text from message m where m.conversation_id=c.id and m.direction='INBOUND' and m.deleted_at is null
               order by created_at desc limit 1) as last_inbound_body,
             exists(select 1 from ai_draft a where a.conversation_id=c.id and a.status='proposed') as has_ai_proposed,
-            exists(select 1 from message m where m.conversation_id=c.id and m.direction='OUTBOUND'
-                     and m.delivery in ('FAILED','BOUNCED')) as has_delivery_problem
+            (select created_at from message m where m.conversation_id=c.id and m.direction='OUTBOUND' and m.deleted_at is null
+              order by created_at desc limit 1) as last_outbound_at,
+            (select delivery from message m where m.conversation_id=c.id and m.direction='OUTBOUND' and m.deleted_at is null
+              order by created_at desc limit 1) as last_outbound_delivery
        from conversation c
        left join contact ct on ct.id=c.contact_id
        left join organization o on o.id=c.organization_id
@@ -93,7 +126,8 @@ export async function attentionOverview(tenantId, { limit = 500 } = {}) {
   for (const c of rows) {
     const att = deriveAttention({
       status: c.status, last_inbound_at: c.last_inbound_at, last_read_at: c.last_read_at,
-      last_dir: c.last_dir, has_ai_proposed: c.has_ai_proposed, has_delivery_problem: c.has_delivery_problem,
+      last_outbound_at: c.last_outbound_at, last_outbound_delivery: c.last_outbound_delivery,
+      last_dir: c.last_dir, has_ai_proposed: c.has_ai_proposed,
       contact_id: c.contact_id,
     });
     const name = [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || 'Onbekend';

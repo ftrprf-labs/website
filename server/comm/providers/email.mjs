@@ -36,10 +36,13 @@ export function emailProvider() {
     // threading: { from, inReplyTo, references, messageId }
     async send({ from, to, subject, text, html, threading = {} }) {
       if (!live) {
-        // NEVER fake a delivery in production. A mock "SENT" would make the app claim an e-mail was
-        // sent that never left the building (the exact incident this prevents).
-        if (config.production) return { ok: false, reason: 'email_transport_not_configured' };
-        // Local/dev/tests only: deterministic offline stand-in so the pipeline is testable.
+        // An EXPLICIT MAIL_TRANSPORT=mock is a deliberate, offline stand-in that NEVER contacts a
+        // provider, so it can never leak an e-mail — honour it everywhere, including production
+        // (staging/preview: the loop closes without anything leaving the building). A MISSING or
+        // blank transport is different: in production it must still FAIL LOUD rather than silently
+        // fake a delivery (the exact incident that guard prevents).
+        const explicitMock = config.mailTransport === 'mock';
+        if (config.production && !explicitMock) return { ok: false, reason: 'email_transport_not_configured' };
         return { ok: true, providerMessageId: `mock-email-${Buffer.from(String(to)).toString('base64').slice(0, 10)}`, delivery: 'SENT', mock: true };
       }
       const res = await sendThreadedEmail(
