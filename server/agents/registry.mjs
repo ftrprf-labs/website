@@ -1,6 +1,6 @@
 // Digital Colleagues — registry, mandate and autonomy model.
 //
-// A digital colleague is a first-class ACTOR (server/comm/migrations/006). This module is the ONE
+// A digital colleague is a first-class ACTOR (server/comm/migrations/007). This module is the ONE
 // place that decides "may this colleague do this, right now?". Two independent gates:
 //
 //   AUTONOMY  — HOW FAR may it go on its own? An ordered ladder, safe by default. External or
@@ -24,29 +24,35 @@ export function autonomyRank(level) {
 
 // Actions a colleague can attempt, each mapped to the minimum autonomy it needs and, when relevant,
 // the mandate token it touches. Unknown actions default to the highest requirement (deny).
+//
+// The work model is the cockpit's attention_item (§ AGENT_COCKPIT_CONTRACT). A colleague may OBSERVE
+// the shared truth and RECORD work (land an attention_item / propose a relation). It may NEVER resolve
+// its own work, materialise a relation, send anything external, set consent, read privacy, merge
+// identities, or reach external web: those are the human's decision (cockpit approve) or out of scope.
 export const ACTIONS = {
-  read_shared_truth:      { minAutonomy: 'OBSERVE', forbidToken: null },
-  create_finding:         { minAutonomy: 'PROPOSE', forbidToken: null },
-  write_proposed_memory:  { minAutonomy: 'PREPARE', forbidToken: null },
-  prepare_work:           { minAutonomy: 'PREPARE', forbidToken: null },
-  request_handoff:        { minAutonomy: 'PREPARE', forbidToken: null },
-  external_discovery:     { minAutonomy: 'PREPARE', forbidToken: 'external_web' },
-  read_privacy:           { minAutonomy: 'OBSERVE', forbidToken: 'read_privacy' },
-  merge_identity:         { minAutonomy: 'ACT_WITH_APPROVAL', forbidToken: 'merge_identity' },
-  promote_lead:           { minAutonomy: 'ACT_WITH_APPROVAL', forbidToken: 'promote' },
-  set_consent:            { minAutonomy: 'ACT_WITH_APPROVAL', forbidToken: 'set_consent' },
-  send_external:          { minAutonomy: 'ACT_WITH_APPROVAL', forbidToken: 'send' },
+  read_shared_truth:    { minAutonomy: 'OBSERVE', forbidToken: null },
+  record_work:          { minAutonomy: 'PREPARE', forbidToken: null },   // land an attention_item
+  propose_relation:     { minAutonomy: 'PREPARE', forbidToken: null },   // carry a proposedRelation payload
+  request_handoff:      { minAutonomy: 'PREPARE', forbidToken: null },
+  external_discovery:   { minAutonomy: 'PREPARE', forbidToken: 'external_web' },
+  read_privacy:         { minAutonomy: 'OBSERVE', forbidToken: 'read_privacy' },
+  resolve_work:         { minAutonomy: 'ACT_WITH_APPROVAL', forbidToken: 'resolve' },       // human-only
+  materialize_relation: { minAutonomy: 'ACT_WITH_APPROVAL', forbidToken: 'materialize' },   // human approve only
+  merge_identity:       { minAutonomy: 'ACT_WITH_APPROVAL', forbidToken: 'merge_identity' },
+  set_consent:          { minAutonomy: 'ACT_WITH_APPROVAL', forbidToken: 'set_consent' },
+  send_external:        { minAutonomy: 'ACT_WITH_APPROVAL', forbidToken: 'send' },
 };
 
 // Per-colleague mandate (by role/slug). Forbid is the hard boundary; it is checked in addition to
 // autonomy, so even a highly-autonomous colleague can be organisationally barred from an action.
 export const MANDATE = {
-  // Growth / Lead colleague (Scout). May observe, propose and prepare on its own; may never send,
-  // promote, set consent, read privacy, merge identities, or reach external web in v1.
+  // Growth / Lead colleague (Scout). May observe and record work (findings, proposals, proposed
+  // relations) on its own; may never resolve its own work, materialise a relation, send, set consent,
+  // read privacy, merge identities, or reach external web in this build.
   growth: {
-    read:   ['organization', 'contact', 'channel_identity', 'activity', 'work_item', 'agent_finding'],
-    write:  ['work_item', 'agent_finding', 'agent_evidence', 'proposed_memory'],
-    forbid: ['send', 'promote', 'set_consent', 'read_privacy', 'merge_identity', 'external_web'],
+    read:   ['organization', 'contact', 'channel_identity', 'activity', 'attention_item'],
+    write:  ['attention_item', 'proposed_relation'],
+    forbid: ['send', 'resolve', 'materialize', 'set_consent', 'read_privacy', 'merge_identity', 'external_web'],
   },
 };
 

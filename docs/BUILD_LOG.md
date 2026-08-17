@@ -5,6 +5,48 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-17 — Scout aangesloten op de Cockpit (Slice 5 integratie, één werkelijkheid)
+
+**Twee werelden samengevoegd.** De Cockpit-chat realiseerde Slice 5 (collaboratieve cockpit met een
+persistente `attention_item`-laag, `server/comm/work.mjs` en de routes `/api/cockpit/agent/work` en
+`/api/cockpit/work/:id/:action`, contract in `docs/AGENT_COCKPIT_CONTRACT.md`). Deze branch bracht de
+agent-runtime. Beide zijn nu samengevoegd (merge van `claude/maculis-future-cockpit-z9naou`).
+
+**Parallelle abstractie opgeruimd.** Het eerdere eigen work-model (`work_item`, `agent_finding`,
+`agent_evidence`, `/api/agents`-findings/promote/dismiss, `server/agents/cockpit.mjs`,
+`docs/architecture/COCKPIT_AGENT_INTEGRATION.md`) is verwijderd. Er is nu geen tweede werkvoorraad en
+geen tweede lead-database: Scout landt werk uitsluitend via `recordWorkItem` in `attention_item`. De
+oude migratie `006_agent_foundation.sql` is vervangen door `007_agent_runtime.sql` met alleen wat het
+agentdomein echt bezit en de Cockpit niet: `actor` (identiteit, mandaat, autonomie) en `agent_run` (de
+run-trace voor observability). De collision met hun `006_attention_items.sql` is daarmee weg.
+
+**Scout, echte verticale keten (werkt end-to-end tegen Postgres).** waarnemen (aangedragen of interne
+kandidaten) → begrijpen (kwalificatie via deterministische providergrens) → controleren (dedup en
+relatiecheck tegen bestaande organisaties/personen) → evidence met expliciete scheiding FEIT /
+AFLEIDING / HYPOTHESE en confidence → voorstel → `recordWorkItem` (`attention_item`) → Cockpit →
+menselijke beslissing (`resolveWorkItem`: approve materialiseert een `proposedRelation` tot een echte,
+op e-mail gededupliceerde relatie) → status/ownership terug → audit/activity. Bestaande relaties worden
+per id gerefereerd (geen duplicaat); alleen echt nieuwe leads rijden als `proposedRelation`.
+
+**Grenzen afgedwongen.** Scout (autonomie `PREPARE`) mag observeren en werk vastleggen, maar nooit zelf
+resolven, een relatie materialiseren, extern communiceren, consent zetten, privacy lezen, identiteiten
+mergen of extern web raadplegen. De mandaat/autonomie-guard weigert en auditeert dat. Externe discovery
+is een expliciete providergrens die `configured:false` meldt en niets teruggeeft. Demo/fixtures worden
+ondubbelzinnig gemarkeerd (`evidence.demo=true`, `source='demo-fixture'`), nooit als echte vondst.
+Compressie: kandidaten onder de relevantiedrempel worden niet vastgelegd; herhaalde runs dedupliceren
+via `dedupKey` (geen spam).
+
+**Aparte `AGENTS_ENABLED`-flag** blijft: het agentdomein is onafhankelijk activeerbaar; het gedeelde
+schema (006 + 007) wordt op boot toegepast zodra Comm of Agents aanstaat.
+
+**Tests.** `tests/agents-registry.test.mjs` (pure unit) en `tests/agents-scout.test.mjs` (DB-E2E:
+landing via het cockpitcontract, FEIT/AFLEIDING/HYPOTHESE, dedup, bestaande relatie herkend, proposed
+relation niet stil echt, approve/reject/take_over, geen externe outbound, tenant-isolatie, demo-marker,
+Scout-fout breekt de Cockpit niet, auditability). Volledige suite tegen echte Postgres inclusief de
+overgenomen cockpit-slices. Geen deploy, geen infra/secret-wijziging.
+
+---
+
 ## 2026-08-17 — Digitale collega's: gedeelde agentfundering + eerste collega (Scout, Growth/Lead)
 
 **Van onderzoek naar realisatie.** De eerste echte digitale collega is gebouwd op een minimale,

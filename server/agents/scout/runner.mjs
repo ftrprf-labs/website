@@ -1,28 +1,29 @@
-// Growth / Lead colleague — "Scout" runner (§FASE 4).
+// Growth / Lead colleague — "Scout" runner (§ FASE 4 + AGENT_COCKPIT_CONTRACT).
 //
-// Scout finds and qualifies potential new relationships and prepares a sensible next step, so
-// Maculis contributes to NEW relationships, not just existing ones. It works entirely inside the
-// shared truth: for each candidate it checks whether we already know the organization or people,
-// qualifies fit from REAL signals via the deterministic discovery provider, stores evidence and a
-// confidence, proposes a next step, and leaves it as prepared work for a human. It NEVER makes
-// external contact and NEVER promotes a candidate to a real relationship on its own: those sit above
-// its PREPARE autonomy and are enforced by the mandate guard.
+// Scout finds and qualifies potential NEW relationships and lands well-reasoned work in the cockpit,
+// so Maculis contributes to new relationships, not just existing ones. It works entirely inside the
+// one shared reality: for each candidate it checks whether we already know the organization or
+// people (dedup), qualifies fit from REAL signals via a deterministic discovery provider, separates
+// FACT / INFERENCE / HYPOTHESIS, proposes a human next step, and records an ATTENTION ITEM through
+// the cockpit's own contract (recordWorkItem). It NEVER resolves its own work, NEVER materialises a
+// relation, and NEVER contacts anyone: those are the human's decision (cockpit approve). The mandate
+// guard enforces this. A not-yet-existing lead rides as a `proposedRelation`; an already-known
+// relation is referenced by id. Idempotent per candidate (dedupKey) so repeated runs never spam.
 
 import { query } from '../../comm/db.mjs';
+import { recordWorkItem } from '../../comm/work.mjs';
 import { getActor, assertCan, requiresApproval } from '../registry.mjs';
 import { startRun, finishRun, failRun, recordCapabilityCall } from '../run.mjs';
-import { addFinding } from '../findings.mjs';
-import { setWorkStatus, getWorkItem } from '../work.mjs';
 import { getDiscoveryProvider } from '../providers/discovery.mjs';
 import { emailDomain } from '../../comm/identity.mjs';
 
-function slug(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
-function subjectKeyFor(candidate) {
-  const d = (candidate.domain || '').trim().toLowerCase();
-  return d || slug(candidate.name) || null;
-}
+// Only record work that clears a relevance bar (compression: protect attention at the source).
+const MIN_RECORD_CONFIDENCE = 0.35;
 
-// Look up what our own database already knows about a candidate organization (dedup + warm path).
+function slug(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+function candidateKey(c) { return (c.domain || '').toLowerCase() || (c.person && c.person.email ? String(c.person.email).toLowerCase() : '') || slug(c.name) || null; }
+
+// What our own database already knows about a candidate organization (dedup + warm path).
 async function checkExistence(tenantId, candidate) {
   const domain = (candidate.domain || '').trim().toLowerCase() || null;
   let org = null;
@@ -36,6 +37,12 @@ async function checkExistence(tenantId, candidate) {
       `select id, name, primary_domain, relationship_stage from organization
         where tenant_id=$1 and lower(name)=lower($2) and deleted_at is null limit 1`, [tenantId, candidate.name])).rows[0] || null;
   }
+  // Also check whether the specific person already exists (by e-mail), so we never propose a duplicate.
+  let contact = null;
+  const email = candidate.person && candidate.person.email ? String(candidate.person.email).toLowerCase() : null;
+  if (email) {
+    contact = (await query('select id, organization_id from contact where tenant_id=$1 and lower(email)=lower($2) and deleted_at is null limit 1', [tenantId, email])).rows[0] || null;
+  }
   let contacts = [];
   let activityCount = 0;
   if (org) {
@@ -46,92 +53,149 @@ async function checkExistence(tenantId, candidate) {
   }
   return {
     organization: org ? { id: org.id, name: org.name, domain: org.primary_domain, stage: org.relationship_stage } : null,
+    contact,
     contacts,
     activityCount,
   };
 }
 
-// Run Scout on a work item. Idempotent (one non-failed run per work item). Returns a summary.
-export async function runScout({ tenantId, workItemId, trigger = 'human' }) {
+// Turn provider output + DB facts into an evidence object with an EXPLICIT epistemic split, so the
+// human (and later a learning loop) can tell fact from inference from hypothesis.
+function buildEvidence(candidate, known, q) {
+  const facts = [];
+  // Provided data is a fact about the input (what a human handed us), labelled honestly.
+  if (candidate.note) facts.push({ kind: 'FACT', text: `Aangedragen met context: ${candidate.note}` });
+  if (candidate.domain) facts.push({ kind: 'FACT', text: `Domein: ${candidate.domain}` });
+  // Real DB facts from qualification evidence (existing org, known contact, prior activity).
+  for (const e of q.evidence || []) {
+    if (e.sourceType === 'internal_db') facts.push({ kind: 'FACT', text: e.detail, ref: e.sourceRef });
+  }
+  const inferences = [{ kind: 'INFERENCE', text: q.summary }];
+  const hypotheses = [];
+  if (!known.organization && !(known.contacts && known.contacts.length)) {
+    hypotheses.push({ kind: 'HYPOTHESIS', text: 'Mogelijke fit met Maculis. Nog niet bevestigd; menselijke beoordeling nodig.' });
+  }
+  const observations = [...facts, ...inferences, ...hypotheses];
+  const ev = {
+    source: candidate.demo ? 'demo-fixture' : 'scout/internal',
+    provider: q.providerName || 'internal',
+    confidence: q.confidence,
+    epistemicStatus: q.epistemicStatus,
+    observations,
+    facts, inferences, hypotheses,
+  };
+  // Contract §7: a demonstration/fixture must be unmistakably marked so it can never read as a real find.
+  if (candidate.demo) ev.demo = true;
+  return ev;
+}
+
+// Run Scout over a set of candidates. Lands attention items through the cockpit contract. Idempotent
+// on runDedupeKey (double-submit guard) and per-candidate on the work dedupKey (no attention spam).
+export async function runScout({ tenantId, candidates = [], trigger = 'human', runDedupeKey = null, scope = 'provided' }) {
   const scout = await getActor(tenantId, 'scout');
   if (!scout) return { ok: false, reason: 'scout_actor_missing' };
-  const work = await getWorkItem(tenantId, workItemId);
-  if (!work) return { ok: false, reason: 'work_not_found' };
 
-  // Idempotent run: a double-submit returns the existing run and does no duplicate work.
-  const started = await startRun(tenantId, {
-    workItemId, actor: scout, trigger, autonomyUsed: scout.autonomy, dedupeKey: `scout:${workItemId}`,
-  });
+  const started = await startRun(tenantId, { actor: scout, trigger, autonomyUsed: scout.autonomy, inputRef: { candidates: candidates.length, scope }, dedupeKey: runDedupeKey });
   if (started.reused) return { ok: true, reused: true, runId: started.run.id, status: 'reused' };
   const runId = started.run.id;
 
   try {
-    // Scout may look at the shared truth. Any forbidden read (e.g. external web) is denied + audited.
-    await assertCan(scout, 'read_shared_truth', { tenantId, resource: { type: 'work_item', id: workItemId } });
-
-    const input = work.input || {};
-    if (input.scope === 'external_web') {
-      // Honest boundary: external discovery is above Scout's mandate in v1. Deny + audit, no fake data.
-      await assertCan(scout, 'external_discovery', { tenantId, resource: { type: 'work_item', id: workItemId } });
+    await assertCan(scout, 'read_shared_truth', { tenantId, resource: { type: 'agent_run', id: runId } });
+    if (scope === 'external_web') {
+      // Honest boundary: external discovery is above Scout's mandate in this build. Deny + audit.
+      await assertCan(scout, 'external_discovery', { tenantId, resource: { type: 'agent_run', id: runId } });
     }
-
-    const candidates = Array.isArray(input.candidates) ? input.candidates : [];
-    await setWorkStatus(tenantId, workItemId, 'in_progress');
     const provider = getDiscoveryProvider();
     await recordCapabilityCall(tenantId, runId, { capability: 'discovery_provider', note: provider.name });
 
-    let created = 0; let known = 0; const findingIds = [];
+    const landed = []; let recorded = 0; let skipped = 0; let known = 0;
     for (const raw of candidates) {
       const candidate = {
         name: (raw.name || '').trim(),
         domain: (raw.domain || (raw.email ? emailDomain(raw.email) : '') || '').trim().toLowerCase() || null,
         note: raw.note || null,
-        person: raw.person || (raw.email ? { email: raw.email, first_name: raw.first_name, last_name: raw.last_name } : null),
+        person: raw.person || (raw.email ? { email: String(raw.email).toLowerCase(), first_name: raw.first_name || null, last_name: raw.last_name || null } : null),
+        demo: raw.demo === true || raw.sourceType === 'demo-fixture',
         sourceType: raw.sourceType || 'provided',
         sourceRef: raw.sourceRef || null,
       };
-      const subjectKey = subjectKeyFor(candidate);
-      if (!candidate.name && !subjectKey) continue; // nothing to qualify
+      const key = candidateKey(candidate);
+      if (!candidate.name && !key) { skipped += 1; continue; }
 
       const existence = await checkExistence(tenantId, candidate);
-      await recordCapabilityCall(tenantId, runId, { capability: 'check_existence', note: subjectKey });
-
-      // Qualify against real signals only (deterministic provider). No fabricated external facts.
+      await recordCapabilityCall(tenantId, runId, { capability: 'check_existence', note: key });
       const q = await provider.qualify({ candidate, known: existence });
-      await recordCapabilityCall(tenantId, runId, { capability: 'qualify', note: `${subjectKey}:${q.confidence}` });
+      await recordCapabilityCall(tenantId, runId, { capability: 'qualify', note: `${key}:${q.confidence}` });
 
-      // If the proposed step would eventually require external contact, Scout may PREPARE it but must
-      // NOT act: approval is required because send is above its autonomy.
-      const proposedAction = { ...q.proposedAction };
-      if (proposedAction.mandate_required === 'send') {
-        proposedAction.approval_required = requiresApproval(scout, 'send_external'); // true for Scout
+      // Compression: below the relevance bar, record nothing (unless it touches a known relation,
+      // which is always worth surfacing quietly).
+      const touchesKnown = Boolean(existence.organization || existence.contact);
+      if (q.confidence < MIN_RECORD_CONFIDENCE && !touchesKnown) { skipped += 1; continue; }
+
+      const warm = Boolean(existence.contacts && existence.contacts.length);
+      const needs = (warm || q.confidence >= 0.55) ? 'approval' : 'awareness';
+
+      // Build the attention-item input per the cockpit contract.
+      const evidence = buildEvidence(candidate, existence, q);
+      // ONE REALITY: reference what already exists; only propose a NEW relation when neither the
+      // person nor the organization is known. This also lets the cockpit fold work onto an existing
+      // relation card instead of adding a duplicate.
+      const relation = {};
+      let proposedRelation = null;
+      if (existence.contact) {
+        relation.contactId = existence.contact.id;
+        if (existence.contact.organization_id) relation.organizationId = existence.contact.organization_id;
+      } else if (existence.organization) {
+        relation.organizationId = existence.organization.id;
+        if (existence.contacts && existence.contacts.length) relation.contactId = existence.contacts[0].id; // warm anchor
+      } else {
+        // A not-yet-created lead rides as a proposedRelation; the human materialises it on approve.
+        const person = candidate.person || (q.person && q.person.email ? { email: q.person.email } : null);
+        proposedRelation = {
+          name: (person && (person.name || [person.first_name, person.last_name].filter(Boolean).join(' '))) || candidate.name,
+          org: candidate.name || null,
+          email: person && person.email ? person.email : null,
+          domain: candidate.domain,
+        };
+        await assertCan(scout, 'propose_relation', { tenantId, resource: { type: 'attention_item', id: key } });
       }
-      // Preparing work is within Scout's autonomy; assert it explicitly (audited on denial).
-      await assertCan(scout, 'prepare_work', { tenantId, resource: { type: 'work_item', id: workItemId } });
 
-      const person = q.person || candidate.person || null;
-      const fin = await addFinding(tenantId, {
-        workItemId, agentRunId: runId, actorId: scout.id,
-        kind: 'lead_candidate', subjectType: 'organization', subjectKey,
-        title: candidate.name || subjectKey, summary: q.summary,
-        epistemicStatus: q.epistemicStatus, confidence: q.confidence,
-        organizationId: existence.organization ? existence.organization.id : null,
-        alreadyKnown: Boolean(existence.organization),
-        proposedAction: { ...proposedAction, domain: candidate.domain, person },
-        approvalRequired: true, // default safe: a human decides whether this becomes a lead
-        evidence: q.evidence,
-      });
-      if (fin.ok) { findingIds.push(fin.id); if (fin.created) created += 1; if (existence.organization) known += 1; }
+      const whoLabel = candidate.name || (proposedRelation && proposedRelation.name) || 'onbekend';
+      const title = touchesKnown
+        ? `Scout ziet iets bij een bestaande relatie: ${whoLabel}`
+        : `Mogelijke nieuwe relatie: ${whoLabel}`;
+      const proposal = {
+        summary: q.proposedAction.summary,
+        needs,
+        actions: q.proposedAction.kind === 'prepare_intro' ? ['view', 'approve', 'edit', 'reject'] : ['view', 'approve', 'reject'],
+        step: q.proposedAction.kind,
+      };
+      // Preparing/recording work is within Scout's autonomy; asserted (audited on denial). Note that
+      // any external step (mandate_required 'send') stays a proposal that a human must approve first.
+      if (q.proposedAction.mandate_required === 'send') proposal.needsHumanBeforeContact = requiresApproval(scout, 'send_external');
+      await assertCan(scout, 'record_work', { tenantId, resource: { type: 'attention_item', id: key } });
+
+      const input = {
+        origin: { kind: 'AGENT', key: scout.slug, label: scout.display_name },
+        owner: { kind: 'HUMAN', key: null },
+        type: 'AGENT_PROPOSAL',
+        relation,
+        proposedRelation,
+        title,
+        reason: q.summary,
+        evidence,
+        proposal,
+        dedupKey: `lead:${key}`,
+      };
+      const res = await recordWorkItem(tenantId, input);
+      if (res.ok) { landed.push({ id: res.id, deduped: Boolean(res.deduped), key }); recorded += 1; if (touchesKnown) known += 1; }
     }
 
-    const output = { candidates: candidates.length, findings: findingIds.length, created, alreadyKnown: known, provider: provider.name };
+    const output = { candidates: candidates.length, recorded, skipped, touchesKnown: known, landed: landed.map((l) => l.id), provider: provider.name };
     await finishRun(tenantId, runId, { actor: scout, outputRef: output });
-    // Findings await a human decision; the work item is done from Scout's side.
-    await setWorkStatus(tenantId, workItemId, 'awaiting_human', { output });
-    return { ok: true, runId, ...output, findingIds };
+    return { ok: true, runId, ...output, landed };
   } catch (err) {
     await failRun(tenantId, runId, err.message || String(err), { actor: scout });
-    await setWorkStatus(tenantId, workItemId, 'failed', { output: { error: String(err.message || err).slice(0, 200) } });
-    return { ok: false, reason: 'run_failed', error: String(err.message || err) };
+    return { ok: false, reason: 'run_failed', error: String(err.message || err), runId };
   }
 }

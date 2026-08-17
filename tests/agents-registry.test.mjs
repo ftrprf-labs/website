@@ -14,29 +14,31 @@ test('autonomy ladder is ordered and safe-by-default', () => {
   assert.equal(autonomyRank('NONSENSE'), AUTONOMY_LEVELS.length); // unknown => most restrictive
 });
 
-test('Scout may observe, propose and prepare on its own', () => {
+test('Scout may observe and record work (findings, proposals, proposed relations) on its own', () => {
   assert.equal(can(scout, 'read_shared_truth').ok, true);
-  assert.equal(can(scout, 'create_finding').ok, true);
-  assert.equal(can(scout, 'write_proposed_memory').ok, true);
-  assert.equal(can(scout, 'prepare_work').ok, true);
+  assert.equal(can(scout, 'record_work').ok, true);
+  assert.equal(can(scout, 'propose_relation').ok, true);
 });
 
-test('Scout may NOT send, promote, set consent, read privacy, merge identity or reach external web', () => {
+test('Scout may NOT resolve its own work, materialise, send, set consent, read privacy, merge or reach external web', () => {
+  assert.equal(can(scout, 'resolve_work').ok, false);
+  assert.equal(can(scout, 'materialize_relation').ok, false);
   assert.equal(can(scout, 'send_external').ok, false);
-  assert.equal(can(scout, 'promote_lead').ok, false);
   assert.equal(can(scout, 'set_consent').ok, false);
   assert.equal(can(scout, 'read_privacy').ok, false);
   assert.equal(can(scout, 'merge_identity').ok, false);
   assert.equal(can(scout, 'external_discovery').ok, false);
-  // send/promote are above its autonomy AND organisationally forbidden -> always need a human.
+  // resolve/send are above its autonomy AND organisationally forbidden -> always need a human.
   assert.equal(requiresApproval(scout, 'send_external'), true);
-  assert.equal(requiresApproval(scout, 'promote_lead'), true);
+  assert.equal(requiresApproval(scout, 'resolve_work'), true);
+  assert.equal(requiresApproval(scout, 'materialize_relation'), true);
 });
 
-test('mandate is independent of autonomy: even AUTONOMOUS growth cannot send/promote/read privacy', () => {
+test('mandate is independent of autonomy: even AUTONOMOUS growth cannot resolve/send/read privacy', () => {
   const powerful = { ...scout, autonomy: 'AUTONOMOUS' };
   assert.equal(can(powerful, 'send_external').ok, false, 'forbid list still blocks send');
-  assert.equal(can(powerful, 'promote_lead').ok, false, 'forbid list still blocks promote');
+  assert.equal(can(powerful, 'resolve_work').ok, false, 'forbid list still blocks self-resolve');
+  assert.equal(can(powerful, 'materialize_relation').ok, false, 'forbid list still blocks materialise');
   assert.equal(can(powerful, 'read_privacy').ok, false, 'forbid list still blocks privacy');
   assert.equal(can(powerful, 'external_discovery').ok, false, 'forbid list still blocks external web');
 });
@@ -45,8 +47,8 @@ test('unknown action and unknown role default to deny', () => {
   assert.equal(can(scout, 'nuke_everything').ok, false);
   assert.equal(can(scout, 'nuke_everything').reason, 'unknown_action');
   const ghost = { slug: 'ghost', role: 'unmapped', autonomy: 'AUTONOMOUS', status: 'active' };
-  assert.equal(can(ghost, 'create_finding').ok, false, 'unmapped role has no mandate');
-  assert.equal(can(ghost, 'create_finding').reason, 'no_mandate');
+  assert.equal(can(ghost, 'record_work').ok, false, 'unmapped role has no mandate');
+  assert.equal(can(ghost, 'record_work').reason, 'no_mandate');
 });
 
 test('inactive actor cannot act', () => {
@@ -56,11 +58,12 @@ test('inactive actor cannot act', () => {
 test('colleague card separates what is autonomous vs needs human approval', () => {
   const card = colleagueCard(scout);
   assert.equal(card.slug, 'scout');
-  assert.ok(card.mayAutonomously.includes('create_finding'));
-  assert.ok(card.mayAutonomously.includes('prepare_work'));
+  assert.ok(card.mayAutonomously.includes('record_work'));
+  assert.ok(card.mayAutonomously.includes('propose_relation'));
   assert.ok(card.needsHumanApproval.includes('send_external'));
-  assert.ok(card.needsHumanApproval.includes('promote_lead'));
+  assert.ok(card.needsHumanApproval.includes('resolve_work'));
   assert.ok(card.forbidden.includes('send'));
+  assert.ok(card.forbidden.includes('resolve'));
 });
 
 // ---- deterministic discovery provider (honest, evidence-grounded) ------------------------------

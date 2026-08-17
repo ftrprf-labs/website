@@ -1,37 +1,38 @@
-// Digital Colleagues — agent runs (one execution, for audit / cost / idempotency).
+// Digital Colleagues — agent runs (one execution, for observability / cost / idempotency).
 //
-// Every time a colleague works, we open an agent_run: which actor, why (trigger), at which autonomy
-// level, what it called, what it produced, and any error. dedupeKey gives double-submit / retry
-// protection: at most one non-failed run per key (partial unique index in migration 006). A failed
-// run may be retried; a running/succeeded one is returned as-is.
+// A run is NOT a work object (work lands in attention_item via recordWorkItem). It is the trace of a
+// colleague working: which actor, why (trigger), at which autonomy, what it called, which items it
+// landed (output_ref.landed), and any error. dedupeKey gives double-submit / retry protection: at
+// most one non-failed run per key (partial unique index in migration 007). A failed run may be
+// retried; a running/succeeded one is returned as-is.
 
 import { query } from '../comm/db.mjs';
 import { recordAudit } from '../comm/audit.mjs';
 
 // Open a run. Returns { ok, run, reused } — reused=true means an equivalent run already exists and
 // this call is a safe no-op (idempotent).
-export async function startRun(tenantId, { workItemId, actor, trigger, autonomyUsed = null, inputRef = {}, dedupeKey = null }) {
+export async function startRun(tenantId, { actor, trigger, autonomyUsed = null, inputRef = {}, dedupeKey = null }) {
   if (dedupeKey) {
-    const existing = await query(
+    const existing = (await query(
       `select id, status from agent_run where tenant_id=$1 and dedupe_key=$2 and status in ('running','succeeded') order by started_at desc limit 1`,
-      [tenantId, dedupeKey]);
-    if (existing.rows[0]) return { ok: true, reused: true, run: existing.rows[0] };
+      [tenantId, dedupeKey])).rows[0];
+    if (existing) return { ok: true, reused: true, run: existing };
   }
   try {
     const ins = await query(
-      `insert into agent_run(tenant_id, work_item_id, actor_id, trigger, status, autonomy_used, input_ref, dedupe_key)
-       values ($1,$2,$3,$4,'running',$5,$6::jsonb,$7) returning id, status`,
-      [tenantId, workItemId || null, actor.id, trigger, autonomyUsed || actor.autonomy, JSON.stringify(inputRef || {}), dedupeKey]);
+      `insert into agent_run(tenant_id, actor_id, trigger, status, autonomy_used, input_ref, dedupe_key)
+       values ($1,$2,$3,'running',$4,$5::jsonb,$6) returning id, status`,
+      [tenantId, actor.id, trigger, autonomyUsed || actor.autonomy, JSON.stringify(inputRef || {}), dedupeKey]);
     const run = ins.rows[0];
-    await recordAudit({ tenantId, action: 'agent_run_started', entityType: 'agent_run', entityId: run.id, meta: { agent: true, actor_slug: actor.slug, trigger, work_item_id: workItemId } });
+    await recordAudit({ tenantId, action: 'agent_run_started', entityType: 'agent_run', entityId: run.id, meta: { agent: true, actor_slug: actor.slug, trigger } });
     return { ok: true, reused: false, run };
   } catch (err) {
     // Lost a race on the partial unique index: another run for this key won. Return it.
     if (dedupeKey && String(err.message || '').includes('agent_run_dedupe_idx')) {
-      const existing = await query(
+      const existing = (await query(
         `select id, status from agent_run where tenant_id=$1 and dedupe_key=$2 and status in ('running','succeeded') order by started_at desc limit 1`,
-        [tenantId, dedupeKey]);
-      if (existing.rows[0]) return { ok: true, reused: true, run: existing.rows[0] };
+        [tenantId, dedupeKey])).rows[0];
+      if (existing) return { ok: true, reused: true, run: existing };
     }
     throw err;
   }
@@ -61,10 +62,10 @@ export async function failRun(tenantId, runId, error, { actor = null } = {}) {
   return { ok: true };
 }
 
-export async function listRuns(tenantId, { workItemId = null, actorId = null, limit = 50 } = {}) {
+export async function listRuns(tenantId, { actorId = null, limit = 50 } = {}) {
   const r = await query(
-    `select id, work_item_id, actor_id, trigger, status, autonomy_used, capability_calls, tokens, cost, error, started_at, ended_at
-       from agent_run where tenant_id=$1 and ($2::uuid is null or work_item_id=$2) and ($3::uuid is null or actor_id=$3)
-      order by started_at desc limit $4`, [tenantId, workItemId, actorId, limit]);
+    `select id, actor_id, trigger, status, autonomy_used, capability_calls, output_ref, tokens, cost, error, started_at, ended_at
+       from agent_run where tenant_id=$1 and ($2::uuid is null or actor_id=$2)
+      order by started_at desc limit $3`, [tenantId, actorId, limit]);
   return r.rows;
 }
