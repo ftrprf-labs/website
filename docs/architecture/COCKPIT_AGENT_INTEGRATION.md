@@ -5,8 +5,9 @@ colleague's work lands in the SAME Maculis reality (Vandaag, Relaties, dossier),
 dashboard. The agent domain is built and tested (server/agents/*, migration 006). The Cockpit does
 not build a second Cockpit here: it connects to these endpoints.
 
-Additive and feature-flagged: everything is admin-gated and mounted only when the Communication
-Layer is enabled (COMM_LAYER_ENABLED + DATABASE_URL), exactly like `/api/comm/*`.
+Additive and feature-flagged: everything is admin-gated and mounted only when the agent domain is
+enabled (`AGENTS_ENABLED` + `DATABASE_URL`), independently of the Communication Layer. The agent
+schema shares the same Postgres and is applied on boot when either feature is enabled.
 
 Writing rule respected: no stylistic hyphens or dashes in prose.
 

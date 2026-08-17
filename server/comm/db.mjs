@@ -17,6 +17,18 @@ export function commEnabled() {
   return config.commLayerEnabled && Boolean(config.databaseUrl);
 }
 
+// Is the Digital Colleagues (agents) domain switched on? Independent of the Communication Layer: it
+// needs only AGENTS_ENABLED + a database. Both features share this Postgres, so the shared migration
+// set is applied whenever either is enabled (dbFeaturesEnabled).
+export function agentsEnabled() {
+  return config.agentsEnabled && Boolean(config.databaseUrl);
+}
+
+// True when any DB-backed feature (Comm Layer or agents) is on, so the migration runner should run.
+export function dbFeaturesEnabled() {
+  return commEnabled() || agentsEnabled();
+}
+
 // Lazily create the connection pool. Managed Postgres needs TLS; a local test DB (postgres:// on
 // localhost or a socket) does not — detect by host so the same code runs in both places.
 export function getPool() {

@@ -2,13 +2,15 @@
 //
 // Applies server/comm/migrations/*.sql in filename order, each exactly once, inside a
 // transaction, tracked in schema_migrations. Idempotent and safe to run on every boot: already
-// applied files are skipped. Runs ONLY when the Communication Layer is enabled, so a normal
-// deployment without DATABASE_URL never touches a database.
+// applied files are skipped. Runs when ANY DB-backed feature is enabled (the Communication Layer
+// OR the Digital Colleagues domain), so a normal deployment without a database never touches one.
+// The agent schema (006) shares this Postgres and depends on the relationship base tables, so the
+// whole set is applied together.
 
 import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getPool, commEnabled } from './db.mjs';
+import { getPool, dbFeaturesEnabled } from './db.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(HERE, 'migrations');
@@ -44,7 +46,7 @@ export async function runMigrations({ silent = false } = {}) {
 // Best-effort boot hook: never blocks or crashes the server if the DB is briefly unreachable —
 // the Communication Layer routes fail closed until migrations have succeeded.
 export async function migrateOnBoot() {
-  if (!commEnabled()) return { skipped: true };
+  if (!dbFeaturesEnabled()) return { skipped: true };
   try {
     const res = await runMigrations();
     return { ok: true, ...res };

@@ -23,7 +23,7 @@ import {
 import { handleComm } from './comm/routes.mjs';
 import { handleAgents } from './agents/routes.mjs';
 import { migrateOnBoot } from './comm/migrate.mjs';
-import { commEnabled } from './comm/db.mjs';
+import { commEnabled, agentsEnabled, dbFeaturesEnabled } from './comm/db.mjs';
 import { bridgePassTheLens } from './comm/pass-the-lens.mjs';
 
 const PUBLIC = join(ROOT, 'public');
@@ -673,22 +673,26 @@ server.listen(config.port, bindHost, () => {
     console.log(`  Auth     : password gate ON`);
   }
   console.log(`  Comm     : ${commEnabled() ? 'ENABLED (Postgres relationship layer)' : 'off (set COMM_LAYER_ENABLED + DATABASE_URL)'}`);
+  console.log(`  Agents   : ${agentsEnabled() ? 'ENABLED (digital colleagues)' : 'off (set AGENTS_ENABLED + DATABASE_URL)'}`);
   console.log('');
 
-  // Communication Layer: apply DB migrations on boot when enabled. Best-effort — never blocks the
-  // Invitation Manager / First Five service if the database is briefly unreachable.
-  if (commEnabled()) {
+  // Apply DB migrations on boot when ANY DB-backed feature (Comm Layer or agents) is enabled. The
+  // agent schema shares this Postgres. Best-effort — never blocks the Invitation Manager / First
+  // Five service if the database is briefly unreachable.
+  if (dbFeaturesEnabled()) {
     migrateOnBoot().then(async (r) => {
       if (r.ok) {
-        console.log(`  Comm     : migrations ${r.ran && r.ran.length ? 'applied ' + r.ran.join(', ') : 'up to date'}`);
+        console.log(`  Schema   : migrations ${r.ran && r.ran.length ? 'applied ' + r.ran.join(', ') : 'up to date'}`);
         // Bridge existing Testerbeheer invitations into permanent Contact/Organization rows so the
-        // Relationship Workspace has data from day one (§9). Idempotent, additive, best-effort.
-        try {
-          const { migrateInvitations } = await import('./comm/repo.mjs');
-          const res = await migrateInvitations(store.listInvitations());
-          console.log(`  Comm     : relaties ${res.contactsCreated} nieuw, ${res.contactsLinked} bijgewerkt`);
-        } catch (e) { console.log(`  Comm     : relatie-migratie uitgesteld (${e.message})`); }
-      } else if (!r.skipped) console.log(`  Comm     : migrations pending (${r.error})`);
+        // Relationship Workspace has data from day one (§9). Comm-specific; idempotent, best-effort.
+        if (commEnabled()) {
+          try {
+            const { migrateInvitations } = await import('./comm/repo.mjs');
+            const res = await migrateInvitations(store.listInvitations());
+            console.log(`  Comm     : relaties ${res.contactsCreated} nieuw, ${res.contactsLinked} bijgewerkt`);
+          } catch (e) { console.log(`  Comm     : relatie-migratie uitgesteld (${e.message})`); }
+        }
+      } else if (!r.skipped) console.log(`  Schema   : migrations pending (${r.error})`);
     });
   }
 

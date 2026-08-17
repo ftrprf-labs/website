@@ -1,11 +1,12 @@
 // Digital Colleagues — HTTP routes (§FASE 6, Cockpit integration).
 //
-// Mounted ONLY when the Communication Layer is enabled, next to handleComm, behind the same admin
-// session gate. Returns true if it handled the request so the main server falls through otherwise.
+// Mounted ONLY when the Digital Colleagues domain is enabled (AGENTS_ENABLED + a database),
+// independently of the Communication Layer, next to handleComm and behind the same admin session
+// gate. Returns true if it handled the request so the main server falls through otherwise.
 // This is the surface the Cockpit consumes: colleagues, their work, their findings (prepared work),
 // and the human decisions (promote / dismiss). No public routes, no send, no external calls.
 
-import { commEnabled } from '../comm/db.mjs';
+import { agentsEnabled } from '../comm/db.mjs';
 import { getDefaultTenantId } from '../comm/tenant.mjs';
 import { listActors, getActor, colleagueCard } from './registry.mjs';
 import { createWorkItem, getWorkItem, listWorkItems } from './work.mjs';
@@ -32,7 +33,7 @@ function readRaw(req, limit = 1 * 1024 * 1024) {
 async function readJson(req) { try { return JSON.parse(await readRaw(req) || '{}'); } catch { return null; } }
 
 export async function handleAgents(req, res, { pathname, method, isAuthed }) {
-  if (!commEnabled() || !pathname.startsWith('/api/agents/')) return false;
+  if (!agentsEnabled() || !pathname.startsWith('/api/agents/')) return false;
 
   // All agent routes require the admin session (no public agent surface).
   if (!isAuthed(req)) { json(res, 401, { error: 'Niet ingelogd' }); return true; }

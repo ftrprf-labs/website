@@ -17,7 +17,10 @@ import { listRuns } from '../server/agents/run.mjs';
 import { getActor } from '../server/agents/registry.mjs';
 import { preparedWorkForCockpit, cockpitSummary, agentContributionsForOrganization } from '../server/agents/cockpit.mjs';
 
-const HAS_DB = Boolean(process.env.DATABASE_URL) && /^(1|true|yes|on)$/i.test(process.env.COMM_LAYER_ENABLED || '');
+// Runs when a database is present and EITHER feature flag is on: the agent domain is activatable
+// independently of the Communication Layer (AGENTS_ENABLED), and also runs under COMM_LAYER_ENABLED.
+const ON = (v) => /^(1|true|yes|on)$/i.test(v || '');
+const HAS_DB = Boolean(process.env.DATABASE_URL) && (ON(process.env.AGENTS_ENABLED) || ON(process.env.COMM_LAYER_ENABLED));
 const opts = { skip: HAS_DB ? false : 'no DATABASE_URL — Scout E2E skipped' };
 
 async function audited(action, tenantId = null) {

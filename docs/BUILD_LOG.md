@@ -53,6 +53,13 @@ Lokaal tegen een echte Postgres: 12/12 agent-tests groen; zonder DB skippen de E
 door een pre-existing race in de mock-copilot (reproduceert op de schone baseline zonder deze
 wijziging, en is groen in de echte CI volgens deze log); niet veroorzaakt door dit werk.
 
+**Aparte `AGENTS_ENABLED`-flag.** Het agentdomein is nu onafhankelijk van de Communication Layer te
+activeren (`AGENTS_ENABLED` + `DATABASE_URL`). Het gedeelde schema (inclusief migratie 006) wordt op
+boot toegepast zodra één van beide features aanstaat; `handleAgents` gate't op `agentsEnabled()`. De
+invitation-bridge blijft comm-specifiek. Bewezen: agent-suite draait en slaagt met alleen
+`AGENTS_ENABLED` gezet (12/12), boot toont "Comm: off / Agents: ENABLED", en zonder flags skippen de
+E2E-tests netjes. Gedocumenteerd in `.env.example`.
+
 **Commit:** branch `claude/maculis-team-agents-arch-cuybdp`. Geen deploy, geen infra/secret-wijziging.
 
 ---

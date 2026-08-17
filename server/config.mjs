@@ -87,6 +87,12 @@ export const config = {
   // Five flow is unaffected until we deliberately switch it on. No secrets in code.
   commLayerEnabled: /^(1|true|yes|on)$/i.test(process.env.COMM_LAYER_ENABLED || ''),
   databaseUrl: process.env.DATABASE_URL || '',
+  // Digital Colleagues (agents). Activatable INDEPENDENTLY of the Communication Layer: needs only
+  // this flag and a database. The agent schema (migration 006) shares the same Postgres and is
+  // applied on boot when either the Comm Layer or the agent domain is enabled. Discovery defaults
+  // to the deterministic internal provider; external web discovery is not wired in this build.
+  agentsEnabled: /^(1|true|yes|on)$/i.test(process.env.AGENTS_ENABLED || ''),
+  agentDiscoveryProvider: (process.env.AGENT_DISCOVERY_PROVIDER || 'internal').toLowerCase(),
   // Resend inbound (Receiving). MAIL_API_KEY (already used for outbound) doubles as the
   // Receiving-API key; the webhook signing secret is set AFTER the webhook is created in Resend.
   resendWebhookSecret: process.env.RESEND_WEBHOOK_SECRET || '',
