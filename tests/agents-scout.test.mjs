@@ -161,3 +161,38 @@ test('Scout folds an external source signal into the landed evidence (injected s
   assert.ok(succeeded.capability_calls.some((c) => c.capability === 'gather_external_signals'));
   await closePool();
 });
+
+test('Scout combines website + TED signals and KVK verification, keeping FACT vs external distinct', opts, async () => {
+  await runMigrations({ silent: true });
+  await query('truncate attention_item, agent_run, activity, contact, organization, channel_identity, audit_event cascade');
+  const t = await getDefaultTenantId();
+
+  // Injected external SOURCE providers (real provider shapes, deterministic; no live network).
+  const websiteLike = { name: 'website', signals: async ({ domain }) => domain ? { signals: [{ claim: 'Vacaturepagina aanwezig op de website.', confidence: 0.5, source: 'company-website', url: `https://${domain}/`, relevantNow: true }] } : { signals: [] } };
+  const tedLike = { name: 'ted', signals: async ({ name }) => name ? { signals: [{ claim: 'Recente EU-aanbesteding (TED).', confidence: 0.55, source: 'TED', url: 'https://ted.europa.eu/en/notice/-/detail/1-2026', sourceType: 'ted', relevantNow: true, uncertainties: ['Naam-match kan een naamgenoot betreffen.'] }] } : { signals: [] } };
+  const kvkLike = { name: 'kvk', verify: async ({ name }) => name ? { matches: [{ source: 'KVK', kvkNumber: '12345678', name: 'Veldwerk BV', place: 'Gent' }] } : { matches: [] } };
+
+  const run = await runScout({
+    tenantId: t, trigger: 'human', sources: [websiteLike, tedLike], verificationSources: [kvkLike],
+    candidates: [{ name: 'Veldwerk', domain: 'veldwerk.be', email: 'tibo@veldwerk.be' }],
+  });
+  assert.equal(run.ok, true);
+  const item = (await listWorkItems(t, {})).map(shapeWorkItem)[0];
+
+  // Official verification is a FACT (verified identity) with the register as source.
+  const verifiedFact = (item.evidence.facts || []).find((f) => f.source === 'KVK');
+  assert.ok(verifiedFact, 'KVK verification lands as a FACT');
+  assert.match(verifiedFact.text, /Officieel geverifieerd/);
+
+  // Website + TED land as EXTERNAL observations, each with a source URL — never relabelled as fact.
+  const exts = item.evidence.external || [];
+  assert.ok(exts.some((e) => /company-website|veldwerk\.be/.test((e.source || '') + (e.url || ''))), 'website observation present');
+  assert.ok(exts.some((e) => (e.source === 'TED') || /ted\.europa\.eu/.test(e.url || '')), 'TED observation present');
+  assert.ok(exts.every((e) => e.kind === 'OBSERVATION'), 'external signals are OBSERVATION, never FACT');
+
+  // The chain is traceable: the run recorded gathering signals AND verifying identity.
+  const succeeded = (await listRuns(t, {})).find((r) => r.status === 'succeeded');
+  assert.ok(succeeded.capability_calls.some((c) => c.capability === 'gather_external_signals'));
+  assert.ok(succeeded.capability_calls.some((c) => c.capability === 'verify_identity'));
+  await closePool();
+});

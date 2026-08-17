@@ -5,6 +5,44 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-17 — Scout externe bronnen: Website Signals + TED live-ready, KVK/KBO verificatie-seams
+
+**Van DEMO naar echte externe waarneming (bronnen live-ready, standaard uit).** Twee credential-free
+signaalbronnen zijn nu echte, live-klare providers, en officiële identiteitsverificatie is als seam
+voorbereid. Scout blijft het brein: externe waarneming, normalisatie, bestaande-relatiecontrole,
+evidence, FEIT/AFLEIDING/HYPOTHESE, confidence, deduplicatie, relevantie, proposal, attention.
+
+**Website Signals** (`providers/website.mjs`, `SCOUT_WEBSITE_SIGNALS`): leest de eigen publieke homepage
+van een organisatie, respecteert robots.txt, één request, korte snippets. **TED** (`providers/ted.mjs`,
+`SCOUT_TED`): de anonieme EU-aanbestedingen Search API v3 (`POST /v3/notices/search`), per kandidaat
+recente aanbestedings- of gunningsactiviteit, met notice-URL en een expliciete "naam-match kan
+naamgenoot zijn"-onzekerheid. Beide standaard UIT; aanzetten betekent echte externe HTTP-calls.
+
+**Verificatie-seams.** `providers/kvk.mjs` (NL Handelsregister): interface + config volledig gereed,
+UIT tot `KVK_API_KEY` gezet is (nooit in code); een officiële match landt als FEIT met KVK-nummer als
+dedup-anker. `providers/kbo.mjs` (BE Kruispuntbank): gedocumenteerde seam, niet live (gratis open data,
+maar per-query vereist bulk-ingest, een productbeslissing). Registry: `gatherVerification` naast
+`gatherExternalSignals`; Scout vouwt verificatie als FEIT en signalen als OBSERVATION, gescheiden.
+
+**Persoonsidentificatie:** als gedocumenteerde seam vastgelegd (rol `resolvePersons`), nog niet gebouwd;
+geen PII-harvesting, geen LinkedIn/vendor.
+
+**Aandacht beschermd:** externe waarnemingen gaan altijd door Scouts kwalificatie, dedup en
+relevantiedrempel; alleen betekenisvolle kandidaten worden een attention_item.
+
+**Sandbox-beperking (eerlijk):** de egress-policy van deze buildomgeving blokkeert algemene externe
+hosts (TED en bedrijfssites gaven `connect_rejected`/403 via de proxy). Een échte live externe call kon
+hier dus niet worden uitgevoerd; de providers zijn live-klaar en draaien echt in een omgeving met open
+egress (de preview). De volledige keten is deterministisch bewezen met geïnjecteerde fetch (echte
+provider-code, testfixtures ondubbelzinnig als test gemarkeerd), geen live netwerkcall in de suite.
+
+**Tests.** `agents-discovery` uitgebreid (TED off-by-default, query/parse/multilingual, KVK seam +
+extract, verificatie als FEIT) en een DB-E2E die website + TED signalen én KVK-verificatie door Scout op
+één attention_item combineert met FEIT vs externe OBSERVATION gescheiden. Config: `SCOUT_TED`,
+`KVK_API_KEY`, `KVK_API_BASE` in `.env.example`. Geen deploy, geen credentials in code.
+
+---
+
 ## 2026-08-17 — Scout discovery-laag: generieke multi-bron architectuur (geen credentials, geen live calls)
 
 **Onderzoek + generieke bouw, met een expliciet stopmoment vóór een providerkeuze.** Scout mag geen

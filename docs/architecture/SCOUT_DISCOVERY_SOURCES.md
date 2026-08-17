@@ -51,26 +51,52 @@ The smallest set with which Scout can genuinely discover something meaningful, n
 Rationale: identity/verification from official registers keeps the relational truth clean; free signal
 sources give timeliness; Scout keeps all reasoning. No single vendor becomes Scout's intelligence.
 
-## What is built now (credential-free, no live calls by default)
+## What is built now
 
-- The **generic multi-provider layer** (`providers/registry.mjs`): role model, provider registry, a
-  normalising aggregator (`gatherExternalSignals`) that tags every observation by source and never lets
-  a failing source break a run.
-- The **website signal provider** (`providers/website.mjs`): credential-free, OFF by default
-  (`SCOUT_WEBSITE_SIGNALS`), robots-respecting, single homepage read, short snippets, results treated as
-  EXTERNAL observations. Deterministic and unit-tested with an injected fetch (no live network).
-- Scout folds external observations into its evidence as their own kind (OBSERVATION with a source and
-  url), distinct from our own FACT / INFERENCE / HYPOTHESIS, and lets them modestly raise confidence.
+Scout keeps the whole chain: external observation, normalisation, existing-relation check, evidence,
+FACT / INFERENCE / HYPOTHESIS, confidence, deduplication, relevance, proposal, attention. Sources only
+supply raw, source-tagged observations.
 
-KVK, KBO/BCE and TED are wired as **documented seams** in the status board, not implemented, because they
-are a provider decision (and KVK needs credentials).
+**Generic multi-provider layer** (`providers/registry.mjs`): role model, provider registry,
+`gatherExternalSignals` (SIGNALS/ENRICHMENT) and `gatherVerification` (official registers). Every
+observation is normalised and source-tagged; a failing source is skipped, never breaking a run.
+
+**Real, live-ready, credential-free (OFF by default, flip with one env flag):**
+- **Website signals** (`providers/website.mjs`, `SCOUT_WEBSITE_SIGNALS`): reads an organisation's own
+  public homepage, respects robots.txt, one request, short snippets. EXTERNAL observations.
+- **TED** (`providers/ted.mjs`, `SCOUT_TED`): the anonymous EU procurement Search API v3
+  (`POST /v3/notices/search`). Per candidate: recent public tender activity as buyer or winner. Each
+  match is an EXTERNAL observation with the notice URL and an explicit "name match may be a namesake"
+  uncertainty.
+
+**Verification seams (identity):**
+- **KVK** (`providers/kvk.mjs`): interface + config fully ready. OFF until `KVK_API_KEY` is set (never
+  in code). An official match lands as a FACT (verified identity) with the KVK number as a dedup anchor.
+- **KBO/BCE** (`providers/kbo.mjs`): documented seam, not live. Free open data, but a per-query lookup
+  needs a bulk-ingest decision (where to store the open-data mirror, how often to refresh).
+
+Scout folds signals as OBSERVATION (source + url) and verification as FACT, both distinct from our
+INFERENCE / HYPOTHESIS. Signals modestly raise confidence; an official verification raises it more.
+
+Everything is unit-tested and DB-E2E-tested with an INJECTED fetch, so the test suite makes no live
+network call. Turning a source on (`SCOUT_WEBSITE_SIGNALS=1`, `SCOUT_TED=1`) makes real external calls
+in an environment with open egress.
+
+## Person resolution (documented seam, not built)
+
+Scout finds interesting ORGANISATIONS first. Identifying the relevant PERSON(S) is a separate, later
+step and a privacy-sensitive one. The architecture already carries the role: a future ENRICHMENT
+provider implements `resolvePersons(org)` and returns person candidates as EXTERNAL observations that
+Scout still qualifies (existing-relation check, evidence, confidence) before anything lands. Responsible
+sources, in order of preference: official register functionaries (KVK), the organisation's own public
+team/contact page (public business contact, minimised, purpose-bound), and only much later a compliant
+professional source. LinkedIn scraping and commercial people-databases are excluded for now. Nothing
+here harvests personal data yet; it is a seam so the later build fits without redesign.
 
 ## Stop points that need Lud (see the report back)
 
-- **KVK**: needs an API key and a Dutch registered entity. Paid (cheap). A human account step.
-- **KBO/BCE open data**: free, but bulk ingest is a product decision (where to store, how often to refresh).
-- **TED**: free and credential-free, but choosing to switch on live external calls is a deliberate step.
-- **Website signals**: ready and credential-free, but enabling live fetching (`SCOUT_WEBSITE_SIGNALS=1`)
-  is likewise a deliberate "Scout now touches the external web" decision.
-
-None of these are enabled in this build.
+- **KVK**: needs an API key and a Dutch registered entity. Paid (cheap). A human account step. STOP here.
+- **KBO/BCE**: free open data, but bulk ingest is a product/infra decision.
+- **Website + TED**: real and credential-free; enabling live fetching is a deliberate "Scout now touches
+  the external web" choice, and running it live needs an environment with open egress (the sandbox this
+  was built in blocks general external hosts, so the genuine live observation runs in the preview).

@@ -15,7 +15,7 @@ import { recordWorkItem } from '../../comm/work.mjs';
 import { getActor, assertCan, requiresApproval } from '../registry.mjs';
 import { startRun, finishRun, failRun, recordCapabilityCall } from '../run.mjs';
 import { getDiscoveryProvider } from '../providers/discovery.mjs';
-import { gatherExternalSignals } from '../providers/registry.mjs';
+import { gatherExternalSignals, gatherVerification } from '../providers/registry.mjs';
 import { emailDomain } from '../../comm/identity.mjs';
 
 // Only record work that clears a relevance bar (compression: protect attention at the source).
@@ -70,8 +70,10 @@ function buildEvidence(candidate, known, q) {
   // Real DB facts from qualification evidence (existing org, known contact, prior activity).
   const externals = [];
   for (const e of q.evidence || []) {
+    // Our own DB facts and official-register verification are FACT (with a source on the register).
     if (e.sourceType === 'internal_db') facts.push({ kind: 'FACT', text: e.detail, ref: e.sourceRef });
-    // EXTERNAL observations (from source providers) stay their own kind, with a source + when seen.
+    else if (e.sourceType === 'official_register') facts.push({ kind: 'FACT', text: e.detail, source: e.source, url: e.url || null });
+    // EXTERNAL observations (from signal sources) stay their own kind, with a source + when seen.
     else if (e.sourceType === 'external') externals.push({ kind: 'OBSERVATION', text: e.detail, source: e.source || e.provider, url: e.url || null, observedAt: e.observedAt || null, interpretation: e.interpretation || null, uncertainties: e.uncertainties || null });
   }
   const inferences = [{ kind: 'INFERENCE', text: q.summary }];
@@ -95,7 +97,7 @@ function buildEvidence(candidate, known, q) {
 
 // Run Scout over a set of candidates. Lands attention items through the cockpit contract. Idempotent
 // on runDedupeKey (double-submit guard) and per-candidate on the work dedupKey (no attention spam).
-export async function runScout({ tenantId, candidates = [], trigger = 'human', runDedupeKey = null, scope = 'provided', sources = null }) {
+export async function runScout({ tenantId, candidates = [], trigger = 'human', runDedupeKey = null, scope = 'provided', sources = null, verificationSources = null }) {
   const scout = await getActor(tenantId, 'scout');
   if (!scout) return { ok: false, reason: 'scout_actor_missing' };
 
@@ -132,7 +134,10 @@ export async function runScout({ tenantId, candidates = [], trigger = 'human', r
       // never breaks the run. Results are normalised, source-tagged EXTERNAL observations.
       const externalSignals = await gatherExternalSignals({ name: candidate.name, domain: candidate.domain }, { sources });
       if (externalSignals.length) await recordCapabilityCall(tenantId, runId, { capability: 'gather_external_signals', note: `${key}:${externalSignals.length}` });
-      const q = await provider.qualify({ candidate, known: existence, externalSignals });
+      // Official-register verification (KVK/KBO). Empty unless a verification provider is configured.
+      const verification = await gatherVerification({ name: candidate.name, domain: candidate.domain }, { sources: verificationSources });
+      if (verification.length) await recordCapabilityCall(tenantId, runId, { capability: 'verify_identity', note: `${key}:${verification.length}` });
+      const q = await provider.qualify({ candidate, known: existence, externalSignals, verification });
       await recordCapabilityCall(tenantId, runId, { capability: 'qualify', note: `${key}:${q.confidence}` });
 
       // Compression: below the relevance bar, record nothing (unless it touches a known relation,

@@ -19,7 +19,7 @@ function round2(n) { return Math.round(n * 100) / 100; }
 // `known` is what our own database already establishes about it; `externalSignals` are normalized
 // observations gathered from external SOURCE providers (see providers/registry.mjs) — always treated
 // as EXTERNAL OBSERVATIONS with a source, never as our own fact. No fabricated external facts.
-function internalQualify({ candidate, known, externalSignals = [] }) {
+function internalQualify({ candidate, known, externalSignals = [], verification = [] }) {
   const evidence = [];
   const name = (candidate.name || '').trim();
   const domain = (candidate.domain || '').trim().toLowerCase() || null;
@@ -90,6 +90,20 @@ function internalQualify({ candidate, known, externalSignals = [] }) {
       provider: s.provider || s.source || 'external',
     });
     if (epistemicStatus === 'HYPOTHESIS') epistemicStatus = 'OBSERVATION';
+  }
+
+  // Official-register verification (KVK/KBO). An authoritative identity match is a strong FACT and a
+  // reliable dedup anchor. It raises confidence more than a soft signal.
+  for (const m of verification || []) {
+    if (!m || !m.name) continue;
+    confidence += 0.15;
+    reasons.push(`officieel geverifieerd via ${m.source || 'register'}`);
+    evidence.push({
+      sourceType: 'official_register', source: m.source || 'register', url: m.url || null,
+      sourceRef: m.kvkNumber ? { kvkNumber: m.kvkNumber } : {},
+      detail: `Officieel geverifieerd (${m.source || 'register'}): ${m.name}${m.kvkNumber ? ` (KVK ${m.kvkNumber})` : ''}${m.place ? `, ${m.place}` : ''}.`,
+      provider: m.provider || m.source || 'register',
+    });
   }
 
   confidence = round2(clamp(confidence, 0.1, 0.95));

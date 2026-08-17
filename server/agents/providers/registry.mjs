@@ -18,28 +18,33 @@
 // signal provider, and even that is OFF unless SCOUT_WEBSITE_SIGNALS is set.
 
 import { websiteProvider } from './website.mjs';
+import { tedProvider } from './ted.mjs';
+import { kvkProvider } from './kvk.mjs';
+import { kboProvider } from './kbo.mjs';
 
 export const SOURCE_ROLES = ['DISCOVERY', 'SIGNALS', 'ENRICHMENT', 'VERIFICATION'];
 
-// Built-in source providers that are actually enabled for this process. Empty unless a credential-free
-// provider is explicitly switched on. Never includes a stub that would fabricate data.
+// SIGNALS/ENRICHMENT source providers that are actually enabled for this process. Empty unless a
+// credential-free source is explicitly switched on. Never includes a stub that would fabricate data.
 export function listSourceProviders() {
-  const providers = [];
-  const site = websiteProvider();
-  if (site.configured) providers.push(site);
-  return providers;
+  return [websiteProvider(), tedProvider()].filter((p) => p.configured);
 }
 
-// A compact status board of source providers for the /api/agents/status surface: which roles they can
-// play and whether they are configured. Lets the cockpit/registry show "what can Scout reach today".
+// VERIFICATION providers (official registers). Enabled only when configured (KVK needs a key; KBO
+// needs a bulk-ingest decision, so it stays off).
+export function listVerificationProviders() {
+  return [kvkProvider(), kboProvider()].filter((p) => p.configured);
+}
+
+// A compact status board for /api/agents/status: which roles each source can play, whether it is
+// configured, and whether it needs credentials. Reflects the REAL configured state.
 export function sourceProviderStatus() {
-  const site = websiteProvider();
+  const site = websiteProvider(); const ted = tedProvider(); const kvk = kvkProvider(); const kbo = kboProvider();
   return [
-    { name: site.name, roles: site.roles, configured: site.configured, credentials: false, note: 'Eigen website van de organisatie (robots-respecterend). Standaard uit.' },
-    // Documented seams, not wired (need a provider decision + credentials):
-    { name: 'kvk', roles: ['DISCOVERY', 'ENRICHMENT', 'VERIFICATION'], configured: false, credentials: true, note: 'NL Handelsregister. Vereist API-key + NL-entiteit.' },
-    { name: 'kbo_bce', roles: ['DISCOVERY', 'ENRICHMENT', 'VERIFICATION'], configured: false, credentials: false, note: 'BE Kruispuntbank open data. Gratis, maar bulk-ingest nodig (productbeslissing).' },
-    { name: 'ted', roles: ['SIGNALS'], configured: false, credentials: false, note: 'EU aanbestedingen. Anonieme read-only API. Bronkeuze nodig.' },
+    { name: site.name, roles: site.roles, configured: site.configured, credentials: false, note: 'Eigen website van de organisatie (robots-respecterend). Aan met SCOUT_WEBSITE_SIGNALS.' },
+    { name: ted.name, roles: ted.roles, configured: ted.configured, credentials: false, note: 'EU aanbestedingen (TED). Anonieme API. Aan met SCOUT_TED.' },
+    { name: kvk.name, roles: kvk.roles, configured: kvk.configured, credentials: true, note: 'NL Handelsregister. Klaar; vereist KVK_API_KEY + NL-entiteit (menselijke stap).' },
+    { name: kbo.name, roles: kbo.roles, configured: kbo.configured, credentials: false, note: 'BE Kruispuntbank open data. Gratis, maar bulk-ingest nodig (productbeslissing).' },
   ];
 }
 
@@ -71,6 +76,21 @@ export async function gatherExternalSignals(subject, { sources = null, fetchImpl
     try {
       const r = await p.signals(subject, { fetchImpl });
       for (const s of (r && r.signals) || []) out.push(normalizeSignal(s, p));
+    } catch { /* a source problem must not break the colleague */ }
+  }
+  return out;
+}
+
+// Gather official-register VERIFICATION matches for a subject. Empty unless a verification provider is
+// configured (KVK/KBO). Each match is tagged with its official source, for a traceable identity FACT.
+export async function gatherVerification(subject, { sources = null, fetchImpl = null } = {}) {
+  const providers = sources || listVerificationProviders();
+  const out = [];
+  for (const p of providers) {
+    if (!p || typeof p.verify !== 'function') continue;
+    try {
+      const r = await p.verify(subject, { fetchImpl });
+      for (const m of (r && r.matches) || []) out.push({ ...m, source: m.source || p.name, provider: p.name });
     } catch { /* a source problem must not break the colleague */ }
   }
   return out;

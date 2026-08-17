@@ -5,8 +5,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { websiteProvider, extractSignals, robotsAllows, fetchWebsiteSignals } from '../server/agents/providers/website.mjs';
-import { gatherExternalSignals, sourceProviderStatus } from '../server/agents/providers/registry.mjs';
+import { gatherExternalSignals, gatherVerification, sourceProviderStatus } from '../server/agents/providers/registry.mjs';
 import { internalQualify } from '../server/agents/providers/discovery.mjs';
+import { tedProvider, buildTedQuery, extractTedSignals, textOf, fetchTedSignals } from '../server/agents/providers/ted.mjs';
+import { kvkProvider, extractKvkMatches } from '../server/agents/providers/kvk.mjs';
 
 const HTML = `<html><head><title>Veldwerk — bureau voor ecologisch onderzoek</title>
 <meta name="description" content="Wij doen veldwerk en advies."></head>
@@ -79,6 +81,78 @@ test('source status board lists roles + whether credentials are needed (KVK/KBO/
   assert.equal(byName.kvk.credentials, true);
   assert.equal(byName.kbo_bce.credentials, false);
   assert.equal(byName.ted.roles.includes('SIGNALS'), true);
+});
+
+// ---- TED (EU tenders) provider: credential-free, off by default, defensive parsing ------------
+
+test('TED provider is OFF by default (no SCOUT_TED) and makes no call', async () => {
+  const p = tedProvider();
+  assert.equal(p.configured, false);
+  assert.deepEqual(p.roles, ['SIGNALS']);
+  assert.deepEqual((await p.signals({ name: 'Veldwerk' })).signals, []);
+});
+
+test('textOf handles TED multilingual fields (string, array, language-keyed object)', () => {
+  assert.equal(textOf('X'), 'X');
+  assert.equal(textOf(['A', 'B']), 'A');
+  assert.equal(textOf({ eng: ['Hello'], nld: ['Hallo'] }), 'Hello');
+  assert.equal(textOf({ nld: 'Alleen NL' }), 'Alleen NL');
+});
+
+test('buildTedQuery searches buyer/winner name with a recency bound', () => {
+  const q = buildTedQuery('Veldwerk', 18, new Date('2026-08-17T00:00:00Z'));
+  assert.match(q, /buyer-name~"Veldwerk"/);
+  assert.match(q, /winner-name~"Veldwerk"/);
+  assert.match(q, /PD>=2025/);
+});
+
+test('extractTedSignals maps notices to external observations with url + honest uncertainty', () => {
+  const body = { notices: [{ 'publication-number': '123-2026', 'notice-title': { eng: ['Onderhoud groenvoorziening'] }, 'buyer-name': 'Gemeente X', 'publication-date': '2026-06-01', links: { html: 'https://ted.europa.eu/en/notice/-/detail/123-2026' } }] };
+  const s = extractTedSignals(body, 'Gemeente X');
+  assert.equal(s.length, 1);
+  assert.match(s[0].claim, /aanbesteding/i);
+  assert.equal(s[0].sourceType, 'ted');
+  assert.equal(s[0].url, 'https://ted.europa.eu/en/notice/-/detail/123-2026');
+  assert.ok(s[0].uncertainties.some((u) => /naamgenoot|verifi/i.test(u)), 'flags that a name match may be a namesake');
+});
+
+test('fetchTedSignals parses an injected TED response (no live call)', async () => {
+  const fetcher = async () => ({ ok: true, status: 200, json: async () => ({ notices: [{ 'publication-number': '9-2026', 'notice-title': 'T', 'buyer-name': 'B', 'publication-date': '2026-07-01' }] }) });
+  const r = await fetchTedSignals('B', fetcher, { now: new Date('2026-08-17T00:00:00Z') });
+  assert.equal(r.signals.length, 1);
+});
+
+// ---- KVK (NL register) verification seam: ready, off without a key, no fabrication ------------
+
+test('KVK provider is a ready seam: OFF without a key, returns no fabricated match', async () => {
+  const p = kvkProvider();
+  assert.equal(p.configured, false);
+  assert.ok(p.roles.includes('VERIFICATION'));
+  const r = await p.verify({ name: 'Veldwerk' });
+  assert.deepEqual(r.matches, []);
+  assert.equal(r.reason, 'kvk_not_configured');
+});
+
+test('extractKvkMatches maps official register rows (kvkNummer, naam, plaats)', () => {
+  const m = extractKvkMatches({ resultaten: [{ kvkNummer: '12345678', naam: 'Veldwerk BV', plaats: 'Gent' }] });
+  assert.equal(m.length, 1);
+  assert.equal(m[0].source, 'KVK');
+  assert.equal(m[0].kvkNumber, '12345678');
+});
+
+test('gatherVerification folds an injected verification provider into official matches', async () => {
+  const kvkLike = { name: 'kvk', verify: async () => ({ matches: [{ source: 'KVK', kvkNumber: '999', name: 'X BV' }] }) };
+  const out = await gatherVerification({ name: 'X' }, { sources: [kvkLike] });
+  assert.equal(out.length, 1);
+  assert.equal(out[0].provider, 'kvk');
+  assert.equal(out[0].kvkNumber, '999');
+});
+
+test('official verification lands as FACT (verified identity), not as a soft signal', () => {
+  const q = internalQualify({ candidate: { name: 'X', domain: 'x.be' }, known: { organization: null, contacts: [], activityCount: 0 }, verification: [{ source: 'KVK', kvkNumber: '999', name: 'X BV', place: 'Gent' }] });
+  const ver = q.evidence.find((e) => e.sourceType === 'official_register');
+  assert.ok(ver, 'verification recorded');
+  assert.match(ver.detail, /Officieel geverifieerd/);
 });
 
 test('external signals fold into Scout reasoning as EXTERNAL observations, never as our own fact', () => {

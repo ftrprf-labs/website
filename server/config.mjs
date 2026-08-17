@@ -98,6 +98,13 @@ export const config = {
   // requests, so it is a deliberate choice. No API key. External registries (KVK/KBO/TED) are not
   // wired; they require a provider decision + credentials (see docs/architecture/SCOUT_DISCOVERY_SOURCES.md).
   scoutWebsiteSignals: /^(1|true|yes|on)$/i.test(process.env.SCOUT_WEBSITE_SIGNALS || ''),
+  // TED (EU public procurement) SIGNAL source. Credential-free anonymous API. OFF by default; on with
+  // SCOUT_TED. Live external HTTP when on. No key.
+  scoutTed: /^(1|true|yes|on)$/i.test(process.env.SCOUT_TED || ''),
+  // KVK (NL Handelsregister) VERIFICATION seam. Fully prepared but OFF until a key is set. NEVER put
+  // the key in code: set KVK_API_KEY in the environment. Requires a Dutch registered entity (paid, cheap).
+  kvkApiKey: process.env.KVK_API_KEY || '',
+  kvkApiBase: process.env.KVK_API_BASE || 'https://api.kvk.nl',
   // PREVIEW ONLY: when set, the site root "/" serves the operational cockpit (/cockpit-live.html)
   // instead of the Testerbeheer admin. Off by default, so production Testerbeheer is unchanged.
   previewCockpitRoot: /^(1|true|yes|on)$/i.test(process.env.PREVIEW_COCKPIT_ROOT || ''),
