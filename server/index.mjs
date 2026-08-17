@@ -689,6 +689,14 @@ server.listen(config.port, bindHost, () => {
           console.log(`  Comm     : relaties ${res.contactsCreated} nieuw, ${res.contactsLinked} bijgewerkt`);
         } catch (e) { console.log(`  Comm     : relatie-migratie uitgesteld (${e.message})`); }
 
+        // Slice A1: backfill an initial version + observation for any existing V1 insight that lacks
+        // one (idempotent; content copied verbatim). Additive, best-effort, never blocks the boot.
+        try {
+          const { backfillInitialVersions } = await import('./mijn/versions.mjs');
+          const bf = await backfillInitialVersions();
+          if (bf.backfilled > 0) console.log(`  Mijn Maculis: ${bf.backfilled} inzicht(en) voorzien van een beginversie`);
+        } catch (e) { console.log(`  Mijn Maculis: version-backfill uitgesteld (${e.message})`); }
+
         // PREVIEW ONLY (§24): seed the Mijn Maculis fixtures + run a live boundary self-check when
         // MIJN_PREVIEW_SEED is on. Triple-guarded (flag + no real customers) so it can never run or
         // seed on production. Best-effort — never blocks or crashes the boot.

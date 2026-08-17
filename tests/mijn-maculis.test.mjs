@@ -36,8 +36,9 @@ test('Mijn Maculis: isolation, PRIVATE/SHARED boundary, explicit sharing, Cockpi
   const { buildRelationshipContext, renderContextForModel } = await import('../server/comm/ai/context.mjs');
 
   try {
+    const { createInsightWithInitialVersion } = await import('../server/mijn/versions.mjs');
     await runMigrations({ silent: true });
-    await query('truncate customer_insight, insight_share_event, customer_access, collaboration_item, contact, organization, conversation, message, activity cascade');
+    await query('truncate customer_insight, insight_version, insight_observation, insight_share_event, customer_access, collaboration_item, contact, organization, conversation, message, activity cascade');
     const tid = await getDefaultTenantId();
 
     // Two independent customer organizations (A and B), each with its own access token.
@@ -52,11 +53,13 @@ test('Mijn Maculis: isolation, PRIVATE/SHARED boundary, explicit sharing, Cockpi
        values ($1,$2,'Ann','A','ann@a-test.nl','email:ann@a-test.nl') returning id`, [tid, orgA])).rows[0].id;
 
     // Org A insights: two PRIVATE (one is the one we will share), one already SHARED-nothing.
-    const mkInsight = (org, title, sharing, extra = {}) => query(
-      `insert into customer_insight(tenant_id, organization_id, title, stance, observation, meaning, basis, not_yet_known, sharing, provenance, status, attention)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,'new',$11) returning id`,
-      [tid, org, title, extra.stance || 'reveal', 'obs ' + title, 'mean', 'basis', 'nyk', sharing,
-        JSON.stringify(extra.provenance || { lens: 'Lens 1', confidence: 'indication' }), extra.attention || false]).then((r) => r.rows[0].id);
+    // Created through the durable-insight primitive so each has an initial version + observation.
+    const mkInsight = (org, title, sharing, extra = {}) => createInsightWithInitialVersion({
+      tenantId: tid, organizationId: org, title, stance: extra.stance || 'reveal',
+      observation: 'obs ' + title, meaning: 'mean', basis: 'basis', notYetKnown: 'nyk',
+      sharing, provenance: extra.provenance || { lens: 'Lens 1', confidence: 'indication' },
+      attention: extra.attention || false,
+    }).then((r) => r.insightId);
 
     const aShareable = await mkInsight(orgA, 'A-private-shareable', 'PRIVATE', { attention: true, provenance: { secret: 'internal-only-evidence' } });
     const aStaysPrivate = await mkInsight(orgA, 'A-private-stays', 'PRIVATE', { stance: 'non_reveal' });

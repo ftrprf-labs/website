@@ -51,16 +51,20 @@ export async function insightForCustomer(tenantId, organizationId, insightId) {
 // ---- internal / Cockpit reads (SHARED only — the hard boundary) --------------------------------
 
 // The ONLY customer-insight data the internal side is ever allowed to see: what the customer
-// deliberately shared, plus aggregated patterns. PRIVATE is excluded in SQL. This is imported by the
-// AI context engine so that authorized context can, by construction, never contain PRIVATE data.
+// deliberately shared. PRIVATE is excluded in SQL. VERSION-AWARE (Slice A1): the content comes from
+// the SHARED version (shared_version_id), never the head's current cache. So when an insight develops
+// past the shared version, the newer (private) reading can never reach Maculis through this path.
+// Imported by the AI context engine, so authorized model context can, by construction, never contain
+// PRIVATE data nor an unshared newer version.
 export async function sharedContextForOrg(tenantId, organizationId) {
   if (!organizationId) return [];
   const r = await query(
-    `select id, title, stance, observation, meaning, status, sharing, shared_at
-       from customer_insight
-      where tenant_id=$1 and organization_id=$2
-        and sharing in ('SHARED','AGGREGATED') and status <> 'archived'
-      order by shared_at desc nulls last, updated_at desc`,
+    `select ci.id, iv.title, iv.stance, iv.observation, iv.meaning, ci.status, ci.sharing, ci.shared_at
+       from customer_insight ci
+       join insight_version iv on iv.id = ci.shared_version_id
+      where ci.tenant_id=$1 and ci.organization_id=$2
+        and ci.sharing='SHARED' and ci.status <> 'archived'
+      order by ci.shared_at desc nulls last, ci.updated_at desc`,
     [tenantId, organizationId]);
   return r.rows;
 }
@@ -106,22 +110,24 @@ export async function sharedInsightCount(tenantId, organizationId) {
 export async function shareInsight(tenantId, organizationId, insightId, { actorLabel = null, actorAccessId = null } = {}) {
   return withTransaction(async (client) => {
     const cur = (await client.query(
-      `select id, sharing, title from customer_insight
+      `select id, sharing, title, current_version_id from customer_insight
         where id=$1 and tenant_id=$2 and organization_id=$3 and status <> 'archived' for update`,
       [insightId, tenantId, organizationId])).rows[0];
     if (!cur) return { ok: false, error: 'not_found' };
     if (cur.sharing === 'SHARED') return { ok: true, already: true, sharing: 'SHARED' };
 
+    // VERSION-BOUND consent (Slice A1): bind the share to the CURRENT version. A later version does
+    // not move this pointer, so a prior consent never silently shares future information.
     await client.query(
       `update customer_insight
-          set sharing='SHARED', shared_at=now(), shared_by=$4, revoked_at=null, updated_at=now()
+          set sharing='SHARED', shared_at=now(), shared_by=$4, shared_version_id=$5, revoked_at=null, updated_at=now()
         where id=$1 and tenant_id=$2 and organization_id=$3`,
-      [insightId, tenantId, organizationId, actorLabel]);
+      [insightId, tenantId, organizationId, actorLabel, cur.current_version_id]);
     await client.query(
-      `insert into insight_share_event(tenant_id, organization_id, insight_id, action, from_sharing, to_sharing, actor_label, actor_access_id)
-       values ($1,$2,$3,'shared',$4,'SHARED',$5,$6)`,
-      [tenantId, organizationId, insightId, cur.sharing, actorLabel, actorAccessId]);
-    return { ok: true, sharing: 'SHARED' };
+      `insert into insight_share_event(tenant_id, organization_id, insight_id, action, from_sharing, to_sharing, actor_label, actor_access_id, version_id)
+       values ($1,$2,$3,'shared',$4,'SHARED',$5,$6,$7)`,
+      [tenantId, organizationId, insightId, cur.sharing, actorLabel, actorAccessId, cur.current_version_id]);
+    return { ok: true, sharing: 'SHARED', versionId: cur.current_version_id };
   }).then(async (res) => {
     // Audit outside the txn so an audit hiccup never rolls back a real share (audit is best-effort).
     if (res.ok && !res.already) {
@@ -140,21 +146,22 @@ export async function shareInsight(tenantId, organizationId, insightId, { actorL
 export async function revokeInsight(tenantId, organizationId, insightId, { actorLabel = null, actorAccessId = null } = {}) {
   return withTransaction(async (client) => {
     const cur = (await client.query(
-      `select id, sharing from customer_insight
+      `select id, sharing, shared_version_id from customer_insight
         where id=$1 and tenant_id=$2 and organization_id=$3 and status <> 'archived' for update`,
       [insightId, tenantId, organizationId])).rows[0];
     if (!cur) return { ok: false, error: 'not_found' };
     if (cur.sharing !== 'SHARED') return { ok: true, already: true, sharing: cur.sharing };
 
+    // Withdraw: clear the version binding too, so nothing of this insight remains internally visible.
     await client.query(
       `update customer_insight
-          set sharing='PRIVATE', revoked_at=now(), updated_at=now()
+          set sharing='PRIVATE', shared_version_id=null, revoked_at=now(), updated_at=now()
         where id=$1 and tenant_id=$2 and organization_id=$3`,
       [insightId, tenantId, organizationId]);
     await client.query(
-      `insert into insight_share_event(tenant_id, organization_id, insight_id, action, from_sharing, to_sharing, actor_label, actor_access_id)
-       values ($1,$2,$3,'revoked','SHARED','PRIVATE',$4,$5)`,
-      [tenantId, organizationId, insightId, actorLabel, actorAccessId]);
+      `insert into insight_share_event(tenant_id, organization_id, insight_id, action, from_sharing, to_sharing, actor_label, actor_access_id, version_id)
+       values ($1,$2,$3,'revoked','SHARED','PRIVATE',$4,$5,$6)`,
+      [tenantId, organizationId, insightId, actorLabel, actorAccessId, cur.shared_version_id]);
     return { ok: true, sharing: 'PRIVATE' };
   }).then(async (res) => {
     if (res.ok && !res.already) {

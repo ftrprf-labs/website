@@ -7,10 +7,11 @@
 //
 // Run it against a local/preview database:  node scripts/seed-mijn-preview.mjs
 
-import { query, withTransaction, commEnabled } from '../comm/db.mjs';
+import { query, commEnabled } from '../comm/db.mjs';
 import { getDefaultTenantId } from '../comm/tenant.mjs';
 import { config } from '../config.mjs';
 import { createAccess } from './access.mjs';
+import { createInsightWithInitialVersion } from './versions.mjs';
 
 export const PREVIEW_ORG_NAME = 'De Voorbeeld Groep';
 export const PREVIEW_USER = { label: 'Sanne de Vries', role: 'Klantadmin' };
@@ -123,11 +124,11 @@ function fixtureCollaboration() {
 }
 
 // Ensure a preview organization exists (idempotent by name within the tenant).
-async function ensurePreviewOrg(client, tenantId) {
-  const existing = (await client.query(
+async function ensurePreviewOrg(_client, tenantId) {
+  const existing = (await query(
     'select id from organization where tenant_id=$1 and name=$2 limit 1', [tenantId, PREVIEW_ORG_NAME])).rows[0];
   if (existing) return existing.id;
-  const ins = (await client.query(
+  const ins = (await query(
     `insert into organization(tenant_id, name, primary_domain, relationship_stage)
      values ($1,$2,$3,'CUSTOMER') returning id`,
     [tenantId, PREVIEW_ORG_NAME, 'voorbeeldgroep.nl'])).rows[0];
@@ -158,32 +159,32 @@ export async function seedPreviewCore({ tenantId = null } = {}) {
   if (!commEnabled()) throw new Error('Communication Layer is off (need COMM_LAYER_ENABLED + DATABASE_URL)');
   const tid = tenantId || await getDefaultTenantId();
 
-  const { orgId } = await withTransaction(async (client) => {
-    const orgId = await ensurePreviewOrg(client, tid);
+  const orgId = await ensurePreviewOrg(null, tid);
 
-    // Clear previous preview data for this org so re-seeding is clean (preview rows only).
-    await client.query('delete from customer_insight where organization_id=$1 and is_preview=true', [orgId]);
-    await client.query('delete from collaboration_item where organization_id=$1 and is_preview=true', [orgId]);
+  // Clear previous preview data for this org so re-seeding is clean (preview rows only). Deleting an
+  // insight cascades to its append-only versions/observations (insight_id ON DELETE CASCADE).
+  await query('delete from customer_insight where organization_id=$1 and is_preview=true', [orgId]);
+  await query('delete from collaboration_item where organization_id=$1 and is_preview=true', [orgId]);
 
-    for (const i of fixtureInsights()) {
-      await client.query(
-        `insert into customer_insight
-           (tenant_id, organization_id, title, stance, observation, meaning, basis, not_yet_known,
-            sharing, source, provenance, status, is_preview, attention, shared_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,'lens',$10::jsonb,$11,true,$12,$13)`,
-        [tid, orgId, i.title, i.stance, i.observation, i.meaning, i.basis, i.not_yet_known,
-          i.sharing, JSON.stringify(i.provenance || {}), i.status, i.attention,
-          i.sharing === 'SHARED' ? daysFromNow(-14) : null]);
-    }
-    for (const c of fixtureCollaboration()) {
-      await client.query(
-        `insert into collaboration_item
-           (tenant_id, organization_id, kind, title, detail, status, due_at, customer_visible, source_ref, is_preview)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,true)`,
-        [tid, orgId, c.kind, c.title, c.detail, c.status, c.due_at, c.customer_visible, JSON.stringify(c.source_ref || {})]);
-    }
-    return { orgId };
-  });
+  // Create each insight through the durable-insight primitive so it gets exactly one v1 reading +
+  // one observation, and (for a pre-shared fixture) a version-bound share pointer.
+  for (const i of fixtureInsights()) {
+    await createInsightWithInitialVersion({
+      tenantId: tid, organizationId: orgId, title: i.title, stance: i.stance,
+      observation: i.observation, meaning: i.meaning, basis: i.basis, notYetKnown: i.not_yet_known,
+      sharing: i.sharing, source: 'lens', provenance: i.provenance || {}, status: i.status,
+      isPreview: true, attention: i.attention,
+      sharedAt: i.sharing === 'SHARED' ? daysFromNow(-14) : null,
+      signal: { keys: (i.provenance && i.provenance.signals) || [] },
+    });
+  }
+  for (const c of fixtureCollaboration()) {
+    await query(
+      `insert into collaboration_item
+         (tenant_id, organization_id, kind, title, detail, status, due_at, customer_visible, source_ref, is_preview)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,true)`,
+      [tid, orgId, c.kind, c.title, c.detail, c.status, c.due_at, c.customer_visible, JSON.stringify(c.source_ref || {})]);
+  }
 
   // Grant preview access (idempotent on the token hash).
   const access = await createAccess(tid, orgId, { ...PREVIEW_USER, isPreview: true, token: previewToken() });
