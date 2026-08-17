@@ -16,6 +16,7 @@ import { getActor, assertCan, requiresApproval } from '../registry.mjs';
 import { startRun, finishRun, failRun, recordCapabilityCall } from '../run.mjs';
 import { getDiscoveryProvider } from '../providers/discovery.mjs';
 import { gatherExternalSignals, gatherVerification } from '../providers/registry.mjs';
+import { resolveTargetEntity, bindSignals, curateBound } from '../entity.mjs';
 import { emailDomain } from '../../comm/identity.mjs';
 
 function slug(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
@@ -61,19 +62,20 @@ async function checkExistence(tenantId, candidate) {
 // human (and later a learning loop) can tell fact from observation from inference from hypothesis.
 // It carries BOTH a fit confidence and an identity status, kept separate on purpose: an organisation
 // can have interesting signals while we are not yet sure the signals are about the same legal entity.
-export function buildEvidence(candidate, known, q) {
+export function buildEvidence(candidate, known, q, binding = {}) {
   const facts = [];
   // What a human handed us is CONTEXT, marked as provided so it never reads as evidence of fit.
   if (candidate.note) facts.push({ kind: 'FACT', provided: true, text: `Aangedragen met context: ${candidate.note}` });
   if (candidate.domain) facts.push({ kind: 'FACT', provided: true, text: `Aangedragen domein: ${candidate.domain}` });
-  // Real DB facts from qualification evidence (existing org, known contact, prior activity).
+  // Real DB facts from qualification evidence (existing org, known contact, prior activity). Only
+  // BOUND external signals reach q.evidence, so every OBSERVATION here is attributed to this org.
   const externals = [];
   for (const e of q.evidence || []) {
     // Our own DB facts and official-register verification are FACT (with a source on the register).
     if (e.sourceType === 'internal_db') facts.push({ kind: 'FACT', text: e.detail, ref: e.sourceRef });
     else if (e.sourceType === 'official_register') facts.push({ kind: 'FACT', text: e.detail, source: e.source, url: e.url || null });
     // EXTERNAL observations (from signal sources) stay their own kind, with a source + when seen.
-    else if (e.sourceType === 'external') externals.push({ kind: 'OBSERVATION', text: e.detail, source: e.source || e.provider, url: e.url || null, observedAt: e.observedAt || null, interpretation: e.interpretation || null, uncertainties: e.uncertainties || null });
+    else if (e.sourceType === 'external') externals.push({ kind: 'OBSERVATION', text: e.detail, source: e.source || e.provider, url: e.url || null, observedAt: e.observedAt || null, interpretation: e.interpretation || null, uncertainties: e.uncertainties || null, bindingBasis: e.bindingBasis || null });
   }
   const inferences = [{ kind: 'INFERENCE', text: q.summary }];
   const hypotheses = [];
@@ -98,6 +100,13 @@ export function buildEvidence(candidate, known, q) {
     observations,
     facts, external: externals, inferences, hypotheses,
   };
+  // Unbound candidate evidence: found by retrieval but NOT attributable to this organisation. Kept
+  // internally for later verification; NEVER rendered as an observation and never counted in fit.
+  const unbound = Array.isArray(binding.unbound) ? binding.unbound : [];
+  if (unbound.length) {
+    ev.candidateEvidence = unbound.map((s) => ({ source: s.source || s.provider || 'external', observedEntityName: s.observedEntityName || null, url: s.url || null, reason: s.bindingBasis || 'unbound' }));
+    ev.unresolvedCount = unbound.length;
+  }
   // Contract §7: a demonstration/fixture must be unmistakably marked so it can never read as a real find.
   if (candidate.demo) ev.demo = true;
   return ev;
@@ -140,19 +149,30 @@ export async function runScout({ tenantId, candidates = [], trigger = 'human', r
       const existence = await checkExistence(tenantId, candidate);
       await recordCapabilityCall(tenantId, runId, { capability: 'check_existence', note: key });
       // External SOURCE providers (default none live). Injected `sources` in tests; a source problem
-      // never breaks the run. Results are normalised, source-tagged EXTERNAL observations.
-      const externalSignals = await gatherExternalSignals({ name: candidate.name, domain: candidate.domain }, { sources });
-      if (externalSignals.length) await recordCapabilityCall(tenantId, runId, { capability: 'gather_external_signals', note: `${key}:${externalSignals.length}` });
-      // Official-register verification (KVK/KBO). Empty unless a verification provider is configured.
+      // never breaks the run. Results are CANDIDATE evidence — found, not yet attributed.
+      const rawSignals = await gatherExternalSignals({ name: candidate.name, domain: candidate.domain }, { sources });
+      if (rawSignals.length) await recordCapabilityCall(tenantId, runId, { capability: 'gather_external_signals', note: `${key}:${rawSignals.length}` });
+      // Official-register verification (KVK/KBO). Empty unless a verification provider is configured
+      // (phase 1: injected only, no live KVK). This is an IDENTITY source, not a fit source.
       const verification = await gatherVerification({ name: candidate.name, domain: candidate.domain }, { sources: verificationSources });
       if (verification.length) await recordCapabilityCall(tenantId, runId, { capability: 'verify_identity', note: `${key}:${verification.length}` });
+
+      // ENTITY BINDING GATE: decide which candidate signals can actually be attributed to THIS
+      // organisation. Only bound evidence reaches qualification (and therefore fit/corroboration/the
+      // visible observations). Unbound stays internal. A name-match alone never binds.
+      const target = resolveTargetEntity({ candidate, known: existence, verification });
+      const { bound, unbound } = bindSignals(target, rawSignals);
+      const externalSignals = curateBound(bound, { max: 5 }); // dedup + strongest few (quality > quantity)
+      if (rawSignals.length) await recordCapabilityCall(tenantId, runId, { capability: 'bind_evidence', note: `${key}:bound=${externalSignals.length}/unbound=${unbound.length}` });
+
       const q = await provider.qualify({ candidate, known: existence, externalSignals, verification });
       await recordCapabilityCall(tenantId, runId, { capability: 'qualify', note: `${key}:fit=${q.fitConfidence}:id=${q.identityStatus}` });
 
       // Per-source breakdown for the trace (website vs ted vs other). Non-PII: sources + counts only.
-      const sigBy = {};
-      for (const s of externalSignals) { const p = /ted/i.test(s.provider || s.source || '') ? 'ted' : (/website/i.test(s.provider || s.source || '') ? 'website' : (s.provider || s.source || 'extern')); sigBy[p] = (sigBy[p] || 0) + 1; }
-      const sigStr = Object.keys(sigBy).length ? Object.entries(sigBy).map(([p, n]) => `${p}:${n}`).join(',') : 'geen';
+      const countBy = (arr) => { const by = {}; for (const s of arr) { const p = /ted/i.test(s.provider || s.source || '') ? 'ted' : (/website/i.test(s.provider || s.source || '') ? 'website' : (s.provider || s.source || 'extern')); by[p] = (by[p] || 0) + 1; } return by; };
+      const asStr = (by) => (Object.keys(by).length ? Object.entries(by).map(([p, n]) => `${p}:${n}`).join(',') : 'geen');
+      const sigStr = asStr(countBy(externalSignals));            // bound + curated (what counts)
+      const unboundStr = asStr(countBy(unbound));                // found but NOT attributed to this org
       const subj = candidate.name || candidate.domain || key;
 
       // DEDUPE / one reality: a known organisation is recognised and NEVER re-proposed as a new
@@ -172,7 +192,7 @@ export async function runScout({ tenantId, candidates = [], trigger = 'human', r
       // probable AND fit is strong (discovery.FIT). Human approval stays mandatory in every case.
       const needs = touchesKnown ? 'awareness' : q.decision;
 
-      const evidence = buildEvidence(candidate, existence, q);
+      const evidence = buildEvidence(candidate, existence, q, { unbound });
 
       const relation = {};
       let proposedRelation = null;
@@ -239,7 +259,7 @@ export async function runScout({ tenantId, candidates = [], trigger = 'human', r
         landed.push({ id: res.id, deduped: Boolean(res.deduped), key }); recorded += 1; if (touchesKnown) known += 1;
         const b = q.fitBreakdown || {};
         const perSrc = Object.entries(b.perSource || {}).map(([p, n]) => `${p}:${n}`).join(',') || 'geen';
-        console.log(`[scout] run ${runId} · ${subj}: bronnen=${sigStr} fit=${q.fitConfidence} identiteit=${q.identityStatus} besluit=${needs} bekend=${touchesKnown} -> ${res.deduped ? 'bijgewerkt' : 'geland'} attention_item ${res.id}`);
+        console.log(`[scout] run ${runId} · ${subj}: gebonden=${sigStr} ongebonden=${unboundStr} fit=${q.fitConfidence} identiteit=${q.identityStatus} besluit=${needs} bekend=${touchesKnown} -> ${res.deduped ? 'bijgewerkt' : 'geland'} attention_item ${res.id}`);
         console.log(`[scout] run ${runId} · ${subj}: fit-opbouw intern=${b.internal || 0} extern=${b.externalApplied || 0} (${perSrc}) corroboratie=${b.corroboration || 0} verificatie=${b.verification || 0} gate=${b.gate}(${b.gateCap})`);
       }
     }

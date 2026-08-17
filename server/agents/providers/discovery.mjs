@@ -85,6 +85,8 @@ function internalQualify({ candidate, known, externalSignals = [], verification 
       sourceRef: s.url ? { url: s.url } : (s.sourceRef || {}), detail: s.claim, support: s.support || null,
       interpretation: s.interpretation || null, uncertainties: s.uncertainties || null,
       provider: s.provider || s.source || 'external',
+      // Provenance of the binding decision (all external signals reaching qualify are already bound).
+      bindingBasis: s.bindingBasis || null, identityBound: s.identityBound === true,
     });
     fitReasons.push(s.reason || `externe waarneming: ${s.claim}`);
   }

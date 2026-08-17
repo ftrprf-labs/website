@@ -62,6 +62,11 @@ function normalizeSignal(s, provider) {
     uncertainties: Array.isArray(s.uncertainties) ? s.uncertainties : (s.uncertainties ? [String(s.uncertainties)] : null),
     relevantNow: Boolean(s.relevantNow),
     reason: s.reason || null,
+    // Carried through for ENTITY BINDING: which entity the signal actually names, its country, and a
+    // coarse evidence type. The binder (server/agents/entity.mjs) decides whether it is about the target.
+    observedEntityName: s.observedEntityName || null,
+    country: s.country || null,
+    evidenceType: s.evidenceType || null,
   };
 }
 

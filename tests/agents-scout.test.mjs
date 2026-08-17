@@ -215,8 +215,9 @@ test('Scout combines website + TED signals and KVK verification, keeping FACT vs
 
   // Injected external SOURCE providers (real provider shapes, deterministic; no live network).
   const websiteLike = { name: 'website', signals: async ({ domain }) => domain ? { signals: [{ claim: 'Vacaturepagina aanwezig op de website.', confidence: 0.5, source: 'company-website', url: `https://${domain}/`, relevantNow: true }] } : { signals: [] } };
-  const tedLike = { name: 'ted', signals: async ({ name }) => name ? { signals: [{ claim: 'Recente EU-aanbesteding (TED).', confidence: 0.55, source: 'TED', url: 'https://ted.europa.eu/en/notice/-/detail/1-2026', sourceType: 'ted', relevantNow: true, uncertainties: ['Naam-match kan een naamgenoot betreffen.'] }] } : { signals: [] } };
-  const kvkLike = { name: 'kvk', verify: async ({ name }) => name ? { matches: [{ source: 'KVK', kvkNumber: '12345678', name: 'Veldwerk BV', place: 'Gent' }] } : { matches: [] } };
+  // The TED notice names the SAME entity the verifier confirms, so entity binding attributes it to us.
+  const tedLike = { name: 'ted', signals: async ({ name }) => name ? { signals: [{ claim: 'Recente EU-aanbesteding (TED).', confidence: 0.55, source: 'TED', url: 'https://ted.europa.eu/en/notice/-/detail/1-2026', sourceType: 'ted', relevantNow: true, observedEntityName: 'Veldwerk BV', country: 'NL', uncertainties: ['Naam-match kan een naamgenoot betreffen.'] }] } : { signals: [] } };
+  const kvkLike = { name: 'kvk', verify: async ({ name }) => name ? { matches: [{ source: 'KVK', kvkNumber: '12345678', name: 'Veldwerk BV', place: 'Utrecht', country: 'NL' }] } : { matches: [] } };
 
   const run = await runScout({
     tenantId: t, trigger: 'human', sources: [websiteLike, tedLike], verificationSources: [kvkLike],
@@ -240,5 +241,40 @@ test('Scout combines website + TED signals and KVK verification, keeping FACT vs
   const succeeded = (await listRuns(t, {})).find((r) => r.status === 'succeeded');
   assert.ok(succeeded.capability_calls.some((c) => c.capability === 'gather_external_signals'));
   assert.ok(succeeded.capability_calls.some((c) => c.capability === 'verify_identity'));
+  await closePool();
+});
+
+test('OCA regression: a Spanish TED namesake is found but never becomes evidence about the NL OCA', opts, async () => {
+  await runMigrations({ silent: true });
+  await query('truncate attention_item, agent_run, activity, contact, organization, channel_identity, audit_event cascade');
+  const t = await getDefaultTenantId();
+
+  // First-party website (bound) + two Spanish TED name-matches (must stay unbound). No verification.
+  const websiteLike = { name: 'website', signals: async ({ domain }) => domain ? { signals: [{ claim: 'Publieke positionering op de website.', confidence: 0.4, source: 'company-website', url: `https://${domain}/`, relevantNow: true }] } : { signals: [] } };
+  const tedLike = { name: 'ted', signals: async ({ name }) => name ? { signals: [
+    { claim: 'Spain – Hazard protection and control consultancy services.', confidence: 0.55, source: 'TED', sourceType: 'ted', url: 'https://ted.europa.eu/n/es-1', observedEntityName: 'OCA GLOBAL PREVENTION, S.A.', country: 'ES', uncertainties: ['Naam-match kan een naamgenoot betreffen.'] },
+    { claim: 'Spain – Inspection services.', confidence: 0.55, source: 'TED', sourceType: 'ted', url: 'https://ted.europa.eu/n/es-2', observedEntityName: 'OCA Prevención S.L.', country: 'ES' },
+  ] } : { signals: [] } };
+
+  const run = await runScout({ tenantId: t, trigger: 'human', sources: [websiteLike, tedLike], candidates: [{ name: 'OCA', domain: 'oca.nl' }] });
+  assert.equal(run.ok, true);
+  const item = (await listWorkItems(t, {})).map(shapeWorkItem).find((i) => i.title.includes('OCA'));
+  assert.ok(item, 'OCA still lands (first-party website is legitimate evidence)');
+
+  // 1) no Spanish TED hit appears as a visible observation about OCA
+  const exts = item.evidence.external || [];
+  assert.ok(exts.some((e) => /oca\.nl|company-website/.test((e.source || '') + (e.url || ''))), 'the first-party website observation is present');
+  assert.ok(exts.every((e) => !/ted\.europa\.eu/.test(e.url || '')), 'no TED namesake is surfaced as evidence about OCA');
+  // 2) the unbound hits are kept internally only, never counted
+  assert.equal(item.evidence.unresolvedCount, 2, 'both namesakes are retained as unbound candidate evidence');
+  assert.ok((item.evidence.candidateEvidence || []).every((c) => /ted/i.test(c.source) && c.reason !== 'first-party-website'));
+  // 3) fit is NOT inflated by TED and there is no multi-source corroboration
+  assert.equal(item.evidence.fitBreakdown.corroboration, 0, 'a single bound source cannot corroborate');
+  assert.ok(!item.evidence.fitBreakdown.perSource.ted, 'TED adds nothing to fit');
+  assert.equal(item.evidence.identityStatus, 'probable');
+  assert.equal(item.needs, 'awareness');
+  // 4) the run trace records the binding decision
+  const succeeded = (await listRuns(t, {})).find((r) => r.status === 'succeeded');
+  assert.ok(succeeded.capability_calls.some((c) => c.capability === 'bind_evidence' && /unbound=2/.test(c.note || '')));
   await closePool();
 });

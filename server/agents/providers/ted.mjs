@@ -90,6 +90,11 @@ export function extractTedSignals(body, name) {
       reason: 'recente publieke aanbestedingsactiviteit',
       interpretation: 'Publieke opdracht of gunning; kan een aanleiding of moment zijn.',
       uncertainties: ['Naam-match op TED kan een naamgenoot betreffen; identiteit nog te verifiëren.'],
+      // For ENTITY BINDING: the org named by this notice (winner preferred, else buyer) and its
+      // country. A name query returns candidates; binding decides if this is really the target.
+      observedEntityName: winner || buyer || null,
+      country: textOf(n['buyer-country']) || null,
+      evidenceType: 'tender-notice',
     });
   }
   return out;
