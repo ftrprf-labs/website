@@ -174,6 +174,19 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
   if (!isAuthed(req)) { json(res, 401, { error: 'Niet ingelogd' }); return true; }
   const tenantId = await getDefaultTenantId();
 
+  // ---- Preview-only live-model validation (Gesprekken) -------------------------
+  // Guarded: admin session (above) + PREVIEW_SEED; inert in production. Runs the EXISTING
+  // assessConversation/draftReply/reviseDraft UNCHANGED over disposable scenario fixtures and deletes
+  // them again. Refuses unless the live provider is active, so results can never be a silent mock.
+  // It changes no Constitution/prompt/model/provider/generation logic; it only observes and reports.
+  if (pathname === '/api/cockpit/validate/gesprekken' && method === 'POST') {
+    if (!/^(1|true|yes|on)$/i.test(process.env.PREVIEW_SEED || '')) { json(res, 404, { error: 'not_available' }); return true; }
+    const { runGesprekkenValidation } = await import('./validation.mjs');
+    const out = await runGesprekkenValidation(tenantId);
+    json(res, out.ok ? 200 : 400, out);
+    return true;
+  }
+
   // ---- Vandaag: the attention surface (the relational radar) -------------------
   // Slice 5 — one meaning-first selection, not the inbox and not the relation list. Signals from
   // several senses (COMM, FOLLOW_UP, ...) are derived from authoritative state, aggregated per
