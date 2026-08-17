@@ -15,9 +15,11 @@ import { config } from '../../config.mjs';
 function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
 function round2(n) { return Math.round(n * 100) / 100; }
 
-// The internal, deterministic qualification. `candidate` is human-provided or internal-signal data;
-// `known` is what our own database already establishes about it. No fabricated external facts.
-function internalQualify({ candidate, known }) {
+// The internal, deterministic REASONING. `candidate` is human-provided or internal-signal data;
+// `known` is what our own database already establishes about it; `externalSignals` are normalized
+// observations gathered from external SOURCE providers (see providers/registry.mjs) — always treated
+// as EXTERNAL OBSERVATIONS with a source, never as our own fact. No fabricated external facts.
+function internalQualify({ candidate, known, externalSignals = [] }) {
   const evidence = [];
   const name = (candidate.name || '').trim();
   const domain = (candidate.domain || '').trim().toLowerCase() || null;
@@ -70,6 +72,24 @@ function internalQualify({ candidate, known }) {
     confidence += 0.1;
     reasons.push('er is eerdere relatiehistorie');
     evidence.push({ sourceType: 'internal_db', sourceRef: { type: 'activity' }, detail: `${known.activityCount} eerdere activiteit(en) vastgelegd.`, provider: 'internal' });
+  }
+
+  // External observations (from source providers). Each is a traceable EXTERNAL observation, not our
+  // own fact, so it lands as an 'external' evidence row with a source + when it was seen. A relevant
+  // external signal modestly raises confidence and gives an honest "waarom nu".
+  let sawExternalNow = false;
+  for (const s of externalSignals || []) {
+    if (!s || !s.claim) continue;
+    confidence += Math.min(0.15, Number(s.confidence || 0.4) * 0.25);
+    if (s.relevantNow) sawExternalNow = true;
+    reasons.push(s.reason || `externe waarneming: ${s.claim}`);
+    evidence.push({
+      sourceType: 'external', source: s.source || null, url: s.url || null, observedAt: s.observedAt || null,
+      sourceRef: s.url ? { url: s.url } : (s.sourceRef || {}), detail: s.claim, support: s.support || null,
+      interpretation: s.interpretation || null, uncertainties: s.uncertainties || null,
+      provider: s.provider || s.source || 'external',
+    });
+    if (epistemicStatus === 'HYPOTHESIS') epistemicStatus = 'OBSERVATION';
   }
 
   confidence = round2(clamp(confidence, 0.1, 0.95));

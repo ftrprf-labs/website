@@ -136,3 +136,28 @@ test('Scout lands well-reasoned work in the cockpit and only a human resolves it
 
   await closePool();
 });
+
+test('Scout folds an external source signal into the landed evidence (injected source, no live call)', opts, async () => {
+  await runMigrations({ silent: true });
+  await query('truncate attention_item, agent_run, activity, contact, organization, channel_identity, audit_event cascade');
+  const t = await getDefaultTenantId();
+
+  // An injected SOURCE provider (a stand-in for the website provider) — deterministic, no network.
+  const injectedSource = {
+    name: 'website',
+    signals: async ({ domain }) => domain === 'veldwerk.be'
+      ? { signals: [{ claim: 'Vacaturepagina aanwezig op de website.', confidence: 0.5, source: 'company-website', url: 'https://veldwerk.be/', relevantNow: true, reason: 'zichtbare werving kan op groei wijzen' }] }
+      : { signals: [] },
+  };
+
+  const run = await runScout({ tenantId: t, trigger: 'human', sources: [injectedSource], candidates: [{ name: 'Veldwerk', domain: 'veldwerk.be', email: 'tibo@veldwerk.be' }] });
+  assert.equal(run.ok, true);
+  const item = (await listWorkItems(t, {})).map(shapeWorkItem)[0];
+  const ext = (item.evidence.external || []).find((e) => e.url === 'https://veldwerk.be/');
+  assert.ok(ext, 'the external observation appears on the attention item, source-attributed');
+  assert.equal(ext.kind, 'OBSERVATION', 'an external signal is an OBSERVATION, not a FACT');
+  // The run trace shows the source-gathering capability was called.
+  const succeeded = (await listRuns(t, {})).find((r) => r.status === 'succeeded');
+  assert.ok(succeeded.capability_calls.some((c) => c.capability === 'gather_external_signals'));
+  await closePool();
+});

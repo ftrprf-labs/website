@@ -12,6 +12,7 @@ import { listActors, getActor, colleagueCard } from './registry.mjs';
 import { runScout } from './scout/runner.mjs';
 import { listRuns } from './run.mjs';
 import { getDiscoveryProvider } from './providers/discovery.mjs';
+import { sourceProviderStatus } from './providers/registry.mjs';
 
 function json(res, status, data) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -38,7 +39,7 @@ export async function handleAgents(req, res, { pathname, method, isAuthed }) {
     const provider = getDiscoveryProvider();
     const colleagues = await Promise.all(
       actors.filter((a) => a.kind === 'AGENT').map(async (a) => colleagueCard(await getActor(tenantId, a.slug))));
-    json(res, 200, { colleagues, discovery: { provider: provider.name, configured: provider.configured } });
+    json(res, 200, { colleagues, reasoning: { provider: provider.name, configured: provider.configured }, sources: sourceProviderStatus() });
     return true;
   }
   if (pathname === '/api/agents/colleagues' && method === 'GET') {

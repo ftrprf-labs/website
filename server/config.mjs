@@ -93,6 +93,11 @@ export const config = {
   // Discovery defaults to the deterministic internal provider; external web discovery is not wired.
   agentsEnabled: /^(1|true|yes|on)$/i.test(process.env.AGENTS_ENABLED || ''),
   agentDiscoveryProvider: (process.env.AGENT_DISCOVERY_PROVIDER || 'internal').toLowerCase(),
+  // Credential-free website SIGNAL source for Scout (reads an organisation's OWN public homepage,
+  // robots-respecting). OFF by default: switching it on means Scout starts making live external HTTP
+  // requests, so it is a deliberate choice. No API key. External registries (KVK/KBO/TED) are not
+  // wired; they require a provider decision + credentials (see docs/architecture/SCOUT_DISCOVERY_SOURCES.md).
+  scoutWebsiteSignals: /^(1|true|yes|on)$/i.test(process.env.SCOUT_WEBSITE_SIGNALS || ''),
   // PREVIEW ONLY: when set, the site root "/" serves the operational cockpit (/cockpit-live.html)
   // instead of the Testerbeheer admin. Off by default, so production Testerbeheer is unchanged.
   previewCockpitRoot: /^(1|true|yes|on)$/i.test(process.env.PREVIEW_COCKPIT_ROOT || ''),

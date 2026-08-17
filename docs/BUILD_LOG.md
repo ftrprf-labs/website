@@ -5,6 +5,37 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-17 — Scout discovery-laag: generieke multi-bron architectuur (geen credentials, geen live calls)
+
+**Onderzoek + generieke bouw, met een expliciet stopmoment vóór een providerkeuze.** Scout mag geen
+wrapper om één leverancier worden: normalisatie, relatiecheck, evidence, reasoning, confidence, dedup,
+attention-beslissing en proposal blijven in Scout. Alleen de bronlaag eronder is pluggable.
+
+**Gebouwd (credential-free, standaard uit):** `server/agents/providers/registry.mjs` (rolmodel
+DISCOVERY/SIGNALS/ENRICHMENT/VERIFICATION, provider-registry, normaliserende aggregator
+`gatherExternalSignals` die elke waarneming van een bron-tag voorziet en een falende bron overslaat) en
+`server/agents/providers/website.mjs` (credential-free website-signaalbron: leest de eigen publieke
+homepage van een organisatie, respecteert robots.txt, één request, korte snippets, resultaten als
+EXTERNE waarnemingen). Standaard UIT (`SCOUT_WEBSITE_SIGNALS`); live fetchen is een bewuste keuze. Scout
+vouwt externe waarnemingen als eigen soort (OBSERVATION met bron + url) in de evidence, gescheiden van
+onze eigen FEIT/AFLEIDING/HYPOTHESE, en laat ze de confidence licht verhogen.
+
+**Onderzoek vastgelegd** in `docs/architecture/SCOUT_DISCOVERY_SOURCES.md`: vergelijking van KVK (NL),
+KBO/BCE (BE), TED (EU aanbestedingen), bedrijfswebsite, nieuws/RSS, OpenCorporates en vendor-enrichment,
+plus de aanbevolen minimale V1-combinatie (KVK + KBO als identiteit/verificatie, TED + website als
+signalen) en de stoppunten die een menselijke/betaalde keuze vereisen.
+
+**Bewust NIET gedaan:** geen KVK/KBO/TED live aangesloten (providerkeuze + credentials), geen scraper die
+blokkades omzeilt, geen fake externe resultaten, geen PII zonder doel, geen outreach. KVK/KBO/TED staan
+als gedocumenteerde seams in het statusbord (`/api/agents/status`), niet geïmplementeerd.
+
+**Tests.** `tests/agents-discovery.test.mjs` (pure unit: website standaard uit, robots-respect, extractie,
+normalisatie/aggregatie, externe signalen als OBSERVATION in reasoning) + een DB-E2E die met een
+geïnjecteerde bron aantoont dat een extern signaal bron-herleidbaar op het attention_item landt. Geen
+live netwerkcall in tests. Geen deploy, geen infra/secret-wijziging.
+
+---
+
 ## 2026-08-17 — Scout aangesloten op de Cockpit (Slice 5 integratie, één werkelijkheid)
 
 **Twee werelden samengevoegd.** De Cockpit-chat realiseerde Slice 5 (collaboratieve cockpit met een

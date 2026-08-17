@@ -15,6 +15,7 @@ import { recordWorkItem } from '../../comm/work.mjs';
 import { getActor, assertCan, requiresApproval } from '../registry.mjs';
 import { startRun, finishRun, failRun, recordCapabilityCall } from '../run.mjs';
 import { getDiscoveryProvider } from '../providers/discovery.mjs';
+import { gatherExternalSignals } from '../providers/registry.mjs';
 import { emailDomain } from '../../comm/identity.mjs';
 
 // Only record work that clears a relevance bar (compression: protect attention at the source).
@@ -67,22 +68,25 @@ function buildEvidence(candidate, known, q) {
   if (candidate.note) facts.push({ kind: 'FACT', text: `Aangedragen met context: ${candidate.note}` });
   if (candidate.domain) facts.push({ kind: 'FACT', text: `Domein: ${candidate.domain}` });
   // Real DB facts from qualification evidence (existing org, known contact, prior activity).
+  const externals = [];
   for (const e of q.evidence || []) {
     if (e.sourceType === 'internal_db') facts.push({ kind: 'FACT', text: e.detail, ref: e.sourceRef });
+    // EXTERNAL observations (from source providers) stay their own kind, with a source + when seen.
+    else if (e.sourceType === 'external') externals.push({ kind: 'OBSERVATION', text: e.detail, source: e.source || e.provider, url: e.url || null, observedAt: e.observedAt || null, interpretation: e.interpretation || null, uncertainties: e.uncertainties || null });
   }
   const inferences = [{ kind: 'INFERENCE', text: q.summary }];
   const hypotheses = [];
   if (!known.organization && !(known.contacts && known.contacts.length)) {
     hypotheses.push({ kind: 'HYPOTHESIS', text: 'Mogelijke fit met Maculis. Nog niet bevestigd; menselijke beoordeling nodig.' });
   }
-  const observations = [...facts, ...inferences, ...hypotheses];
+  const observations = [...facts, ...externals, ...inferences, ...hypotheses];
   const ev = {
     source: candidate.demo ? 'demo-fixture' : 'scout/internal',
     provider: q.providerName || 'internal',
     confidence: q.confidence,
     epistemicStatus: q.epistemicStatus,
     observations,
-    facts, inferences, hypotheses,
+    facts, external: externals, inferences, hypotheses,
   };
   // Contract §7: a demonstration/fixture must be unmistakably marked so it can never read as a real find.
   if (candidate.demo) ev.demo = true;
@@ -91,7 +95,7 @@ function buildEvidence(candidate, known, q) {
 
 // Run Scout over a set of candidates. Lands attention items through the cockpit contract. Idempotent
 // on runDedupeKey (double-submit guard) and per-candidate on the work dedupKey (no attention spam).
-export async function runScout({ tenantId, candidates = [], trigger = 'human', runDedupeKey = null, scope = 'provided' }) {
+export async function runScout({ tenantId, candidates = [], trigger = 'human', runDedupeKey = null, scope = 'provided', sources = null }) {
   const scout = await getActor(tenantId, 'scout');
   if (!scout) return { ok: false, reason: 'scout_actor_missing' };
 
@@ -124,7 +128,11 @@ export async function runScout({ tenantId, candidates = [], trigger = 'human', r
 
       const existence = await checkExistence(tenantId, candidate);
       await recordCapabilityCall(tenantId, runId, { capability: 'check_existence', note: key });
-      const q = await provider.qualify({ candidate, known: existence });
+      // External SOURCE providers (default none live). Injected `sources` in tests; a source problem
+      // never breaks the run. Results are normalised, source-tagged EXTERNAL observations.
+      const externalSignals = await gatherExternalSignals({ name: candidate.name, domain: candidate.domain }, { sources });
+      if (externalSignals.length) await recordCapabilityCall(tenantId, runId, { capability: 'gather_external_signals', note: `${key}:${externalSignals.length}` });
+      const q = await provider.qualify({ candidate, known: existence, externalSignals });
       await recordCapabilityCall(tenantId, runId, { capability: 'qualify', note: `${key}:${q.confidence}` });
 
       // Compression: below the relevance bar, record nothing (unless it touches a known relation,
