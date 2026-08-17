@@ -1,12 +1,16 @@
 # Maculis Visual DNA v1.0
 
 **Source of truth voor alle Maculis-omgevingen.**
-Versie 1.0 · 2026-08-17 · Status: ter definitieve goedkeuring
+Versie 1.0 · 2026-08-17 · **Status: VASTGESTELD. Dit is de canon voor het visuele DNA.**
 Vervangt het voorstel in `MACULIS_VISUAL_DNA_V1.md`. De feitelijke code-audit blijft
-`MACULIS_VISUAL_DNA_AUDIT.md`. Het visuele ijkpunt is `maculis-visual-north-star.html`.
+`MACULIS_VISUAL_DNA_AUDIT.md`. Het visuele ijkpunt is `maculis-visual-north-star.html`, dat sinds de
+vaststelling vast op Newsreader staat en geen stemschakelaar meer bevat.
 
-Na goedkeuring verhuist dit document naar `ftrprf-labs/ftrlabs-docs` onder `03-ux/`, conform
-beslissing 7. Tot die goedkeuring is er niets geharmoniseerd en niets gedeployed.
+Dit document verhuist naar `ftrprf-labs/ftrlabs-docs` onder `03-ux/` als eerste stap van het
+harmonisatieplan, conform beslissing 7. Wijzigen kan uitsluitend via hoofdstuk 17.
+
+**De Vijfde Kamer**, de persoonlijke Maculis-werkomgeving, loopt als apart spoor. Dat spoor gebruikt
+deze canon en mag hem niet zelfstandig wijzigen. Zie hoofdstuk 16, punt F.
 
 ---
 
