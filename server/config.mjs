@@ -90,6 +90,9 @@ export const config = {
   // PREVIEW ONLY: when set, the site root "/" serves the operational cockpit (/cockpit-live.html)
   // instead of the Testerbeheer admin. Off by default, so production Testerbeheer is unchanged.
   previewCockpitRoot: /^(1|true|yes|on)$/i.test(process.env.PREVIEW_COCKPIT_ROOT || ''),
+  // Collaborative cockpit: a shared key that lets an out-of-process digital colleague (agent) land
+  // work into the cockpit's attention model. Optional; when unset, ingestion is admin-session only.
+  agentIngestKey: process.env.AGENT_INGEST_KEY || '',
   // Resend inbound (Receiving). MAIL_API_KEY (already used for outbound) doubles as the
   // Receiving-API key; the webhook signing secret is set AFTER the webhook is created in Resend.
   resendWebhookSecret: process.env.RESEND_WEBHOOK_SECRET || '',

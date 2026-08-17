@@ -19,6 +19,7 @@
 import { query } from './db.mjs';
 import { attentionOverview } from './attention.mjs';
 import { listFollowUps } from './followups.mjs';
+import { listWorkItems, shapeWorkItem } from './work.mjs';
 
 // The senses that can raise a signal. Only COMM and FOLLOW_UP are wired in Slice 5; the rest are
 // declared so the contract (and the aggregation/ranking) is source-agnostic from day one.
@@ -54,6 +55,33 @@ const BUCKET_OF = {
 
 const DAY_MS = 86400000;
 const firstName = (who) => String(who || '').trim().split(/\s+/)[0] || 'deze relatie';
+
+// The default silence threshold, isolated behind ONE seam so it is not a product assumption baked
+// deep into the architecture (§ 2 stilteperiode). Today it is a flat 45 days; later this is the hook
+// for contextual relationship cadence (expected contact rhythm per relation), without touching the
+// radar. Silence is never "take contact now" — it is only "this change in the relationship pattern
+// may deserve attention".
+export function expectedSilenceThreshold(rel = {}) {
+  if (Number.isFinite(rel.cadenceDays) && rel.cadenceDays > 0) return rel.cadenceDays; // future: per-relation rhythm
+  return 45;
+}
+
+// Adapt an authored work item (colleague/agent) to a signal-like element so ONE aggregation and ONE
+// ranking cover derived signals AND authored work. The full shaped work item rides along under `work`
+// so the card keeps its origin, evidence, proposal and actions.
+export function workElement(w) {
+  return {
+    key: `WORK:${w.id}`,
+    source: 'WORK', kind: 'work',
+    type: w.type, bucket: w.bucket, priority: w.priority,
+    contactId: w.contactId || null, organizationId: null, conversationId: w.conversationId || null, followUpId: w.followUpId || null,
+    who: w.who, org: w.org, channel: null,
+    reason: w.title, prepared: false,
+    occurredAt: w.createdAt, relevantAt: w.createdAt,
+    provenance: { source: w.origin.key, sourceId: w.id, rule: 'authored work item', type: w.type, derivedAt: w.createdAt },
+    work: w,
+  };
+}
 
 function signal({ source, sourceId, type, rule, contactId = null, organizationId = null, conversationId = null, followUpId = null, who = null, org = null, channel = null, reason, prepared = false, occurredAt = null, relevantAt = null, derivedAt }) {
   return {
@@ -162,20 +190,25 @@ export function aggregateSignals(signals) {
       seenTypes.add(s.type);
       secondary.push({ type: s.type, reason: s.reason, bucket: s.bucket });
     }
-    const followUps = sorted.filter((s) => s.followUpId)
+    const followUps = sorted.filter((s) => s.followUpId && !s.work)
       .map((s) => ({ id: s.followUpId, reason: s.reason, type: s.type, overdue: s.type === 'FOLLOWUP_OVERDUE', upcoming: s.type === 'FOLLOWUP_UPCOMING' }));
+    // Authored colleague work touching this relation, in full (origin, evidence, proposal, actions).
+    const work = sorted.filter((s) => s.work).map((s) => s.work);
     const conv = sorted.find((s) => s.conversationId);
     cards.push({
       key: gkey,
+      kind: primary.kind === 'work' ? 'work' : 'relation',
       bucket: primary.bucket,
       contactId: primary.contactId || (conv && conv.contactId) || null,
       conversationId: conv ? conv.conversationId : null,
       who: primary.who || (group.find((s) => s.who) || {}).who || 'Onbekend',
       org: primary.org || (group.find((s) => s.org) || {}).org || null,
       channel: primary.channel || (conv && conv.channel) || null,
-      primary: { type: primary.type, reason: primary.reason, source: primary.source, priority: primary.priority },
+      primary: { type: primary.type, reason: primary.reason, source: primary.source, priority: primary.priority,
+        origin: primary.work ? primary.work.origin : null, needs: primary.work ? primary.work.needs : null },
       secondary: secondary.slice(0, 3),
       followUps,
+      work,
       hasPrepared: group.some((s) => s.prepared),
       priority: primary.priority,
       relevantAt: primary.relevantAt || primary.occurredAt || null,
@@ -208,7 +241,7 @@ export function rankCards(cards) {
 // ---- DB orchestration: authoritative tenant state → ranked, bucketed radar ---------------------
 // contactId (optional) scopes the radar to one relation so the dossier tells the SAME story as
 // Vandaag (§ 20, one reality). now/quiet params are injectable for deterministic tests.
-export async function buildRadar(tenantId, { now = new Date(), contactId = null, quietThresholdDays = 45, quietLimit = 6 } = {}) {
+export async function buildRadar(tenantId, { now = new Date(), contactId = null, quietThresholdDays = expectedSilenceThreshold(), quietLimit = 6 } = {}) {
   const nowMs = now instanceof Date ? now.getTime() : new Date(now).getTime();
   const derivedAt = new Date(nowMs).toISOString();
   const signals = [];
@@ -270,17 +303,25 @@ export async function buildRadar(tenantId, { now = new Date(), contactId = null,
     const s = deriveQuietSignal({
       contactId: r.id, organizationId: r.organization_id, who: [r.first_name, r.last_name].filter(Boolean).join(' ') || 'Onbekend',
       org: r.org, lastContactAt: r.last_contact, hasOpenAttention: false,
-    }, now, { thresholdDays: quietThresholdDays });
+      // Per-relation cadence seam: today a flat threshold, later the expected contact rhythm.
+    }, now, { thresholdDays: expectedSilenceThreshold({ contactId: r.id }) });
     if (s) { signals.push(s); quietAdded += 1; }
   }
 
+  // 4) AUTHORED WORK — colleague/agent work items (persisted), merged into the SAME model. Each
+  // becomes a signal-like element so one aggregation and one ranking cover derived + authored
+  // attention; the full work item rides along for the card (origin, evidence, proposal, actions).
+  const workRows = await listWorkItems(tenantId, { status: 'open', contactId });
+  const workEls = workRows.map(shapeWorkItem).map(workElement);
+  const elements = [...signals, ...workEls];
+
   // Aggregate → cards → bucket → rank.
-  const cards = aggregateSignals(signals);
+  const cards = aggregateSignals(elements);
   const buckets = { NU: [], KLAAR: [], RADAR: [] };
   for (const card of cards) buckets[card.bucket].push(card);
   for (const b of BUCKETS) buckets[b] = rankCards(buckets[b]);
 
-  const counts = { nu: buckets.NU.length, klaar: buckets.KLAAR.length, radar: buckets.RADAR.length };
+  const counts = { nu: buckets.NU.length, klaar: buckets.KLAAR.length, radar: buckets.RADAR.length, work: workEls.length };
   const replyReady = cards.filter((c) => c.hasPrepared).length;
 
   // Honest provenance of what the radar does NOT yet derive (§ 13, § 32 — do not fake).

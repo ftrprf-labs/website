@@ -21,6 +21,7 @@ import { commEnabled, query } from '../comm/db.mjs';
 import { getDefaultTenantId } from '../comm/tenant.mjs';
 import { attentionHeadline, markConversationRead } from '../comm/attention.mjs';
 import { buildRadar } from '../comm/signals.mjs';
+import { recordWorkItem, resolveWorkItem, listWorkItems, shapeWorkItem, WORK_ACTIONS } from '../comm/work.mjs';
 import { getRelationship } from '../comm/relationship.mjs';
 import * as drafts from '../comm/drafts.mjs';
 import { sendOnChannel } from '../comm/send.mjs';
@@ -148,6 +149,22 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
   // Fail-closed: the whole real-data surface is dark unless the Communication Layer
   // is enabled (COMM_LAYER_ENABLED=1 + DATABASE_URL). Never pretend.
   if (!commEnabled()) { json(res, 503, { error: 'comm_layer_disabled' }); return true; }
+
+  // ---- Agent ingestion: a digital colleague lands work into the cockpit --------
+  // THE integration contract for the separate agent domain. Reachable either with an admin session
+  // or the shared AGENT_INGEST_KEY header (x-agent-key), so an out-of-process colleague can post.
+  // It only WRITES an attention item into the one reality; it never sends anything external.
+  if (pathname === '/api/cockpit/agent/work' && method === 'POST') {
+    const keyOk = config.agentIngestKey && req.headers['x-agent-key'] === config.agentIngestKey;
+    if (!keyOk && !isAuthed(req)) { json(res, 401, { error: 'Niet gemachtigd' }); return true; }
+    const tid = await getDefaultTenantId();
+    const body = await readJson(req);
+    if (!body || typeof body !== 'object') { json(res, 400, { ok: false, reason: 'bad_body' }); return true; }
+    const r = await recordWorkItem(tid, body);
+    json(res, r.ok ? 200 : 400, r);
+    return true;
+  }
+
   if (!isAuthed(req)) { json(res, 401, { error: 'Niet ingelogd' }); return true; }
   const tenantId = await getDefaultTenantId();
 
@@ -183,6 +200,26 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
     if (!r.ok) { json(res, r.reason === 'not_found' ? 404 : 400, { ok: false, reason: r.reason || 'update_failed' }); return true; }
     await recordAudit({ tenantId, action: 'cockpit_followup_done', entityType: 'follow_up', entityId: fuDone[1], ipRef: ipRefOf(req) });
     json(res, 200, { ok: true });
+    return true;
+  }
+
+  // ---- Colleague work: the human decision on a piece of prepared/proposed work -
+  // Human in the loop: view/approve/edit/take_over/reject/complete. Nothing external is sent;
+  // approving a proposed lead materialises the real relation in the same reality.
+  const workAct = pathname.match(new RegExp(`^/api/cockpit/work/${UUID}/([a-z_]+)$`));
+  if (workAct && method === 'POST') {
+    const action = workAct[2];
+    if (!WORK_ACTIONS.includes(action)) { json(res, 400, { ok: false, reason: 'bad_action' }); return true; }
+    const body = await readJson(req) || {};
+    const r = await resolveWorkItem(tenantId, workAct[1], action, { actorKey: 'lud', edit: body.edit || null });
+    json(res, r.ok ? 200 : (r.reason === 'not_found' ? 404 : 400), r);
+    return true;
+  }
+
+  // ---- Colleague work: the open work list (all relations) ----------------------
+  if (pathname === '/api/cockpit/work' && method === 'GET') {
+    const items = (await listWorkItems(tenantId, { status: 'open' })).map(shapeWorkItem);
+    json(res, 200, { work: items, count: items.length });
     return true;
   }
 
@@ -247,6 +284,8 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
       ? { bucket: relCards[0].bucket, reason: relCards[0].primary.reason, type: relCards[0].primary.type,
           secondary: relCards[0].secondary, conversationId: relCards[0].conversationId }
       : null;
+    // Colleague work touching this relation (origin, evidence, proposal, actions), same reality as Vandaag.
+    const relWork = relCards.flatMap((card) => card.work || []);
     json(res, 200, {
       identity: {
         contactId: c.id, name, role: c.role || null,
@@ -256,6 +295,8 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
       reachability: reachability(rel),
       attention: attentionNow,                            // radar reason, consistent with Vandaag
       attentionSignals: relRadar.signals,                 // herleidbaar (provenance)
+      work: relWork,                                      // colleague/agent work on this relation
+      owner: relWork.length ? relWork[0].owner : null,    // who owns the open work here
       now: attentionNow ? { label: attentionNow.reason } : (rel.summary ? rel.summary.nextAction : null),
       journey: rel.journey ? { campaign: rel.journey.campaign, status: rel.journey.status } : null,
       conversations: convs.map((cv) => ({
