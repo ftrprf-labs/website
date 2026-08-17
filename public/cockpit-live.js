@@ -15,6 +15,8 @@ function el(tag, cls, html) { const n = document.createElement(tag); if (cls) n.
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function initials(name) { const p = String(name || '').trim().split(/\s+/); return (((p[0] || '')[0] || '') + ((p[p.length - 1] || '')[0] || '')).toUpperCase(); }
 const CHAN_ICO = { EMAIL: '✉', WHATSAPP: '◇', SMS: '▤', PHONE: '☎' };
+const NL_MONTHS = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
+function lensDate(iso) { try { const d = new Date(iso); if (isNaN(d)) return null; return `${d.getDate()} ${NL_MONTHS[d.getMonth()]}`; } catch { return null; } }
 
 async function api(path, opts) {
   const r = await fetch(path, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, ...opts });
@@ -548,6 +550,22 @@ async function renderDossier(contactId) {
         b.appendChild(head);
         b.appendChild(workBlock(w, () => renderDossier(activeContactId)));
       });
+      return b;
+    }));
+  }
+  // Lens — a content-free relational hoofdlijn (Niveau C). Only the fact that this relation went
+  // through the Lens; never reveal content, answers or personal reflections. Designed so a client-shared
+  // insight ("1 inzicht door klant gedeeld") can appear later, once an explicit sharing consent exists.
+  if (data.lens && data.lens.participated) {
+    secWrap.appendChild(dosSection('Lens', 'A', true, () => {
+      const b = el('div', 'dos-lens');
+      const at = data.lens.completedAt || data.lens.startedAt;
+      const when = at ? lensDate(at) : null;
+      b.innerHTML = `<p class="lens-line">${data.lens.completedAt ? 'Doorlopen' : 'Gestart'}${when ? ' op ' + esc(when) : ''}.</p>`;
+      if (data.lens.sharedCount > 0) {
+        b.innerHTML += `<p class="lens-line">${data.lens.sharedCount} inzicht${data.lens.sharedCount === 1 ? '' : 'en'} door klant gedeeld.</p>`;
+      }
+      b.innerHTML += `<p class="dos-note">De Lens is van de klant. Alleen deze hoofdlijn is gedeeld. Antwoorden en persoonlijke reflectie blijven privé.</p>`;
       return b;
     }));
   }

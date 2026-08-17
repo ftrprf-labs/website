@@ -22,6 +22,7 @@ import { getDefaultTenantId } from '../comm/tenant.mjs';
 import { attentionHeadline, markConversationRead } from '../comm/attention.mjs';
 import { buildRadar } from '../comm/signals.mjs';
 import { recordWorkItem, resolveWorkItem, listWorkItems, shapeWorkItem, WORK_ACTIONS } from '../comm/work.mjs';
+import { lensSummaryForContact } from '../comm/lens.mjs';
 import { getRelationship } from '../comm/relationship.mjs';
 import * as drafts from '../comm/drafts.mjs';
 import { sendOnChannel } from '../comm/send.mjs';
@@ -289,6 +290,9 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
       : null;
     // Colleague work touching this relation (origin, evidence, proposal, actions), same reality as Vandaag.
     const relWork = relCards.flatMap((card) => card.work || []);
+    // Lens hoofdlijn (Niveau C): content-free fact that this relation went through the Lens. The cockpit
+    // user is a human advisor; agents never reach this. No reveal content, answers or reflections.
+    const lens = await lensSummaryForContact(tenantId, c.id, { viewer: { kind: 'HUMAN' } });
     json(res, 200, {
       identity: {
         contactId: c.id, name, role: c.role || null,
@@ -300,6 +304,7 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
       attentionSignals: relRadar.signals,                 // herleidbaar (provenance)
       work: relWork,                                      // colleague/agent work on this relation
       owner: relWork.length ? relWork[0].owner : null,    // who owns the open work here
+      lens,                                               // Niveau-C Lens hoofdlijn (content-free) or null
       now: attentionNow ? { label: attentionNow.reason } : (rel.summary ? rel.summary.nextAction : null),
       journey: rel.journey ? { campaign: rel.journey.campaign, status: rel.journey.status } : null,
       conversations: convs.map((cv) => ({

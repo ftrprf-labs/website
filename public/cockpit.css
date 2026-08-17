@@ -1186,3 +1186,7 @@ body {
 .beheer-add .btn { flex: 0 0 auto; }
 .beheer-more { margin-top: 1rem; opacity: .85; }
 .beheer-more a { color: var(--primary); }
+
+/* Lens — a calm, content-free hoofdlijn in the dossier. Never reveal content. */
+.dos-lens .lens-line { color: var(--text); font-size: .92rem; margin: .15rem 0; }
+.dos-lens .dos-note { margin-top: .5rem; }

@@ -19,6 +19,7 @@ import { getDefaultTenantId } from './tenant.mjs';
 import { runCopilot } from './ai/copilot.mjs';
 import { createFollowUp } from './followups.mjs';
 import { recordWorkItem } from './work.mjs';
+import { recordLensSummary } from './lens.mjs';
 
 function enabled() {
   return /^(1|true|yes|on)$/i.test(process.env.PREVIEW_SEED || '');
@@ -52,7 +53,7 @@ export async function previewSeedOnBoot() {
     const tenantId = await getDefaultTenantId();
     const existing = (await query('select count(*)::int n from contact where tenant_id=$1', [tenantId])).rows[0].n;
     let seeded = 0;
-    if (existing > 0) { await ensureDemoFollowUp(tenantId); await ensureRadarDemo(tenantId); await ensureColleagueDemo(tenantId); return { skipped: true, reason: 'already seeded', ensuredFollowUp: true, ensuredRadar: true, ensuredColleagues: true }; }
+    if (existing > 0) { await ensureDemoFollowUp(tenantId); await ensureRadarDemo(tenantId); await ensureColleagueDemo(tenantId); await ensureLensDemo(tenantId); return { skipped: true, reason: 'already seeded', ensuredFollowUp: true, ensuredRadar: true, ensuredColleagues: true, ensuredLens: true }; }
 
     for (const r of RELATIONS) {
       const org = (await query(
@@ -79,6 +80,7 @@ export async function previewSeedOnBoot() {
     await ensureDemoFollowUp(tenantId);
     await ensureRadarDemo(tenantId);
     await ensureColleagueDemo(tenantId);
+    await ensureLensDemo(tenantId);
     console.log(`  Preview  : ${seeded} demonstratierelatie(s) geseed (echte copilot-output)`);
     return { ok: true, seeded };
   } catch (e) {
@@ -233,4 +235,17 @@ async function ensureColleagueDemo(tenantId) {
     }
     if (made) console.log(`  Preview  : collega-demonstratie klaargezet (${made} werkitem(s): Growth, Gesprek, Relatie, Opvolg)`);
   } catch (e) { console.log(`  Preview  : collega-demo uitgesteld (${e.message})`); }
+}
+
+// Slice 5 — a content-free Niveau-C Lens hoofdlijn for ONE demonstration relation, so the dossier
+// presentation ("Lens · Doorlopen op [datum]") is visible. SUMMARY only: no reveal content, answers or
+// reflections are ever written. Idempotent (recordLensSummary dedupes per contact+milestone).
+async function ensureLensDemo(tenantId) {
+  try {
+    const kim = (await query('select id from contact where tenant_id=$1 and lower(email)=lower($2) limit 1', [tenantId, 'kim@debrug.be'])).rows[0];
+    if (!kim) return;
+    const at = new Date(Date.now() - 3 * 86400000).toISOString();
+    const r = await recordLensSummary(tenantId, { contactId: kim.id, milestone: 'COMPLETED', occurredAt: at, sourceRef: { demo: true, source: 'demo-fixture' } });
+    if (r.ok && !r.deduped) console.log('  Preview  : lens-hoofdlijn klaargezet (Niveau C, alleen "doorlopen op")');
+  } catch (e) { console.log(`  Preview  : lens-demo uitgesteld (${e.message})`); }
 }
