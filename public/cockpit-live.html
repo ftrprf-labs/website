@@ -74,7 +74,10 @@
     .scout-f input{padding:.55rem .7rem;border:1px solid var(--line,#3a2e20);border-radius:10px;
       background:color-mix(in srgb,#000 12%,transparent);color:var(--ink,#f0e6d6);font-size:.95rem}
     .scout-f input:focus{outline:none;border-color:color-mix(in srgb,var(--gold,#c8894a) 55%,transparent)}
-    .scout-actions{display:flex;gap:.5rem;margin-top:.1rem}
+    /* Clear primary hierarchy: "Laat Scout kijken" leads; Annuleren stays quiet and secondary. */
+    .scout-actions{display:flex;align-items:center;gap:.6rem;margin-top:.3rem}
+    .scout-actions .btn-primary{flex:1;justify-content:center;font-weight:700;padding-top:.6rem;padding-bottom:.6rem}
+    .scout-actions .btn-ghost{flex:none;opacity:.8;font-size:.9rem}
     .scout-status{margin:.1rem 0 0;font-size:.84rem;color:var(--ink-2,#b3a48f);min-height:1em}
     /* Calm post-run confirmation. It never moves the page; "Bekijk" jumps to the item on request. */
     .scout-toast{position:fixed;left:50%;bottom:1.4rem;transform:translateX(-50%);z-index:55;display:flex;align-items:center;gap:.8rem;

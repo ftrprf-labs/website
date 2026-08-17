@@ -167,7 +167,7 @@ function openScoutModal() {
       <button type="button" class="scout-x" id="sc-x" aria-label="Sluiten">×</button>
     </div>
     <form class="scout-form" id="sc-form">
-      <p class="scout-explain">Scout kijkt naar openbare bronnen: de eigen website van de organisatie en openbare EU aanbestedingen (TED). Scout maakt daar waarnemingen van, controleert of we de organisatie al kennen, en zet een voorstel klaar. Scout verstuurt niets en neemt geen contact op. Jij beslist.</p>
+      <p class="scout-explain">Scout kijkt naar openbare signalen en legt iets aan je voor als hij iets relevants vindt. Hij verstuurt niets en neemt geen contact op. Jij beslist. De bronnen en het bewijs zie je bij het resultaat.</p>
       <label class="scout-f"><span>Organisatie</span><input type="text" id="sc-name" placeholder="Naam van de organisatie" autocomplete="off" required></label>
       <label class="scout-f"><span>Website <em>(optioneel, helpt Scout kijken)</em></span><input type="text" id="sc-site" placeholder="bijv. voorbeeld.nl" autocomplete="off"></label>
       <label class="scout-f"><span>Context <em>(optioneel)</em></span><input type="text" id="sc-note" placeholder="Waarom kijk je hiernaar?" autocomplete="off"></label>
