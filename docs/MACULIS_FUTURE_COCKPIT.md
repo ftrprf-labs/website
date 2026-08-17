@@ -1887,3 +1887,23 @@ tweede database, geen synchronisatie. Het integratiecontract staat in
 `docs/AGENT_COCKPIT_CONTRACT.md` (endpoint `POST /api/cockpit/agent/work`, resolutie via
 `POST /api/cockpit/work/:id/:action`). Preview toont het model met duidelijk als fixture gemarkeerde
 demonstratie-werkitems; nooit wordt gedaan alsof een agent echt iets extern vond.
+
+## 28. Maculis Context Layer (architectuurprincipe, V1 gevalideerd)
+
+De AI-fundering onder Gesprekken is vastgelegd als Maculis-breed architectuurprincipe, niet als een
+truc binnen Gesprekken. De keten is:
+
+`available context → authorization/privacy → task relevance → model → human control`
+
+Vier harde regels: de volgorde is vast (`authorizeContext` komt altijd vóór `selectTaskRelevance`);
+relevantieselectie mag alleen weghouden en nooit bevoegdheden of context toevoegen; commitments
+(`agreement`/`reminder`) worden nooit weggefilterd; en menselijke goedkeuring blijft de laatste,
+verplichte stap. Autorisatie/privacy bepaalt wat gebruikt *mag* worden; taakrelevantie bepaalt
+daarna wat voor deze specifieke taak gebruikt *moet* worden.
+
+Live gevalideerd tegen Claude Sonnet 5 op de preview (7/7 response-decisions correct, afspraken
+behouden, irrelevante context weggehouden vóór de modelcall, privacy/autorisatie en menselijke
+goedkeuring intact, geen hallucinaties). Het volledige principe, het categoriemodel, de plek in de
+code en de regressietests staan in `docs/CONTEXT_LAYER.md`. Dezelfde fundering geldt voor volgende
+toepassingen zoals Mijn Maculis, daar met bijzondere aandacht voor de grens
+PRIVATE → expliciete toestemming → SHARED.
