@@ -66,7 +66,39 @@ export async function customerInsights(tenantId, organizationId) {
   return visibleInsights(tenantId, organizationId);
 }
 
-// One insight detail, strictly own-org scoped (returns null for any other org's id).
+// Human stance labels (§10 epistemic integrity, in customer language). No technical badges.
+const STANCE_LABEL = {
+  reveal: 'Dit valt op', tension: 'Hier zit spanning', consistency: 'Hier zien we consistentie',
+  non_reveal: 'Hier zien we géén verschil', unknown: 'Dit weten we nog niet',
+};
+
+// The human development of one insight: the readings over time, oldest first. Customer-safe: only the
+// human reading fields, never version ids, confidence, provenance, observations or signals. Own-org
+// scoped (the join to customer_insight enforces tenant + organization).
+export async function insightDevelopment(tenantId, organizationId, insightId) {
+  const r = await query(
+    `select v.title, v.stance, v.observation, v.meaning, v.change_summary, v.created_at,
+            (v.id = ci.current_version_id) as is_current
+       from insight_version v
+       join customer_insight ci on ci.id = v.insight_id
+      where v.insight_id=$1 and v.tenant_id=$2 and v.organization_id=$3
+      order by v.version_no asc`,
+    [insightId, tenantId, organizationId]);
+  return r.rows.map((v) => ({
+    at: v.created_at,
+    stanceLabel: STANCE_LABEL[v.stance] || 'Dit zien we',
+    headline: v.title,
+    note: v.change_summary || v.observation || null,
+    current: v.is_current,
+  }));
+}
+
+// One insight detail, strictly own-org scoped (returns null for any other org's id), with its human
+// development timeline. The customer sees the CURRENT reading as the main body (insight.*) and the
+// progression in `development`; nothing technical about the versioning is exposed.
 export async function customerInsightDetail(tenantId, organizationId, insightId) {
-  return insightForCustomer(tenantId, organizationId, insightId);
+  const insight = await insightForCustomer(tenantId, organizationId, insightId);
+  if (!insight) return null;
+  const development = await insightDevelopment(tenantId, organizationId, insightId);
+  return { insight, development };
 }

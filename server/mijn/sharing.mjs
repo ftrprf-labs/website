@@ -21,19 +21,25 @@ import { query, withTransaction } from '../comm/db.mjs';
 import { recordAudit } from '../comm/audit.mjs';
 
 // Columns that are safe to send to a customer. NB: `provenance` is deliberately excluded — the raw
-// internal evidence/confidence trail never leaves the server toward the customer.
-const CUSTOMER_FIELDS =
-  'id, title, stance, observation, meaning, basis, not_yet_known, sharing, source, status, ' +
-  'attention, created_at, updated_at, shared_at';
+// internal evidence/confidence trail never leaves the server toward the customer. Two derived
+// booleans (never the version ids themselves) support the A2 UX:
+//   developed             = this insight has more than one reading (it has developed over time).
+//   unshared_development  = it is SHARED but the current reading is newer than the shared one, so
+//                           there is a new development the customer has not shared with Maculis yet.
+const CUSTOMER_SELECT =
+  `ci.id, ci.title, ci.stance, ci.observation, ci.meaning, ci.basis, ci.not_yet_known, ci.sharing,
+   ci.source, ci.status, ci.attention, ci.created_at, ci.updated_at, ci.shared_at,
+   (select count(*) from insight_version v where v.insight_id = ci.id) > 1 as developed,
+   (ci.sharing='SHARED' and ci.shared_version_id is distinct from ci.current_version_id) as unshared_development`;
 
 // ---- customer-facing reads (own org: PRIVATE + SHARED) -----------------------------------------
 
 // Every insight the customer of this org may see (their own PRIVATE plus what they already SHARED).
 export async function visibleInsights(tenantId, organizationId) {
   const r = await query(
-    `select ${CUSTOMER_FIELDS} from customer_insight
-      where tenant_id=$1 and organization_id=$2 and status <> 'archived'
-      order by attention desc, updated_at desc`,
+    `select ${CUSTOMER_SELECT} from customer_insight ci
+      where ci.tenant_id=$1 and ci.organization_id=$2 and ci.status <> 'archived'
+      order by ci.attention desc, ci.updated_at desc`,
     [tenantId, organizationId]);
   return r.rows;
 }
@@ -42,8 +48,8 @@ export async function visibleInsights(tenantId, organizationId) {
 // another organization or tenant — this is what makes direct URL/id manipulation leak nothing.
 export async function insightForCustomer(tenantId, organizationId, insightId) {
   const r = await query(
-    `select ${CUSTOMER_FIELDS} from customer_insight
-      where id=$1 and tenant_id=$2 and organization_id=$3 and status <> 'archived'`,
+    `select ${CUSTOMER_SELECT} from customer_insight ci
+      where ci.id=$1 and ci.tenant_id=$2 and ci.organization_id=$3 and ci.status <> 'archived'`,
     [insightId, tenantId, organizationId]);
   return r.rows[0] || null;
 }
@@ -110,14 +116,20 @@ export async function sharedInsightCount(tenantId, organizationId) {
 export async function shareInsight(tenantId, organizationId, insightId, { actorLabel = null, actorAccessId = null } = {}) {
   return withTransaction(async (client) => {
     const cur = (await client.query(
-      `select id, sharing, title, current_version_id from customer_insight
+      `select id, sharing, title, current_version_id, shared_version_id from customer_insight
         where id=$1 and tenant_id=$2 and organization_id=$3 and status <> 'archived' for update`,
       [insightId, tenantId, organizationId])).rows[0];
     if (!cur) return { ok: false, error: 'not_found' };
-    if (cur.sharing === 'SHARED') return { ok: true, already: true, sharing: 'SHARED' };
+    // Already fully shared at the current reading — nothing to do (idempotent).
+    if (cur.sharing === 'SHARED' && cur.shared_version_id === cur.current_version_id) {
+      return { ok: true, already: true, sharing: 'SHARED' };
+    }
+    const wasShared = cur.sharing === 'SHARED';
 
-    // VERSION-BOUND consent (Slice A1): bind the share to the CURRENT version. A later version does
-    // not move this pointer, so a prior consent never silently shares future information.
+    // VERSION-BOUND consent. Sharing binds shared_version_id to the CURRENT reading, and ONLY through
+    // this explicit action. Two cases converge here: a first PRIVATE→SHARED, and "share the update"
+    // where an already-SHARED insight has developed past its shared reading (shared_version_id moves
+    // forward to the current version). A later version never moves this pointer on its own.
     await client.query(
       `update customer_insight
           set sharing='SHARED', shared_at=now(), shared_by=$4, shared_version_id=$5, revoked_at=null, updated_at=now()
@@ -127,12 +139,13 @@ export async function shareInsight(tenantId, organizationId, insightId, { actorL
       `insert into insight_share_event(tenant_id, organization_id, insight_id, action, from_sharing, to_sharing, actor_label, actor_access_id, version_id)
        values ($1,$2,$3,'shared',$4,'SHARED',$5,$6,$7)`,
       [tenantId, organizationId, insightId, cur.sharing, actorLabel, actorAccessId, cur.current_version_id]);
-    return { ok: true, sharing: 'SHARED', versionId: cur.current_version_id };
+    return { ok: true, sharing: 'SHARED', versionId: cur.current_version_id, updated: wasShared };
   }).then(async (res) => {
     // Audit outside the txn so an audit hiccup never rolls back a real share (audit is best-effort).
     if (res.ok && !res.already) {
       await recordAudit({
-        tenantId, action: 'customer_insight_shared', entityType: 'customer_insight', entityId: insightId,
+        tenantId, action: res.updated ? 'customer_insight_share_updated' : 'customer_insight_shared',
+        entityType: 'customer_insight', entityId: insightId,
         meta: { organizationId, by: actorLabel || 'customer' },
       });
     }

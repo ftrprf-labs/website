@@ -11,7 +11,7 @@ import { query, commEnabled } from '../comm/db.mjs';
 import { getDefaultTenantId } from '../comm/tenant.mjs';
 import { config } from '../config.mjs';
 import { createAccess } from './access.mjs';
-import { createInsightWithInitialVersion } from './versions.mjs';
+import { createInsightWithInitialVersion, appendVersion } from './versions.mjs';
 
 export const PREVIEW_ORG_NAME = 'De Voorbeeld Groep';
 export const PREVIEW_USER = { label: 'Sanne de Vries', role: 'Klantadmin' };
@@ -168,14 +168,45 @@ export async function seedPreviewCore({ tenantId = null } = {}) {
 
   // Create each insight through the durable-insight primitive so it gets exactly one v1 reading +
   // one observation, and (for a pre-shared fixture) a version-bound share pointer.
+  const byTitle = {};
   for (const i of fixtureInsights()) {
-    await createInsightWithInitialVersion({
+    const r = await createInsightWithInitialVersion({
       tenantId: tid, organizationId: orgId, title: i.title, stance: i.stance,
       observation: i.observation, meaning: i.meaning, basis: i.basis, notYetKnown: i.not_yet_known,
       sharing: i.sharing, source: 'lens', provenance: i.provenance || {}, status: i.status,
       isPreview: true, attention: i.attention,
       sharedAt: i.sharing === 'SHARED' ? daysFromNow(-14) : null,
       signal: { keys: (i.provenance && i.provenance.signals) || [] },
+    });
+    byTitle[i.title] = r.insightId;
+  }
+
+  // A2 demonstration: append a later reading to two insights so the preview shows development.
+  // The SHARED one develops into a PRIVATE newer version (shared_version_id stays at v1), so the
+  // customer sees "een nieuwe ontwikkeling die je nog niet met Maculis hebt gedeeld". The PRIVATE one
+  // simply gains a second reading (a timeline + a subtle "Bijgewerkt" marker), still fully private.
+  const sharedDeveloped = byTitle['Positionering wordt extern duidelijker dan intern'];
+  if (sharedDeveloped) {
+    await appendVersion({
+      tenantId: tid, organizationId: orgId, insightId: sharedDeveloped, title: 'Positionering wordt extern duidelijker dan intern',
+      stance: 'reveal', status: 'evolving',
+      observation: 'Extern is het verhaal nog steeds herkenbaar. Intern zien we nu de eerste stappen naar meer samenhang tussen teams.',
+      meaning: 'De beweging die we hoopten te zien lijkt op gang te komen. Het verschil tussen buiten en binnen wordt kleiner.',
+      basis: 'Een terugkerend patroon in de eerste Lens, dat we nu ook terugzien in hoe teams intern over de positionering spreken.',
+      notYetKnown: 'Of deze beweging doorzet, willen we over een langere periode samen blijven volgen.',
+      changeSummary: 'We zien dit inmiddels ook terug in hoe teams onderling over de positionering praten, niet alleen in de externe uitingen.',
+    });
+  }
+  const privateDeveloped = byTitle['Sterke betrokkenheid bij klantgerichtheid'];
+  if (privateDeveloped) {
+    await appendVersion({
+      tenantId: tid, organizationId: orgId, insightId: privateDeveloped, title: 'Sterke betrokkenheid bij klantgerichtheid',
+      stance: 'consistency', status: 'deepened',
+      observation: 'Rond de klantbelofte zien we consistentie, en die betrokkenheid straalt uit naar hoe teams onderling samenwerken.',
+      meaning: 'Deze betrokkenheid is breder dan de klantbelofte alleen. Dat is een sterke basis om op voort te bouwen.',
+      basis: 'We zien dit op meerdere plekken terug, zowel rond de klantbelofte als in de samenwerking tussen teams.',
+      notYetKnown: 'Of deze betrokkenheid overal even sterk is, of vooral bij bepaalde teams, is nog een open vraag.',
+      changeSummary: 'De betrokkenheid blijkt breder dan alleen de klantbelofte; ze raakt ook de samenwerking tussen teams.',
     });
   }
   for (const c of fixtureCollaboration()) {

@@ -181,9 +181,14 @@
   }
 
   function insightCard(i) {
+    // Subtle left marker: a "Nieuw" badge for a fresh attention insight, else a quiet "Bijgewerkt"
+    // when the insight has developed since its previous reading. Never a count or an attention badge.
+    const leftMark = (i.attention && i.status === 'new')
+      ? '<span class="badge badge-new">Nieuw</span>'
+      : (i.developed ? '<span class="chip-updated">Bijgewerkt</span>' : '<span></span>');
     return `<button class="icard ${tintClass(i)}" data-nav="inzicht/${esc(i.id)}">
       <div class="icard-top">
-        ${i.attention && i.status === 'new' ? '<span class="badge badge-new">Nieuw</span>' : '<span></span>'}
+        ${leftMark}
         ${shareTag(i.sharing)}
       </div>
       <h3>${esc(i.title)}</h3>
@@ -216,18 +221,75 @@
     skeleton();
     const { status, data } = await api('/api/mijn/insights/' + encodeURIComponent(id));
     if (status !== 200 || !data.insight) { view.innerHTML = `<p class="empty">Dit inzicht is niet gevonden.</p><button class="btn btn-ghost" data-nav="inzichten">Terug naar De Spiegel</button>`; wireNav(); return; }
-    view.innerHTML = detailMarkup(data.insight);
+    view.innerHTML = detailMarkup(data.insight, data.development || []);
     wireNav();
     wireDetail(data.insight);
   }
 
-  function detailMarkup(i) {
+  // The human development timeline: a calm, DEFAULT-COLLAPSED section (native <details>, no JS, fully
+  // accessible). Only shown once an insight has actually developed (more than one reading). No version
+  // ids, confidence or provenance — only what we saw earlier, what changed, and the current reading.
+  function developmentSection(development) {
+    if (!development || development.length < 2) return '';
+    const rows = development.map((e) => `
+      <li class="dev-entry ${e.current ? 'current' : ''}">
+        <span class="dev-when">${esc(fmtDate(e.at, false))}${e.current ? ' · nu' : ''}</span>
+        <span class="dev-body">
+          <span class="dev-stance">${esc(e.stanceLabel)}</span>
+          <span class="dev-note">${esc(e.note || e.headline || '')}</span>
+        </span>
+      </li>`).join('');
+    return `<details class="dev">
+      <summary><span class="dev-summary-title">Hoe dit inzicht zich ontwikkelde</span><span class="dev-summary-hint">${development.length} momenten</span></summary>
+      <ol class="dev-list">${rows}</ol>
+    </details>`;
+  }
+
+  function sharePanel(i) {
     const shared = i.sharing === 'SHARED';
+    const unshared = shared && i.unshared_development;
+    if (unshared) {
+      // An older reading is shared; a newer reading is private. Calm, unambiguous, no dark pattern.
+      return `<div class="share-panel">
+        <div class="share-status">
+          <span class="priv-ico share">${ICON.people}</span>
+          <span class="share-status-text">
+            <span class="share-status-title">Gedeeld met Maculis</span>
+            <span class="share-status-desc">Maculis gebruikt op dit moment de eerder gedeelde lezing.</span>
+          </span>
+        </div>
+        <div class="dev-notice">${ICON.compass}<span>Er is een nieuwe ontwikkeling die je nog niet met Maculis hebt gedeeld.</span></div>
+        <p class="share-note">Als je de nieuwe ontwikkeling deelt, werk je de eerder gedeelde lezing bij voor Maculis. Er wordt niets automatisch gedeeld.</p>
+        <div class="share-actions">
+          <button class="btn btn-violet" id="act-share-update">Deel de nieuwe ontwikkeling</button>
+          <button class="btn" id="act-revoke">Delen intrekken</button>
+        </div>
+      </div>`;
+    }
+    return `<div class="share-panel">
+      <div class="share-status">
+        <span class="priv-ico ${shared ? 'share' : 'lock'}">${shared ? ICON.people : ICON.lock}</span>
+        <span class="share-status-text">
+          <span class="share-status-title">${shared ? 'Gedeeld met Maculis' : 'Alleen voor jou'}</span>
+          <span class="share-status-desc">${shared ? 'Maculis mag dit inzicht gebruiken in jullie samenwerking.' : 'Dit inzicht blijft privé tot je het zelf deelt.'}</span>
+        </span>
+      </div>
+      <p class="share-note">${shared
+        ? 'Je kunt dit op elk moment weer intrekken. Dan gebruikt Maculis dit inzicht niet langer.'
+        : 'Als je dit deelt, kan Maculis dit inzicht gebruiken in jullie samenwerking en relevante gesprekken.'}</p>
+      ${shared
+        ? '<button class="btn" id="act-revoke">Delen intrekken</button>'
+        : '<button class="btn btn-violet" id="act-share">Bespreek met Maculis</button>'}
+    </div>`;
+  }
+
+  function detailMarkup(i, development) {
     return `<div class="detail">
       <div class="detail-back"><button class="btn-link" data-nav="inzichten">${leftArrow()} De Spiegel</button></div>
       <div class="detail-head">
         <span class="chip stance-${esc(i.stance)}"><span class="dot"></span>${esc(stanceLabel(i.stance))}</span>
         ${shareTag(i.sharing)}
+        ${i.developed ? '<span class="chip-updated">Bijgewerkt</span>' : ''}
       </div>
       <h2>${esc(i.title)}</h2>
 
@@ -236,29 +298,17 @@
       <div class="qa"><h3>Waar baseren we dit op?</h3><p>${esc(i.basis || '—')}</p></div>
       <div class="qa unknown"><h3>Wat weten we nog niet?</h3><p>${esc(i.not_yet_known || '—')}</p></div>
 
-      <div class="share-panel">
-        <div class="share-status">
-          <span class="priv-ico ${shared ? 'share' : 'lock'}">${shared ? ICON.people : ICON.lock}</span>
-          <span class="share-status-text">
-            <span class="share-status-title">${shared ? 'Gedeeld met Maculis' : 'Alleen voor jou'}</span>
-            <span class="share-status-desc">${shared ? 'Maculis mag dit inzicht gebruiken in jullie samenwerking.' : 'Dit inzicht blijft privé tot je het zelf deelt.'}</span>
-          </span>
-        </div>
-        <p class="share-note">${shared
-          ? 'Je kunt dit op elk moment weer intrekken. Dan gebruikt Maculis dit inzicht niet langer.'
-          : 'Als je dit deelt, kan Maculis dit inzicht gebruiken in jullie samenwerking en relevante gesprekken.'}</p>
-        ${shared
-          ? '<button class="btn" id="act-revoke">Delen intrekken</button>'
-          : '<button class="btn btn-violet" id="act-share">Bespreek met Maculis</button>'}
-      </div>
+      ${developmentSection(development)}
+      ${sharePanel(i)}
     </div>`;
   }
 
   function leftArrow() { return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:-3px"><path d="M20 12H5"/><path d="m11 6-6 6 6 6"/></svg>'; }
 
   function wireDetail(insight) {
-    const shareBtn = $('act-share'), revokeBtn = $('act-revoke');
+    const shareBtn = $('act-share'), updateBtn = $('act-share-update'), revokeBtn = $('act-revoke');
     if (shareBtn) shareBtn.addEventListener('click', () => confirmShare(insight, 'share'));
+    if (updateBtn) updateBtn.addEventListener('click', () => confirmShare(insight, 'share-update'));
     if (revokeBtn) revokeBtn.addEventListener('click', () => confirmShare(insight, 'revoke'));
   }
 
@@ -290,6 +340,11 @@
       confirmBody.textContent = 'Als je dit deelt, kan Maculis dit inzicht gebruiken in jullie samenwerking en relevante gesprekken. Je kunt het later weer intrekken.';
       confirmOk.textContent = 'Delen met Maculis';
       confirmOk.className = 'btn btn-violet';
+    } else if (action === 'share-update') {
+      confirmTitle.textContent = 'Nieuwe ontwikkeling delen';
+      confirmBody.textContent = 'Je werkt de eerder gedeelde lezing bij voor Maculis met de huidige ontwikkeling. Vanaf dat moment gebruikt Maculis de nieuwe lezing. Er wordt niets automatisch gedeeld.';
+      confirmOk.textContent = 'Nieuwe ontwikkeling delen';
+      confirmOk.className = 'btn btn-violet';
     } else {
       confirmTitle.textContent = 'Delen intrekken';
       confirmBody.textContent = 'Maculis gebruikt dit inzicht daarna niet langer in jullie samenwerking. Het blijft wel voor jou zichtbaar.';
@@ -304,13 +359,15 @@
   confirmOk.addEventListener('click', async () => {
     if (!pending) return;
     const { insight, action } = pending;
+    // 'share' and 'share-update' both hit the share endpoint; only 'revoke' hits revoke.
+    const endpoint = action === 'revoke' ? 'revoke' : 'share';
     confirmOk.disabled = true;
-    const { status, data } = await api(`/api/mijn/insights/${encodeURIComponent(insight.id)}/${action}`, { method: 'POST', body: {} });
+    const { status, data } = await api(`/api/mijn/insights/${encodeURIComponent(insight.id)}/${endpoint}`, { method: 'POST', body: {} });
     confirmOk.disabled = false;
     closeConfirm();
     if (status === 200) {
-      toast(action === 'share' ? 'Gedeeld met Maculis' : 'Delen ingetrokken');
-      view.innerHTML = detailMarkup(data.insight);
+      toast(action === 'revoke' ? 'Delen ingetrokken' : action === 'share-update' ? 'Nieuwe ontwikkeling gedeeld' : 'Gedeeld met Maculis');
+      view.innerHTML = detailMarkup(data.insight, data.development || []);
       wireNav(); wireDetail(data.insight);
     } else {
       toast('Er ging iets mis. Probeer het opnieuw.');

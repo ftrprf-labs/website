@@ -71,31 +71,35 @@ export async function handleMijn(req, res, { pathname, method }) {
   }
 
   // Insight detail — own org only (any other org's id resolves to 404, proving no leak by id).
+  // Returns the current reading (insight.*) plus its human development timeline.
   const detailMatch = pathname.match(new RegExp(`^/api/mijn/insights/${UUID}$`));
   if (detailMatch && method === 'GET') {
-    const insight = await customerInsightDetail(tenantId, organizationId, detailMatch[1]);
-    if (!insight) { json(res, 404, { error: 'Inzicht niet gevonden.' }); return true; }
-    json(res, 200, { insight });
+    const detail = await customerInsightDetail(tenantId, organizationId, detailMatch[1]);
+    if (!detail) { json(res, 404, { error: 'Inzicht niet gevonden.' }); return true; }
+    json(res, 200, detail);
     return true;
   }
 
-  // Explicit share (PRIVATE → SHARED) — the deliberate, human boundary crossing.
+  // Explicit share — the deliberate, human boundary crossing. Covers both a first PRIVATE→SHARED and
+  // "share the update" (advance shared_version_id to the current reading). Only this action moves the
+  // pointer; nothing is ever auto-shared.
   const shareMatch = pathname.match(new RegExp(`^/api/mijn/insights/${UUID}/share$`));
   if (shareMatch && method === 'POST') {
     const result = await shareInsight(tenantId, organizationId, shareMatch[1], { actorLabel: access.label, actorAccessId: access.accessId });
     if (!result.ok) { json(res, result.error === 'not_found' ? 404 : 400, result); return true; }
-    const insight = await customerInsightDetail(tenantId, organizationId, shareMatch[1]);
-    json(res, 200, { ok: true, sharing: 'SHARED', insight });
+    const detail = await customerInsightDetail(tenantId, organizationId, shareMatch[1]);
+    json(res, 200, { ok: true, sharing: 'SHARED', updated: Boolean(result.updated), ...detail });
     return true;
   }
 
-  // Withdraw a share (SHARED → PRIVATE) — the customer stays in control (§12).
+  // Withdraw a share (SHARED → PRIVATE) — the customer stays in control (§12). Afterwards nothing of
+  // this insight is available internally (shared_version_id is cleared).
   const revokeMatch = pathname.match(new RegExp(`^/api/mijn/insights/${UUID}/revoke$`));
   if (revokeMatch && method === 'POST') {
     const result = await revokeInsight(tenantId, organizationId, revokeMatch[1], { actorLabel: access.label, actorAccessId: access.accessId });
     if (!result.ok) { json(res, result.error === 'not_found' ? 404 : 400, result); return true; }
-    const insight = await customerInsightDetail(tenantId, organizationId, revokeMatch[1]);
-    json(res, 200, { ok: true, sharing: 'PRIVATE', insight });
+    const detail = await customerInsightDetail(tenantId, organizationId, revokeMatch[1]);
+    json(res, 200, { ok: true, sharing: 'PRIVATE', ...detail });
     return true;
   }
 
