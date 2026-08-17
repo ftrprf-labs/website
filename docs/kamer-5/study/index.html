@@ -1,0 +1,593 @@
+<title>De Vijfde Kamer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<style>
+  /* ------------------------------------------------------------------
+     De Vijfde Kamer, interactieve ontwerpstudie.
+     Tokens komen uit de productiecode van Maculis (public/styles.css).
+     Bewust één lichtregime: de kamer bepaalt het licht, niet het
+     besturingssysteem. prefers-color-scheme verandert hier dus niets.
+     ------------------------------------------------------------------ */
+  :root {
+    color-scheme: dark;
+
+    --grond: #080503;
+    --ivoor: #ece2d4;
+    --gedempt: #a89a86;
+    --koper: #c8894a;
+    --koper-op: #e6a866;
+    --violet: #7c3aed;
+
+    --lijn: rgba(200, 137, 74, 0.18);
+    --lijn-sterk: rgba(200, 137, 74, 0.34);
+
+    --serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Palatino,
+             "Book Antiqua", Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--grond);
+    color: var(--ivoor);
+    font-family: var(--sans);
+    overflow: hidden;
+  }
+
+  /* ---- de kamer ---- */
+  .kamer {
+    position: fixed;
+    inset: 0;
+    display: block;
+  }
+  #veld { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  /* De kamer spreekt altijd op dezelfde plek. Nooit ergens anders. */
+  .stem {
+    position: absolute;
+    left: clamp(28px, 7vw, 96px);
+    top: 52%;
+    width: min(38ch, calc(100vw - 56px));
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 900ms cubic-bezier(0.22, 1, 0.36, 1),
+                transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+  .stem.spreekt { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+  /* Eén regel, en precies één werkwoord: ga erheen. */
+  .regel {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    border-radius: 4px;
+    padding: 2px 0 3px;
+    margin: 0;
+    cursor: pointer;
+    font-family: var(--serif);
+    font-size: clamp(17px, 1.55vw, 22px);
+    line-height: 1.42;
+    letter-spacing: 0.005em;
+    color: color-mix(in srgb, var(--ivoor) 88%, transparent);
+    transition: color 260ms ease;
+  }
+  .regel .heen {
+    display: block;
+    margin-top: 7px;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--gedempt) 46%, transparent);
+    transition: color 260ms ease;
+  }
+  .regel:hover, .regel:focus-visible { color: var(--ivoor); }
+  .regel:hover .heen, .regel:focus-visible .heen { color: var(--koper); }
+  .regel:focus-visible { outline: 1px solid var(--lijn-sterk); outline-offset: 8px; }
+
+  /* Rustige dichtheid is het bureaublad. Aandachtig kijken licht dezelfde kamer op. */
+  .kamer[data-dichtheid="rustig"] .regel { opacity: 0.76; }
+  .kamer[data-dichtheid="aandachtig"] .regel { opacity: 1; }
+
+  /* ---- macOS-context, uitsluitend studiehulp om leesbaarheid te beoordelen ---- */
+  .macos { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 400ms ease; }
+  .macos.aan { opacity: 1; }
+  .menubalk {
+    position: absolute; top: 0; left: 0; right: 0; height: 25px;
+    background: rgba(10, 7, 4, 0.42);
+    backdrop-filter: blur(14px);
+    display: flex; align-items: center; gap: 20px;
+    padding: 0 14px;
+    font-size: 11.5px; color: rgba(236, 226, 212, 0.5);
+  }
+  .menubalk .mb-punt { width: 9px; height: 9px; border-radius: 50%; background: rgba(236, 226, 212, 0.34); }
+  .menubalk .mb-rechts { margin-left: auto; letter-spacing: 0.02em; }
+  .dock {
+    position: absolute; left: 50%; bottom: 128px; transform: translateX(-50%);
+    display: flex; gap: 9px; padding: 7px 9px;
+    border-radius: 15px;
+    background: rgba(20, 14, 8, 0.4);
+    border: 1px solid rgba(236, 226, 212, 0.06);
+    backdrop-filter: blur(14px);
+  }
+  .dock i { display: block; width: 34px; height: 34px; border-radius: 9px; background: rgba(236, 226, 212, 0.09); }
+  .iconen { position: absolute; top: 46px; right: 26px; display: flex; flex-direction: column; gap: 20px; }
+  .iconen i { display: block; width: 42px; height: 34px; border-radius: 5px; background: rgba(236, 226, 212, 0.07); }
+
+  /* ---- de regie, het studieapparaat. Nadrukkelijk niet de kamer. ---- */
+  .regie {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+    background: rgba(8, 5, 3, 0.88);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--lijn);
+    padding: 11px 16px 12px;
+    display: flex; flex-direction: column; gap: 9px;
+    transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .regie.verborgen { transform: translateY(100%); }
+  .rij { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .boog { display: flex; gap: 4px; flex-wrap: wrap; }
+  .knop {
+    font: inherit; font-size: 12px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 5px 10px;
+    color: var(--gedempt);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+  }
+  .knop:hover { color: var(--ivoor); background: rgba(236, 226, 212, 0.04); }
+  .knop:focus-visible { outline: 1px solid var(--lijn-sterk); outline-offset: 2px; }
+  .knop[aria-pressed="true"] { color: var(--koper); border-color: var(--lijn-sterk); }
+  .scheiding { width: 1px; height: 20px; background: var(--lijn); margin: 0 6px; flex: 0 0 auto; }
+  .duiding {
+    font-size: 12.5px; line-height: 1.5; color: var(--gedempt);
+    max-width: 96ch; min-height: 2.6em; margin: 0;
+  }
+  .duiding b { color: var(--ivoor); font-weight: 600; }
+  .sleutel { margin-left: auto; font-size: 11px; color: color-mix(in srgb, var(--gedempt) 60%, transparent); }
+
+  @media (max-width: 720px) {
+    .stem { top: 40%; left: 22px; }
+    .duiding { min-height: 4em; }
+    .sleutel { display: none; }
+    .iconen { display: none; }
+  }
+</style>
+
+<div class="kamer" id="kamer" data-dichtheid="rustig">
+  <canvas id="veld" aria-hidden="true"></canvas>
+
+  <div class="macos" id="macos" aria-hidden="true">
+    <div class="menubalk">
+      <span class="mb-punt"></span>
+      <span>Finder</span><span>Archief</span><span>Weergave</span>
+      <span class="mb-rechts">di 17 aug &nbsp; 9:12</span>
+    </div>
+    <div class="iconen"><i></i><i></i></div>
+    <div class="dock"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="stem" id="stem" aria-live="polite"></div>
+</div>
+
+<div class="regie" id="regie">
+  <div class="rij">
+    <div class="boog" id="boog"></div>
+    <span class="scheiding"></span>
+    <button class="knop" id="btn-dichtheid" aria-pressed="false">Aandachtig kijken</button>
+    <button class="knop" id="btn-macos" aria-pressed="false">macOS-context</button>
+    <button class="knop" id="btn-motion" aria-pressed="false">Reduced motion</button>
+    <span class="sleutel">1 tot 0 kiest een moment. Spatie kijkt aandachtig. H verbergt deze regie.</span>
+  </div>
+  <p class="duiding" id="duiding"></p>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const canvas = document.getElementById('veld');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const stem = document.getElementById('stem');
+  const kamer = document.getElementById('kamer');
+  const duiding = document.getElementById('duiding');
+
+  /* ---------------- tokens ---------------- */
+  const IVOOR = [236, 226, 212];
+  const KOPER = [200, 137, 74];
+  const VIOLET = [124, 58, 237];
+
+  /* ---------------- het materiaal ----------------
+     Zeven punten. Positie is compositie, niet betekenis.
+     u = onzekerheid (stuurt beweging). e = bewijs (stuurt licht).
+     link = inhoudelijk verband. Nabijheid verbindt nooit iets.        */
+  const punten = [
+    { id: 'p1', bx: 0.615, by: 0.325, seed: 0.0,
+      lijn: 'Ilse Berkhout wacht sinds dinsdag op je antwoord.', heen: 'Cockpit' },
+    { id: 'p2', bx: 0.755, by: 0.545, seed: 1.7, link: 'a',
+      lijn: 'De uitnodiging aan Van Dijk en Partners is niet aangekomen.', heen: 'Cockpit' },
+    { id: 'p3', bx: 0.505, by: 0.205, seed: 3.1,
+      lijn: 'Wat bij Rondeel nog een vermoeden was, staat nu vast.', heen: 'Lens' },
+    { id: 'p4', bx: 0.865, by: 0.285, seed: 4.6 },
+    { id: 'p5', bx: 0.665, by: 0.695, seed: 2.4, link: 'a' },
+    { id: 'p6', bx: 0.455, by: 0.455, seed: 5.9 },
+    { id: 'p7', bx: 0.885, by: 0.470, seed: 0.9 }
+  ];
+  punten.forEach(p => { p.u = 0; p.e = 0; p.a = 0; p.rgb = IVOOR.slice(); });
+
+  /* De bezonken grond: wat al begrepen is. Volkomen stil, nooit in beweging. */
+  const bezonken = [
+    [0.14, 0.30], [0.27, 0.62], [0.36, 0.15], [0.21, 0.83], [0.58, 0.86],
+    [0.79, 0.14], [0.93, 0.72], [0.47, 0.71], [0.71, 0.42], [0.09, 0.52], [0.86, 0.88]
+  ];
+
+  /* ---------------- toestanden van de kamer ----------------
+     doel: per punt {u, e, a (zichtbaarheid), kleur}. L = lichtplafond.  */
+  const K = { obs: IVOOR, wording: VIOLET, aandacht: KOPER };
+
+  function zet(map) {
+    const uit = {};
+    punten.forEach(p => { uit[p.id] = { u: 0, e: 0, a: 0, rgb: K.obs }; });
+    Object.keys(map).forEach(id => Object.assign(uit[id], map[id]));
+    return uit;
+  }
+
+  const drift = { u: 0.95, e: 0.16, a: 1, rgb: K.obs };
+  const stil  = { u: 0,    e: 1,    a: 1, rgb: K.aandacht };
+
+  const momenten = {
+    dicht: {
+      naam: 'Dicht', L: 0, tau: 1.2, spreekt: [],
+      doel: zet({}),
+      duiding: '<b>MacBook dicht.</b> Er wordt niets berekend, niets gerenderd en niets voorbereid. ' +
+               'Ook met het scherm aan beweegt het veld niet zolang er niemand kijkt: beweging is een uitspraak, ' +
+               'en een uitspraak zonder toehoorder wordt niet gedaan.'
+    },
+    openen: {
+      naam: 'Openen', L: 1, tau: 1.8, script: true,
+      doel: zet({ p1: stil }), spreekt: ['p1'],
+      duiding: '<b>Het openen.</b> Eerst komt de grond op, ongeveer 1,2 seconde. Dan 1,6 seconde waarin er niets bij komt. ' +
+               'Pas daarna verschijnt wat vaststaat. Geen begroeting, geen naam, geen datum. Staat er niets stil, ' +
+               'dan gebeurt de derde stap nooit en is de stilte het hele beeld.'
+    },
+    dagstart: {
+      naam: 'Dagstart', L: 1, tau: 2.2, spreekt: ['p1', 'p2', 'p3'],
+      doel: zet({ p1: stil, p2: stil, p3: stil }),
+      duiding: '<b>Begin van de werkdag.</b> Het enige verschil met elke andere opening: bij de eerste opening van een dag ' +
+               'mogen er drie stilstaande punten zijn in plaats van één. Geen kop, geen begroeting, geen telling. Drie regels, meer niet.'
+    },
+    veld: {
+      naam: 'Veld', L: 0.62, tau: 2.4, spreekt: [],
+      doel: zet({
+        p1: drift, p2: { u: 0.88, e: 0.22, a: 1, rgb: K.obs }, p3: { u: 1, e: 0.12, a: 1, rgb: K.obs },
+        p4: drift, p5: { u: 0.92, e: 0.19, a: 1, rgb: K.obs }, p6: drift, p7: { u: 0.85, e: 0.14, a: 1, rgb: K.obs }
+      }),
+      duiding: '<b>Tijdens het werk.</b> Alles beweegt, dus er is niets van jou. Dit is de meest voorkomende toestand tijdens werkuren, ' +
+               'en een druk veld is hier geruststellend: Maculis is nog aan het uitzoeken. Geen taal, geen koper, geen verbinding.'
+    },
+    verdichting: {
+      naam: 'Verdichting', L: 0.72, tau: 2.6, spreekt: [],
+      doel: zet({
+        p1: { u: 0.9, e: 0.2, a: 1, rgb: K.obs },
+        p2: { u: 0.3, e: 0.76, a: 1, rgb: K.wording },
+        p5: { u: 0.34, e: 0.72, a: 1, rgb: K.wording },
+        p4: drift, p6: drift, p7: { u: 0.95, e: 0.14, a: 1, rgb: K.obs }
+      }),
+      duiding: '<b>Verdichting.</b> Twee punten vertragen, het licht neemt toe omdat er meer onafhankelijke grond onder ligt, ' +
+               'en er verschijnt violet. De verbinding staat er alleen omdat er inhoudelijk verband is, nooit omdat de punten dicht bij elkaar liggen. ' +
+               'Nog steeds geen taal: violet kan per definitie niets van je vragen.'
+    },
+    stilstand: {
+      naam: 'Stilstand', L: 1, tau: 2.4, spreekt: ['p1'],
+      doel: zet({ p1: stil, p4: { u: 0.9, e: 0.12, a: 1, rgb: K.obs }, p6: { u: 0.95, e: 0.1, a: 1, rgb: K.obs } }),
+      duiding: '<b>Stilstand.</b> Eén punt staat stil, is koper en draagt één regel. Dit is de enige toestand met taal en het enige werkwoord: ' +
+               'ga erheen. Beweeg over de regel om te zien waar hij heen gaat. Kamer 5 kent geen afhandelen, uitstellen of archiveren.'
+    },
+    onderbreking: {
+      naam: 'Onderbreking', L: 1, tau: 1.6, spreekt: ['p2'],
+      doel: zet({ p2: stil, p6: { u: 0.9, e: 0.1, a: 1, rgb: K.obs } }),
+      duiding: '<b>Onderbreking.</b> Visueel identiek aan stilstand. Het enige verschil is dat de kamer zich naar voren brengt terwijl je ergens anders was. ' +
+               'Het lichtplafond stijgt en de regel verschijnt op dezelfde plek waar de kamer altijd spreekt. Geen kaart, geen badge, geen geluid. ' +
+               'Maximaal één keer per dagdeel.'
+    },
+    afwezigheid: {
+      naam: 'Afwezigheid', L: 0.2, tau: 5.5, spreekt: [],
+      doel: zet({ p1: { u: 0, e: 1, a: 0.7, rgb: K.aandacht } }),
+      duiding: '<b>Afwezigheid.</b> Geen screensaver. Een screensaver doet méér wanneer jij minder doet, en dat is hier een leugen: ' +
+               'jouw afwezigheid heeft de onzekerheid in het huis niet vergroot. De kamer ademt uit. Beweging dempt naar nul, het licht zakt naar de vloer, ' +
+               'en alleen wat al vaststond blijft over. In de studie versneld, in de kamer ongeveer veertig seconden.'
+    },
+    avond: {
+      naam: 'Avond', L: 0.5, tau: 3, spreekt: ['p1'],
+      doel: zet({ p1: { u: 0, e: 0.85, a: 0.8, rgb: K.aandacht } }),
+      duiding: '<b>Einde van de werkdag.</b> Geen terugblik, geen telling. Het lichtplafond zakt één stap, want vandaag hoeft er niets meer. ' +
+               'Wat om vijf uur stilstond, staat er nog steeds in precies hetzelfde gewicht. Niet roder, niet groter, niet dringender: ' +
+               'het is niet erger geworden omdat er tijd overheen is gegaan.'
+    },
+    rust: {
+      naam: 'Rust', L: 0.5, tau: 3, spreekt: [],
+      doel: zet({}),
+      duiding: '<b>De toestand niets.</b> Niemand wacht, er is niets stuk, er is niets in wording. De kamer zwijgt volledig, ook geen ' +
+               '"Je bent bij": die zin bestaat al in de Cockpit, die je heeft binnengelaten. Kamer 5 heeft je niets gevraagd en is je dus niets schuldig. ' +
+               'De donkerte is dicht, niet hol: de bezonken grond is alles wat al begrepen is.'
+    }
+  };
+
+  const volgorde = ['dicht', 'openen', 'dagstart', 'veld', 'verdichting', 'stilstand', 'onderbreking', 'afwezigheid', 'avond', 'rust'];
+
+  /* ---------------- toestandsmachine ---------------- */
+  let huidig = 'openen';
+  let doel = momenten.openen.doel;
+  let tau = 2.2;
+  let L = 0, Ldoel = 1;
+  let scriptT = -1;               // tijdlijn van het openingsritueel
+  let dichtheid = 'rustig';
+  let motionUit = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let motionForced = false;
+
+  function ganaar(naam) {
+    const m = momenten[naam];
+    if (!m) return;
+    huidig = naam;
+    doel = m.doel;
+    tau = m.tau;
+    Ldoel = m.L;
+    duiding.innerHTML = m.duiding;
+    scriptT = m.script ? 0 : -1;
+    if (m.script) { L = 0; punten.forEach(p => { p.a = 0; p.e = 0; }); spreek([]); }
+    else spreek(m.spreekt);
+    document.querySelectorAll('[data-moment]').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.moment === naam)));
+  }
+
+  /* ---------------- de stem ---------------- */
+  let gesproken = '';
+  function spreek(ids) {
+    const sleutel = ids.join('|');
+    if (sleutel === gesproken) return;
+    gesproken = sleutel;
+    if (!ids.length) { stem.classList.remove('spreekt'); setTimeout(() => { if (gesproken === '') stem.innerHTML = ''; }, 420); return; }
+    stem.classList.remove('spreekt');
+    setTimeout(() => {
+      if (gesproken !== sleutel) return;
+      stem.innerHTML = '';
+      ids.forEach(id => {
+        const p = punten.find(q => q.id === id);
+        if (!p || !p.lijn) return;
+        const b = document.createElement('button');
+        b.className = 'regel';
+        b.type = 'button';
+        b.innerHTML = escape_(p.lijn) + '<span class="heen">' + escape_(p.heen) + ' &#8599;</span>';
+        b.addEventListener('click', () => {
+          duiding.innerHTML = '<b>Het enige werkwoord.</b> Deze regel opent ' + escape_(p.heen) +
+            ', de kamer waarin dit thuishoort. Kamer 5 is een drempelkamer: zijn enige handeling is een andere kamer binnengaan. ' +
+            'Dat is wat hem structureel belet een werkruimte te worden.';
+        });
+        stem.appendChild(b);
+      });
+      requestAnimationFrame(() => stem.classList.add('spreekt'));
+    }, 420);
+  }
+  function escape_(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  /* ---------------- ruis, tegen banding op grote donkere vlakken ---------------- */
+  const ruisTegel = document.createElement('canvas');
+  ruisTegel.width = ruisTegel.height = 128;
+  (() => {
+    const c = ruisTegel.getContext('2d');
+    const d = c.createImageData(128, 128);
+    for (let i = 0; i < d.data.length; i += 4) {
+      const v = Math.random() * 255;
+      d.data[i] = d.data[i + 1] = d.data[i + 2] = v;
+      d.data[i + 3] = 255;
+    }
+    c.putImageData(d, 0, 0);
+  })();
+  let ruisPatroon = null;
+
+  /* ---------------- render ---------------- */
+  let W = 0, H = 0, dpr = 1;
+  function maat() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = canvas.clientWidth; H = canvas.clientHeight;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ruisPatroon = ctx.createPattern(ruisTegel, 'repeat');
+  }
+  window.addEventListener('resize', maat);
+
+  function lerp(a, b, k) { return a + (b - a) * k; }
+
+  /* Licht volgt bewijs (alpha en kern). Spreiding volgt onzekerheid (straal en halo).
+     Daardoor draagt onzekerheid twee dragers: drift en scherpte. Valt drift weg onder
+     reduced motion, dan blijft onscherp nog steeds onzeker betekenen.               */
+  function tekenPunt(x, y, kern, straal, kleur, alpha, halo) {
+    if (alpha <= 0.002) return;
+    const c = kleur;
+    const rgb = c[0].toFixed(0) + ',' + c[1].toFixed(0) + ',' + c[2].toFixed(0);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, straal);
+    g.addColorStop(0, 'rgba(' + rgb + ',' + (alpha * halo).toFixed(4) + ')');
+    g.addColorStop(0.34, 'rgba(' + rgb + ',' + (alpha * halo * 0.36).toFixed(4) + ')');
+    g.addColorStop(0.66, 'rgba(' + rgb + ',' + (alpha * halo * 0.10).toFixed(4) + ')');
+    g.addColorStop(1, 'rgba(' + rgb + ',0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, straal, 0, Math.PI * 2); ctx.fill();
+
+    if (kern > 0.25) {
+      ctx.fillStyle = 'rgba(' + rgb + ',' + alpha.toFixed(4) + ')';
+      ctx.beginPath(); ctx.arc(x, y, kern, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  let vorige = 0;
+  function frame(nu) {
+    const t = nu / 1000;
+    let dt = vorige ? Math.min((nu - vorige) / 1000, 0.1) : 0.016;
+    vorige = nu;
+
+    const rm = motionUit || motionForced;
+
+    /* Het openingsritueel: grond op, stilte, dan pas wat vaststaat. */
+    if (scriptT >= 0) {
+      scriptT += dt;
+      if (scriptT < 1.2) { Ldoel = (scriptT / 1.2) * momenten.openen.L; }
+      else { Ldoel = momenten.openen.L; }
+      if (scriptT > 2.8) { spreek(momenten.openen.spreekt); }
+    }
+
+    const kL = rm ? 1 : 1 - Math.exp(-dt / 0.9);
+    L = lerp(L, Ldoel, kL);
+
+    const k = rm ? 1 : 1 - Math.exp(-dt / tau);
+    punten.forEach(p => {
+      const d = doel[p.id];
+      const remmen = (scriptT >= 0 && scriptT < 2.8);
+      p.u = lerp(p.u, d.u, k);
+      p.e = lerp(p.e, remmen ? 0 : d.e, k);
+      p.a = lerp(p.a, remmen ? 0 : d.a, k);
+      for (let i = 0; i < 3; i++) p.rgb[i] = lerp(p.rgb[i], d.rgb[i], k);
+    });
+
+    /* grond */
+    const adem = rm ? 1 : 1 + 0.022 * Math.sin(t * (Math.PI * 2) / 12);
+    ctx.fillStyle = '#080503';
+    ctx.fillRect(0, 0, W, H);
+
+    const gg = ctx.createRadialGradient(W * 0.5, H * 0.86, 0, W * 0.5, H * 0.86, Math.max(W, H) * 1.15);
+    const warmte = (0.030 + 0.040 * L) * adem;
+    /* Veel tussenstops met een zachte uitloop: brede banden zijn moeilijker te ditheren. */
+    for (let s = 0; s <= 10; s++) {
+      const f = s / 10;
+      gg.addColorStop(f, 'rgba(200,137,74,' + (warmte * Math.pow(1 - f, 1.9)).toFixed(4) + ')');
+    }
+    ctx.fillStyle = gg;
+    ctx.fillRect(0, 0, W, H);
+
+    /* de bezonken grond: alles wat al begrepen is. Volkomen stil, altijd scherp. */
+    const bAlpha = (0.070 + 0.050 * L) * adem;
+    bezonken.forEach(([bx, by]) => tekenPunt(bx * W, by * H, 1.1, 8, IVOOR, bAlpha, 0.7));
+
+    /* verbinding, uitsluitend bij inhoudelijk verband */
+    const pos = {};
+    punten.forEach(p => {
+      const amp = rm ? 0 : 26 * p.u;
+      const x = p.bx * W + amp * (Math.sin(t * 0.055 + p.seed) + 0.6 * Math.sin(t * 0.131 + p.seed * 1.7));
+      const y = p.by * H + amp * (Math.cos(t * 0.047 + p.seed * 1.3) + 0.6 * Math.sin(t * 0.113 + p.seed));
+      pos[p.id] = [x, y];
+    });
+    for (let i = 0; i < punten.length; i++) {
+      for (let j = i + 1; j < punten.length; j++) {
+        const a = punten[i], b = punten[j];
+        if (!a.link || a.link !== b.link) continue;
+        const sterkte = Math.min(a.e, b.e) * Math.min(a.a, b.a);
+        if (sterkte < 0.45) continue;
+        ctx.strokeStyle = 'rgba(200,137,74,' + (0.55 * (sterkte - 0.45) / 0.55 * L).toFixed(4) + ')';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(pos[a.id][0], pos[a.id][1]); ctx.lineTo(pos[b.id][0], pos[b.id][1]); ctx.stroke();
+      }
+    }
+
+    /* punten */
+    punten.forEach(p => {
+      if (p.a <= 0.002) return;
+      const [x, y] = pos[p.id];
+      const alpha = (0.16 + 0.66 * p.e) * p.a * L;
+      const kern = 0.5 + 2.4 * p.e;
+      const straal = 15 + 26 * p.u;
+      const halo = 0.55 + 0.55 * p.u;
+      tekenPunt(x, y, kern, straal, p.rgb, alpha, halo);
+    });
+
+    /* Dithering tegen banding. Zeer donkere gradiënten bandden zichtbaar op grote schermen. */
+    if (ruisPatroon) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.022;
+      ctx.fillStyle = ruisPatroon;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    lus = requestAnimationFrame(frame);
+  }
+
+  /* Geen beweging zonder toeschouwer. Ook een demonstratie van DNA GAP 1. */
+  let lus = 0;
+  function start() { if (!lus) { vorige = 0; lus = requestAnimationFrame(frame); } }
+  function stop() { if (lus) { cancelAnimationFrame(lus); lus = 0; } }
+  document.addEventListener('visibilitychange', () => document.hidden ? stop() : start());
+
+  /* ---------------- regie ---------------- */
+  const boog = document.getElementById('boog');
+  volgorde.forEach((naam, i) => {
+    const b = document.createElement('button');
+    b.className = 'knop';
+    b.type = 'button';
+    b.dataset.moment = naam;
+    b.setAttribute('aria-pressed', 'false');
+    b.textContent = (i + 1 === 10 ? '0' : String(i + 1)) + '  ' + momenten[naam].naam;
+    b.addEventListener('click', () => ganaar(naam));
+    boog.appendChild(b);
+  });
+
+  const btnD = document.getElementById('btn-dichtheid');
+  const btnM = document.getElementById('btn-macos');
+  const btnR = document.getElementById('btn-motion');
+  const regie = document.getElementById('regie');
+
+  function wisselDichtheid() {
+    dichtheid = dichtheid === 'rustig' ? 'aandachtig' : 'rustig';
+    kamer.dataset.dichtheid = dichtheid;
+    btnD.setAttribute('aria-pressed', String(dichtheid === 'aandachtig'));
+    btnD.textContent = dichtheid === 'aandachtig' ? 'Rustig kijken' : 'Aandachtig kijken';
+    duiding.innerHTML = dichtheid === 'aandachtig'
+      ? '<b>Aandachtige dichtheid.</b> Dit is geen tweede product en geen tweede scherm. Het is dezelfde kamer met het lichtplafond omhoog, ' +
+        'omdat je nu bewust kijkt. Wat een startpagina of lokale app zou zijn, is hier een dichtheid.'
+      : '<b>Rustige dichtheid.</b> Dit is het bureaublad: hetzelfde veld, hetzelfde lichtplafond lager, taal gedempt. ' +
+        'Eén omgeving, twee dichtheden, geen vijf Maculis-appjes die om aandacht concurreren.';
+  }
+  btnD.addEventListener('click', wisselDichtheid);
+
+  btnM.addEventListener('click', () => {
+    const aan = document.getElementById('macos').classList.toggle('aan');
+    btnM.setAttribute('aria-pressed', String(aan));
+    if (aan) duiding.innerHTML = '<b>macOS-context.</b> Menubalk, iconen en Dock erbij, zodat je kunt beoordelen of de kamer leefbaar is naast echt werk. ' +
+      'De kamer spreekt links op ongeveer de helft van de hoogte, weg van de menubalk boven, het Dock onder en de iconen rechts.';
+  });
+
+  btnR.addEventListener('click', () => {
+    motionForced = !motionForced;
+    btnR.setAttribute('aria-pressed', String(motionForced));
+    duiding.innerHTML = motionForced
+      ? '<b>Reduced motion.</b> Beweging is hier de drager van betekenis, dus wegvallen zou de semantiek wegnemen. ' +
+        'Onzekerheid verhuist daarom naar scherpte: wat onzeker is, is diffuus en zonder kern. Wat vaststaat, is scherp. Onscherp is onzeker.'
+      : '<b>Beweging aan.</b> Drift schaalt met onzekerheid, licht met bewijs, verbinding met verband. Er is geen enkele beweging die alleen esthetisch is, ' +
+        'op de ademhaling van de grond na. Die is bewust behouden als teken van leven en is de eerste kandidaat om te schrappen.';
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.target.closest('button') && e.key === ' ') return;
+    const i = '1234567890'.indexOf(e.key);
+    if (i >= 0 && i < volgorde.length) { ganaar(volgorde[i]); return; }
+    if (e.key === ' ') { e.preventDefault(); wisselDichtheid(); }
+    if (e.key === 'h' || e.key === 'H') regie.classList.toggle('verborgen');
+  });
+
+  maat();
+  ganaar('openen');
+  start();
+})();
+</script>
