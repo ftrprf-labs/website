@@ -39,14 +39,14 @@ for (const [w, h, name] of [[1600, 1040, 'overzicht-1600'], [1440, 960, 'overzic
 }
 { // De Spiegel
   const p = await page({ width: 1440, height: 1100 });
-  await go(p, '#/inzichten'); await p.waitForSelector('.spiegel-grid'); await noH(p, 'spiegel');
+  await go(p, '#/inzichten'); await p.waitForSelector('.insight-grid'); await noH(p, 'spiegel');
   await p.screenshot({ path: `${OUT}/spiegel.png` });
   await p.context().close();
 }
 { // Insight detail — the SHARED insight with an unshared development, timeline expanded.
   const p = await page({ width: 1440, height: 1100 });
-  await go(p, '#/inzichten'); await p.waitForSelector('.spiegel-grid');
-  await p.click('.icard:has-text("Positionering wordt extern duidelijker")');
+  await go(p, '#/inzichten'); await p.waitForSelector('.insight-grid');
+  await p.click(':is(.icard, .spiegel-hero):has-text("Positionering wordt extern duidelijker")');
   await p.waitForSelector('.detail h2');
   const dev = await p.$('.dev > summary'); if (dev) await dev.click();
   await noH(p, 'detail');
@@ -55,8 +55,8 @@ for (const [w, h, name] of [[1600, 1040, 'overzicht-1600'], [1440, 960, 'overzic
 }
 { // Insight detail mobile
   const p = await page({ width: 390, height: 844 });
-  await go(p, '#/inzichten'); await p.waitForSelector('.spiegel-grid');
-  await p.click('.icard:has-text("Positionering wordt extern duidelijker")');
+  await go(p, '#/inzichten'); await p.waitForSelector('.insight-grid');
+  await p.click(':is(.icard, .spiegel-hero):has-text("Positionering wordt extern duidelijker")');
   await p.waitForSelector('.detail h2'); await noH(p, 'detail-mobiel');
   await p.screenshot({ path: `${OUT}/detail-390.png`, fullPage: true });
   await p.context().close();

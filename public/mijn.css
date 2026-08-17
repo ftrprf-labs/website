@@ -528,6 +528,7 @@ body.mijn {
 .spiegel-hero h2 { font-family: var(--serif); font-weight: 600; font-size: 31px; line-height: 1.16; letter-spacing: -0.3px; margin: 0 0 12px; text-wrap: balance; }
 .spiegel-hero p { color: var(--ink-soft); font-size: 16px; margin: 0 0 18px; max-width: 44ch; }
 .spiegel-more { margin: 30px 0 16px; }
+.ov-col > .spiegel-hero { margin-bottom: 0; }
 
 /* Insight detail — a very subtle contextual signal wash (desktop only), content stays dominant. */
 .detail { position: relative; }

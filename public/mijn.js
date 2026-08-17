@@ -18,6 +18,7 @@
 
   const $ = (id) => document.getElementById(id);
   const gate = $('gate'), gateMsg = $('gate-msg'), app = $('app'), view = $('view');
+  let orgName = '';
 
   async function api(path, opts = {}) {
     const res = await fetch(path, {
@@ -219,28 +220,7 @@
         ${data.insightCount > 1 ? '<button class="btn btn-block" data-nav="inzichten">Naar alle inzichten</button>' : ''}
       </section>`;
 
-    const glance = `
-      <section class="panel">
-        <p class="section-label">Samenwerking in één oogopslag</p>
-        <div class="glance">
-          ${c.upcomingAppointment ? glanceRow('ok', ICON.check, 'Eerstvolgende afspraak', `${esc(fmtDate(c.upcomingAppointment.due_at, true))}${c.upcomingAppointment.detail ? '. ' + esc(c.upcomingAppointment.detail) : ''}`, 'samenwerking') : ''}
-          ${c.research ? glanceRow('', ICON.research, esc(c.research.title), esc(c.research.detail || 'Lopend onderzoek'), 'samenwerking') : ''}
-          ${glanceRow('', ICON.bell, 'Gedeeld met Maculis', `${c.sharedCount || 0} ${(c.sharedCount === 1) ? 'inzicht' : 'inzichten'}${c.lastSharedAt ? '. Laatste gedeeld op ' + esc(fmtDate(c.lastSharedAt)) : ''}`, 'inzichten')}
-        </div>
-      </section>`;
-
-    const step = c.nextStep;
-    const laatste = `
-      <section class="atmos-card">
-        ${HORIZON}
-        <div class="atmos-inner">
-          <span class="atmos-eyebrow">Onze laatste stap</span>
-          <p class="atmos-line">${esc(step ? (step.detail || step.title) : 'Zodra we samen een volgende stap afspreken, zie je die hier.')}</p>
-          <button class="btn atmos-btn" data-nav="samenwerking">Bekijk alle afspraken ${ICON.arrow}</button>
-        </div>
-      </section>`;
-
-    // A quiet reflective epigraph in the environment's own voice — a calm moment, not a testimonial.
+    // A quiet reflective epigraph in the environment's own voice, a calm moment rather than a testimonial.
     const epigraph = `
       <section class="epigraph">
         <p>Losse signalen krijgen hier langzaam betekenis, tot je ziet wat er werkelijk speelt.</p>
@@ -250,10 +230,47 @@
     view.innerHTML = `
       <div class="ov-grid">
         <div class="ov-col">${hero}${recentPanel}</div>
-        <div class="ov-col">${glance}${laatste}${epigraph}</div>
+        <div class="ov-col">${collabGlance(c)}${laatsteStap(c)}${epigraph}</div>
       </div>
       ${privacyRow()}`;
     wireNav();
+  }
+
+  // Right-column building blocks, shared between the Overzicht and De Spiegel compositions so both
+  // pages carry the same samenwerking glance and atmospheric next-step card.
+  function collabGlance(c) {
+    c = c || {};
+    return `
+      <section class="panel">
+        <p class="section-label">Samenwerking in één oogopslag</p>
+        <div class="glance">
+          ${c.upcomingAppointment ? glanceRow('ok', ICON.check, 'Eerstvolgende afspraak', `${esc(fmtDate(c.upcomingAppointment.due_at, true))}${c.upcomingAppointment.detail ? '. ' + esc(c.upcomingAppointment.detail) : ''}`, 'samenwerking') : ''}
+          ${c.research ? glanceRow('', ICON.research, esc(c.research.title), esc(c.research.detail || 'Lopend onderzoek'), 'samenwerking') : ''}
+          ${glanceRow('', ICON.bell, 'Gedeeld met Maculis', `${c.sharedCount || 0} ${(c.sharedCount === 1) ? 'inzicht' : 'inzichten'}${c.lastSharedAt ? '. Laatste gedeeld op ' + esc(fmtDate(c.lastSharedAt)) : ''}`, 'inzichten')}
+        </div>
+      </section>`;
+  }
+
+  function laatsteStap(c) {
+    const step = (c || {}).nextStep;
+    return `
+      <section class="atmos-card">
+        ${HORIZON}
+        <div class="atmos-inner">
+          <span class="atmos-eyebrow">Onze laatste stap</span>
+          <p class="atmos-line">${esc(step ? (step.detail || step.title) : 'Zodra we samen een volgende stap afspreken, zie je die hier.')}</p>
+          <button class="btn atmos-btn" data-nav="samenwerking">Bekijk alle afspraken ${ICON.arrow}</button>
+        </div>
+      </section>`;
+  }
+
+  // De Spiegel closes with a reflection in the organisation's own voice, echoing the reference quote.
+  function orgEpigraph() {
+    return `
+      <section class="epigraph">
+        <p>De inzichten geven ons een helder beeld van waar we staan en waar de kansen liggen.</p>
+        <span class="epigraph-src"><span class="brand-ring" aria-hidden="true"></span>${esc(orgName || 'Onze organisatie')}</span>
+      </section>`;
   }
 
   function glanceRow(icoMod, ico, title, meta, nav) {
@@ -314,16 +331,30 @@
     </button>`;
   }
 
+  // De Spiegel — the fullest reflection: one dominant insight carrying the signal field, the remaining
+  // readings in an airy "Recente inzichten" grid, and a right column that grounds the reading in the
+  // living samenwerking (glance + atmospheric next step + a reflection in the organisation's voice).
   async function renderInsights() {
     skeleton();
-    const { data } = await api('/api/mijn/insights');
-    const items = data.insights || [];
+    const [ins, ov] = await Promise.all([api('/api/mijn/insights'), api('/api/mijn/overview')]);
+    const items = (ins.data && ins.data.insights) || [];
     if (!items.length) { view.innerHTML = '<p class="empty">Er zijn nog geen inzichten om te tonen.</p>'; return; }
+    const c = (ov.data && ov.data.collaboration) || {};
     const dominant = items.find((i) => i.attention) || items[0];
     const rest = items.filter((i) => i.id !== dominant.id);
+
+    const recentPanel = `
+      <section class="panel">
+        <p class="section-label">Recente inzichten</p>
+        <div class="insight-grid">${rest.length ? rest.map(insightCard).join('') : '<p class="empty">Dit is op dit moment het enige inzicht.</p>'}</div>
+      </section>`;
+
     view.innerHTML = `
-      ${spiegelHero(dominant)}
-      ${rest.length ? `<p class="section-label spiegel-more">Meer wat we zien</p><div class="spiegel-grid">${rest.map(insightCard).join('')}</div>` : ''}`;
+      <div class="ov-grid">
+        <div class="ov-col">${spiegelHero(dominant)}${recentPanel}</div>
+        <div class="ov-col">${collabGlance(c)}${laatsteStap(c)}${orgEpigraph()}</div>
+      </div>
+      ${privacyRow()}`;
     wireNav();
   }
 
@@ -514,6 +545,7 @@
       sessionStorage.removeItem('mijn_token');
       return;
     }
+    orgName = data.organization || '';
     $('side-org-name').textContent = data.organization || '—';
     const name = (data.user && data.user.label) || 'Klant';
     $('side-user-name').textContent = name;

@@ -23,8 +23,8 @@ async function noHScroll(page, label) {
 }
 async function openInsight(page, text) {
   await page.goto(`${BASE}/mijn.html?t=${TOKEN}#/inzichten`, { waitUntil: 'networkidle' });
-  await page.waitForSelector('.spiegel-grid');
-  await page.click(`.icard:has-text("${text}")`);
+  await page.waitForSelector('.insight-grid');
+  await page.click(`:is(.icard, .spiegel-hero):has-text("${text}")`);
   await page.waitForSelector('.detail h2');
 }
 
@@ -34,7 +34,7 @@ async function openInsight(page, text) {
 
   // De Spiegel: subtle "Bijgewerkt" markers on developed cards.
   await page.goto(`${BASE}/mijn.html?t=${TOKEN}#/inzichten`, { waitUntil: 'networkidle' });
-  await page.waitForSelector('.spiegel-grid');
+  await page.waitForSelector('.insight-grid');
   await noHScroll(page, 'spiegel');
   await page.screenshot({ path: `${OUT}/01-spiegel-bijgewerkt.png` });
 
