@@ -43,19 +43,31 @@
       color:var(--ink-2,#6b5e4f);border:1px solid var(--line,#e2d8c6);border-radius:999px;padding:.1em .5em}
     .fu-row .fu-k.overdue{color:var(--gold,#b0703a);border-color:color-mix(in srgb,var(--gold,#b0703a) 45%,transparent)}
     .fu-row .fu-title{font-size:.92rem}
-    /* Slice 5 — Scout as a colleague you can ask to look. One calm affordance in Vandaag, never a
-       technical agent console. Colours from cockpit.css tokens. */
-    .scout{margin:1.6rem 0 .4rem;padding:1rem 1.1rem;border:1px solid var(--line,#3a2e20);border-radius:14px;
-      background:color-mix(in srgb,var(--gold,#c8894a) 5%,transparent)}
-    .scout-head{display:grid;grid-template-columns:auto 1fr;gap:.35rem .65rem;align-items:center}
-    .scout .colleague-dot{width:.6rem;height:.6rem;border-radius:999px;background:var(--gold,#c8894a);
-      box-shadow:0 0 0 3px color-mix(in srgb,var(--gold,#c8894a) 22%,transparent);grid-row:1 / span 1}
+    /* Slice 5 — Scout as a colleague. Calling a colleague is not an attention item, so the entry
+       lives in the rail header and opens a compact modal. Colours from cockpit.css tokens. */
+    .ask-scout{display:flex;align-items:center;gap:.5rem;width:100%;margin:.2rem 0 1rem;padding:.5rem .7rem;
+      border:1px solid color-mix(in srgb,var(--gold,#c8894a) 40%,transparent);border-radius:10px;cursor:pointer;
+      background:color-mix(in srgb,var(--gold,#c8894a) 8%,transparent);color:var(--ink,#f0e6d6);
+      font:inherit;font-size:.86rem;font-weight:600;letter-spacing:.01em;text-align:left}
+    .ask-scout:hover{border-color:color-mix(in srgb,var(--gold,#c8894a) 65%,transparent);
+      background:color-mix(in srgb,var(--gold,#c8894a) 14%,transparent)}
+    .ask-scout:focus-visible{outline:2px solid color-mix(in srgb,var(--gold,#c8894a) 65%,transparent);outline-offset:2px}
+    .ask-scout .ask-dot{width:.55rem;height:.55rem;border-radius:999px;background:var(--gold,#c8894a);flex:none;
+      box-shadow:0 0 0 3px color-mix(in srgb,var(--gold,#c8894a) 20%,transparent)}
+    /* Compact modal that opens over the cockpit; the page beneath does not move. */
+    .scout-modal{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
+      padding:1rem;background:color-mix(in srgb,#000 55%,transparent)}
+    .scout-modal-card{width:min(460px,92vw);max-height:90vh;overflow:auto;padding:1.1rem 1.2rem 1.2rem;
+      border:1px solid var(--line,#3a2e20);border-radius:16px;background:var(--bg-1,#1c140c);
+      box-shadow:0 24px 60px rgba(0,0,0,.45)}
+    .scout-modal-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.2rem}
+    .scout-modal-head .colleague-dot{width:.6rem;height:.6rem;border-radius:999px;background:var(--gold,#c8894a);flex:none;
+      box-shadow:0 0 0 3px color-mix(in srgb,var(--gold,#c8894a) 22%,transparent)}
+    .scout-x{margin-left:auto;border:0;background:none;color:var(--ink-2,#b3a48f);font-size:1.3rem;line-height:1;cursor:pointer;padding:.1rem .3rem}
     .scout-id{display:flex;align-items:baseline;gap:.5rem}
     .scout-id b{font-size:1rem}
     .scout-role{font-size:.72rem;letter-spacing:.04em;color:var(--ink-2,#b3a48f)}
-    .scout-line{grid-column:2;margin:.1rem 0 0;font-size:.9rem;color:var(--ink-2,#b3a48f)}
-    .scout-ask{margin-top:.8rem}
-    .scout-form{margin-top:.9rem;display:flex;flex-direction:column;gap:.7rem}
+    .scout-form{margin-top:.6rem;display:flex;flex-direction:column;gap:.7rem}
     .scout-explain{margin:0;font-size:.86rem;line-height:1.5;color:var(--ink-2,#b3a48f)}
     .scout-f{display:flex;flex-direction:column;gap:.28rem;font-size:.8rem;color:var(--ink-2,#b3a48f)}
     .scout-f em{font-style:normal;opacity:.7}
@@ -64,8 +76,16 @@
     .scout-f input:focus{outline:none;border-color:color-mix(in srgb,var(--gold,#c8894a) 55%,transparent)}
     .scout-actions{display:flex;gap:.5rem;margin-top:.1rem}
     .scout-status{margin:.1rem 0 0;font-size:.84rem;color:var(--ink-2,#b3a48f);min-height:1em}
-    .scout-notice{margin:0 0 1rem;padding:.7rem .9rem;border:1px solid color-mix(in srgb,var(--ok,#5a9e7a) 45%,transparent);
-      border-radius:10px;background:color-mix(in srgb,var(--ok,#5a9e7a) 9%,transparent);font-size:.9rem}
+    /* Calm post-run confirmation. It never moves the page; "Bekijk" jumps to the item on request. */
+    .scout-toast{position:fixed;left:50%;bottom:1.4rem;transform:translateX(-50%);z-index:55;display:flex;align-items:center;gap:.8rem;
+      max-width:min(560px,94vw);padding:.7rem .9rem .7rem 1rem;border:1px solid color-mix(in srgb,var(--ok,#5a9e7a) 45%,transparent);
+      border-radius:12px;background:var(--bg-1,#1c140c);box-shadow:0 12px 30px rgba(0,0,0,.4);font-size:.9rem}
+    .scout-toast .toast-msg{color:var(--ink,#f0e6d6)}
+    .scout-toast .toast-look{border:1px solid color-mix(in srgb,var(--gold,#c8894a) 55%,transparent);border-radius:8px;
+      background:color-mix(in srgb,var(--gold,#c8894a) 12%,transparent);color:var(--ink,#f0e6d6);font:inherit;font-weight:600;padding:.3rem .7rem;cursor:pointer}
+    .scout-toast .toast-x{margin-left:.1rem;border:0;background:none;color:var(--ink-2,#b3a48f);font-size:1.1rem;line-height:1;cursor:pointer}
+    .item.just-landed{outline:2px solid color-mix(in srgb,var(--gold,#c8894a) 65%,transparent);outline-offset:3px;
+      transition:outline-color 1.2s ease;border-radius:14px}
     /* Evidence, honestly labelled: real external observations must be distinguishable from Scout's
        own inference and from a demonstration fixture. */
     .work-demo{display:inline-block;margin:.2rem 0 .3rem;padding:.12em .55em;border-radius:999px;font-size:.7rem;
@@ -92,9 +112,13 @@
     .assess-v.fit-hi{color:var(--ok,#7bbf9a)}
     .assess-v.fit-mid{color:var(--gold,#d79b5c)}
     .assess-v.fit-lo{color:var(--ink-2,#b3a48f)}
-    .assess-v.id-ok{color:var(--ok,#7bbf9a)}
-    .assess-v.id-maybe{color:var(--gold,#d79b5c)}
-    .assess-v.id-no{color:var(--ink-2,#b3a48f)}
+    /* Identity as a human two-line statement (main + explanation), covering all three states. */
+    .assess-id{display:flex;flex-direction:column;gap:.12rem;margin-top:.1rem}
+    .assess-id-main{font-weight:600;font-size:.9rem}
+    .assess-id-main.id-ok{color:var(--ok,#7bbf9a)}
+    .assess-id-main.id-maybe{color:var(--gold,#d79b5c)}
+    .assess-id-main.id-no{color:var(--ink-2,#b3a48f)}
+    .assess-id-sub{font-size:.78rem;color:var(--ink-2,#6b5e4f)}
   </style>
 </head>
 <body>
@@ -108,6 +132,9 @@
       <aside class="rail" aria-label="Hoofdnavigatie">
         <div class="brand">MACU<span>L</span>IS</div>
         <div class="payoff">Kijk nog eens.</div>
+        <button type="button" id="ask-scout" class="ask-scout" hidden>
+          <span class="ask-dot" aria-hidden="true"></span><span class="lbl">Vraag Scout</span>
+        </button>
         <nav class="nav" id="nav" aria-label="Hoofdnavigatie">
           <a href="#" data-nav="vandaag" aria-current="page"><span class="ico" aria-hidden="true">◐</span><span class="lbl">Vandaag</span><span class="count" id="nc-vandaag"></span></a>
           <a href="#" data-nav="relaties"><span class="ico" aria-hidden="true">◇</span><span class="lbl">Relaties</span></a>

@@ -27,9 +27,7 @@ let scn = 'vandaag';
 let activeContactId = null;
 let activeConvId = null;
 let activeDraft = null; // full draft state
-let agentsOn = false;   // digital-colleague domain enabled (Scout can be asked to look)
-let scoutOpen = false;  // whether the "vraag Scout" panel is expanded in Vandaag
-let scoutNotice = null; // one-line outcome after a Scout run, shown once at the top of Vandaag
+let agentsOn = false;   // digital-colleague domain enabled (the permanent "Vraag Scout" entry is shown)
 
 /* ---------- boot ---------- */
 async function boot() {
@@ -37,8 +35,18 @@ async function boot() {
   if (!cfg || !cfg.commEnabled) return renderDisabled();
   if (!cfg.authed) return renderLogin();
   agentsOn = Boolean(cfg.agentsEnabled);
+  wireScoutEntry();
   wireNav();
   render();
+}
+
+// The permanent, compact colleague entry in the rail header. Shown only when the digital-colleague
+// domain is on. This is the ONE way to call Scout; it is never an attention item in the Vandaag stream.
+function wireScoutEntry() {
+  const ask = document.getElementById('ask-scout');
+  if (!ask) return;
+  ask.hidden = !agentsOn;
+  ask.onclick = agentsOn ? openScoutModal : null;
 }
 
 function renderDisabled() {
@@ -104,8 +112,6 @@ async function renderVandaag() {
   const { ok, data } = await api('/api/cockpit/today');
   const wrap = el('div', 'view-enter');
   if (!ok) { wrap.appendChild(el('p', 'lead-note', 'Kon aandacht niet laden.')); view.appendChild(wrap); return; }
-  // A calm one-line outcome after you asked Scout to look; shown once, then cleared.
-  if (scoutNotice) { wrap.appendChild(el('div', 'scout-notice', esc(scoutNotice))); scoutNotice = null; }
   const h = data.headline || { primary: '', secondary: null, zero: false };
   const buckets = data.buckets || { NU: [], KLAAR: [], RADAR: [] };
   const counts = data.counts || { nu: 0, klaar: 0, radar: 0 };
@@ -119,7 +125,6 @@ async function renderVandaag() {
     s.innerHTML = `<h2>${esc(h.primary || 'Je bent bij.')}</h2>${h.secondary ? `<p>${esc(h.secondary)}</p>` : ''}
       <div class="whisper">Maculis kijkt verder. Als er iets werkelijk toe doet, zie je het hier.</div>`;
     wrap.appendChild(s);
-    if (agentsOn) wrap.appendChild(scoutColleague());
     view.appendChild(wrap); return;
   }
 
@@ -141,44 +146,51 @@ async function renderVandaag() {
     items.forEach(c => g.appendChild(radarCard(c)));
     wrap.appendChild(g);
   }
-  if (agentsOn) wrap.appendChild(scoutColleague());
   view.appendChild(wrap);
 }
 
-/* ---------- Scout, a digital colleague you can ask to look ----------
-   Not an agent console: one calm colleague affordance inside Vandaag. You hand Scout an organisation
-   to look at; Scout observes PUBLIC sources (the organisation's own website + open EU tenders via TED),
-   checks whether we already know them, and lands ONE well-reasoned proposal in Vandaag. Scout never
-   sends anything and never contacts anyone: every next step is your decision on the card it prepares. */
-function scoutColleague() {
-  const box = el('section', 'scout');
-  const head = el('div', 'scout-head');
-  head.innerHTML = `<span class="colleague-dot" aria-hidden="true"></span>
-    <div class="scout-id"><b>Scout</b><span class="scout-role">groei-collega</span></div>
-    <p class="scout-line">Vindt en kwalificeert een organisatie uit openbare bronnen en zet een voorstel voor je klaar.</p>`;
-  box.appendChild(head);
-
-  if (!scoutOpen) {
-    const ask = el('button', 'btn btn-ghost scout-ask', 'Vraag Scout om te kijken');
-    ask.addEventListener('click', () => { scoutOpen = true; render(); });
-    box.appendChild(ask);
-    return box;
-  }
-
-  const form = el('form', 'scout-form');
-  form.innerHTML = `
-    <p class="scout-explain">Scout kijkt naar openbare bronnen: de eigen website van de organisatie en openbare EU aanbestedingen (TED). Scout maakt daar waarnemingen van, controleert of we de organisatie al kennen, en zet een voorstel klaar. Scout verstuurt niets en neemt geen contact op. Jij beslist.</p>
-    <label class="scout-f"><span>Organisatie</span><input type="text" id="sc-name" placeholder="Naam van de organisatie" autocomplete="off" required></label>
-    <label class="scout-f"><span>Website <em>(optioneel, helpt Scout kijken)</em></span><input type="text" id="sc-site" placeholder="bijv. voorbeeld.nl" autocomplete="off"></label>
-    <label class="scout-f"><span>Context <em>(optioneel)</em></span><input type="text" id="sc-note" placeholder="Waarom kijk je hiernaar?" autocomplete="off"></label>
-    <div class="scout-actions">
-      <button type="submit" class="btn btn-primary" id="sc-go">Laat Scout kijken</button>
-      <button type="button" class="btn btn-ghost" id="sc-cancel">Annuleren</button>
+/* ---------- Scout, a digital colleague reachable from the cockpit header ----------
+   Calling a colleague is NOT an attention item, so it lives in the rail header, not the Vandaag
+   stream. "Vraag Scout" opens a compact modal with the SAME organisation/website/context fields and
+   the SAME run API. During the run the page does not move. Afterwards a calm toast offers "Bekijk",
+   which jumps to wherever Vandaag's own prioritisation placed the result. The same modal pattern will
+   serve future digital colleagues, so no per-colleague card ever has to be added to Vandaag again. */
+function openScoutModal() {
+  if (document.getElementById('scout-modal')) return; // already open
+  const back = el('div', 'scout-modal'); back.id = 'scout-modal';
+  back.setAttribute('role', 'dialog'); back.setAttribute('aria-modal', 'true'); back.setAttribute('aria-label', 'Vraag Scout');
+  const card = el('div', 'scout-modal-card');
+  card.innerHTML = `
+    <div class="scout-modal-head">
+      <span class="colleague-dot" aria-hidden="true"></span>
+      <div class="scout-id"><b>Vraag Scout</b><span class="scout-role">groei-collega</span></div>
+      <button type="button" class="scout-x" id="sc-x" aria-label="Sluiten">×</button>
     </div>
-    <p class="scout-status" id="sc-status" aria-live="polite"></p>`;
-  form.querySelector('#sc-cancel').addEventListener('click', () => { scoutOpen = false; render(); });
-  form.addEventListener('submit', async (e) => {
+    <form class="scout-form" id="sc-form">
+      <p class="scout-explain">Scout kijkt naar openbare bronnen: de eigen website van de organisatie en openbare EU aanbestedingen (TED). Scout maakt daar waarnemingen van, controleert of we de organisatie al kennen, en zet een voorstel klaar. Scout verstuurt niets en neemt geen contact op. Jij beslist.</p>
+      <label class="scout-f"><span>Organisatie</span><input type="text" id="sc-name" placeholder="Naam van de organisatie" autocomplete="off" required></label>
+      <label class="scout-f"><span>Website <em>(optioneel, helpt Scout kijken)</em></span><input type="text" id="sc-site" placeholder="bijv. voorbeeld.nl" autocomplete="off"></label>
+      <label class="scout-f"><span>Context <em>(optioneel)</em></span><input type="text" id="sc-note" placeholder="Waarom kijk je hiernaar?" autocomplete="off"></label>
+      <div class="scout-actions">
+        <button type="submit" class="btn btn-primary" id="sc-go">Laat Scout kijken</button>
+        <button type="button" class="btn btn-ghost" id="sc-cancel">Annuleren</button>
+      </div>
+      <p class="scout-status" id="sc-status" aria-live="polite"></p>
+    </form>`;
+  back.appendChild(card);
+  document.body.appendChild(back);
+
+  const close = () => { back.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  back.addEventListener('mousedown', (e) => { if (e.target === back) close(); });
+  card.querySelector('#sc-x').addEventListener('click', close);
+  card.querySelector('#sc-cancel').addEventListener('click', close);
+  setTimeout(() => { const n = card.querySelector('#sc-name'); if (n) n.focus(); }, 30);
+
+  card.querySelector('#sc-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const form = e.currentTarget;
     const name = form.querySelector('#sc-name').value.trim();
     const domain = normalizeDomain(form.querySelector('#sc-site').value);
     const note = form.querySelector('#sc-note').value.trim();
@@ -187,25 +199,58 @@ function scoutColleague() {
     if (!name) { status.textContent = 'Geef eerst een organisatie op.'; return; }
     go.disabled = true; go.textContent = 'Scout kijkt…'; status.textContent = 'Scout observeert openbare bronnen en weegt het af. Even geduld.';
     const candidate = { name }; if (domain) candidate.domain = domain; if (note) candidate.note = note;
+    // The page stays exactly where it is during the run: the modal is a fixed overlay and we do not
+    // re-render Vandaag here, so there is no scroll jump.
     const r = await api('/api/agents/scout/run', { method: 'POST', body: JSON.stringify({ candidates: [candidate] }) });
     if (!r.ok || !r.data || r.data.ok === false) {
       go.disabled = false; go.textContent = 'Laat Scout kijken';
       status.textContent = (r.data && (r.data.error || r.data.reason)) ? `Scout kon niet kijken: ${r.data.error || r.data.reason}` : 'Scout kon nu niet kijken.';
       return;
     }
+    close();
     const recorded = Number(r.data.recorded || 0);
-    scoutOpen = false;
-    // Re-render Vandaag so a landed proposal appears as Scout's card; carry a short outcome note.
-    scoutNotice = recorded > 0
-      ? (recorded === 1
-        ? `Scout heeft gekeken bij ${name}: 1 voorstel staat voor je klaar.`
-        : `Scout heeft gekeken bij ${name}: ${recorded} voorstellen staan voor je klaar.`)
-      : `Scout heeft gekeken bij ${name}, maar vond nu niets dat jouw aandacht verdient. Niets geforceerd.`;
-    render();
+    const landed = Array.isArray(r.data.landed) ? r.data.landed : [];
+    const first = landed[0];
+    const landedId = (first && (typeof first === 'string' ? first : first.id)) || null;
+    scoutToast(name, recorded, landedId);
   });
-  box.appendChild(form);
-  return box;
 }
+
+// A calm confirmation after a run. It never moves the page; only "Bekijk" navigates to the item,
+// which Vandaag's own prioritisation has placed wherever it belongs (Nu / Klaargezet / Op de radar).
+function scoutToast(name, recorded, landedId) {
+  const old = document.getElementById('scout-toast'); if (old) old.remove();
+  const t = el('div', 'scout-toast'); t.id = 'scout-toast'; t.setAttribute('role', 'status');
+  if (recorded > 0) {
+    t.appendChild(el('span', 'toast-msg', `Scout heeft iets gevonden over ${esc(name)}.`));
+    const look = el('button', 'toast-look', 'Bekijk');
+    look.addEventListener('click', async () => { t.remove(); await revealWorkItem(landedId); });
+    t.appendChild(look);
+  } else {
+    t.appendChild(el('span', 'toast-msg', `Scout vond nu niets over ${esc(name)} dat je aandacht verdient.`));
+    setTimeout(() => { if (t.parentNode) t.remove(); }, 8000);
+  }
+  const x = el('button', 'toast-x', '×'); x.setAttribute('aria-label', 'Sluiten');
+  x.addEventListener('click', () => t.remove());
+  t.appendChild(x);
+  document.body.appendChild(t);
+}
+
+// Bring the user to the new/updated Scout item: show Vandaag with fresh data, then scroll to the card
+// and highlight it briefly. This is the ONLY place a Scout run moves the page, and only on request.
+async function revealWorkItem(id) {
+  scn = 'vandaag'; activeContactId = null; activeConvId = null; lightNav('vandaag');
+  shell.setAttribute('data-space', 'reveal');
+  await renderVandaag();
+  if (!id) return;
+  const node = document.querySelector(`[data-attn-id="${cssEsc(id)}"]`);
+  if (!node) return;
+  const card = node.closest('.item') || node;
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  card.classList.add('just-landed');
+  setTimeout(() => card.classList.remove('just-landed'), 2600);
+}
+function cssEsc(s) { return String(s).replace(/["\\]/g, '\\$&'); }
 
 // Strip protocol, path and a leading www. so the website source gets a bare domain (voorbeeld.nl).
 function normalizeDomain(v) {
@@ -309,10 +354,13 @@ function fitLabel(v) {
   const tone = v >= 0.6 ? 'hi' : v >= 0.35 ? 'mid' : 'lo';
   return { word, pct: Math.round(v * 100), tone };
 }
+// Identity in human language: a main line plus a short explanation. The underlying epistemic status
+// (unverified | probable | verified) is unchanged; this is presentation only, and it already covers
+// all three states so a future 'geverifieerd' via KVK/KBO reads naturally here too.
 const IDENTITY_UI = {
-  verified: { label: 'ja, officieel bevestigd', cls: 'id-ok' },
-  probable: { label: 'waarschijnlijk, eigen website gezien', cls: 'id-maybe' },
-  unverified: { label: 'nog niet bevestigd, alleen naam-match', cls: 'id-no' },
+  verified: { main: 'Identiteit: geverifieerd', sub: 'Officieel register bevestigd', cls: 'id-ok' },
+  probable: { main: 'Identiteit: waarschijnlijk dezelfde organisatie', sub: 'Eigen website bevestigd', cls: 'id-maybe' },
+  unverified: { main: 'Identiteit: nog onbevestigd', sub: 'Alleen een naam-match, geen eigen bron bevestigd', cls: 'id-no' },
 };
 // Plain-language reason Scout only asks to look, or asks for approval.
 function whyLine(needs, idStatus) {
@@ -351,19 +399,21 @@ function workActions(w, onResolve) {
 // onResolve defaults to a full re-render of Vandaag; the dossier passes its own refresh.
 function workBlock(w, onResolve) {
   const wrap = el('div', 'work-block');
+  if (w.id) wrap.dataset.attnId = w.id;   // scroll target for the "Bekijk" jump after a Scout run
   const ev = w.evidence || {};
   if (w.proposal && w.proposal.summary) wrap.appendChild(el('div', 'work-proposal', esc(w.proposal.summary)));
   // A demonstration/fixture is marked unmistakably so it can never read as a real find.
   if (ev.demo) wrap.appendChild(el('div', 'work-demo', 'Demonstratie. Geen echte waarneming.'));
 
-  // Fit and identity, side by side but never merged into one number.
+  // Fit and identity, distinct: "interessant" (fit) is not the same as "we weten zeker wie dit is".
   const fit = fitLabel(typeof ev.fitConfidence === 'number' ? ev.fitConfidence : ev.confidence);
   const idStatus = ev.identityStatus || null;
-  if (fit || (idStatus && IDENTITY_UI[idStatus])) {
-    const rows = [];
-    if (fit) rows.push(`<div class="assess-row"><span class="assess-k">Aanwijzingen dat dit past</span><span class="assess-v fit-${fit.tone}">${esc(fit.word)}${fit.pct ? ` · ${fit.pct}%` : ''}</span></div>`);
-    if (idStatus && IDENTITY_UI[idStatus]) rows.push(`<div class="assess-row"><span class="assess-k">Zelfde organisatie?</span><span class="assess-v ${IDENTITY_UI[idStatus].cls}">${esc(IDENTITY_UI[idStatus].label)}</span></div>`);
-    wrap.appendChild(el('div', 'work-assess', rows.join('')));
+  const id = idStatus && IDENTITY_UI[idStatus];
+  if (fit || id) {
+    const box = el('div', 'work-assess');
+    if (fit) box.appendChild(el('div', 'assess-row', `<span class="assess-k">Aanwijzingen dat dit past</span><span class="assess-v fit-${fit.tone}">${esc(fit.word)}${fit.pct ? ` · ${fit.pct}%` : ''}</span>`));
+    if (id) box.appendChild(el('div', 'assess-id', `<div class="assess-id-main ${id.cls}">${esc(id.main)}</div><div class="assess-id-sub">${esc(id.sub)}</div>`));
+    wrap.appendChild(box);
   }
 
   const items = evidenceItems(ev).map(evItem).filter(Boolean);
