@@ -80,6 +80,26 @@ renders byte-identiek aan de goedgekeurde F4-staat.
 
 ---
 
+## F5 Website: zes gescheiden beslispunten (open, in beoordeling)
+
+Vastgelegd zodat ze niet in elkaar schuiven. De A/B staat op `/f5-ab` van de Website-preview,
+commit `eae9d72`. Er is **geen implementatie-GO**; de gewone Website blijft onaangeraakt.
+
+| # | Beslispunt | Aard | Status |
+|---|---|---|---|
+| **1** | **Hoofdtypografie.** Fraunces plus Inter tegenover Newsreader plus systeemstack | **Visuele merkbeslissing van Lud.** Niet af te leiden uit de canon: de canon wijst Newsreader aan, maar of dat op deze pagina's het juiste merkgevoel geeft is een oordeel | In beoordeling op `/f5-ab` |
+| **2** | **Privacy: veertien functionele juridische sectiekoppen.** "1. Wie is verantwoordelijk" tot "14. Wijzigingen" staan in serif | **Afzonderlijke canoncorrectie.** Canon 4.2: staat er serif, dan staat er een waarneming, gedachte of vraag. Een genummerde juridische sectiekop is structuur. Dit geldt onafhankelijk van welke serif er staat en is **geen argument voor of tegen Newsreader** | Open, los van 1 |
+| **3** | **Wordmark MACULIS.** `site-nav` en `site-footer` | **Merkasset.** Valt buiten de algemene fontmigratie. Verhuist niet mee met `font-display` | Vastgesteld: buiten scope |
+| **4** | **Kleine cursieve serif.** "Ik heb gekeken.", de stapvragen, de twee kaders van blok 6 | Gewicht en leesbaarheid op kleine maten. Canon 4.2 schrijft gewicht 300 voor bij Uitspraak; of dat ook voor de cursieve modifier klein houdbaar is, is de vraag | Niets aanpassen tot Luds visuele oordeel |
+| **5** | **Twee grensgevallen.** De h1 van de privacyverklaring, en het organisatielabel in de lenscirkel (`lenses.tsx:96`, 13px) | Classificatie tussen uitspraak en functie | Nog niet beslissen |
+| **6** | **Afwijkende `clamp()` in `founder.tsx`.** Twee eigen waarden, `clamp(1.35rem,2.6vw,1.9rem)` en `clamp(1.6rem,3.4vw,2.5rem)`, die niet in de canonieke schaal van hoofdstuk 4.3 staan | Schaal, niet familie | **Geregistreerd als later F5-punt. Nu niet wijzigen** |
+
+**Wat de classificatie opleverde.** Van de 74 serif-plekken zijn er 43 levend; 31 zitten in
+componenten die nergens worden gerenderd. Van die 43: veertien Uitspraak, elf Stem van Maculis in
+cursief, twee merkasset, veertien functioneel (punt 2) en twee grensgeval (punt 5).
+
+---
+
 ## Opschoning bij de afronding van de harmonisatie (openstaande actie)
 
 Vast te leggen zodat het niet bij de laatste GO vergeten wordt.
