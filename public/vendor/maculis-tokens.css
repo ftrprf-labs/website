@@ -1,0 +1,156 @@
+/* =============================================================================
+   MACULIS DESIGN TOKENS
+   Gegenereerd uit de canon. NOOIT met de hand bewerken in een product.
+
+   canon      UX-VISUAL-DNA  ·  Maculis Visual DNA v1.0 (vastgesteld)
+   bron       ftrprf-labs/ftrlabs-docs  03-ux/principles/maculis-visual-dna.md
+   versie     1.0.2
+   datum      2026-08-18
+   checksum   b95d91b7a0a82c18
+   generator  .github/scripts/generate_tokens.py
+
+   Gebruik per kamer:
+     Website      <html data-maculis-regime="night">
+     Lens         <html data-maculis-regime="night">
+     Cockpit      <html data-maculis-regime="worklight">
+     Mijn Maculis <html data-maculis-regime="day">
+
+   Wijzigen kan uitsluitend via hoofdstuk 17 van de canon.
+   Wijkt de checksum af van de canon, dan is dit bestand niet meer geldig.
+   ============================================================================= */
+
+:root {
+  /* ---- ink  ·  alleen ink-980 is koel; elk verhoogd oppervlak is warm ---- */
+  --ink-50: #f7f1e6;  /* hsl(39 52% 94%) */
+  --ink-100: #ece2d4;  /* hsl(35 39% 88%) */
+  --ink-200: #a89a86;  /* hsl(35 16% 59%) */
+  --ink-300: #8b8377;  /* hsl(36 8% 51%) */
+  --ink-600: #251a10;  /* hsl(29 40% 10%) */
+  --ink-700: #1d130b;  /* hsl(27 45% 8%) */
+  --ink-800: #14120f;  /* hsl(36 14% 7%) */
+  --ink-900: #0f0a06;  /* hsl(27 43% 4%) */
+  --ink-950: #080503;  /* hsl(24 45% 2%) */
+  --ink-980: #0a0b10;  /* hsl(230 23% 5%) */
+
+  /* ---- merk  ·  koper is het signaal, goud is licht ---- */
+  --copper-500: #c8894a;  /* hsl(30 53% 54%) */
+  --copper-400: #e6a866;  /* hsl(31 72% 65%) */
+  --copper-700: #8a5f38;  /* hsl(29 42% 38%) */
+  --gold-500: #d7b36a;  /* hsl(40 58% 63%) */
+  --gold-300: #f3e387;  /* hsl(51 82% 74%) */
+  --gold-700: #b0894a;  /* hsl(37 41% 49%) */
+
+  /* ---- typografie ---- */
+  --type-serif: 'Newsreader', Georgia, serif;
+  --type-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --type-hero: clamp(2.55rem, 6.2vw, 6.75rem);
+  --type-statement: clamp(1.95rem, 4.6vw, 4.25rem);
+  --type-insight: clamp(1.55rem, 3.2vw, 2.85rem);
+  --type-body: clamp(14px, 2.2vw, 17px);
+  --type-fine: clamp(13px, 2vw, 15px);
+  --type-label: 11px;
+
+  /* ---- spacing ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 40px;
+  --space-7: 64px;
+
+  /* ---- radius ---- */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* ---- border  ·  nooit neutraal grijs (canon 6) ---- */
+  --border-hairline: rgba(200,137,74,.18);
+  --border-defined: rgba(200,137,74,.34);
+
+  /* ---- motion  ·  een curve, de duur verschilt per kamer ---- */
+  --motion-ease: cubic-bezier(.22,.61,.36,1);
+  --motion-micro: 120ms;
+  --motion-enter: 340ms;
+  --motion-reveal: 1400ms;
+  --motion-stage: 1200ms;
+  --motion-breathe: 6s;
+  --motion-cycle: 9s;
+
+  /* ---- grafieken  ·  maximaal drie reeksen (gevalideerd) ---- */
+  --chart-night-1: #c07c3e;
+  --chart-night-2: #8a79e0;
+  --chart-night-3: #1f9470;
+  --chart-day-1: #a8672f;
+  --chart-day-2: #5f4fb0;
+  --chart-day-3: #0b8a6e;
+  --chart-worklight-1: #c07c3e;
+  --chart-worklight-2: #8a79e0;
+  --chart-worklight-3: #1f9470;
+}
+
+/* ===== REGIME: nacht ===== */
+[data-maculis-regime="night"] {
+  --surface-ground: #0a0b10;
+  --surface-raised: #14120f;
+  --surface-elevated: #251a10;
+  --text-primary: #ece2d4;
+  --text-secondary: #a89a86;
+  --text-quiet: #8b8377;
+  --semantic-signal: #c8894a;
+  --semantic-emerging: #8a79e0;
+  --semantic-confirmed: #1f9470;
+  --semantic-uncertain: #8b8377;
+  --semantic-broken: #e5674f;
+  /* border.semantic: de statuskleur op 35% alpha (canon 6). */
+  --border-semantic-signal: rgba(200,137,74,.34);  /* = border-defined; koper valt hier samen (canon 6) */
+  --border-semantic-emerging: rgba(138,121,224,.35);
+  --border-semantic-confirmed: rgba(31,148,112,.35);
+  --border-semantic-uncertain: rgba(139,131,119,.35);
+  --border-semantic-broken: rgba(229,103,79,.35);
+}
+
+/* ===== REGIME: werklicht ===== */
+[data-maculis-regime="worklight"] {
+  /* Werklicht is nacht met een andere grond (canon 5, amendement C-1). */
+  --surface-ground: #080503;
+  --surface-raised: #14120f;
+  --surface-elevated: #251a10;
+  --text-primary: #ece2d4;
+  --text-secondary: #a89a86;
+  --text-quiet: #8b8377;
+  --semantic-signal: #c8894a;
+  --semantic-emerging: #8a79e0;
+  --semantic-confirmed: #1f9470;
+  --semantic-uncertain: #8b8377;
+  --semantic-broken: #e5674f;
+  /* border.semantic: de statuskleur op 35% alpha (canon 6). */
+  --border-semantic-signal: rgba(200,137,74,.34);  /* = border-defined; koper valt hier samen (canon 6) */
+  --border-semantic-emerging: rgba(138,121,224,.35);
+  --border-semantic-confirmed: rgba(31,148,112,.35);
+  --border-semantic-uncertain: rgba(139,131,119,.35);
+  --border-semantic-broken: rgba(229,103,79,.35);
+}
+
+/* ===== REGIME: dag ===== */
+[data-maculis-regime="day"] {
+  --surface-ground: #f7f1e6;
+  --surface-raised: #fdfbf6;
+  --surface-elevated: #ffffff;
+  --surface-private: #ece0c9;
+  --text-primary: #17120c;
+  --text-secondary: #6b6152;
+  --text-quiet: #8a8073;
+  --semantic-signal: #925826;
+  --semantic-emerging: #5f4fb0;
+  --semantic-confirmed: #097159;
+  --semantic-uncertain: #6b6152;
+  --semantic-broken: #a33422;
+  /* border.semantic: de statuskleur op 35% alpha (canon 6). */
+  --border-semantic-signal: rgba(146,88,38,.35);
+  --border-semantic-emerging: rgba(95,79,176,.35);
+  --border-semantic-confirmed: rgba(9,113,89,.35);
+  --border-semantic-uncertain: rgba(107,97,82,.35);
+  --border-semantic-broken: rgba(163,52,34,.35);
+}

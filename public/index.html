@@ -1,11 +1,15 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="nl" data-maculis-regime="worklight">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Maculis · Testerbeheer</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23080503'/%3E%3Ctext x='16' y='22' font-size='18' text-anchor='middle' fill='%23c8894a' font-family='Georgia,serif' font-weight='700'%3EM%3C/text%3E%3C/svg%3E" />
+    <!-- Canonieke tokens en letter. Gegenereerd uit ftrlabs-docs 03-ux, nooit met de hand
+         bewerken. De checksum wordt bewaakt door tools/check-tokens.mjs. -->
+    <link rel="stylesheet" href="/vendor/maculis-tokens.css" />
+    <link rel="stylesheet" href="/vendor/newsreader.css" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -14,7 +18,7 @@
       <form id="login-form" class="login-card">
         <div class="brand-mark">MACULIS</div>
         <h1>Testerbeheer</h1>
-        <p class="muted">Interne beheeromgeving van Maculis — log in om verder te gaan.</p>
+        <p class="muted">Interne beheeromgeving van Maculis. Log in om verder te gaan.</p>
         <label for="pw">Beheerderswachtwoord</label>
         <input id="pw" type="password" autocomplete="current-password" required />
         <button type="submit" class="btn btn-primary">Inloggen</button>
@@ -49,7 +53,7 @@
 
       <!-- Attention Cockpit — één rustige, kanaal-agnostische blik: wat vraagt vandaag aandacht?
            Gevuld door app.js uit /api/comm/attention. Verborgen tot er data is. -->
-      <section id="attention-cockpit" class="cockpit hidden" aria-label="Communicatie — wat vraagt aandacht?"></section>
+      <section id="attention-cockpit" class="cockpit hidden" aria-label="Communicatie: wat vraagt aandacht?"></section>
 
       <section class="controls">
         <div class="search-wrap">
@@ -231,7 +235,7 @@
                 <input id="ef-consent-other" type="text" placeholder="korte toelichting op de wijze" />
               </div>
               <p class="muted small" style="margin-top:4px">
-                Verplicht bij handmatig registreren van toestemming — leg de aantoonbare grondslag vast.
+                Verplicht bij handmatig registreren van toestemming. Leg de aantoonbare grondslag vast.
               </p>
             </div>
             <p class="muted small consent-prov hidden" id="ef-consent-prov" style="margin-top:6px"></p>
@@ -240,7 +244,7 @@
             <label>Status corrigeren</label>
             <select id="ef-status"></select>
             <p class="muted small" style="margin-top:6px">
-              Administratieve uitzondering — verandert de systeemgestuurde status.
+              Administratieve uitzondering. Verandert de systeemgestuurde status.
               Normale statussen worden automatisch door systeemgebeurtenissen bepaald.
             </p>
           </div>
@@ -271,7 +275,7 @@
           <p id="wa-warn" class="warn hidden"></p>
           <p id="wa-hint" class="muted small hidden">
             WhatsApp is geopend. Druk daar zelf op <strong>Verzenden</strong>. Bevestig hieronder
-            pas nadat je de uitnodiging daadwerkelijk hebt verstuurd — dan wordt de tester op INVITED gezet.
+            pas nadat je de uitnodiging daadwerkelijk hebt verstuurd. Dan komt de tester op Uitgenodigd.
           </p>
         </div>
         <div class="modal-foot wa-foot">

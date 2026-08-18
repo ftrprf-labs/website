@@ -14,6 +14,113 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-18 — Cockpit-harmonisatie Visual DNA v1.0: visueel akkoord en freeze
+
+**Visueel akkoord vastgelegd.** Lud heeft de live preview beoordeeld op Testerbeheer, Workspace
+en Inbox en de harmonisatielaag akkoord bevonden. Vanaf dit punt geldt een **freeze** op de
+visuele harmonisatie: geen verdere verfijning, geen extra kleurcorrecties, geen spacing-polish
+en geen nieuwe interpretaties binnen deze workstream.
+
+**Beoordeelde commit:** `3e8c740ac159994df631a6b574d7131dc96cc3f1`
+(branch `claude/maculis-visual-harmonization-s0nt5t`). Gelijk aan de branch tip, aan de lokale
+werkboom en aan de live previewdeploy `dep-da21ov61egvs7395v3b0`. Alle drie deploys van de
+previewservice draaiden op deze ene commit, dus er is geen twijfel over wat beoordeeld is.
+
+**Preview:** `maculis-cockpit-harmonisatie-preview` (Render, Frankfurt, Node-runtime, geen disk,
+geen productiegegevens, Communication Layer uit). Tijdelijk, uitsluitend voor deze beoordeling.
+
+### Wat de harmonisatie inhoudt
+
+De Cockpit draait nu op de gegenereerde canon in plaats van op handmatig beheerde kleurwaarden.
+
+- **Canonieke tokenlaag** gevendord als `public/vendor/maculis-tokens.css`, versie 1.0.2,
+  checksum `b95d91b7a0a82c18`, byte-identiek aan `ftrlabs-docs/main`. Bewaakt door
+  `tools/check-tokens.mjs` op checksum, versie en handmatige bewerking.
+- **Lichtregime `worklight`** op alle drie de oppervlakken, via `data-maculis-regime` op `<html>`.
+  Grond is `ink.950` `#080503`, conform canonamendement C-1.
+- **`:root` teruggebracht tot een aliaslaag.** Geen eigen kleurwaarden meer per scherm
+  (canon hoofdstuk 13). In `styles.css` verviel `--surface-2` en verdween `--shadow`
+  (canon hoofdstuk 6: hairline of schaduw, niet beide).
+- **Statuspil als transparant vlak** met een `border.semantic` hairline en de `semantic.*`-kleur
+  als tekst, conform canonamendement C-2. Geen gevulde badge meer.
+- **Newsreader zelf gehost** uit de North Star, geen externe CDN. Server serveert `.woff2` nu als
+  `font/woff2`.
+- **Toegankelijkheid:** twee echte WCAG AA-fouten opgelost (`text.quiet` 3,74 naar 5,00 en
+  consent-ok 4,41 naar 4,92). Klikbare `div`/`span` vervangen door echte `<button type="button">`,
+  waardoor de Inbox van 8 naar 15 Tab-stops ging.
+- **Zichtbare copy** ontdaan van streepjes als stijlmiddel, en labelmaps toegevoegd
+  (`STATUS_LABEL`, `EVAL_LABEL`, `CONSENT_LABEL`, `CHANNEL_LABEL`, `JOURNEY_LABEL`,
+  `DELIVERY_LABEL`) zodat ruwe enumwaarden niet meer in de UI verschijnen.
+
+### Verificatie op het moment van de freeze
+
+Uitsluitend de bestaande controles, zonder nieuwe ontwerpcriteria.
+
+| Controle | Resultaat |
+|---|---|
+| Token en checksum (`tools/check-tokens.mjs`) | 3/3 pass |
+| Testsuite (`npm test`) | 64 tests, 0 fail, 9 overgeslagen (vereisen live Postgres) |
+| Toegankelijkheid, overflow, console, reduced-motion (`tools/visual/audit.mjs`) | alles groen over 3 oppervlakken × 2 viewports |
+| Focusring op elke Tab-stop | Workspace 7, Inbox 15, Testerbeheer 51 desktop en 49 mobiel |
+| Statuspillen AA (`.att`) | Workspace 7/7, Inbox 6/6 |
+| Statusbadges AA (`.status-badge`, handmatig, zie schuld 3) | 12/12 states, laagste 4,92:1 |
+| Horizontale overflow | 0px op 1280 en op 390, alle oppervlakken |
+| Reduced motion | 0 lopende animaties, 0 elementen onzichtbaar door een niet-gestarte animatie |
+| Drift sinds de beoordeling | hercapture van 56 renders, 56/56 byte-identiek |
+| Delta tegenover de pre-harmonisatie baseline | 56/56 gewijzigd, 99,3 tot 100 procent van de pixels. Verwacht: grond en letter veranderen op elk oppervlak |
+
+### Bewust openstaande afwijkingen en technische schuld
+
+1. **Inbox heeft geen weg terug als de Communication Layer uit staat.** `comm.js:14` vervangt de
+   volledige `document.body` door de activatiebanner, waardoor de header en de link naar
+   Testerbeheer verdwijnen. Bestaand gedrag, ongewijzigd door de harmonisatie. Niet gerepareerd,
+   omdat dat buiten de scope van deze workstream valt.
+2. **Workspace heeft geen vast menu-item.** Die wordt contextueel bereikt vanuit een rij in
+   Testerbeheer (`app.js:296`) of een gesprek in de Inbox (`comm.js:100`). Bij een lege store
+   bestaan die ingangen niet. Bestaand gedrag, ongewijzigd.
+3. **`audit.mjs` dekt alleen de `.att`-pil.** De `.status-badge` van Testerbeheer valt buiten de
+   geautomatiseerde contrastcheck, waardoor die als "0 statuspillen" groen meldt. Bij de freeze
+   handmatig gemeten over alle 12 states, alle boven AA. Schuld: de check uitbreiden naar
+   `.status-badge`.
+4. **`--priv: #8a3a63` in `comm.html` blijft een lokale waarde.** Bewust niet gecanoniseerd: de
+   Privacy-inbox is een context, en `surface.private` bestaat in de canon alleen in dagregime.
+5. **De focusring is een implementatiekeuze, geen canon.** 2px `copper-500` met 2px offset,
+   afgesproken als zodanig bij de pilotgate.
+6. **9 tests blijven overgeslagen** zolang er geen `DATABASE_URL` is. Dat zijn de
+   Communication Layer DB-tests, niet de visuele laag.
+7. **Canonchecksum 1.0.0 (`04d6b40907f2bbda`) is niet reproduceerbaar.** Die waarde dateert van
+   vóór de generatorregel in canon hoofdstuk 17. Vanaf 1.0.2 is de checksum wel reproduceerbaar.
+8. **De server bindt standaard op `127.0.0.1`** (`server/config.mjs:40`). Op Render moet `HOST`
+   expliciet op `0.0.0.0` staan, anders zakt de deploy door de poortscan. Kostte twee mislukte
+   deploys bij het opzetten van de preview. Geen visueel punt, wel een deployvalkuil.
+
+### Merge-readiness
+
+- **Inhoudelijk:** de branch is compleet en groen. Geen ongecommitte wijzigingen, branch tip gelijk
+  aan origin.
+- **Eén blokkade:** PR #2 staat op `mergeable_state: dirty`. De basis
+  (`claude/invitation-manager-mvp-d5r5h8`) liep zes commits vooruit met de
+  signature- en motionstudies. De enige echte conflict zit in `.gitignore`, waar beide kanten een
+  regel achteraan toevoegden. `server/index.mjs` merget vanzelf. Oplossing is mechanisch: beide
+  regels behouden.
+- **Tweede punt:** de beschrijving van PR #2 is automatisch gegenereerd en beschrijft een eerdere
+  tussenstand. Die noemt Testerbeheer nog `night`, de grond nog `ink.980`, `index.html` nog "Lens",
+  en `comm.html` nog een byte-identieke controlegroep. Geen van die vier klopt nog.
+- **Niet mergen en niet naar productie deployen** zonder expliciete GO.
+
+### Wat hierna NIET volgt
+
+De volgende ontwerpfase is geen verdere harmonisatie, maar een afzonderlijke
+**Maculis signature- en magic-laag**: sterren, zeer subtiele onverwachte beweging, kleine
+typografische en woordelijke verschuivingen, momenten waarop de interface bijna levend lijkt.
+Die laag komt bovenop deze goedgekeurde canonieke basis, is betekenisgedreven en schaars,
+respecteert `prefers-reduced-motion` volledig, introduceert geen nieuwe canonwaarden zonder
+aparte canongate, en wordt **niet** in deze harmonisatiebranch gebouwd. De bestaande
+signature- en motionstudies (branch `claude/maculis-signature-magic-study-qtjg5z` en de studies
+op de basisbranch) en de Visual DNA dienen daar later als onderzoeksbron.
+
+---
+
 ## 2026-08-15 — Scope & ownership: Communication Layer grens (productbeslissing)
 
 **Geen code-wijziging. Uitsluitend een vastgelegde scope/ownership-grens** (op verzoek), zodat
