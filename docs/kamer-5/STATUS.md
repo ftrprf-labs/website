@@ -1,5 +1,10 @@
 # Kamer 5 · Status en parkeerplaats
 
+> **De werkstroom is per 18 augustus 2026 PARKED.** Zie `PARK-NOTE.md`. De volgende stap hieronder
+> is daarmee vervallen: er wordt niet op GO gewacht en er wordt niets hervat tot een van de
+> aanleidingen in de park-note zich voordoet.
+
+
 **Lees dit eerst.** Eén pagina met wat vaststaat, wat geparkeerd is en wat de volgende stap is.
 Bijgewerkt: 18 augustus 2026.
 
