@@ -4,9 +4,9 @@
 
    canon      UX-VISUAL-DNA  ·  Maculis Visual DNA v1.0 (vastgesteld)
    bron       ftrprf-labs/ftrlabs-docs  03-ux/principles/maculis-visual-dna.md
-   versie     1.0.2
+   versie     1.0.3
    datum      2026-08-18
-   checksum   b95d91b7a0a82c18
+   checksum   a8a21414415b8e06
    generator  .github/scripts/generate_tokens.py
 
    Gebruik per kamer:
@@ -68,6 +68,12 @@
   /* ---- border  ·  nooit neutraal grijs (canon 6) ---- */
   --border-hairline: rgba(200,137,74,.18);
   --border-defined: rgba(200,137,74,.34);
+
+  /* ---- schaduw  ·  diffuus of hij is er niet; nooit samen met een hairline (canon 6) ---- */
+  --shadow-diffuse: 0 22px 55px -32px rgba(0,0,0,.85);
+
+  /* ---- scrim  ·  warm gedempt, nooit puur zwart (canon 12) ---- */
+  --scrim-modal: rgba(4,2,1,.62);
 
   /* ---- motion  ·  een curve, de duur verschilt per kamer ---- */
   --motion-ease: cubic-bezier(.22,.61,.36,1);
