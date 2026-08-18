@@ -6,6 +6,14 @@ const api = (p, o) => fetch(p, { ...o, headers: { 'Content-Type': 'application/j
 const qs = new URLSearchParams(location.search);
 const fmt = (d) => (d ? new Date(d).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '');
 const fmtd = (d) => (d ? new Date(d).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+// Canon 10: statuslabels zijn Nederlands en menselijk. Geen Engelse hoofdletterbadges.
+// Uitsluitend weergave: de opgeslagen waarden en alle logica blijven ongewijzigd.
+const CHANNEL_LABEL = { EMAIL: 'E-mail', WHATSAPP: 'WhatsApp', SMS: 'Sms', PHONE: 'Telefoon', SOCIAL: 'Social' };
+const chan = (c) => CHANNEL_LABEL[c] || (c ? c.charAt(0) + c.slice(1).toLowerCase() : '');
+const JOURNEY_LABEL = { DRAFT: 'Concept', SENT: 'Verstuurd', OPENED: 'Geopend', COMPLETED: 'Afgerond' };
+const DELIVERY_LABEL = { queued: 'in wachtrij', sent: 'verstuurd', delivered: 'afgeleverd', opened: 'geopend', bounced: 'niet aangekomen', failed: 'mislukt', complained: 'als spam gemarkeerd' };
+const delivery = (d) => DELIVERY_LABEL[String(d || '').toLowerCase()] || d || '';
+
 function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2200); }
 
 const STATE = { tab: 'overzicht', rel: null, contactId: null, convId: null, draft: null, convData: null, status: null };
@@ -45,7 +53,7 @@ async function loadRel() {
 function render() {
   const rel = STATE.rel; const c = rel.contact || {}; const o = rel.organization || {}; const s = rel.summary || {};
   const who = [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || 'Onbekend';
-  const ids = (rel.identities || []).map((i) => `<div class="id"><span class="ch">${esc(i.channel)}</span><span class="v">${esc(i.value)}</span></div>`).join('')
+  const ids = (rel.identities || []).map((i) => `<div class="id"><span class="ch">${esc(chan(i.channel))}</span><span class="v">${esc(i.value)}</span></div>`).join('')
     || `<div class="id"><span class="ch">E-mail</span><span class="v">${esc(c.email || '—')}</span></div>` + (c.mobile ? `<div class="id"><span class="ch">Telefoon</span><span class="v">${esc(c.mobile)}</span></div>` : '');
   const chip = (l, v) => `<span class="chip"><b>${v}</b> ${l}</span>`;
   const badge = (n) => (n ? `<span class="badge">${n}</span>` : '');
@@ -85,7 +93,7 @@ function selectTab(tab) {
 
 function renderOverzicht(v) {
   const rel = STATE.rel; const s = rel.summary || {}; const o = rel.organization || {}; const c = rel.contact || {};
-  const convs = (rel.conversations || []).slice(0, 5).map((cv) => `<div class="list-item" data-act="goComm" data-id="${cv.id}"><div class="li-t">${esc(cv.subject || '(zonder onderwerp)')} <span class="att ${cv.status === 'NEW' ? 'new' : ''}">${esc(cv.channel)}</span></div><div class="li-s">${esc((cv.last_body || '').slice(0, 90))}</div></div>`).join('') || '<div class="empty">Nog geen communicatie.</div>';
+  const convs = (rel.conversations || []).slice(0, 5).map((cv) => `<div class="list-item" data-act="goComm" data-id="${cv.id}"><div class="li-t">${esc(cv.subject || '(zonder onderwerp)')} <span class="att ${cv.status === 'NEW' ? 'new' : ''}">${esc(chan(cv.channel))}</span></div><div class="li-s">${esc((cv.last_body || '').slice(0, 90))}</div></div>`).join('') || '<div class="empty">Nog geen communicatie.</div>';
   const fus = (rel.followUps || []).map((f) => `<div class="list-item"><div class="li-t">${esc(f.title)} ${f.overdue ? '<span class="att delivery_problem">verlopen</span>' : ''}</div><div class="li-s">${f.due_at ? ('uiterlijk ' + fmtd(f.due_at)) : 'geen datum'}${f.channel_hint ? (' · ' + f.channel_hint) : ''}</div></div>`).join('') || '<div class="empty">Geen open follow-ups.</div>';
   v.innerHTML = `<h2 class="sec">Overzicht</h2>
     <div class="grid2">
@@ -94,7 +102,7 @@ function renderOverzicht(v) {
         <div class="k">Domein</div><div>${esc(o.primary_domain || '—')}</div>
         <div class="k">Contactpersoon</div><div>${esc([c.first_name, c.last_name].filter(Boolean).join(' ') || '—')}</div>
         <div class="k">Relatie</div><div>${esc(rel.stage || '—')}</div>
-        <div class="k">First Five</div><div>${esc(rel.journey ? rel.journey.status || '—' : '—')}</div>
+        <div class="k">First Five</div><div>${esc(rel.journey ? (JOURNEY_LABEL[rel.journey.status] || rel.journey.status || 'geen') : 'geen')}</div>
         <div class="k">Laatste activiteit</div><div>${fmt(s.lastActivityAt) || '—'}</div>
       </div></div>
       <div class="card">
@@ -104,7 +112,7 @@ function renderOverzicht(v) {
           <button class="btn" data-act="quickFollowUp">Follow-up plannen</button>
           <button class="btn" data-act="tab" data-tab="activiteit">Historie</button>
         </div>
-        <p class="aihint">Vanaf hier mail je, WhatsApp je, sms't of bel je — Maculis stelt alvast een antwoord voor.</p>
+        <p class="aihint">Vanaf hier mail je, WhatsApp je, sms't of bel je. Maculis stelt alvast een antwoord voor.</p>
       </div>
     </div>
     <div class="grid2">
@@ -117,9 +125,9 @@ function renderJourney(v) {
   const j = STATE.rel.journey;
   const steps = ['DRAFT', 'SENT', 'OPENED', 'COMPLETED'];
   const cur = j ? steps.indexOf((j.status || '').toUpperCase()) : -1;
-  v.innerHTML = `<h2 class="sec">Journey — First Five</h2>
+  v.innerHTML = `<h2 class="sec">Journey · First Five</h2>
     <div class="card">
-      ${j ? `<div class="tl">${steps.map((st, i) => `<div class="ev"><div class="d">${i <= cur ? '✓ bereikt' : 'nog niet'}</div><div class="b" style="color:${i <= cur ? 'var(--goldsoft)' : 'var(--faint)'}">${st}</div></div>`).join('')}</div>
+      ${j ? `<div class="tl">${steps.map((st, i) => `<div class="ev"><div class="d">${i <= cur ? '✓ bereikt' : 'nog niet'}</div><div class="b" style="color:${i <= cur ? 'var(--goldsoft)' : 'var(--faint)'}">${esc(JOURNEY_LABEL[st] || st)}</div></div>`).join('')}</div>
         <p class="aihint">Campagne: ${esc(j.campaign || '—')}. De volledige First Five-ervaring blijft in de journey zelf; hier zie je de status en historie.</p>`
       : '<div class="empty">Deze relatie heeft (nog) geen First Five journey.</div>'}
     </div>`;
@@ -127,7 +135,7 @@ function renderJourney(v) {
 
 function renderInzichten(v) {
   const rel = STATE.rel;
-  const consent = Object.entries(rel.consent || {}).map(([ch, st]) => `<div class="kv"><div class="k">${ch}</div><div>${st.allowed ? '<span style="color:var(--ok)">toegestaan</span>' : '<span style="color:var(--warn)">niet toegestaan (' + esc(st.reason) + ')</span>'}</div></div>`).join('');
+  const consent = Object.entries(rel.consent || {}).map(([ch, st]) => `<div class="kv"><div class="k">${esc(chan(ch))}</div><div>${st.allowed ? '<span style="color:var(--ok)">toegestaan</span>' : '<span style="color:var(--warn)">niet toegestaan (' + esc(st.reason) + ')</span>'}</div></div>`).join('');
   const mem = (rel.memory || []);
   const memRows = mem.map((m) => {
     const proposed = m.confidence === 'proposed';
@@ -135,7 +143,7 @@ function renderInzichten(v) {
       ${proposed ? `<div class="li-s"><button class="btn" data-act="confirmMemory" data-id="${m.id}">Bevestigen</button> <button class="btn" data-act="dismissMemory" data-id="${m.id}">Verwerpen</button></div>` : `<div class="li-s">vastgelegd${m.valid_until ? ' · tot ' + fmtd(m.valid_until) : ''}</div>`}</div>`;
   }).join('') || '<div class="empty">Nog geen vastgelegde afspraken. Maculis stelt ze voor vanuit gesprekken; jij bevestigt.</div>';
   v.innerHTML = `<h2 class="sec">Inzichten</h2>
-    <div class="card"><h2 class="sec">Relatiegeheugen — afspraken en feiten</h2>${memRows}
+    <div class="card"><h2 class="sec">Relatiegeheugen · afspraken en feiten</h2>${memRows}
       <p class="aihint">AI-voorstellen worden pas een vastgelegd feit nadat jij ze bevestigt. Bevestigde afspraken helpen Maculis bij toekomstige concepten.</p>
     </div>
     <div class="card"><h2 class="sec">Toestemming per kanaal</h2>${consent || '<div class="empty">Geen contact gekoppeld.</div>'}</div>
@@ -149,7 +157,7 @@ async function dismissMemory(id) { const r = await api('/api/comm/memory/' + id,
 async function renderCommunicatie(v) {
   v.innerHTML = '<div class="comm"><div class="convs" id="convs"></div><div class="thread" id="thread"><div class="empty" style="padding:24px">Kies een gesprek of start een nieuw bericht.</div></div></div>';
   const convs = STATE.rel.conversations || [];
-  $('#convs').innerHTML = convs.map((cv) => `<div class="conv" data-act="openConv" data-id="${cv.id}"><div class="t">${esc(cv.subject || '(zonder onderwerp)')}</div><div class="s">${esc(cv.channel)} · ${esc((cv.last_body || '').slice(0, 50))}</div></div>`).join('') || '<div class="empty" style="padding:16px">Nog geen gesprekken.</div>';
+  $('#convs').innerHTML = convs.map((cv) => `<div class="conv" data-act="openConv" data-id="${cv.id}"><div class="t">${esc(cv.subject || '(zonder onderwerp)')}</div><div class="s">${esc(chan(cv.channel))} · ${esc((cv.last_body || '').slice(0, 50))}</div></div>`).join('') || '<div class="empty" style="padding:16px">Nog geen gesprekken.</div>';
   if (STATE.convId) openConv(STATE.convId);
   else if (convs[0]) openConv(convs[0].id);
 }
@@ -162,7 +170,7 @@ async function openConv(id) {
   if (r.status !== 200) { $('#thread').innerHTML = '<div class="empty" style="padding:24px">Kon gesprek niet laden.</div>'; return; }
   STATE.convData = r.body;
   const d = r.body; const c = d.conversation;
-  const msgs = (d.messages || []).map((m) => `<div class="m ${m.direction === 'INBOUND' ? 'in' : 'out'}"><div class="meta">${m.direction === 'INBOUND' ? esc(m.from_address || '') : 'Maculis'} · ${esc(m.channel)} · ${fmt(m.created_at)} ${m.direction === 'OUTBOUND' ? ('<span class="del">' + esc(m.delivery) + '</span>') : ''}</div>${esc(m.body_text || '')}</div>`).join('') || '<div class="empty">Geen berichten.</div>';
+  const msgs = (d.messages || []).map((m) => `<div class="m ${m.direction === 'INBOUND' ? 'in' : 'out'}"><div class="meta">${m.direction === 'INBOUND' ? esc(m.from_address || '') : 'Maculis'} · ${esc(chan(m.channel))} · ${fmt(m.created_at)} ${m.direction === 'OUTBOUND' ? ('<span class="del">' + esc(delivery(m.delivery)) + '</span>') : ''}</div>${esc(m.body_text || '')}</div>`).join('') || '<div class="empty">Geen berichten.</div>';
   const ai = d.ai_draft ? `<div class="aipanel"><h4>Maculis begrijpt dit gesprek</h4><div class="sum">${esc(d.ai_draft.summary || '')}</div><div class="sug" id="sugbar"></div></div>` : '';
   $('#thread').innerHTML = `<div class="msgs" id="msgs">${msgs}${ai}</div><div class="composer" id="composer"></div>`;
   $('#msgs').scrollTop = 99999;
@@ -188,7 +196,7 @@ function channelButtons() {
   const cur = STATE.draft.draft.channel;
   return sendable.map((ch) => {
     const cs = consent[ch]; const blocked = cs && !cs.allowed;
-    return `<span class="chan ${ch === cur ? 'on' : ''} ${blocked ? 'blocked' : ''}" title="${blocked ? ('Geblokkeerd: ' + esc(cs.reason)) : ''}" ${blocked ? '' : `data-act="switchChannel" data-ch="${ch}"`}>${ch === 'EMAIL' ? 'E-mail' : ch === 'WHATSAPP' ? 'WhatsApp' : ch}</span>`;
+    return `<span class="chan ${ch === cur ? 'on' : ''} ${blocked ? 'blocked' : ''}" title="${blocked ? ('Geblokkeerd: ' + esc(cs.reason)) : ''}" ${blocked ? '' : `data-act="switchChannel" data-ch="${ch}"`}>${esc(chan(ch))}</span>`;
   }).join('');
 }
 
@@ -200,7 +208,7 @@ function renderComposer() {
     <div class="aichat">
       <div class="log" id="chatlog">${chat.map((m) => `<div class="cm ${m.role}">${esc(m.content)}</div>`).join('')}</div>
       <div class="aibar">
-        <input id="aiin" placeholder="Zeg wat Maculis moet doen — bv. maak dit warmer en korter">
+        <input id="aiin" placeholder="Zeg wat Maculis moet doen, bv. maak dit warmer en korter">
         <button class="btn" data-act="sendChat">Vraag Maculis</button>
       </div>
       <div class="aihint">Bijvoorbeeld: “Reageer alleen op zijn laatste vraag” · “Maak hiervan een WhatsApp” · “Waarom stel je dit voor?”</div>
