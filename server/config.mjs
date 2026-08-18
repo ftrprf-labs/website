@@ -111,6 +111,13 @@ export const config = {
   signatureSenderName: process.env.SIGNATURE_SENDER_NAME || 'Ludwig van der Kuijl',
   // The signature payoff/tagline — subtle, not a marketing slogan.
   signaturePayoff: process.env.SIGNATURE_PAYOFF || 'Kijk nog eens.',
+  // Role and location are OPTIONAL and default to empty on purpose: contact data is never invented
+  // (§3). An empty value omits the whole line, it never renders a placeholder.
+  signatureRole: (process.env.SIGNATURE_ROLE || '').trim(),
+  signatureLocation: (process.env.SIGNATURE_LOCATION || '').trim(),
+  // The violet "in wording" line from the Visual DNA. Canon: violet is meaning in the making, and
+  // the line is optional by design. Set SIGNATURE_WORDING='' to drop it (and its violet star).
+  signatureWording: process.env.SIGNATURE_WORDING === undefined ? 'In wording.' : process.env.SIGNATURE_WORDING.trim(),
 
   // ---- Omnichannel provider adapters (§14-18, §66) ------------------------------------------
   // No secrets in code. When a channel's credentials are absent the adapter runs in MOCK mode and

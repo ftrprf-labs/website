@@ -35,6 +35,7 @@ def build(colors, path):
     q = [f.quantize(palette=pal, dither=Image.Dither.NONE) for f in seq]
     q[0].save(path, save_all=True, append_images=q[1:], duration=delays,
               disposal=1, optimize=True)   # geen loop parameter, dus geen lus
+    build.rest_quantized = q[0]            # exact het eerste (en laatste) frame van de GIF
     err = max(max(ImageChops.difference(f, qi.convert('RGB')).getextrema(),
                   key=lambda x: x[1])[1] for f, qi in zip(seq, q))
     return os.path.getsize(path), err
@@ -49,7 +50,10 @@ for c in (32, 64, 128, 256):
 choice = int(sys.argv[1]) if len(sys.argv) > 1 else 128
 final = os.path.join(OUT, 'maculis-seal-perceive-v1.gif')
 size, err = build(choice, final)
-rest.save(os.path.join(OUT, 'maculis-seal-rest-v1.png'), optimize=True)
+# De statische PNG is niet de bronrender maar EXACT het eerste frame van de GIF.
+# Anders zien een ontvanger met rustige beweging en een ontvanger met de GIF twee
+# nipt verschillende beelden, en dat breekt de regel eerste = laatste = fallback.
+build.rest_quantized.convert('RGB').save(os.path.join(OUT, 'maculis-seal-rest-v1.png'), optimize=True)
 for c, _, _ in results:
     os.remove(os.path.join(OUT, f'_test-{c}.gif'))
 
@@ -62,5 +66,7 @@ identical = ImageChops.difference(first, last).getbbox() is None
 print()
 print(f'GIF   {size/1024:.1f} kB, {gif.n_frames} frames, palet {choice}, afwijking {err}/255')
 print(f'PNG   {png/1024:.1f} kB, {rest.width} bij {rest.height}')
+png_img = Image.open(os.path.join(OUT, 'maculis-seal-rest-v1.png')).convert('RGB')
 print(f'eerste frame gelijk aan laatste frame: {identical}')
+print(f'statische PNG gelijk aan frame 1     : {ImageChops.difference(first, png_img).getbbox() is None}')
 print(f'Netscape lusblok aanwezig: {b"NETSCAPE" in open(final, "rb").read()}')

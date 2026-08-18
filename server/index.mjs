@@ -34,7 +34,17 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
   '.json': 'application/json; charset=utf-8',
+  // Signature assets are fetched by external mail clients and their image proxies. Without a real
+  // image content type they are served as octet-stream and proxies (Gmail, Outlook) refuse them.
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
 };
+// Asset types that must NEVER fall through to the SPA: a mail client asking for a missing image
+// has to get a 404, not an HTML page with status 200 (which renders as a broken image forever).
+const ASSET_EXT = new Set(['.png', '.gif', '.jpg', '.jpeg', '.webp', '.svg', '.ico', '.css', '.js', '.json']);
 
 // ---- helpers -------------------------------------------------------------
 
@@ -198,6 +208,10 @@ async function serveStatic(req, res, urlPath) {
     });
     res.end(data);
   } catch {
+    if (ASSET_EXT.has(extname(full).toLowerCase())) {
+      res.writeHead(404, securityHeaders).end('Not found');
+      return;
+    }
     // SPA fallback: serve index.html for unknown non-API paths.
     try {
       const data = await readFile(join(PUBLIC, 'index.html'));
@@ -642,6 +656,11 @@ if (config.production) {
   // 3. The public Journey link must be a real HTTPS URL, never localhost.
   if (!/^https:\/\//i.test(config.maculisPublicUrl) || isLocalUrl(config.maculisPublicUrl)) {
     problems.push(`MACULIS_PUBLIC_URL must be a public https:// URL (got "${config.maculisPublicUrl}") — invitations may not contain localhost.`);
+  }
+  // Not a security problem, so never fatal: a signature asset base that is not publicly reachable
+  // only breaks the e-mail signature image for external recipients. Warn loudly, keep serving.
+  if (!/^https:\/\//i.test(config.signatureAssetBase) || isLocalUrl(config.signatureAssetBase)) {
+    console.warn(`[SIGNATURE] SIGNATURE_ASSET_BASE is "${config.signatureAssetBase}" — mail clients cannot load signature images from a non-public URL; the static fallback text stays intact.`);
   }
   if (problems.length) {
     console.error('\n[SECURITY] Refusing to start in production:\n' + problems.map((p) => '  - ' + p).join('\n') + '\n');
