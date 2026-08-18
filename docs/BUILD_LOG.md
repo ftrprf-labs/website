@@ -155,6 +155,75 @@ Vast te leggen zodat het niet bij de laatste GO vergeten wordt.
 
 ---
 
+## 2026-08-18 — Website naar productie: `main` staat op `39db6f7`, publieke verificatie geblokkeerd
+
+Lud heeft de productiekoppeling zelf in Vercel geverifieerd en GO gegeven. Vastgelegd zoals
+opgegeven: Vercel-project `groeiplatform-website`, gekoppeld aan
+`ftrprf-labs/groeiplatform-website`, Production Branch `main`, elke commit naar `main` maakt een
+Production Deployment, `Auto-assign Custom Production Domains` staat Enabled, en `www.maculis.nl`
+hangt aan Production.
+
+**Preflight op exact de kandidaat die naar `main` ging.**
+
+`main` stond op `3e8c00e` en was een directe voorouder van `39db6f7`, dus de overgang is een
+**fast-forward zonder mergecommit**. Wat op `main` staat is daarmee byte-identiek aan de
+goedgekeurde en geteste boom. Geen enkele nieuwe wijziging toegevoegd.
+
+Tien commits gingen mee. De diff raakt 27 bestanden buiten de baselineafbeeldingen en de
+gevendorde letter. Wat er **niet** in zit en dat wel had gekund: `package.json`,
+`package-lock.json`, `next.config.mjs`, `tsconfig.json` en `postcss.config.mjs` zijn geen van alle
+gewijzigd, dus er komt geen nieuwe dependency en geen configuratiewijziging mee. De A/B-route
+`/f5-ab` uit commit `eae9d72` was in een latere commit al opgeruimd en gaat dus niet live.
+
+Nieuw in deze preflight, want dit codepad was nooit eerder uitgevoerd: een build met
+`VERCEL_ENV=production`, de stand die Vercel zelf zet. Uitkomst:
+
+| Controle onder `VERCEL_ENV=production` | Uitkomst |
+|---|---|
+| `robots.txt` | `Allow: /`, de vijf legacy demo-routes op `Disallow`, `Host` en `Sitemap` op `https://www.maculis.nl` |
+| `sitemap.xml` | twee URL's, `/` en `/privacy`, beide op `https://www.maculis.nl` |
+| Robots-metatag op `/` en `/privacy` | `index, follow` |
+| Canonicals | `https://www.maculis.nl` en `https://www.maculis.nl/privacy` |
+| Kernroutes | `/`, `/privacy`, `/sitemap.xml`, `/robots.txt`, `/manifest.webmanifest`, `/opengraph-image` alle 200 |
+
+Bij de eerste meting leek de homepage `noindex, nofollow` te dragen. Dat was een meetfout: een
+oude `next-server` uit de capture-runs hield poort 4610 nog vast en bediende een mengsel van twee
+builds. Op een schone server klopt alles. De code is niet aangeraakt.
+
+**Push.** `39db6f7` is als fast-forward naar `main` geduwd (`3e8c00e..39db6f7`). Op GitHub staat
+`main` bevestigd op `39db6f720ca0fadf67bea7532b2e4f1f71c5056f`. Niets gewijzigd aan DNS, Domains,
+Environment Variables, Vercel-projectinstellingen of hostingconfiguratie.
+
+**Wat NIET geverifieerd kon worden, en waarom.**
+
+De egresspolicy van deze sessie weigert beide productiehosts. De proxy registreerde het letterlijk:
+
+```
+connect_rejected  www.maculis.nl:443  gateway answered 403 to CONNECT (policy denial)
+connect_rejected  maculis.nl:443      gateway answered 403 to CONNECT (policy denial)
+```
+
+Daardoor is vanuit deze sessie **niet** te controleren: of de Vercel Production Deployment slaagde,
+welke commit productie feitelijk serveert, en het gedrag van de publieke site (homepage,
+kernroutes, letters, motion en constellatie, reduced motion, responsive, formulieren en CTA's,
+console, en de canonical-, robots- en sitemap-uitvoer op het echte domein). Er is ook geen
+Vercel-connector aan deze sessie gekoppeld, dus de deploymentstatus is evenmin langs die weg te
+lezen. De handleiding van de proxy is expliciet dat een policyweigering niet omzeild of herhaald
+mag worden, en dat is dan ook niet gedaan.
+
+**Rollbackpunt.** Twee, en beide staan.
+
+1. De vorige productiecommit is `3e8c00e89ca2663410f3f216d95a81a16b119807`. Terugzetten is een
+   push van die commit naar `main`, waarna Vercel opnieuw deployt. In Vercel zelf kan de vorige
+   Production Deployment ook direct gepromoveerd worden.
+2. De Render-preview `srv-da27a1r7uimc73dvhntg` draait live op `39db6f7` en blijft staan als
+   vergelijkingsreferentie. Niet verwijderen tot productie definitief geverifieerd is.
+
+**Status: niet CLOSED.** De overgang is uitgevoerd, de publieke verificatie niet. De
+harmonisatie sluit pas als iemand met toegang tot `www.maculis.nl` de verificatielijst afloopt.
+
+---
+
 ## 2026-08-18 — Website harmonisatie Visual DNA v1.0: visueel akkoord en freeze
 
 **Lud heeft finale GO gegeven op de Website.** Commit
@@ -211,7 +280,7 @@ de meting aangepast, niet de productcode.
 
 ---
 
-## 2026-08-18 — Productiekoppeling Website: Vercel, niet Render. Deploy staat stil
+## 2026-08-18 — Productiekoppeling Website: Vercel, niet Render (opgelost, zie de sectie hierboven)
 
 De Website staat **niet** op Render. Dat is met DNS aangetoond en niet aangenomen.
 
@@ -223,9 +292,9 @@ De Website staat **niet** op Render. Dat is met DNS aangetoond en niet aangenome
 | Render-ingress ter vergelijking | `216.24.57.15`, met PTR `ip-216-24-57-15.ingress.render.com`. Geen van de maculis-adressen valt daarin |
 | Render-services met een maculis-domein | geen. Zeven services in de workspace, alle op `*.onrender.com` |
 | Repository | vrijwel zeker `ftrprf-labs/groeiplatform-website`. Enige repo in de organisatie die `maculis.nl` noemt, en de enige met `VERCEL_ENV` in de code |
-| Branch in Vercel | **niet vast te stellen vanuit deze sessie** |
-| Huidige productiecommit | **niet vast te stellen vanuit deze sessie** |
-| autoDeploy | onbekend, want de Vercel-projectinstellingen zijn niet leesbaar |
+| Branch in Vercel | **`main`**, naderhand door Lud in Vercel bevestigd |
+| Productiecommit op het moment van dit onderzoek | `3e8c00e`, inmiddels vervangen door `39db6f7` |
+| autoDeploy | **aan**: elke commit naar `main` maakt een Production Deployment |
 | Externe deploykoppeling | ja, Vercel. Geen `vercel.json` en geen `.vercel` in enige repo van de organisatie, dus de koppeling zit volledig in het Vercel-project |
 
 Twee harde blokkades in deze sessie: de egressproxy blokkeert `maculis.nl` en `onrender.com`, dus
