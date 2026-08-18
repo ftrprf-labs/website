@@ -21,6 +21,7 @@ import {
   cookieHeaderFor,
 } from './auth.mjs';
 import { handleComm } from './comm/routes.mjs';
+import { handleMijn } from './mijn/routes.mjs';
 import { migrateOnBoot } from './comm/migrate.mjs';
 import { commEnabled } from './comm/db.mjs';
 import { bridgePassTheLens } from './comm/pass-the-lens.mjs';
@@ -239,6 +240,13 @@ async function handleApi(req, res, pathname) {
   // existing Invitation Manager / First Five routes.
   if (pathname.startsWith('/api/comm/')) {
     const handled = await handleComm(req, res, { pathname, method, isAuthed });
+    if (handled) return;
+  }
+
+  // Mijn Maculis — customer-facing routes (token-authenticated, NOT admin-gated). Additive; shares
+  // the Communication Layer's Postgres. Never touches the Invitation Manager / First Five routes.
+  if (pathname.startsWith('/api/mijn/')) {
+    const handled = await handleMijn(req, res, { pathname, method });
     if (handled) return;
   }
 
@@ -700,6 +708,29 @@ server.listen(config.port, bindHost, () => {
           const res = await migrateInvitations(store.listInvitations());
           console.log(`  Comm     : relaties ${res.contactsCreated} nieuw, ${res.contactsLinked} bijgewerkt`);
         } catch (e) { console.log(`  Comm     : relatie-migratie uitgesteld (${e.message})`); }
+
+        // Slice A1: backfill an initial version + observation for any existing V1 insight that lacks
+        // one (idempotent; content copied verbatim). Additive, best-effort, never blocks the boot.
+        try {
+          const { backfillInitialVersions } = await import('./mijn/versions.mjs');
+          const bf = await backfillInitialVersions();
+          if (bf.backfilled > 0) console.log(`  Mijn Maculis: ${bf.backfilled} inzicht(en) voorzien van een beginversie`);
+        } catch (e) { console.log(`  Mijn Maculis: version-backfill uitgesteld (${e.message})`); }
+
+        // PREVIEW ONLY (§24): seed the Mijn Maculis fixtures + run a live boundary self-check when
+        // MIJN_PREVIEW_SEED is on. Triple-guarded (flag + no real customers) so it can never run or
+        // seed on production. Best-effort — never blocks or crashes the boot.
+        if (/^(1|true|yes|on)$/i.test(process.env.MIJN_PREVIEW_SEED || '')) {
+          try {
+            const { seedPreviewCore, assertNoRealCustomers, previewSelfCheck } = await import('./mijn/seed.mjs');
+            const { getDefaultTenantId } = await import('./comm/tenant.mjs');
+            const tid = await getDefaultTenantId();
+            await assertNoRealCustomers(tid);
+            const seeded = await seedPreviewCore({ tenantId: tid });
+            console.log(`  Mijn Maculis: preview geseed (${seeded.organizationName}) → ${seeded.link}`);
+            await previewSelfCheck({ tenantId: tid, organizationId: seeded.organizationId });
+          } catch (e) { console.log(`  Mijn Maculis: preview seed overgeslagen (${e.message})`); }
+        }
       } else if (!r.skipped) console.log(`  Comm     : migrations pending (${r.error})`);
     });
   }
