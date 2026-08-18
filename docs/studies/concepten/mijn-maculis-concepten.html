@@ -1,0 +1,975 @@
+<title>Drie richtingen voor Mijn Maculis</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..700;1,6..72,200..700&display=swap">
+<style>
+/* =============================================================================
+   Dit document staat in het NACHTREGIME van Maculis, zoals de Visual North Star.
+   Eén regime, bewust gekozen: prefers-color-scheme stuurt in Maculis niets aan
+   (canon 5). Alle waarden komen uit maculis-tokens.css 1.0.3, niets is verzonnen.
+   De conceptstudies staan in dagregime-frames, want dat is de kamer die we
+   ontwerpen.
+   ============================================================================= */
+:root{
+  --ink-980:#0a0b10; --ink-950:#080503; --ink-900:#0f0a06; --ink-800:#14120f;
+  --ink-700:#1d130b; --ink-600:#251a10;
+  --ink-100:#ece2d4; --ink-200:#a89a86; --ink-300:#8b8377; --ink-50:#f7f1e6;
+  --copper:#c8894a; --copper-400:#e6a866; --copper-700:#8a5f38;
+  --gold:#d7b36a; --gold-300:#f3e387;
+  --violet:#8a79e0;
+  --jade:#1f9470;
+  --day-bg:#f7f1e6; --day-raised:#fdfbf6; --day-private:#ece0c9;
+  --day-ink:#17120c; --day-soft:#6b6152;
+  --day-copper:#925826; --day-violet:#5f4fb0; --day-jade:#097159;
+
+  --line:rgba(200,137,74,.18);
+  --line2:rgba(200,137,74,.34);
+
+  --serif:'Newsreader',Georgia,'Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --ease:cubic-bezier(.22,.61,.36,1);
+
+  --measure:66ch;
+  --pad:clamp(20px,5vw,64px);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--ink-980); color:var(--ink-100);
+  font-family:var(--sans); font-size:16px; line-height:1.65;
+  font-optical-sizing:auto; -webkit-font-smoothing:antialiased;
+}
+::selection{background:rgba(200,137,74,.28)}
+
+/* ---- grain en vignet: het veld heeft textuur, zoals in de North Star ---- */
+.grain,.vig{position:fixed;inset:0;pointer-events:none;z-index:0}
+.vig{background:radial-gradient(120% 90% at 50% 0%,transparent 40%,rgba(0,0,0,.55) 100%)}
+.grain{opacity:.05;background-image:radial-gradient(rgba(236,226,212,.9) .5px,transparent .5px);background-size:3px 3px}
+
+.wrap{max-width:1180px;margin:0 auto;padding:0 var(--pad);position:relative;z-index:1}
+.prose{max-width:var(--measure)}
+
+/* ---- typografische rollen (canon 4.2) ---- */
+h1,h2,h3,.st{font-family:var(--serif);font-weight:300;letter-spacing:-.017em;text-wrap:balance;margin:0}
+h1{font-size:clamp(2.1rem,5.2vw,4rem);line-height:1.06}
+h2{font-size:clamp(1.6rem,3.4vw,2.7rem);line-height:1.14}
+h3{font-size:clamp(1.25rem,2.2vw,1.7rem);line-height:1.2}
+em{font-style:italic;color:var(--gold-300)}
+.lab{font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-200);margin:0}
+.lab-c{color:var(--copper)}
+.lab-v{color:var(--violet)}
+p{margin:0}
+.stem{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--ink-200)}
+a{color:var(--copper);text-decoration:none;border-bottom:1px solid var(--line2)}
+a:hover{border-bottom-color:var(--copper)}
+:focus-visible{outline:2px solid var(--copper);outline-offset:3px;border-radius:4px}
+
+/* ---- ritme ---- */
+section{padding:clamp(56px,9vw,120px) 0}
+.stack{display:flex;flex-direction:column;gap:20px}
+.stack-s{display:flex;flex-direction:column;gap:12px}
+.rule{border:0;border-top:1px solid var(--line);margin:0}
+
+/* ---- kop ---- */
+.top{padding-top:clamp(48px,10vw,110px)}
+.mark{display:flex;align-items:center;gap:12px;margin-bottom:34px}
+.mark-dot{width:9px;height:9px;border-radius:50%;background:var(--copper);
+  box-shadow:0 0 0 5px rgba(200,137,74,.12),0 0 16px 2px rgba(200,137,74,.5)}
+.mark-w{font-family:var(--serif);font-size:15px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-200)}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:30px}
+.chip{font-size:11.5px;letter-spacing:.06em;color:var(--ink-200);
+  border:1px solid var(--line);border-radius:999px;padding:5px 12px}
+.chip.no{border-color:rgba(229,103,79,.35);color:#e5674f}
+
+/* ---- verdict blok ---- */
+.verdict{border-left:2px solid #e5674f;padding:4px 0 4px 22px;margin-top:8px}
+
+/* ---- bron-grid ---- */
+.srcs{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:1px;
+  background:var(--line);border:1px solid var(--line);border-radius:16px;overflow:hidden;margin-top:34px}
+.src{background:var(--ink-900);padding:20px}
+.src p+p{margin-top:8px}
+.src .fine{font-size:13.5px;color:var(--ink-200);line-height:1.55}
+
+/* ---- concept ---- */
+.concept{scroll-margin-top:24px}
+.chead{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 18px}
+.ckey{font-family:var(--serif);font-size:13px;letter-spacing:.24em;color:var(--copper);text-transform:uppercase}
+.metaphor{font-family:var(--serif);font-style:italic;font-weight:400;
+  font-size:clamp(1.05rem,2vw,1.35rem);color:var(--gold);line-height:1.45;max-width:44ch}
+
+/* ---- het studieframe: dagregime binnen het nachtdocument ---- */
+.frame{margin-top:34px;border:1px solid var(--line);border-radius:20px;overflow:hidden;
+  background:var(--ink-900)}
+.frame-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:11px 16px;border-bottom:1px solid var(--line);background:var(--ink-800)}
+.frame-bar .lab{font-size:10.5px}
+.stagelight{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ink-200);
+  font-variant-numeric:tabular-nums}
+.stagelight i{width:6px;height:6px;border-radius:50%;background:var(--copper);flex:none;
+  box-shadow:0 0 10px 1px rgba(200,137,74,.6)}
+.day{background:var(--day-bg);color:var(--day-ink);padding:clamp(18px,3vw,30px)}
+
+/* het namaak-Mijn-Maculis-oppervlak in de studie */
+.mm{display:grid;gap:20px}
+.mm-say{font-family:var(--serif);font-weight:300;letter-spacing:-.017em;
+  font-size:clamp(1.15rem,2.5vw,1.9rem);line-height:1.18;color:var(--day-ink);
+  max-width:26ch;text-wrap:balance;min-height:2.4em;
+  opacity:0;transform:translateY(8px);transition:opacity .9s var(--ease),transform .9s var(--ease)}
+.mm-say.in{opacity:1;transform:none}
+.mm-say em{color:var(--day-copper);font-style:italic}
+.mm-lab{font-size:10.5px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--day-soft);opacity:0;transition:opacity .7s var(--ease)}
+.mm-lab.in{opacity:1}
+.mm-ev{font-size:12.5px;color:var(--day-soft);font-variant-numeric:tabular-nums;
+  opacity:0;transition:opacity .7s var(--ease)}
+.mm-ev.in{opacity:1}
+.mm-ev b{color:var(--day-ink);font-weight:600}
+.cv{display:block;width:100%;height:clamp(230px,34vw,340px);border-radius:12px}
+.studygrid{display:grid;grid-template-columns:1fr;gap:18px}
+@media(min-width:820px){
+  .studygrid{grid-template-columns:minmax(0,.86fr) minmax(0,1.14fr);align-items:center}
+  .studygrid.rev{grid-template-columns:minmax(0,1.14fr) minmax(0,.86fr)}
+  .studygrid.rev .mm{order:2}
+}
+.replay{font:inherit;font-size:12px;font-weight:600;color:var(--day-copper);
+  background:none;border:0;border-bottom:1px solid rgba(146,88,38,.4);padding:0;cursor:pointer;
+  justify-self:start;border-radius:0}
+.replay:hover{border-bottom-color:var(--day-copper)}
+.gloss{font-size:13.5px;color:var(--ink-200);line-height:1.6;padding:14px 16px;
+  border-top:1px solid var(--line);background:var(--ink-900)}
+.gloss b{color:var(--ink-100);font-weight:600}
+
+/* ---- choreografie ---- */
+.choreo{margin-top:34px;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.choreo-row{display:grid;grid-template-columns:78px 1fr;gap:16px;padding:13px 16px;
+  border-top:1px solid var(--line);align-items:baseline}
+.choreo-row:first-of-type{border-top:0}
+.choreo-t{font-size:11.5px;font-weight:600;letter-spacing:.05em;color:var(--copper);
+  font-variant-numeric:tabular-nums}
+.choreo-b{font-size:14px;color:var(--ink-100);line-height:1.55}
+.choreo-b span{color:var(--ink-200)}
+.choreo-head{padding:12px 16px;background:var(--ink-800)}
+
+/* ---- specificatie ---- */
+.spec{margin-top:34px;display:grid;gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.spec-r{display:grid;grid-template-columns:1fr;gap:4px;background:var(--ink-900);padding:16px 18px}
+@media(min-width:760px){.spec-r{grid-template-columns:200px 1fr;gap:22px;align-items:start}}
+.spec-k{font-size:11px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--copper);padding-top:3px}
+.spec-v{font-size:14.5px;color:var(--ink-100);line-height:1.6}
+.spec-v em{color:var(--gold-300);font-style:italic}
+
+/* ---- DNA-herkomst ---- */
+.dna{margin-top:22px;display:grid;gap:10px}
+.dna-i{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;
+  font-size:13.5px;color:var(--ink-200);line-height:1.55}
+.dna-i i{width:5px;height:5px;border-radius:50%;background:var(--violet);margin-top:8px;flex:none;
+  box-shadow:0 0 8px 1px rgba(138,121,224,.5)}
+.dna-i b{color:var(--ink-100);font-weight:600}
+
+/* ---- risico ---- */
+.risk{margin-top:22px;border-left:2px solid rgba(229,103,79,.5);padding:2px 0 2px 18px;
+  display:grid;gap:9px;font-size:13.5px;color:var(--ink-200);line-height:1.55}
+.risk b{color:var(--ink-100);font-weight:600}
+
+/* ---- vergelijking ---- */
+.tablewrap{overflow-x:auto;margin-top:34px;border:1px solid var(--line);border-radius:16px}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px}
+th,td{text-align:left;padding:13px 16px;border-top:1px solid var(--line);vertical-align:top}
+thead th{border-top:0;background:var(--ink-800);font-size:10.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-200);font-weight:600}
+tbody th{font-weight:600;color:var(--ink-100);white-space:nowrap}
+td{color:var(--ink-200)}
+td b{color:var(--ink-100);font-weight:600}
+
+/* ---- aanbeveling ---- */
+.rec{border:1px solid var(--line2);border-radius:20px;padding:clamp(24px,4vw,44px);
+  background:linear-gradient(180deg,var(--ink-900),var(--ink-980))}
+.rec-badge{display:inline-flex;align-items:center;gap:8px;font-size:11px;font-weight:600;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--violet);
+  border:1px solid rgba(138,121,224,.35);border-radius:999px;padding:5px 13px}
+
+/* ---- index in de kop: navigatie, geen versiering ---- */
+.tophead{display:grid;gap:clamp(34px,5vw,56px)}
+@media(min-width:960px){.tophead{grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);align-items:end}}
+.idx{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.idx a{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start;
+  background:var(--ink-900);padding:15px 17px;border:0;text-decoration:none;color:inherit;
+  transition:background var(--ease) .12s}
+.idx a:hover{background:var(--ink-800)}
+.idx-k{font-family:var(--serif);font-size:12px;letter-spacing:.2em;color:var(--copper);padding-top:3px}
+.idx-n{font-family:var(--serif);font-size:1.05rem;font-weight:300;letter-spacing:-.017em;color:var(--ink-100);display:block}
+.idx-m{font-size:12.5px;color:var(--ink-200);line-height:1.5;display:block;margin-top:3px}
+footer{padding:0 0 clamp(56px,9vw,110px)}
+.foot{font-size:13px;color:var(--ink-300);line-height:1.6}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation:none!important;transition:none!important}
+  .mm-say,.mm-lab,.mm-ev{opacity:1;transform:none}
+}
+</style>
+
+<div class="grain"></div><div class="vig"></div>
+
+<header class="top">
+  <div class="wrap">
+    <div class="mark"><span class="mark-dot"></span><span class="mark-w">Maculis</span></div>
+    <div class="tophead">
+      <div>
+        <div class="prose stack">
+          <p class="lab lab-c">Mijn Maculis · conceptfase · geen implementatie</p>
+          <h1>Drie richtingen voor de kamer waarin je <em>zichtbaar</em> wordt.</h1>
+          <p class="stem" style="font-size:1.05rem">De vorige versie was canoniek correct en productmatig dood. Dit document
+            wijst niet naar een polishronde, maar naar drie werkelijk verschillende antwoorden op dezelfde vraag.</p>
+        </div>
+        <div class="meta">
+          <span class="chip no">Huidige productervaring afgewezen</span>
+          <span class="chip">Canon UX-VISUAL-DNA v1.0 · tokens 1.0.3</span>
+          <span class="chip">Geen productiecode</span>
+          <span class="chip">Wacht op keuze</span>
+        </div>
+      </div>
+      <nav class="idx" aria-label="De drie richtingen">
+        <a href="#a"><span class="idx-k">A</span><span><span class="idx-n">Het Veld</span><span class="idx-m">Ruimte. Je kijkt in het beeld dat Maculis van jullie heeft.</span></span></a>
+        <a href="#b"><span class="idx-k">B</span><span><span class="idx-n">De Lange Belichting</span><span class="idx-m">Tijd. Waar Maculis lang genoeg keek, wordt het scherp.</span></span></a>
+        <a href="#c"><span class="idx-k">C</span><span><span class="idx-n">De Spiegel</span><span class="idx-m">Relatie. Het gedeelde beeld ontstaat waar jullie elkaar raken.</span></span></a>
+      </nav>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="prose stack">
+      <p class="lab">Waarom de vorige versie faalde</p>
+      <h2>Ik heb de canon toegepast en het leven eruit geharmoniseerd.</h2>
+      <p>De tokens klopten, het contrast klopte, de motion-poort stond groen. En toch was het resultaat
+        een net klantportaal met witte en zandkleurige kaarten. Dat oordeel klopt, en de oorzaak is
+        aanwijsbaar: ik heb de canon gelezen als een lijst verboden in plaats van als ontwerpmateriaal.</p>
+      <div class="verdict stack-s">
+        <p style="font-size:15px">Het scherpst zichtbaar in het signaalveld. De North Star draagt een volwaardige
+          veld-engine: verstrooide waarnemingen met semantische doelen, drift die afneemt naarmate betekenis
+          ontstaat, verbindingen uitsluitend binnen dezelfde dimensie, violet dat pas boven een bewijsdrempel
+          ontsteekt, en een halo waarvan de straal het aantal onafhankelijke signalen volgt.</p>
+        <p style="font-size:15px;color:var(--ink-200)">Ik bouwde daarvan vier stippen en twee lijntjes, naast een
+          grote tekst. Dat is de canon citeren zonder hem te begrijpen.</p>
+      </div>
+    </div>
+
+    <div class="srcs">
+      <div class="src">
+        <p class="lab lab-c">Teruggelezen</p>
+        <p class="fine" style="margin-top:10px">De Visual North Star toont Mijn Maculis al: een groet, één uitspraak
+          met cursieve nadruk, een tot rust gekomen veld, en vier epistemische kaarten met een <b>signaaltelling</b>
+          per kaart. Vier signalen. Negen signalen. Te weinig bewijs.</p>
+      </div>
+      <div class="src">
+        <p class="lab lab-c">Teruggelezen</p>
+        <p class="fine" style="margin-top:10px">De Lens werkt niet in pagina's maar in stadia: ontmoeting, vraag,
+          kijken, uitkomst, <b>herkenning</b>, vervolg. Met letterlijk: <span class="stem">Herken je dit? Ja · Deels · Nee</span>
+          en <span class="stem">Wat zie ik niet?</span></p>
+      </div>
+      <div class="src">
+        <p class="lab lab-c">Teruggelezen</p>
+        <p class="fine" style="margin-top:10px">De handtekeningstudie legde de wet vast die alle drie de richtingen
+          hieronder dragen: <b>er moet een gebeurtenis zijn in plaats van een toestand</b>. Een aanleiding, één
+          ademtocht bevestiging, en een einde. Nooit een lus.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ================= CONCEPT A ================= -->
+<section class="concept" id="a">
+  <div class="wrap">
+    <div class="prose stack">
+      <div class="chead"><span class="ckey">Richting A</span></div>
+      <h2>Het Veld</h2>
+      <p class="metaphor">Het beeld dat Maculis van jullie heeft is een ruimte. Je opent geen pagina's, je kijkt erin
+        en beweegt erdoorheen.</p>
+      <p>Er is geen dashboard en er zijn geen kaarten. Er is één doorlopend veld dat de hele kamer beslaat.
+        Elke waarneming is een lichtpunt op een plek die betekenis heeft: wat over hetzelfde gaat, ligt bij elkaar.
+        Navigeren is inzoomen op een deel van het veld, niet doorklikken naar een scherm. De uitspraak van
+        Maculis staat niet naast het veld maar komt eruit voort, op de plek waar het bewijs samenkomt.</p>
+    </div>
+
+    <div class="frame">
+      <div class="frame-bar">
+        <p class="lab">Studie A · dagregime · Mijn Maculis</p>
+        <span class="stagelight"><i></i><span id="stA">1 · Maculis kijkt</span></span>
+      </div>
+      <div class="day">
+        <div class="studygrid">
+          <div class="mm">
+            <p class="mm-lab" id="labA">Wat er nu zichtbaar wordt</p>
+            <p class="mm-say" id="sayA">Jullie positionering wordt intern <em>niet overal</em> hetzelfde ervaren.</p>
+            <p class="mm-ev" id="evA">Rust op <b>7</b> waarnemingen in twee bronnen. <b>3</b> daarvan kwamen deze week binnen.</p>
+            <button class="replay" type="button" data-replay="A">Speel opnieuw</button>
+          </div>
+          <canvas class="cv" id="cvA" aria-label="Een veld van waarnemingen dat zich tot één inzicht verdicht"></canvas>
+        </div>
+      </div>
+      <p class="gloss"><b>Wat je ziet.</b> Zeventien waarnemingen komen los binnen en drijven autonoom. Drie groepen
+        blijken over hetzelfde te gaan en buigen naar elkaar toe. Verbindingen ontstaan uitsluitend binnen een groep,
+        nooit op grond van afstand. Waar genoeg bewijs samenkomt ontsteekt violet, en de halo groeit met het aantal
+        signalen. Daarna staat het stil en ademt alleen het licht nog.</p>
+    </div>
+
+    <div class="choreo">
+      <div class="choreo-head"><p class="lab lab-v">De eerste tien seconden</p></div>
+      <div class="choreo-row"><span class="choreo-t">0,0 s</span><span class="choreo-b">De ruimte opent op perkament. Alleen een groet en een leeg veld. <span>Geen navigatie, geen kaarten, geen kop.</span></span></div>
+      <div class="choreo-row"><span class="choreo-t">0,4 tot 3,0</span><span class="choreo-b">Waarnemingen verschijnen op verstrooide posities en drijven traag. <span>Elk punt een eigen ritme. Nooit synchroon, nooit een golf.</span></span></div>
+      <div class="choreo-row"><span class="choreo-t">3,0 tot 5,2</span><span class="choreo-b">Punten die over hetzelfde gaan buigen naar elkaar toe en de drift neemt af. <span>Nabijheid is het gevolg van betekenis, nooit de oorzaak.</span></span></div>
+      <div class="choreo-row"><span class="choreo-t">5,2 tot 6,8</span><span class="choreo-b">Hairlines verschijnen binnen de groepen. Het veld krijgt structuur. <span>Losse punten blijven los en verbinden zich niet.</span></span></div>
+      <div class="choreo-row"><span class="choreo-t">6,8 tot 8,4</span><span class="choreo-b">Violet ontsteekt in de groep met genoeg bewijs. De halo groeit met het aantal signalen.</span></div>
+      <div class="choreo-row"><span class="choreo-t">8,4 tot 10,0</span><span class="choreo-b">De uitspraak verschijnt uit de kern, gevolgd door de telling waarop hij rust. <span>Daarna beweegt alleen het licht nog.</span></span></div>
+    </div>
+
+    <div class="spec">
+      <div class="spec-r"><p class="spec-k">Mentaal model</p><p class="spec-v">Dit is het beeld dat Maculis van ons heeft, en ik kan erin kijken. De ruimte is de kennis; de tekst is wat Maculis er op dit moment over durft te zeggen.</p></div>
+      <div class="spec-r"><p class="spec-k">Eerste scherm</p><p class="spec-v">Vrijwel leeg perkament. Een groet linksboven, een veld dat de rest van het scherm inneemt. Wat je verder nodig hebt ligt aan de randen en komt pas op als je erheen kijkt.</p></div>
+      <div class="spec-r"><p class="spec-k">Hero moment</p><p class="spec-v">Het veld componeert zichzelf uit verstrooiing tot één verlichte groep, en spreekt dan pas. <em>Je ziet het inzicht ontstaan voordat je het leest.</em></p></div>
+      <div class="spec-r"><p class="spec-k">Waarneming</p><p class="spec-v">Een koperen lichtpunt. Helderheid volgt hoe dicht het bij een inzicht staat. Wie erop wijst, leest de bron en de datum.</p></div>
+      <div class="spec-r"><p class="spec-k">Verband</p><p class="spec-v">Een hairline tussen twee punten die aantoonbaar over hetzelfde gaan. Nooit op afstand, nooit tussen groepen.</p></div>
+      <div class="spec-r"><p class="spec-k">Inzicht</p><p class="spec-v">Een violette kern in het zwaartepunt van zijn bewijs, met een halo waarvan de straal het aantal onafhankelijke signalen volgt.</p></div>
+      <div class="spec-r"><p class="spec-k">Bewijs openen</p><p class="spec-v">Je kiest de kern en het veld zoomt erop in. De omliggende groepen dimmen, de dragende punten lichten op, en elk punt krijgt zijn bron. <em>Het bewijs is letterlijk de plek waar het inzicht staat.</em></p></div>
+      <div class="spec-r"><p class="spec-k">Privé en gedeeld</p><p class="spec-v">Twee dieptes in dezelfde ruimte. Wat van jou alleen is ligt op het zandoppervlak vlak bij je; wat gedeeld is, is opgenomen in het veld zelf. Delen is een beweging naar het midden, met bevestiging.</p></div>
+      <div class="spec-r"><p class="spec-k">Tijd</p><p class="spec-v">Het veld onthoudt zijn vorige stand. Wat sinds je laatste bezoek is bijgekomen, komt bij het openen als laatste binnen en beweegt zichtbaar naar zijn plaats.</p></div>
+      <div class="spec-r"><p class="spec-k">Decide en Act</p><p class="spec-v">Een kern die genoeg draagt biedt één menselijke vervolgstap aan, op de plek van de kern. De stap staat nooit los van het bewijs waar hij uit voortkomt.</p></div>
+    </div>
+
+    <div class="prose" style="margin-top:34px">
+      <p class="lab lab-v">Welk Maculis-DNA dit draagt</p>
+      <div class="dna">
+        <p class="dna-i"><i></i><span><b>De veld-engine uit de North Star</b>, integraal in plaats van als illustratie. Verstrooide thuispositie, semantisch doel, drift als functie van onzekerheid.</span></p>
+        <p class="dna-i"><i></i><span><b>Signal language trap 1 tot 4</b> als de daadwerkelijke interface, niet als plaatje ernaast. Canon 14 vraagt voor deze kamer trap 4 leidend met 1 tot 3 als bewijs; hier is dat letterlijk waar.</span></p>
+        <p class="dna-i"><i></i><span><b>Licht ontstaat uit betekenis.</b> In het dagregime geen emissie maar een zachte bloom met slagschaduw, precies zoals de canon voor dag voorschrijft.</span></p>
+        <p class="dna-i"><i></i><span><b>De levenscyclus met zes stadia</b>, één keer, met een eindtoestand. Reduced motion toont die eindtoestand direct.</span></p>
+      </div>
+      <div class="risk">
+        <p><b>Grootste risico.</b> Een veld zonder rangorde wordt een wolk. Bij twintig of meer knopen moet trap 3
+          overgaan in een geordende vorm, anders verliest de gebruiker de weg. De canon voorziet dat al, maar het moet
+          werkelijk ontworpen worden en niet pas bij oplevering blijken.</p>
+        <p><b>Tweede risico.</b> Toegankelijkheid. Een ruimtelijke interface heeft een volwaardige, niet-ruimtelijke
+          tweelingweergave nodig, en die mag geen tweederangs lijst zijn.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ================= CONCEPT B ================= -->
+<section class="concept" id="b">
+  <div class="wrap">
+    <div class="prose stack">
+      <div class="chead"><span class="ckey">Richting B · de radicale</span></div>
+      <h2>De Lange Belichting</h2>
+      <p class="metaphor">Het beeld van jullie organisatie is een opname die nog belicht wordt. Waar Maculis lang genoeg
+        heeft gekeken, wordt het scherp. Waar het te weinig licht heeft gehad, blijft het onscherp.</p>
+      <p>Dit is de meest ambitieuze richting en de enige die tijd tot materiaal maakt in plaats van tot widget.
+        Het hele oppervlak is één beeld van de organisatie, opgebouwd uit gebieden. Elk gebied heeft een scherpte
+        die niets anders is dan de hoeveelheid onafhankelijk bewijs eronder. Nieuwe waarnemingen laten een gebied
+        scherper worden. Een blinde vlek is niet een kaartje met de tekst dat we het niet weten, maar een deel van
+        het beeld dat je letterlijk niet kunt lezen.</p>
+    </div>
+
+    <div class="frame">
+      <div class="frame-bar">
+        <p class="lab">Studie B · dagregime · Mijn Maculis</p>
+        <span class="stagelight"><i></i><span id="stB">Belichting loopt</span></span>
+      </div>
+      <div class="day">
+        <div class="studygrid rev">
+          <canvas class="cv" id="cvB" aria-label="Een beeld dat in één gebied scherper wordt terwijl een ander gebied onscherp blijft"></canvas>
+          <div class="mm">
+            <p class="mm-lab" id="labB">Scherper geworden sinds je vorige bezoek</p>
+            <p class="mm-say" id="sayB">Wat we van jullie positionering zagen, is deze week <em>scherper</em> geworden.</p>
+            <p class="mm-ev" id="evB">Van <b>4</b> naar <b>7</b> waarnemingen. Over besluitvorming hebben we nog <b>te weinig licht</b>.</p>
+            <button class="replay" type="button" data-replay="B">Speel opnieuw</button>
+          </div>
+        </div>
+      </div>
+      <p class="gloss"><b>Wat je ziet.</b> Drie gebieden in één beeld. Linksboven scherpt Positionering aan terwijl er
+        bewijs bij komt: de punten worden hard, de contour verschijnt, de naam wordt leesbaar. Rechtsonder blijft
+        Besluitvorming diffuus, want daar heeft Maculis onvoldoende gezien. Die onscherpte is geen effect maar de
+        eerlijkste uitspraak die het systeem kan doen.</p>
+    </div>
+
+    <div class="choreo">
+      <div class="choreo-head"><p class="lab lab-v">De eerste tien seconden</p></div>
+      <div class="choreo-row"><span class="choreo-t">0,0 s</span><span class="choreo-b">Het beeld staat er zoals je het achterliet. Volledig, en op sommige plekken onscherp. <span>Niets beweegt nog.</span></span></div>
+      <div class="choreo-row"><span class="choreo-t">1,0 tot 3,0</span><span class="choreo-b">In één gebied verschijnen nieuwe waarnemingen als zacht licht. <span>De rest van het beeld blijft precies zoals het was.</span></span></div>
+      <div class="choreo-row"><span class="choreo-t">3,0 tot 6,0</span><span class="choreo-b">Dat gebied stelt scherp. Blur naar scherp is in Maculis het enige onthullingsgebaar, en het is hier voor het eerst functioneel.</span></div>
+      <div class="choreo-row"><span class="choreo-t">6,0 tot 8,0</span><span class="choreo-b">De contour van het gebied krijgt vorm en de naam wordt leesbaar. <span>Elders blijft een gebied bewust onleesbaar.</span></span></div>
+      <div class="choreo-row"><span class="choreo-t">8,0 tot 10,0</span><span class="choreo-b">Maculis benoemt wat er veranderd is, en waarom het dat nu pas zegt.</span></div>
+    </div>
+
+    <div class="spec">
+      <div class="spec-r"><p class="spec-k">Mentaal model</p><p class="spec-v">Maculis is nog aan het kijken. Wat ik zie is niet af, en dat is precies het punt. Scherpte is bewijs.</p></div>
+      <div class="spec-r"><p class="spec-k">Eerste scherm</p><p class="spec-v">Eén doorlopend beeld van de organisatie, met gebieden in verschillende scherpte. Geen raster, geen kolommen, geen kaarten.</p></div>
+      <div class="spec-r"><p class="spec-k">Hero moment</p><p class="spec-v">Je ziet een deel van je eigen organisatie scherp worden terwijl je kijkt. <em>Niet omdat er een animatie speelt, maar omdat er bewijs bij is gekomen.</em></p></div>
+      <div class="spec-r"><p class="spec-k">Waarneming</p><p class="spec-v">Een korrel licht die aan de scherpte van zijn gebied bijdraagt. Eén waarneming is nooit leesbaar; bewijs is per definitie meervoud.</p></div>
+      <div class="spec-r"><p class="spec-k">Verband</p><p class="spec-v">Contour. Waar waarnemingen samenhangen ontstaat een rand die het gebied begrenst. Waar dat niet zo is, loopt het beeld uit.</p></div>
+      <div class="spec-r"><p class="spec-k">Inzicht</p><p class="spec-v">Een gebied dat scherp genoeg is om een naam te dragen. De uitspraak staat in het beeld, niet erboven.</p></div>
+      <div class="spec-r"><p class="spec-k">Bewijs openen</p><p class="spec-v">Je opent een gebied en het valt uiteen in de afzonderlijke waarnemingen die het scherp maakten, elk met bron en datum. <em>De vraag hoe Maculis dit weet, is hier de natuurlijke volgende beweging.</em></p></div>
+      <div class="spec-r"><p class="spec-k">Privé en gedeeld</p><p class="spec-v">Twee belichtingen op hetzelfde beeld. Wat gedeeld is, is voor beide partijen scherp. Wat privé is, is alleen voor jou scherp en voor Maculis zichtbaar als vorm zonder inhoud. Delen betekent: Maculis mag hier ook scherpstellen.</p></div>
+      <div class="spec-r"><p class="spec-k">Tijd</p><p class="spec-v">De kern van het concept. Je kunt terug naar een eerdere belichting en het beeld verzacht tot wat Maculis toen wist. Geen tijdlijn, geen activiteitenlijst: het beeld zelf gaat terug.</p></div>
+      <div class="spec-r"><p class="spec-k">Decide en Act</p><p class="spec-v">Een scherp gebied kan een vervolgstap dragen. Een onscherp gebied kan alleen een vraag dragen. Het systeem kan zo nooit adviseren op te weinig bewijs.</p></div>
+    </div>
+
+    <div class="prose" style="margin-top:34px">
+      <p class="lab lab-v">Welk Maculis-DNA dit draagt</p>
+      <div class="dna">
+        <p class="dna-i"><i></i><span><b>Signature 3: scherpstellen is het enige onthullingsgebaar.</b> In de andere kamers is blur naar scherp een overgang. Hier wordt het de betekenisdrager zelf.</span></p>
+        <p class="dna-i"><i></i><span><b>Signature 5: de eerlijke stilte.</b> Onzekerheid is kleurloos én vormloos. Een blinde vlek is geen tekst maar een deel van het beeld dat weigert scherp te worden.</span></p>
+        <p class="dna-i"><i></i><span><b>Licht als bewijsmaat.</b> Canon 7 maakt de straal een functie van het aantal signalen. Hier is scherpte diezelfde functie, en beter afleesbaar.</span></p>
+        <p class="dna-i"><i></i><span><b>Het dagregime letterlijk genomen.</b> Licht valt van buiten op de inhoud. Een opname is precies dat: een oppervlak waar licht op valt.</span></p>
+      </div>
+      <div class="risk">
+        <p><b>Grootste risico.</b> Onscherpe tekst is onleesbare tekst. De metafoor mag nooit de toegankelijkheid raken:
+          alles wat betekenis draagt moet in scherpe tekst beschikbaar zijn, en de onscherpte moet naast die tekst
+          bestaan, niet in plaats daarvan. Dit is een harde ontwerpeis, geen aandachtspunt.</p>
+        <p><b>Tweede risico.</b> Het is de meest onbewezen richting. Er is geen bestaand Maculis-oppervlak dat dit al doet,
+          dus de eerste prototypefase is echt onderzoek en kan mislukken.</p>
+        <p><b>Derde risico.</b> Blur is duur om te renderen. Dit vraagt een technische studie voordat het een belofte wordt.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ================= CONCEPT C ================= -->
+<section class="concept" id="c">
+  <div class="wrap">
+    <div class="prose stack">
+      <div class="chead"><span class="ckey">Richting C</span></div>
+      <h2>De Spiegel</h2>
+      <p class="metaphor">Maculis ziet de buitenkant. Jij kent de binnenkant. Het gedeelde beeld ontstaat alleen daar
+        waar die twee elkaar raken.</p>
+      <p>Deze richting maakt van de privacygrens niet een instelling maar de motor van het product. Het oppervlak heeft
+        twee dieptes: wat Maculis heeft waargenomen, en wat alleen jij weet. Waarnemingen van Maculis zoeken naar
+        bevestiging. Waar jij die geeft, ontstaat gedeeld begrip en licht. Waar je die niet geeft, blijft de
+        waarneming aan de rand liggen. En waar Maculis vastloopt, stelt het een vraag in plaats van een conclusie.</p>
+    </div>
+
+    <div class="frame">
+      <div class="frame-bar">
+        <p class="lab">Studie C · dagregime · Mijn Maculis</p>
+        <span class="stagelight"><i></i><span id="stC">Maculis legt voor</span></span>
+      </div>
+      <div class="day">
+        <div class="studygrid">
+          <div class="mm">
+            <p class="mm-lab" id="labC">Maculis heeft een vraag</p>
+            <p class="mm-say" id="sayC">Wij zien dit. <em>Herken je het?</em></p>
+            <p class="mm-ev" id="evC"><b>4</b> waarnemingen bevestigd door jou. <b>2</b> liggen nog aan de rand. <b>1</b> ding weet alleen jij.</p>
+            <button class="replay" type="button" data-replay="C">Speel opnieuw</button>
+          </div>
+          <canvas class="cv" id="cvC" aria-label="Waarnemingen van Maculis en kennis van de gebruiker die elkaar in het midden vinden"></canvas>
+        </div>
+      </div>
+      <p class="gloss"><b>Wat je ziet.</b> Links de waarnemingen van Maculis in koper. Rechts wat alleen jij weet, op
+        het zandoppervlak. Waar een waarneming en jouw kennis over hetzelfde blijken te gaan, ontstaat in het midden
+        een violette kern van gedeeld begrip. Twee koperen punten blijven onbeantwoord aan de rand liggen. Die
+        verdwijnen niet en worden ook niet stilzwijgend waar.</p>
+    </div>
+
+    <div class="choreo">
+      <div class="choreo-head"><p class="lab lab-v">De eerste tien seconden</p></div>
+      <div class="choreo-row"><span class="choreo-t">0,0 s</span><span class="choreo-b">Je eigen kant staat er al. Wat je eerder hebt gedeeld, ligt in het midden. <span>De ruimte kent je.</span></span></div>
+      <div class="choreo-row"><span class="choreo-t">1,0 tot 3,5</span><span class="choreo-b">Maculis legt nieuwe waarnemingen neer aan zijn kant. Nog zonder oordeel, nog zonder betekenis.</span></div>
+      <div class="choreo-row"><span class="choreo-t">3,5 tot 6,0</span><span class="choreo-b">Sommige waarnemingen bewegen naar iets wat jij eerder hebt bevestigd. Waar ze elkaar vinden, ontstaat licht in het midden.</span></div>
+      <div class="choreo-row"><span class="choreo-t">6,0 tot 8,0</span><span class="choreo-b">Wat geen tegenhanger vindt, komt tot stilstand aan de rand. <span>Zichtbaar onbeantwoord, niet weggewerkt.</span></span></div>
+      <div class="choreo-row"><span class="choreo-t">8,0 tot 10,0</span><span class="choreo-b">Maculis stelt één vraag over de sterkste onbeantwoorde waarneming. Herken je dit? Ja · Deels · Nee.</span></div>
+    </div>
+
+    <div class="spec">
+      <div class="spec-r"><p class="spec-k">Mentaal model</p><p class="spec-v">Maculis en ik bouwen samen het beeld. Wat het systeem ziet is een voorstel, geen oordeel, en mijn antwoord verandert wat het weet.</p></div>
+      <div class="spec-r"><p class="spec-k">Eerste scherm</p><p class="spec-v">Eén oppervlak met twee dieptes en een midden. Geen linkerkolom met navigatie: de kamer is de navigatie.</p></div>
+      <div class="spec-r"><p class="spec-k">Hero moment</p><p class="spec-v">Maculis legt iets neer en vraagt of je het herkent. Je antwoordt, en het beeld verandert zichtbaar door jouw antwoord. <em>Het systeem leert waar je bij staat.</em></p></div>
+      <div class="spec-r"><p class="spec-k">Waarneming</p><p class="spec-v">Een koperen punt aan de kant van Maculis, met altijd zijn bron erbij. Zolang het onbeantwoord is, beweegt het licht.</p></div>
+      <div class="spec-r"><p class="spec-k">Verband</p><p class="spec-v">Een verbinding tussen een waarneming en iets wat jij hebt bevestigd. Het verband is dus deels menselijk gemaakt, en dat is eerlijker dan een verband dat het systeem alleen verzint.</p></div>
+      <div class="spec-r"><p class="spec-k">Inzicht</p><p class="spec-v">Een violette kern in het midden. Ontstaat alleen bij voldoende bewijs én menselijke bevestiging. Zonder jou geen inzicht, alleen een vermoeden.</p></div>
+      <div class="spec-r"><p class="spec-k">Bewijs openen</p><p class="spec-v">Je opent de kern en ziet beide kanten uit elkaar vallen: wat Maculis zag, en wat jij hebt bevestigd, elk met datum. <em>De herkomst van het inzicht is per definitie tweezijdig.</em></p></div>
+      <div class="spec-r"><p class="spec-k">Privé en gedeeld</p><p class="spec-v">Dit is niet een aspect maar de mechaniek. Jouw kant is van jou. Het midden is gedeeld. De beweging ertussen is altijd een expliciete menselijke handeling, en altijd terug te draaien.</p></div>
+      <div class="spec-r"><p class="spec-k">Tijd</p><p class="spec-v">Het midden groeit. Wat lang bevestigd is, komt tot rust en wordt stil. Wat opnieuw ter discussie staat, komt weer in beweging. Tijd is dus afleesbaar aan hoeveel er beweegt.</p></div>
+      <div class="spec-r"><p class="spec-k">Decide en Act</p><p class="spec-v">Dit is de richting die het natuurlijkst doorloopt naar Decide en Act, want er is al een dialoog. Een bevestigd inzicht kan direct een gezamenlijke stap voorstellen.</p></div>
+    </div>
+
+    <div class="prose" style="margin-top:34px">
+      <p class="lab lab-v">Welk Maculis-DNA dit draagt</p>
+      <div class="dna">
+        <p class="dna-i"><i></i><span><b>De herkenningsvraag uit de Lens</b>, letterlijk. Herken je dit? Ja · Deels · Nee, met <span class="stem">Wat zie ik niet?</span> Dat is bestaande, bewezen Maculis-taal en geen nieuwe uitvinding.</span></p>
+        <p class="dna-i"><i></i><span><b>Koper ziet, violet wordt.</b> Nergens is die tweedeling zo letterlijk: koper is wat Maculis heeft waargenomen, violet is wat samen betekenis krijgt.</span></p>
+        <p class="dna-i"><i></i><span><b>surface.private</b> als eigen diepte in plaats van als kaartkleur. Canon 6 noemt het zand al: dit is van jou alleen.</span></p>
+        <p class="dna-i"><i></i><span><b>Beweging is onzekerheid.</b> Onbeantwoorde waarnemingen bewegen. Bevestigd begrip staat stil. De regel wordt hier een leesbare toestand.</span></p>
+      </div>
+      <div class="risk">
+        <p><b>Grootste risico.</b> Het kan als werk voelen. Als Maculis te vaak vraagt, wordt de reflectieruimte een
+          takenlijst en dat is precies de Cockpit die deze kamer niet mag zijn. Er is een streng ritme nodig:
+          hoogstens één vraag per bezoek.</p>
+        <p><b>Tweede risico.</b> Het vraagt productbeslissingen buiten het visuele. Wat gebeurt er met een waarneming
+          die je met Nee beantwoordt, en hoe zwaar weegt jouw antwoord tegenover nieuw bewijs? Dat moet af zijn
+          voordat dit gebouwd wordt.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section>
+  <div class="wrap">
+    <div class="prose stack">
+      <p class="lab">Naast elkaar</p>
+      <h2>Drie antwoorden op dezelfde vraag.</h2>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>&nbsp;</th><th>A · Het Veld</th><th>B · De Lange Belichting</th><th>C · De Spiegel</th></tr></thead>
+        <tbody>
+          <tr><th>Materiaal</th><td>Ruimte</td><td>Tijd en scherpte</td><td>Relatie</td></tr>
+          <tr><th>Kernbelofte</th><td><b>Ik zie ons beeld</b></td><td><b>Ik zie ons beeld ontstaan</b></td><td><b>Ik bouw ons beeld mee</b></td></tr>
+          <tr><th>Wow ontstaat uit</th><td>Compositie uit chaos</td><td>Scherpstellen op je eigen organisatie</td><td>Het systeem dat jouw antwoord nodig heeft</td></tr>
+          <tr><th>Herkenbaar zonder logo</th><td>Sterk</td><td><b>Zeer sterk</b></td><td>Sterk</td></tr>
+          <tr><th>Tijd zichtbaar</th><td>Matig</td><td><b>Volledig, het is het concept</b></td><td>Goed, via rust en beweging</td></tr>
+          <tr><th>Privacy als ervaring</th><td>Goed</td><td>Goed</td><td><b>Volledig, het is de motor</b></td></tr>
+          <tr><th>Steunt op bestaand DNA</th><td><b>Direct, de veld-engine bestaat</b></td><td>Indirect, blur naar scherp bestaat als gebaar</td><td>Direct, de herkenningsvraag bestaat</td></tr>
+          <tr><th>Bewijs bereikbaar</th><td>Goed</td><td><b>Uitstekend, scherpte is bewijs</b></td><td>Uitstekend, tweezijdig</td></tr>
+          <tr><th>Doorloop naar Act</th><td>Matig</td><td>Goed</td><td><b>Sterk</b></td></tr>
+          <tr><th>Uitvoeringsrisico</th><td>Middel</td><td><b>Hoog</b></td><td>Middel, vooral productmatig</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <div class="rec">
+      <span class="rec-badge">Mijn advies</span>
+      <div class="prose stack" style="margin-top:22px">
+        <h2>B als ruggengraat, met de vraag uit C erin. A is de terugvaloptie.</h2>
+        <p>Je acceptatiecriterium is scherp geformuleerd en het beslist deze keuze. Bij openen wil je denken
+          <span class="stem">ik zie mijn organisatie hier langzaam zichtbaar worden</span>, en een paar seconden later
+          <span class="stem">wacht, hoe weet Maculis dit?</span></p>
+        <p>Alleen <b>De Lange Belichting</b> beantwoordt beide zinnen met hetzelfde beeld. Zichtbaar worden is daar geen
+          metafoor maar de letterlijke werking van het oppervlak, en de vraag naar herkomst is niet een knop maar de
+          natuurlijke volgende beweging: wie iets scherp ziet worden, wil weten wat het scherp maakte. Bovendien lost het
+          in één greep het probleem op dat de andere twee met een aparte voorziening moeten oplossen, namelijk hoe je
+          tijd toont zonder tijdlijn. En het is de enige richting waarin een blinde vlek geen tekstje is maar een
+          ervaring.</p>
+        <p><b>Het is ook de riskantste.</b> Daarom stel ik niet voor om B blind te bouwen. Neem de herkenningsvraag uit
+          C mee als de manier waarop Maculis een onscherp gebied aanpakt: waar het systeem te weinig licht heeft, vraagt
+          het jou. Dan draagt de onscherpte niet alleen betekenis maar ook een handeling, en wordt de privacygrens
+          onderdeel van de belichting in plaats van een label.</p>
+        <p><b>Waarom niet A als eerste keuze.</b> A is het veiligst en het dichtst bij de bestaande engine, en precies
+          daarom komt het het dichtst bij wat je zojuist hebt afgewezen. Een mooier veld naast een uitspraak blijft
+          een veld naast een uitspraak. A is wel de juiste terugvaloptie als het prototype van B aantoont dat scherpte
+          en leesbaarheid niet te verzoenen zijn.</p>
+      </div>
+      <div class="risk" style="border-left-color:rgba(200,137,74,.5)">
+        <p><b>Wat ik als volgende stap voorstel, na jouw keuze.</b> Eerst een technische en visuele haalbaarheidsstudie
+          van één ding: kan een gebied scherpstellen zonder dat er ooit onleesbare tekst op het scherm staat. Dat is de
+          enige vraag die het concept kan breken. Twee weken werk zit er niet in; dit is een studie van uren, met
+          dezelfde harness die de vorige ronde ook heeft bewezen.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap prose">
+    <hr class="rule" style="margin-bottom:26px">
+    <p class="foot">Er is bij het opstellen van dit document geen productiecode gewijzigd, geen bestaande preview
+      aangeraakt en niets gedeployed. De vorige harmonisatiebranch blijft ongemoeid als referentie. De studies hierboven
+      zijn conceptstudies: ze gebruiken uitsluitend waarden uit <span style="color:var(--ink-200)">maculis-tokens.css 1.0.3</span>
+      en voegen geen kleur, curve of grammatica toe. Geen implementatie zonder jouw expliciete GO.</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  'use strict';
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- gedeelde helpers ---------- */
+  function fit(cv){
+    var d = Math.min(window.devicePixelRatio || 1, 1.5), r = cv.getBoundingClientRect();
+    cv.width  = Math.max(1, Math.round(r.width  * d));
+    cv.height = Math.max(1, Math.round(r.height * d));
+    var c = cv.getContext('2d'); c.setTransform(d,0,0,d,0,0);
+    return { ctx:c, w:r.width, h:r.height };
+  }
+  /* deterministisch, geen Math.random: twee runs geven hetzelfde veld */
+  function rnd(s){ var x = Math.sin(s*127.1)*43758.5453; return x - Math.floor(x); }
+  function ease(t){ return t<0?0:t>1?1:1-Math.pow(1-t,3); }
+  function cl(v){ return v<0?0:v>1?1:v; }
+  var now = function(){ return (window.performance && performance.now) ? performance.now() : Date.now(); };
+  function bloom(ctx,x,y,r,rgb,a){
+    if(r<=0||a<=0) return;
+    var g = ctx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0,'rgba('+rgb+','+a+')');
+    g.addColorStop(.45,'rgba('+rgb+','+(a*.3).toFixed(3)+')');
+    g.addColorStop(1,'rgba('+rgb+',0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,6.284); ctx.fill();
+  }
+  var DAY_COP='168,103,47', DAY_VIO='95,79,176', DAY_LINE='120,86,48';
+
+  /* tekst in het studieframe verschijnt pas als het inzicht er is */
+  function reveal(ids, on){
+    ids.forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.classList.toggle('in', !!on);
+    });
+  }
+
+  /* Een studie start pas als hij in beeld staat en loopt alleen dan. Buiten beeld
+     staat hij stil: geen rAF die eeuwig doordraait op drie canvassen tegelijk. */
+  function whenVisible(el, onStart, setVisible){
+    if(reduce || !('IntersectionObserver' in window)){ onStart(); return; }
+    var started=false;
+    var io = new IntersectionObserver(function(en){
+      en.forEach(function(x){
+        if(setVisible) setVisible(x.isIntersecting);
+        if(x.isIntersecting && !started){ started=true; onStart(); }
+      });
+    },{ threshold:.2 });
+    io.observe(el);
+  }
+
+  /* ============================================================================
+     STUDIE A · HET VELD
+     De levenscyclus uit canon 8.1. Verstrooide thuispositie, semantisch doel per
+     groep, drift die afneemt naarmate betekenis ontstaat, verbindingen uitsluitend
+     binnen dezelfde groep, violet boven een bewijsdrempel, halo naar het aantal.
+     ============================================================================ */
+  function studyA(){
+    var cv = document.getElementById('cvA'); if(!cv) return;
+    var vis = true;
+    var S, sig=[], cores=[], t=0, clock=0, raf=null, running=false;
+    /* drie groepen die werkelijk over iets gaan, plus losse waarnemingen die nergens bij horen */
+    var DIMS = [
+      { name:'Positionering', n:7, cx:.30, cy:.34, r:34, thr:5 },
+      { name:'Klantbeleving', n:5, cx:.72, cy:.62, r:28, thr:6 },
+      { name:'Bereik',        n:3, cx:.74, cy:.22, r:22, thr:5 },
+      { name:'',              n:2, cx:.22, cy:.80, r:26, thr:9 }
+    ];
+    function build(){
+      S = fit(cv); sig=[]; cores=[];
+      var k=0;
+      DIMS.forEach(function(d,di){
+        var cx=d.cx*S.w, cy=d.cy*S.h;
+        for(var i=0;i<d.n;i++){
+          k++;
+          var a=(i/d.n)*6.284+di*2.1, rr=d.r+(i%3)*11;
+          sig.push({
+            dim:di,
+            hx:(0.08+rnd(k*3.1)*0.84)*S.w, hy:(0.10+rnd(k*7.7)*0.80)*S.h,
+            tx:cx+Math.cos(a)*rr*1.25, ty:cy+Math.sin(a)*rr*0.82,
+            ph:rnd(k*1.7)*6.28, sp:0.30+rnd(k*5.3)*0.28, am:3.4+rnd(k*2.9)*3.2
+          });
+        }
+        cores.push({cx:cx,cy:cy,n:d.n,name:d.name,thr:d.thr});
+      });
+    }
+    function pos(s,p){
+      var e=ease(p), drift=(1-e*0.9), breathe=e;
+      return {
+        x: s.hx+(s.tx-s.hx)*e + Math.cos(clock*s.sp+s.ph)*s.am*drift + Math.cos(clock*.22+s.ph)*1.5*breathe,
+        y: s.hy+(s.ty-s.hy)*e + Math.sin(clock*s.sp*.82+s.ph)*s.am*drift + Math.sin(clock*.19+s.ph)*1.5*breathe
+      };
+    }
+    function draw(){
+      var ctx=S.ctx, p=t;
+      ctx.clearRect(0,0,S.w,S.h);
+      var P = sig.map(function(s){ return pos(s,p); });
+
+      /* stadium 4: verband, alleen binnen dezelfde groep */
+      var link = cl((p-0.34)/0.26);
+      if(link>0){
+        ctx.lineWidth=1;
+        for(var i=0;i<sig.length;i++) for(var j=i+1;j<sig.length;j++){
+          if(sig[i].dim!==sig[j].dim) continue;
+          var dx=P[i].x-P[j].x, dy=P[i].y-P[j].y, d=Math.sqrt(dx*dx+dy*dy);
+          if(d>150) continue;
+          ctx.strokeStyle='rgba('+DAY_LINE+','+(link*(1-d/150)*0.34).toFixed(3)+')';
+          ctx.beginPath(); ctx.moveTo(P[i].x,P[i].y); ctx.lineTo(P[j].x,P[j].y); ctx.stroke();
+        }
+      }
+      /* stadium 6: violet ontsteekt boven de bewijsdrempel; halo volgt het aantal */
+      var ign = cl((p-0.62)/0.38);
+      cores.forEach(function(c){
+        if(c.n < c.thr || ign<=0) return;
+        var r = Math.max(24, 12+c.n*6)*ign;
+        /* dagregime: geen emissie, wel een zachte slagschaduw en een lichte bloom */
+        ctx.fillStyle='rgba(120,100,180,.10)';
+        ctx.beginPath(); ctx.arc(c.cx, c.cy+5, r*0.6, 0, 6.284); ctx.fill();
+        bloom(ctx, c.cx, c.cy, r*1.6, '150,135,220', .18*ign);
+        ctx.fillStyle='rgba('+DAY_VIO+','+(0.92*ign).toFixed(2)+')';
+        ctx.beginPath(); ctx.arc(c.cx,c.cy,4.2,0,6.284); ctx.fill();
+      });
+      /* stadium 1 en 2: de waarnemingen zelf */
+      P.forEach(function(q){
+        ctx.fillStyle='rgba(90,64,30,.13)';
+        ctx.beginPath(); ctx.arc(q.x+0.8,q.y+2.4,3.4,0,6.284); ctx.fill();
+        ctx.fillStyle='rgba('+DAY_COP+',.92)';
+        ctx.beginPath(); ctx.arc(q.x,q.y,2.5,0,6.284); ctx.fill();
+      });
+      /* namen verschijnen pas als het patroon echt is */
+      var la = cl((p-0.58)/0.28);
+      if(la>0){
+        ctx.font='600 10px '+getComputedStyle(document.body).fontFamily;
+        ctx.textAlign='center';
+        cores.forEach(function(c){
+          if(!c.name) return;
+          ctx.fillStyle='rgba(107,97,82,'+(0.92*la).toFixed(2)+')';
+          var off = c.n>=c.thr ? Math.min(12+c.n*6,S.h*.2)+22 : 40;
+          ctx.fillText(c.name.toUpperCase(), c.cx, Math.min(c.cy+off, S.h-6));
+        });
+      }
+    }
+    var STAGE = [[0,'1 · Maculis kijkt'],[.20,'2 · Signalen bewegen'],[.36,'3 · Ze herkennen elkaar'],
+                 [.52,'4 · Verband ontstaat'],[.66,'5 · Bewijs verdicht'],[.84,'6 · Inzicht']];
+    function stage(){
+      var s=STAGE[0][1];
+      for(var i=0;i<STAGE.length;i++) if(t>=STAGE[i][0]) s=STAGE[i][1];
+      var el=document.getElementById('stA'); if(el) el.textContent=s;
+    }
+    var t0=0;
+    function loop(){
+      clock = (now()-t0)/1000 * 0.72;
+      t = cl((now()-t0)/9300);               /* 9,3 s, onafhankelijk van de framerate */
+      draw(); stage();
+      reveal(['labA','sayA','evA'], t>0.86);
+      if(vis) raf=requestAnimationFrame(loop);   /* na t=1 blijft alleen het ademen lopen */
+    }
+    function start(){
+      build();
+      if(reduce){ t=1; clock=0; draw(); stage(); reveal(['labA','sayA','evA'], true); return; }
+      if(running) return; running=true; t0=now(); loop();
+    }
+    function replay(){ if(reduce) return; t0=now(); t=0; reveal(['labA','sayA','evA'], false); }
+    window.addEventListener('resize', function(){ var keep=t; build(); t=keep; draw(); });
+    whenVisible(cv, start, function(on){
+      var was = vis; vis = on;
+      if(on && !was && running && !reduce) loop();
+    });
+    return replay;
+  }
+
+  /* ============================================================================
+     STUDIE B · DE LANGE BELICHTING
+     Scherpte is bewijs. Elk gebied heeft een sharp-waarde. Onscherp is niet een
+     effect maar de eerlijkste uitspraak die het systeem kan doen.
+     ============================================================================ */
+  function studyB(){
+    var cv = document.getElementById('cvB'); if(!cv) return;
+    var vis = true;
+    var S, zones=[], t=0, clock=0, running=false;
+    /* van, naar: alleen het eerste gebied stelt scherp, want daar kwam bewijs bij */
+    var Z = [
+      { name:'POSITIONERING', cx:.26, cy:.34, r:.28, n:16, from:.34, to:.90 },
+      { name:'KLANTBELEVING', cx:.74, cy:.28, r:.20, n:11, from:.62, to:.62 },
+      { name:'BESLUITVORMING', cx:.60, cy:.74, r:.22, n:7,  from:.10, to:.12 }
+    ];
+    function build(){
+      S=fit(cv); zones=[];
+      var k=0;
+      Z.forEach(function(z,zi){
+        var pts=[], cx=z.cx*S.w, cy=z.cy*S.h, R=z.r*Math.min(S.w,S.h);
+        for(var i=0;i<z.n;i++){
+          k++;
+          var a=rnd(k*2.3)*6.284, rr=Math.sqrt(rnd(k*5.1))*R;
+          pts.push({ x:cx+Math.cos(a)*rr, y:cy+Math.sin(a)*rr*0.78,
+                     ph:rnd(k*1.3)*6.28, am:1.6+rnd(k*4.7)*2.2, sp:.2+rnd(k*3.3)*.2,
+                     nw:(zi===0 && i>=11) });     /* de drie nieuwe waarnemingen van deze week */
+        }
+        zones.push({ z:z, cx:cx, cy:cy, R:R, pts:pts });
+      });
+    }
+    function draw(){
+      var ctx=S.ctx;
+      ctx.clearRect(0,0,S.w,S.h);
+      zones.forEach(function(zn){
+        var z=zn.z;
+        var sharp = z.from + (z.to-z.from)*ease(cl((t-0.18)/0.62));
+        var blur  = Math.min(10, (1-sharp)*13);
+        /* de contour verschijnt pas als er genoeg bewijs is om te begrenzen */
+        var contour = cl((sharp-0.45)/0.35);
+        ctx.save();
+        ctx.filter = blur>0.4 ? 'blur('+blur.toFixed(1)+'px)' : 'none';
+        /* het gebied zelf: licht dat op perkament valt */
+        bloom(ctx, zn.cx, zn.cy, zn.R*1.25, DAY_COP, .05+sharp*.07);
+        zn.pts.forEach(function(p,i){
+          var dx = Math.cos(clock*p.sp+p.ph)*p.am*(1-sharp*.85);
+          var dy = Math.sin(clock*p.sp*.83+p.ph)*p.am*(1-sharp*.85);
+          /* nieuwe waarnemingen komen in de eerste seconden binnen */
+          var born = p.nw ? cl((t-0.06)/0.18) : 1;
+          if(born<=0) return;
+          var rad = (1.4+sharp*1.5);
+          ctx.fillStyle='rgba(90,64,30,'+(0.10*sharp).toFixed(3)+')';
+          ctx.beginPath(); ctx.arc(p.x+dx+.8,p.y+dy+2.2,rad+1,0,6.284); ctx.fill();
+          var alpha = (0.30 + 0.62*sharp) * born;
+          ctx.fillStyle='rgba('+DAY_COP+','+alpha.toFixed(3)+')';
+          ctx.beginPath(); ctx.arc(p.x+dx,p.y+dy,rad*born,0,6.284); ctx.fill();
+        });
+        if(contour>0){
+          ctx.strokeStyle='rgba('+DAY_LINE+','+(contour*0.30).toFixed(3)+')';
+          ctx.lineWidth=1; ctx.beginPath();
+          ctx.ellipse(zn.cx,zn.cy,zn.R*1.06,zn.R*0.86,0,0,6.284); ctx.stroke();
+        }
+        ctx.restore();
+        /* de naam is scherp of hij is er niet: onscherpe tekst bestaat niet */
+        var named = sharp>0.55;
+        ctx.font='600 10px '+getComputedStyle(document.body).fontFamily;
+        ctx.textAlign='center';
+        ctx.fillStyle = named ? 'rgba(23,18,12,'+(cl((sharp-0.55)/0.2)*0.9).toFixed(2)+')'
+                              : 'rgba(107,97,82,.55)';
+        var ly = Math.min(zn.cy + zn.R*0.86 + 18, S.h - 6);
+        ctx.fillText(named ? z.name : 'TE WEINIG LICHT', zn.cx, ly);
+      });
+    }
+    var t0=0;
+    function loop(){
+      clock = (now()-t0)/1000 * 0.72;
+      t = cl((now()-t0)/9300);
+      draw();
+      var el=document.getElementById('stB');
+      if(el) el.textContent = t<0.2 ? 'Zoals je het achterliet'
+                          : t<0.55 ? 'Nieuwe waarnemingen'
+                          : t<0.9  ? 'Stelt scherp' : 'Tot rust gekomen';
+      reveal(['labB','sayB','evB'], t>0.84);
+      if(vis) requestAnimationFrame(loop);
+    }
+    function start(){
+      build();
+      if(reduce){ t=1; draw(); reveal(['labB','sayB','evB'], true);
+        var e=document.getElementById('stB'); if(e) e.textContent='Tot rust gekomen'; return; }
+      if(running) return; running=true; t0=now(); loop();
+    }
+    function replay(){ if(reduce) return; t0=now(); t=0; reveal(['labB','sayB','evB'], false); }
+    window.addEventListener('resize', function(){ var keep=t; build(); t=keep; draw(); });
+    whenVisible(cv, start, function(on){
+      var was = vis; vis = on;
+      if(on && !was && running && !reduce) loop();
+    });
+    return replay;
+  }
+
+  /* ============================================================================
+     STUDIE C · DE SPIEGEL
+     Links wat Maculis zag, rechts wat alleen jij weet, in het midden wat samen
+     betekenis kreeg. Onbeantwoorde waarnemingen blijven zichtbaar liggen.
+     ============================================================================ */
+  function studyC(){
+    var cv = document.getElementById('cvC'); if(!cv) return;
+    var vis = true;
+    var S, left=[], right=[], pairs=[], t=0, clock=0, running=false;
+    function build(){
+      S=fit(cv); left=[]; right=[]; pairs=[];
+      var LX=0.16*S.w, RX=0.84*S.w, MX=0.50*S.w;
+      for(var i=0;i<6;i++){
+        var y=(0.16+i*0.135)*S.h;
+        left.push({ x:LX+ (rnd(i*3.7)-0.5)*26, y:y, ph:rnd(i*2.2)*6.28, sp:.28+rnd(i*4.1)*.2, am:3.2,
+                    matched:(i<4), my:(0.20+i*0.15)*S.h });
+      }
+      for(var j=0;j<5;j++){
+        var y2=(0.20+j*0.15)*S.h;
+        right.push({ x:RX+(rnd(j*5.9)-0.5)*22, y:y2, matched:(j<4) });
+      }
+      for(var k=0;k<4;k++) pairs.push({ l:left[k], r:right[k], mx:MX, my:(0.22+k*0.16)*S.h });
+    }
+    function draw(){
+      var ctx=S.ctx;
+      ctx.clearRect(0,0,S.w,S.h);
+      var join = cl((t-0.28)/0.42);
+      var e = ease(join);
+
+      /* jouw kant: het zandoppervlak, dit is van jou alleen */
+      ctx.fillStyle='rgba(236,224,201,.85)';
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(0.70*S.w,8,0.30*S.w-8,S.h-16,12) : ctx.rect(0.70*S.w,8,0.30*S.w-8,S.h-16);
+      ctx.fill();
+      ctx.font='600 9.5px '+getComputedStyle(document.body).fontFamily;
+      ctx.textAlign='center'; ctx.fillStyle='rgba(107,97,82,.9)';
+      ctx.fillText('ALLEEN VOOR JOU', 0.85*S.w, 26);
+      ctx.textAlign='center'; ctx.fillStyle='rgba(107,97,82,.9)';
+      ctx.fillText('MACULIS ZIET', 0.16*S.w, 26);
+      ctx.fillStyle='rgba(107,97,82,'+(0.9*e).toFixed(2)+')';
+      ctx.fillText('SAMEN', 0.50*S.w, 26);
+
+      /* verbindingen: alleen waar een waarneming en jouw kennis over hetzelfde gaan */
+      pairs.forEach(function(p,i){
+        var a=cl((join- i*0.06)/0.5);
+        if(a<=0) return;
+        var lx=p.l.x, ly=p.l.y, rx=p.r.x, ry=p.r.y;
+        ctx.strokeStyle='rgba('+DAY_LINE+','+(a*0.30).toFixed(3)+')';
+        ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(lx,ly);
+        ctx.quadraticCurveTo(p.mx, (ly+p.my)/2, p.mx, p.my); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(rx,ry);
+        ctx.quadraticCurveTo(p.mx, (ry+p.my)/2, p.mx, p.my); ctx.stroke();
+        /* gedeeld begrip: violet, en pas als beide kanten er zijn */
+        ctx.fillStyle='rgba(120,100,180,'+(0.10*a).toFixed(3)+')';
+        ctx.beginPath(); ctx.arc(p.mx,p.my+4,13*a,0,6.284); ctx.fill();
+        bloom(ctx,p.mx,p.my,26*a,'150,135,220',.20*a);
+        ctx.fillStyle='rgba('+DAY_VIO+','+(0.92*a).toFixed(2)+')';
+        ctx.beginPath(); ctx.arc(p.mx,p.my,3.8*a,0,6.284); ctx.fill();
+      });
+
+      /* de waarnemingen van Maculis; onbeantwoorde blijven bewegen */
+      left.forEach(function(p){
+        var still = p.matched ? e : 0;
+        var dx=Math.cos(clock*p.sp+p.ph)*p.am*(1-still);
+        var dy=Math.sin(clock*p.sp*.85+p.ph)*p.am*(1-still);
+        ctx.fillStyle='rgba(90,64,30,.12)';
+        ctx.beginPath(); ctx.arc(p.x+dx+.8,p.y+dy+2.2,3.6,0,6.284); ctx.fill();
+        ctx.fillStyle='rgba('+DAY_COP+','+(p.matched?0.92:0.66)+')';
+        ctx.beginPath(); ctx.arc(p.x+dx,p.y+dy,2.6,0,6.284); ctx.fill();
+      });
+      /* wat alleen jij weet: een open ring, nooit gevuld door Maculis */
+      right.forEach(function(p){
+        ctx.strokeStyle='rgba(107,97,82,.75)'; ctx.lineWidth=1.4;
+        ctx.beginPath(); ctx.arc(p.x,p.y,3.4,0,6.284); ctx.stroke();
+      });
+    }
+    var t0=0;
+    function loop(){
+      clock = (now()-t0)/1000 * 0.72;
+      t = cl((now()-t0)/9000);
+      draw();
+      var el=document.getElementById('stC');
+      if(el) el.textContent = t<0.28 ? 'Maculis legt voor'
+                          : t<0.72 ? 'Jullie vinden elkaar'
+                          : 'Twee blijven onbeantwoord';
+      reveal(['labC','sayC','evC'], t>0.82);
+      if(vis) requestAnimationFrame(loop);
+    }
+    function start(){
+      build();
+      if(reduce){ t=1; draw(); reveal(['labC','sayC','evC'], true);
+        var e2=document.getElementById('stC'); if(e2) e2.textContent='Twee blijven onbeantwoord'; return; }
+      if(running) return; running=true; t0=now(); loop();
+    }
+    function replay(){ if(reduce) return; t0=now(); t=0; reveal(['labC','sayC','evC'], false); }
+    window.addEventListener('resize', function(){ var keep=t; build(); t=keep; draw(); });
+    whenVisible(cv, start, function(on){
+      var was = vis; vis = on;
+      if(on && !was && running && !reduce) loop();
+    });
+    return replay;
+  }
+
+  var R = { A:studyA(), B:studyB(), C:studyC() };
+  document.querySelectorAll('[data-replay]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var f = R[b.getAttribute('data-replay')];
+      if(typeof f === 'function') f();
+    });
+  });
+})();
+</script>
