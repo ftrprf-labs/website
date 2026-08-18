@@ -18,11 +18,11 @@ const TOKENS = join(ROOT, 'public', 'vendor', 'maculis-tokens.css');
 
 // De canon die dit product vendort. Bij een canon-amendement wordt deze waarde
 // bijgewerkt in dezelfde commit als het nieuwe tokenbestand, nooit los.
-const EXPECTED_CANON_CHECKSUM = '04d6b40907f2bbda';
-const EXPECTED_VERSION = '1.0.0';
+const EXPECTED_CANON_CHECKSUM = 'c1ef337599f140a1';
+const EXPECTED_VERSION = '1.0.1';
 
 // Inhoudshash van het bestand zoals het uit de canon kwam. Bewaakt hand-bewerken.
-const EXPECTED_CONTENT_SHA256 = '367487a853ff7fdb';
+const EXPECTED_CONTENT_SHA256 = '67425caa862ebbb2';
 
 test('tokenbestand draagt de canonieke checksum', async () => {
   const css = await readFile(TOKENS, 'utf8');
