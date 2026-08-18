@@ -12,3 +12,6 @@ data/*.json
 tools/visual/after/
 
 docs/studies/assets/frames/
+
+# Visuele regressie Mijn Maculis: baseline is bewijs en gaat mee, 'after' is een run-artefact.
+tools/visual/mijn-after/

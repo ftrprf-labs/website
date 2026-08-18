@@ -1,11 +1,15 @@
 <!doctype html>
-<html lang="nl">
+<html lang="nl" data-maculis-regime="day">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Mijn Maculis</title>
   <meta name="robots" content="noindex, nofollow" />
   <link rel="icon" href="/brand/maculis-eye.png" />
+  <!-- Canonieke tokens en letter. Gegenereerd uit ftrlabs-docs 03-ux, nooit met de hand
+       bewerken. De checksum wordt bewaakt door tools/check-tokens.mjs. -->
+  <link rel="stylesheet" href="/vendor/maculis-tokens.css" />
+  <link rel="stylesheet" href="/vendor/newsreader.css" />
   <link rel="stylesheet" href="/mijn.css" />
 </head>
 <body class="mijn">
@@ -14,7 +18,7 @@
     <div class="gate-card">
       <div class="brand-ring" aria-hidden="true"></div>
       <h1 class="brand-word">MAC<span>U</span>LIS</h1>
-      <p id="gate-msg" class="gate-msg">Mijn Maculis wordt geopend…</p>
+      <p id="gate-msg" class="gate-msg">Mijn Maculis wordt geopend.</p>
     </div>
   </div>
 
@@ -54,13 +58,13 @@
       <div class="side-foot">
         <div class="side-org">
           <span class="side-label">Organisatie</span>
-          <span id="side-org-name" class="side-org-name">—</span>
+          <span id="side-org-name" class="side-org-name"></span>
         </div>
         <div class="side-user">
-          <span id="side-avatar" class="avatar" aria-hidden="true">—</span>
+          <span id="side-avatar" class="avatar" aria-hidden="true"></span>
           <span class="side-user-text">
-            <span id="side-user-name" class="side-user-name">—</span>
-            <span id="side-user-role" class="side-user-role">—</span>
+            <span id="side-user-name" class="side-user-name"></span>
+            <span id="side-user-role" class="side-user-role"></span>
           </span>
         </div>
       </div>

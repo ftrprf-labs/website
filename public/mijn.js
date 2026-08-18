@@ -3,6 +3,13 @@
 // CSP-safe: no inline handlers, no external resources. The access token is read once from the URL
 // (?t=), kept in memory, and removed from the address bar so it is not left in history/bookmarks.
 // Every API call carries it in the x-mijn-token header.
+//
+// Visueel volgt dit bestand de canon (UX-VISUAL-DNA v1.0, tokens 1.0.3). Twee dingen die hier
+// bewust worden afgedwongen en niet alleen in CSS staan:
+//   1. De vijf semantische rollen worden afgeleid uit de houding van het inzicht, nooit uit opmaak.
+//   2. Het signaalveld is bewijs, geen versiering: het aantal punten, de verbindingen en de straal
+//      van het licht volgen de werkelijke inzichten. Canon 7: als je niet kunt zeggen welk bewijs
+//      de gloed draagt, hoort er geen gloed.
 
 (() => {
   'use strict';
@@ -46,6 +53,7 @@
     } catch { return ''; }
   }
 
+  // Menselijke, Nederlandse statuslabels (canon 10). Geen Engelse hoofdletterbadges.
   const STANCE = {
     reveal: 'Dit valt op',
     tension: 'Hier zit spanning',
@@ -54,15 +62,27 @@
     unknown: 'Dit weten we nog niet',
   };
   const stanceLabel = (s) => STANCE[s] || 'Dit zien we';
-  const tintClass = (ins) => ins.sharing === 'SHARED' ? 'tint-blue'
-    : (ins.stance === 'consistency' || ins.stance === 'non_reveal') ? 'tint-green' : '';
+
+  // De houding van een inzicht vertaalt naar precies één van de vijf semantische rollen uit
+  // canon 3.3. Er wordt hier geen nieuwe betekenislaag verzonnen: spanning en waarneming vragen
+  // aandacht, consistentie en géén-verschil zijn bevestigd, onbekend blijft kleurloos.
+  // De houding is de houding. Dat er een nog niet gedeelde ontwikkeling ligt, is een
+  // aparte toestand ("aan het worden") en draagt zijn eigen pil; het overschrijft de
+  // houding niet. Canon 10: de drie dimensies overschrijven elkaar nooit.
+  function role(ins) {
+    if (!ins) return 'uncertain';
+    switch (ins.stance) {
+      case 'tension': case 'reveal': return 'signal';
+      case 'consistency': case 'non_reveal': return 'confirmed';
+      default: return 'uncertain';
+    }
+  }
 
   const ICON = {
     lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>',
     people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8.5" cy="9" r="3"/><circle cx="16" cy="10" r="2.4"/><path d="M3.5 19c0-2.8 2.2-4.6 5-4.6s5 1.8 5 4.6"/><path d="M14.5 18.6c.2-2 1.6-3.3 3.6-3.3 1.9 0 3.4 1.3 3.4 3.6"/></svg>',
     shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3.5 19 6v5.5c0 4.3-3 7.4-7 9-4-1.6-7-4.7-7-9V6z"/><path d="M9.2 12.2 11.2 14l3.6-3.7"/></svg>',
     compass: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="m15.6 8.4-2 5.2-5.2 2 2-5.2z" fill="currentColor" stroke="none"/></svg>',
-    calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.3 2.3 4.7-4.9"/></svg>',
     research: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6.2"/><path d="m20 20-4.2-4.2"/></svg>',
     bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6.5 17V11a5.5 5.5 0 0 1 11 0v6"/><path d="M4.5 17h15"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>',
@@ -71,96 +91,115 @@
     arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h15"/><path d="m13 6 6 6-6 6"/></svg>',
   };
 
+  // Gedeeld of privé draagt tekst; het oppervlak draagt het onderscheid (canon 6 en 12).
   function shareTag(sharing) {
-    if (sharing === 'SHARED') return `<span class="share-tag shared">${ICON.people}Gedeeld</span>`;
+    if (sharing === 'SHARED') return `<span class="share-tag">${ICON.people}Gedeeld</span>`;
     if (sharing === 'AGGREGATED') return `<span class="share-tag">${ICON.people}Patroon</span>`;
     return `<span class="share-tag">${ICON.lock}Alleen voor jou</span>`;
   }
 
-  // The Maculis signature: loose signals → coherence → pattern → insight. A luminous core blooming
-  // softly from a white centre, fine multi-scale rings (some elliptical/rotated for asymmetry, part
-  // running off the frame), many signal points at varying distance (violet + copper), and faint links
-  // resolving toward the centre. Abstract organisation-intelligence — never an orb, galaxy or HUD.
-  // Motion (breathing points, a very slow drift, a softly pulsing bloom) lives in CSS, reduced-motion safe.
-  const ORBIT = `<svg class="orbit" viewBox="0 0 440 440" aria-hidden="true">
-    <defs>
-      <radialGradient id="sfBloom" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.98"/>
-        <stop offset="16%" stop-color="#b3a6f2" stop-opacity="0.82"/>
-        <stop offset="42%" stop-color="#6857cc" stop-opacity="0.42"/>
-        <stop offset="100%" stop-color="#6857cc" stop-opacity="0"/>
-      </radialGradient>
-      <radialGradient id="sfHalo" cx="50%" cy="50%" r="55%">
-        <stop offset="0%" stop-color="#efeafc" stop-opacity="0.8"/>
-        <stop offset="100%" stop-color="#efeafc" stop-opacity="0"/>
-      </radialGradient>
-      <filter id="sfGlow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="7"/></filter>
-      <filter id="sfDot" x="-260%" y="-260%" width="620%" height="620%"><feGaussianBlur stdDeviation="2.4"/></filter>
-    </defs>
-    <circle cx="220" cy="215" r="200" fill="url(#sfHalo)"/>
-    <g class="sf-rot" fill="none">
-      <ellipse cx="220" cy="215" rx="192" ry="182" stroke="#6857cc" stroke-opacity="0.06" stroke-dasharray="1 10"/>
-      <ellipse cx="220" cy="215" rx="160" ry="172" stroke="#6857cc" stroke-opacity="0.05" transform="rotate(16 220 215)"/>
-    </g>
-    <g fill="none" stroke="#6857cc">
-      <circle cx="220" cy="215" r="146" stroke-opacity="0.07"/>
-      <circle cx="220" cy="215" r="104" stroke-opacity="0.10"/>
-      <circle cx="220" cy="215" r="64" stroke-opacity="0.15"/>
-    </g>
-    <g stroke="#6857cc" stroke-opacity="0.11">
-      <line x1="220" y1="215" x2="338" y2="176"/>
-      <line x1="220" y1="215" x2="132" y2="120"/>
-      <line x1="220" y1="215" x2="182" y2="332"/>
-      <line x1="220" y1="215" x2="322" y2="300"/>
-      <line x1="220" y1="215" x2="98" y2="252"/>
-      <line x1="220" y1="215" x2="286" y2="96"/>
-    </g>
-    <circle class="sf-core" cx="220" cy="215" r="72" fill="url(#sfBloom)" filter="url(#sfGlow)"/>
-    <circle cx="220" cy="215" r="6.5" fill="#fff"/>
-    <circle cx="220" cy="215" r="13" fill="#7b69dd" fill-opacity="0.45" filter="url(#sfDot)"/>
-    <circle class="sf-dot sf-lit" style="--o:.8;--d:6s" cx="338" cy="176" r="5" fill="#6857cc" filter="url(#sfDot)"/>
-    <circle class="sf-dot" style="--o:.62;--d:8s" cx="132" cy="120" r="4" fill="#6857cc"/>
-    <circle class="sf-dot" style="--o:.6;--d:7s" cx="182" cy="332" r="4" fill="#6857cc"/>
-    <circle class="sf-dot sf-lit" style="--o:.66;--d:9s" cx="322" cy="300" r="3.6" fill="#b0762f" filter="url(#sfDot)"/>
-    <circle class="sf-dot" style="--o:.5;--d:6.5s" cx="98" cy="252" r="3.4" fill="#b0762f"/>
-    <circle class="sf-dot" style="--o:.46;--d:10s" cx="286" cy="96" r="3" fill="#6857cc"/>
-    <circle class="sf-dot" style="--o:.4;--d:7.5s" cx="378" cy="238" r="2.8" fill="#6857cc"/>
-    <circle class="sf-dot" style="--o:.42;--d:11s" cx="70" cy="150" r="2.6" fill="#b0762f"/>
-    <circle class="sf-dot" style="--o:.34;--d:8.5s" cx="250" cy="386" r="2.6" fill="#6857cc"/>
-    <circle class="sf-dot" style="--o:.3;--d:12s" cx="404" cy="150" r="2.2" fill="#6857cc"/>
-    <circle class="sf-dot" style="--o:.32;--d:9.5s" cx="150" cy="66" r="2.2" fill="#b0762f"/>
-    <circle class="sf-dot" style="--o:.28;--d:13s" cx="60" cy="330" r="2" fill="#6857cc"/>
-  </svg>`;
+  // De statuspil: transparant vlak, één semantische hairline, de semantische kleur als tekst
+  // (canon 10). Nooit een gevulde badge.
+  function stancePill(ins) {
+    return `<span class="pill is-${role(ins)}"><span class="dot"></span>${esc(stanceLabel(ins.stance))}</span>`;
+  }
 
-  // An abstract Maculis atmosphere: a warm dawn horizon with a soft luminous sun and layered mist —
-  // the "special moment" behind the shared next step. Evokes the reference's atmospheric image while
-  // staying abstract and self-contained (inline SVG, no external asset, CSP-safe).
-  const HORIZON = `<svg class="horizon-img" viewBox="0 0 600 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-    <defs>
-      <linearGradient id="hzSky" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#cdc2e6"/>
-        <stop offset="40%" stop-color="#e0cdcf"/>
-        <stop offset="72%" stop-color="#f0d9bd"/>
-        <stop offset="100%" stop-color="#f6ecd7"/>
-      </linearGradient>
-      <radialGradient id="hzSun" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stop-color="#fff6e6" stop-opacity="0.98"/>
-        <stop offset="38%" stop-color="#f3d29a" stop-opacity="0.7"/>
-        <stop offset="100%" stop-color="#f3d29a" stop-opacity="0"/>
-      </radialGradient>
-      <linearGradient id="hzScrim" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stop-color="#f7eede" stop-opacity="0.9"/>
-        <stop offset="60%" stop-color="#f7eede" stop-opacity="0"/>
-      </linearGradient>
-    </defs>
-    <rect width="600" height="320" fill="url(#hzSky)"/>
-    <circle cx="430" cy="150" r="150" fill="url(#hzSun)"/>
-    <circle cx="430" cy="150" r="30" fill="#fff3da" opacity="0.92"/>
-    <path d="M0 232 Q 140 196 300 224 T 600 214 V320 H0 Z" fill="#b7a9c9" opacity="0.42"/>
-    <path d="M0 262 Q 170 232 350 258 T 600 250 V320 H0 Z" fill="#8f82a6" opacity="0.4"/>
-    <path d="M0 292 Q 200 270 400 288 T 600 286 V320 H0 Z" fill="#6f6486" opacity="0.42"/>
-    <rect width="440" height="320" fill="url(#hzScrim)"/>
-  </svg>`;
+  // ============================================================================================
+  // HET SIGNAALVELD
+  //
+  // Trap 1 tot 4 van de signal language (canon 9), in het dagregime. Koper aan de rand, violet
+  // in de kern. Elk punt is een werkelijke waarneming van deze organisatie. Een verbinding
+  // ontstaat uitsluitend tussen signalen die over hetzelfde gaan, nooit op grond van afstand
+  // (canon 8.1). De straal van het licht volgt het aantal signalen dat de uitspraak draagt
+  // (canon 7), niet de opmaak.
+  //
+  // De beweging is de levenscyclus uit canon 8.1: waarnemen, elkaar herkennen, verband, bewijs,
+  // inzicht, rust. Hij loopt één keer en blijft daarna staan. In het dagregime is er geen emissie
+  // (canon 7): het inzicht draagt een zachte bloom en een slagschaduw in plaats van gloed.
+  // ============================================================================================
+  function signalField(insights, leading) {
+    const CX = 160, CY = 160, R = 116;
+    const others = (insights || []).filter((i) => !leading || i.id !== leading.id);
+    if (!others.length) return { svg: '', signals: 0, links: 0 };
+
+    const leadRole = role(leading);
+    // Nabijheid is het gevolg van betekenis: gelijke rollen komen naast elkaar te staan.
+    const ORDER = ['signal', 'emerging', 'confirmed', 'uncertain'];
+    const sorted = others.slice().sort((a, b) => ORDER.indexOf(role(a)) - ORDER.indexOf(role(b)));
+
+    const n = sorted.length;
+    const nodes = sorted.map((ins, k) => {
+      // Deterministische plaatsing. Geen willekeur, dus twee runs geven hetzelfde veld.
+      const angle = (-Math.PI / 2) + (k * 2 * Math.PI / n) + 0.32;
+      const r = R - (k % 3) * 13;
+      const x = CX + Math.cos(angle) * r;
+      const y = CY + Math.sin(angle) * r * 0.92;
+      return { ins, x, y, role: role(ins), k, angle };
+    });
+
+    // Trap 2 en 3. Twee soorten verbanden, beide betekenisdragend:
+    //   naar de kern  : dit signaal draagt de leidende uitspraak (zelfde rol)
+    //   onderling     : deze twee waarnemingen gaan over hetzelfde (zelfde rol, naast elkaar)
+    const links = [];
+    for (const nd of nodes) {
+      if (nd.role === leadRole) links.push({ x1: CX, y1: CY, x2: nd.x, y2: nd.y, kind: 'core' });
+    }
+    for (let k = 1; k < nodes.length; k++) {
+      if (nodes[k].role === nodes[k - 1].role) {
+        links.push({ x1: nodes[k - 1].x, y1: nodes[k - 1].y, x2: nodes[k].x, y2: nodes[k].y, kind: 'peer' });
+      }
+    }
+
+    // Het bewijs onder de uitspraak: het aantal signalen dat naar de kern loopt. Daar volgt de
+    // straal van het licht uit, en verder niets.
+    const carrying = links.filter((l) => l.kind === 'core').length;
+    const halo = 34 + carrying * 13;
+    const core = 7 + Math.min(carrying, 4);
+
+    const len = (l) => Math.round(Math.hypot(l.x2 - l.x1, l.y2 - l.y1));
+    const linkSvg = links.map((l, i) => {
+      const stroke = l.kind === 'core' ? 'var(--semantic-emerging)' : 'var(--copper-700)';
+      const op = l.kind === 'core' ? 0.34 : 0.24;
+      return `<line class="sf-link" style="--len:${len(l)};--i:${i}" x1="${l.x1.toFixed(1)}" y1="${l.y1.toFixed(1)}" x2="${l.x2.toFixed(1)}" y2="${l.y2.toFixed(1)}" stroke="${stroke}" stroke-opacity="${op}" stroke-width="1"/>`;
+    }).join('');
+
+    const nodeSvg = nodes.map((nd) => {
+      // Signalen komen binnen als koper (canon 9). Alleen wat nog aan het worden is, staat violet.
+      const fill = nd.role === 'emerging' ? 'var(--semantic-emerging)' : 'var(--copper-500)';
+      const r = nd.role === leadRole ? 4 : 3;
+      // Ze drijven van buiten naar binnen: waarnemen, dan naar elkaar toe buigen.
+      const dx = (Math.cos(nd.angle) * 26).toFixed(1);
+      const dy = (Math.sin(nd.angle) * 26).toFixed(1);
+      return `<circle class="sf-node" style="--i:${nd.k};--dx:${dx}px;--dy:${dy}px" cx="${nd.x.toFixed(1)}" cy="${nd.y.toFixed(1)}" r="${r}" fill="${fill}" fill-opacity="${nd.role === leadRole ? 0.95 : 0.7}"/>`;
+    }).join('');
+
+    const svg = `<svg class="orbit" viewBox="0 0 320 320" aria-hidden="true">
+      <defs>
+        <radialGradient id="sfBloom" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="var(--semantic-emerging)" stop-opacity="0.22"/>
+          <stop offset="55%" stop-color="var(--semantic-emerging)" stop-opacity="0.07"/>
+          <stop offset="100%" stop-color="var(--semantic-emerging)" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="sfCast" x="-60%" y="-60%" width="220%" height="220%">
+          <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#5f4fb0" flood-opacity="0.35"/>
+        </filter>
+      </defs>
+      ${linkSvg}
+      ${nodeSvg}
+      <circle class="sf-halo" cx="${CX}" cy="${CY}" r="${halo}" fill="url(#sfBloom)"/>
+      <circle class="sf-core" cx="${CX}" cy="${CY}" r="${core}" fill="var(--semantic-emerging)" filter="url(#sfCast)"/>
+    </svg>`;
+
+    return { svg, signals: nodes.length, links: links.length };
+  }
+
+  // De legenda maakt het licht eerlijk: in tekst staat waarop het rust (canon 7 en 10).
+  function fieldLegend(field) {
+    if (!field.svg) return '';
+    const w = (n, one, many) => `<b>${n}</b> ${n === 1 ? one : many}`;
+    return `<p class="field-legend">Dit inzicht rust op ${w(field.signals, 'waarneming', 'waarnemingen')}
+      en ${w(field.links, 'verband', 'verbanden')}.</p>`;
+  }
 
   // ---- navigation / router ----
   const PAGES = {
@@ -189,41 +228,62 @@
   }
 
   // ---- views ----
-  function skeleton() { view.innerHTML = '<div class="skel">Eén moment…</div>'; }
+  function skeleton() { view.innerHTML = '<p class="skel">Eén moment.</p>'; }
+
+  // Lege staat: ontworpen, niet leeg. Serif-regel plus één actie (canon 12).
+  function emptyState(line, actionLabel, nav) {
+    return `<div class="empty">
+      <p class="stem">${esc(line)}</p>
+      ${actionLabel ? `<button class="btn-link" data-nav="${esc(nav)}">${esc(actionLabel)} ${ICON.arrow}</button>` : ''}
+    </div>`;
+  }
 
   async function renderOverview() {
     skeleton();
-    const { data } = await api('/api/mijn/overview');
+    // Het signaalveld moet op ALLE waarnemingen rusten, niet alleen op de drie recente.
+    // Anders zou het licht meer beweren dan het bewijs draagt (canon 7).
+    const [ov, ins] = await Promise.all([api('/api/mijn/overview'), api('/api/mijn/insights')]);
+    const data = ov.data || {};
     const a = data.attention;
     const c = data.collaboration || {};
+    const all = ((ins.data && ins.data.insights) || []).length
+      ? ins.data.insights
+      : (a ? [a, ...(data.recent || [])] : (data.recent || []));
 
+    const field = a ? signalField(all, a) : { svg: '', signals: 0, links: 0 };
     const hero = a ? `
       <section class="hero">
-        ${ORBIT}
         <div class="hero-inner">
-          <div class="hero-ico">${ICON.compass}</div>
-          ${a.attention ? '<span class="badge badge-new">Nieuw inzicht</span>' : ''}
+          <div class="detail-head">
+            ${stancePill(a)}
+            ${shareTag(a.sharing)}
+          </div>
           <h2>${esc(a.title)}</h2>
           <p>${esc(a.basis || a.observation || '')}</p>
+          ${fieldLegend(field)}
           <div class="hero-actions">
             <button class="btn btn-primary" data-nav="inzicht/${esc(a.id)}">Bekijk inzicht</button>
-            <button class="btn btn-ghost" data-nav="inzichten">Meer inzichten ${ICON.arrow}</button>
+            <button class="btn-ghost" data-nav="inzichten">Meer inzichten ${ICON.arrow}</button>
           </div>
         </div>
-      </section>` : `<section class="hero"><div class="hero-inner"><h2>Nog geen inzichten</h2><p>Zodra Maculis iets over jullie organisatie ziet, verschijnt het hier.</p></div></section>`;
+        ${field.svg}
+      </section>` : `<section class="hero"><div class="hero-inner">
+        <h2>Je bent bij.</h2>
+        <p class="stem">Zodra Maculis iets over jullie organisatie ziet, verschijnt het hier.</p>
+      </div></section>`;
 
     const recent = (data.recent || []).map((i) => insightCard(i)).join('');
     const recentPanel = `
       <section class="panel">
         <p class="section-label">Recente inzichten</p>
-        <div class="insight-grid">${recent || '<p class="empty">Nog geen inzichten.</p>'}</div>
+        <div class="insight-grid">${recent || emptyState('Er is nog niets anders te zien.')}</div>
         ${data.insightCount > 1 ? '<button class="btn btn-block" data-nav="inzichten">Naar alle inzichten</button>' : ''}
       </section>`;
 
-    // A quiet reflective epigraph in the environment's own voice, a calm moment rather than a testimonial.
+    // Een stille reflectie in de eigen stem van de omgeving, geen aanbeveling.
     const epigraph = `
       <section class="epigraph">
-        <p>Losse signalen krijgen hier langzaam betekenis, tot je ziet wat er werkelijk speelt.</p>
+        <p class="stem">Losse signalen krijgen hier langzaam betekenis, tot je ziet wat er werkelijk speelt.</p>
         <span class="epigraph-src"><span class="brand-ring" aria-hidden="true"></span>Mijn Maculis</span>
       </section>`;
 
@@ -237,7 +297,7 @@
   }
 
   // Right-column building blocks, shared between the Overzicht and De Spiegel compositions so both
-  // pages carry the same samenwerking glance and atmospheric next-step card.
+  // pages carry the same samenwerking glance and next-step card.
   function collabGlance(c) {
     c = c || {};
     return `
@@ -255,20 +315,19 @@
     const step = (c || {}).nextStep;
     return `
       <section class="atmos-card">
-        ${HORIZON}
         <div class="atmos-inner">
-          <span class="atmos-eyebrow">Onze laatste stap</span>
+          <p class="atmos-eyebrow">Onze laatste stap</p>
           <p class="atmos-line">${esc(step ? (step.detail || step.title) : 'Zodra we samen een volgende stap afspreken, zie je die hier.')}</p>
-          <button class="btn atmos-btn" data-nav="samenwerking">Bekijk alle afspraken ${ICON.arrow}</button>
+          <button class="btn-ghost" data-nav="samenwerking">Bekijk alle afspraken ${ICON.arrow}</button>
         </div>
       </section>`;
   }
 
-  // De Spiegel closes with a reflection in the organisation's own voice, echoing the reference quote.
+  // De Spiegel sluit af met een reflectie in de stem van de organisatie zelf.
   function orgEpigraph() {
     return `
       <section class="epigraph">
-        <p>De inzichten geven ons een helder beeld van waar we staan en waar de kansen liggen.</p>
+        <p class="stem">De inzichten geven ons een helder beeld van waar we staan en waar de kansen liggen.</p>
         <span class="epigraph-src"><span class="brand-ring" aria-hidden="true"></span>${esc(orgName || 'Onze organisatie')}</span>
       </section>`;
   }
@@ -281,17 +340,16 @@
     </button>`;
   }
 
+  // De kaart draagt drie dingen, elk met een eigen drager: het oppervlak zegt of dit van jou
+  // alleen is, de linkerrand van 2px zegt welke houding het inzicht heeft, en de tekst zegt
+  // allebei nog een keer. Kleur is nooit de enige drager (canon 10).
   function insightCard(i) {
-    // Subtle left marker: a "Nieuw" badge for a fresh attention insight, else a quiet "Bijgewerkt"
-    // when the insight has developed since its previous reading. Never a count or an attention badge.
-    const leftMark = (i.attention && i.status === 'new')
-      ? '<span class="badge badge-new">Nieuw</span>'
-      : (i.developed ? '<span class="chip-updated">Bijgewerkt</span>' : '<span></span>');
     const when = fmtDate(i.updated_at || i.created_at, false);
-    return `<button class="icard ${tintClass(i)}" data-nav="inzicht/${esc(i.id)}">
+    const priv = i.sharing === 'SHARED' || i.sharing === 'AGGREGATED' ? '' : ' is-private';
+    return `<button class="icard on-${role(i)}${priv}" data-nav="inzicht/${esc(i.id)}">
       <div class="icard-top">
         ${shareTag(i.sharing)}
-        ${leftMark}
+        ${i.unshared_development ? '<span class="pill is-emerging"><span class="dot"></span>Bijgewerkt</span>' : ''}
       </div>
       <h3>${esc(i.title)}</h3>
       <p>${esc(i.observation || '')}</p>
@@ -313,32 +371,33 @@
     </section>`;
   }
 
-  // De Spiegel — editorial composition: one dominant insight carrying the signal field, then the rest
-  // in an airy grid. Different visual weight makes hierarchy readable without a dashboard.
-  function spiegelHero(i) {
-    return `<button class="spiegel-hero ${tintClass(i)}" data-nav="inzicht/${esc(i.id)}">
-      ${ORBIT}
+  // De Spiegel: één leidende uitspraak die het signaalveld draagt, de rest in een rustig raster.
+  function spiegelHero(i, all) {
+    const field = signalField(all, i);
+    return `<button class="spiegel-hero" data-nav="inzicht/${esc(i.id)}">
       <div class="spiegel-hero-inner">
         <div class="detail-head">
-          <span class="chip stance-${esc(i.stance)}"><span class="dot"></span>${esc(stanceLabel(i.stance))}</span>
+          ${stancePill(i)}
           ${shareTag(i.sharing)}
-          ${i.developed ? '<span class="chip-updated">Bijgewerkt</span>' : ''}
         </div>
         <h2>${esc(i.title)}</h2>
         <p>${esc(i.observation || '')}</p>
+        ${fieldLegend(field)}
         <span class="btn-link">Bekijk inzicht ${ICON.arrow}</span>
       </div>
+      ${field.svg}
     </button>`;
   }
 
-  // De Spiegel — the fullest reflection: one dominant insight carrying the signal field, the remaining
-  // readings in an airy "Recente inzichten" grid, and a right column that grounds the reading in the
-  // living samenwerking (glance + atmospheric next step + a reflection in the organisation's voice).
   async function renderInsights() {
     skeleton();
     const [ins, ov] = await Promise.all([api('/api/mijn/insights'), api('/api/mijn/overview')]);
     const items = (ins.data && ins.data.insights) || [];
-    if (!items.length) { view.innerHTML = '<p class="empty">Er zijn nog geen inzichten om te tonen.</p>'; return; }
+    if (!items.length) {
+      view.innerHTML = emptyState('Je bent bij. Er is nog niets dat we jullie kunnen teruggeven.', 'Naar samenwerking', 'samenwerking');
+      wireNav();
+      return;
+    }
     const c = (ov.data && ov.data.collaboration) || {};
     const dominant = items.find((i) => i.attention) || items[0];
     const rest = items.filter((i) => i.id !== dominant.id);
@@ -346,12 +405,12 @@
     const recentPanel = `
       <section class="panel">
         <p class="section-label">Recente inzichten</p>
-        <div class="insight-grid">${rest.length ? rest.map(insightCard).join('') : '<p class="empty">Dit is op dit moment het enige inzicht.</p>'}</div>
+        <div class="insight-grid">${rest.length ? rest.map(insightCard).join('') : emptyState('Dit is op dit moment het enige inzicht.')}</div>
       </section>`;
 
     view.innerHTML = `
       <div class="ov-grid">
-        <div class="ov-col">${spiegelHero(dominant)}${recentPanel}</div>
+        <div class="ov-col">${spiegelHero(dominant, items)}${recentPanel}</div>
         <div class="ov-col">${collabGlance(c)}${laatsteStap(c)}${orgEpigraph()}</div>
       </div>
       ${privacyRow()}`;
@@ -361,20 +420,22 @@
   async function renderDetail(id) {
     skeleton();
     const { status, data } = await api('/api/mijn/insights/' + encodeURIComponent(id));
-    if (status !== 200 || !data.insight) { view.innerHTML = `<p class="empty">Dit inzicht is niet gevonden.</p><button class="btn btn-ghost" data-nav="inzichten">Terug naar De Spiegel</button>`; wireNav(); return; }
+    if (status !== 200 || !data.insight) {
+      view.innerHTML = emptyState('Dit inzicht is niet gevonden.', 'Terug naar De Spiegel', 'inzichten');
+      wireNav();
+      return;
+    }
     view.innerHTML = detailMarkup(data.insight, data.development || []);
     wireNav();
     wireDetail(data.insight);
   }
 
-  // The human development timeline: a calm, DEFAULT-COLLAPSED section (native <details>, no JS, fully
-  // accessible). Only shown once an insight has actually developed (more than one reading). No version
-  // ids, confidence or provenance — only what we saw earlier, what changed, and the current reading.
+  // De menselijke ontwikkeling: rustig, standaard dichtgeklapt, zonder versie-ids of confidence.
   function developmentSection(development) {
     if (!development || development.length < 2) return '';
     const rows = development.map((e) => `
       <li class="dev-entry ${e.current ? 'current' : ''}">
-        <span class="dev-when">${esc(fmtDate(e.at, false))}${e.current ? ' · nu' : ''}</span>
+        <span class="dev-when">${esc(fmtDate(e.at, false))}${e.current ? ', nu' : ''}</span>
         <span class="dev-body">
           <span class="dev-stance">${esc(e.stanceLabel)}</span>
           <span class="dev-note">${esc(e.note || e.headline || '')}</span>
@@ -389,9 +450,10 @@
   function sharePanel(i) {
     const shared = i.sharing === 'SHARED';
     const unshared = shared && i.unshared_development;
+    const skin = shared ? '' : ' is-private';
     if (unshared) {
-      // An older reading is shared; a newer reading is private. Calm, unambiguous, no dark pattern.
-      return `<div class="share-panel">
+      // Een eerdere lezing is gedeeld, een nieuwere is privé. Kalm, ondubbelzinnig, geen dark pattern.
+      return `<div class="share-panel${skin}">
         <div class="share-status">
           <span class="priv-ico share">${ICON.people}</span>
           <span class="share-status-text">
@@ -402,12 +464,12 @@
         <div class="dev-notice">${ICON.compass}<span>Er is een nieuwe ontwikkeling die je nog niet met Maculis hebt gedeeld.</span></div>
         <p class="share-note">Als je de nieuwe ontwikkeling deelt, werk je de eerder gedeelde lezing bij voor Maculis. Er wordt niets automatisch gedeeld.</p>
         <div class="share-actions">
-          <button class="btn btn-violet" id="act-share-update">Deel de nieuwe ontwikkeling</button>
+          <button class="btn btn-primary" id="act-share-update">Deel de nieuwe ontwikkeling</button>
           <button class="btn" id="act-revoke">Delen intrekken</button>
         </div>
       </div>`;
     }
-    return `<div class="share-panel">
+    return `<div class="share-panel${skin}">
       <div class="share-status">
         <span class="priv-ico ${shared ? 'share' : 'lock'}">${shared ? ICON.people : ICON.lock}</span>
         <span class="share-status-text">
@@ -420,31 +482,37 @@
         : 'Als je dit deelt, kan Maculis dit inzicht gebruiken in jullie samenwerking en relevante gesprekken.'}</p>
       ${shared
         ? '<button class="btn" id="act-revoke">Delen intrekken</button>'
-        : '<button class="btn btn-violet" id="act-share">Bespreek met Maculis</button>'}
+        : '<button class="btn btn-primary" id="act-share">Bespreek met Maculis</button>'}
     </div>`;
   }
 
+  // Insight surface (canon 12): de serif-uitspraak leidt, het bewijs staat eronder achter een
+  // rail van 1px. "Nog niet bekend" blijft kleurloos, en waar niets staat, staat dat in woorden.
   function detailMarkup(i, development) {
+    const q = (label, text, mod) =>
+      `<div class="qa${mod ? ' ' + mod : ''}"><h3>${label}</h3><p>${esc(text || 'Dit hebben we nog niet opgeschreven.')}</p></div>`;
     return `<div class="detail">
       <div class="detail-back"><button class="btn-link" data-nav="inzichten">${leftArrow()} De Spiegel</button></div>
       <div class="detail-head">
-        <span class="chip stance-${esc(i.stance)}"><span class="dot"></span>${esc(stanceLabel(i.stance))}</span>
+        ${stancePill(i)}
         ${shareTag(i.sharing)}
-        ${i.developed ? '<span class="chip-updated">Bijgewerkt</span>' : ''}
       </div>
       <h2>${esc(i.title)}</h2>
 
-      <div class="qa"><h3>Wat zien we?</h3><p>${esc(i.observation || '—')}</p></div>
-      <div class="qa"><h3>Wat betekent dit mogelijk?</h3><p>${esc(i.meaning || '—')}</p></div>
-      <div class="qa"><h3>Waar baseren we dit op?</h3><p>${esc(i.basis || '—')}</p></div>
-      <div class="qa unknown"><h3>Wat weten we nog niet?</h3><p>${esc(i.not_yet_known || '—')}</p></div>
+      <p class="qa-lead">${esc(i.observation || 'Dit hebben we nog niet opgeschreven.')}</p>
+
+      <div class="evidence">
+        ${q('Wat betekent dit mogelijk?', i.meaning)}
+        ${q('Waar baseren we dit op?', i.basis)}
+        ${q('Wat weten we nog niet?', i.not_yet_known, 'unknown')}
+      </div>
 
       ${developmentSection(development)}
       ${sharePanel(i)}
     </div>`;
   }
 
-  function leftArrow() { return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:-3px"><path d="M20 12H5"/><path d="m11 6-6 6 6 6"/></svg>'; }
+  function leftArrow() { return '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:-2px"><path d="M20 12H5"/><path d="m11 6-6 6 6 6"/></svg>'; }
 
   function wireDetail(insight) {
     const shareBtn = $('act-share'), updateBtn = $('act-share-update'), revokeBtn = $('act-revoke');
@@ -457,10 +525,14 @@
     skeleton();
     const { data } = await api('/api/mijn/collaboration');
     const items = data.items || [];
-    if (!items.length) { view.innerHTML = '<p class="empty">Er zijn nog geen gezamenlijke afspraken of stappen.</p>'; return; }
+    if (!items.length) {
+      view.innerHTML = emptyState('Er zijn nog geen gezamenlijke afspraken of stappen.', 'Naar De Spiegel', 'inzichten');
+      wireNav();
+      return;
+    }
     const KIND = { agreement: 'Afspraak', next_step: 'Volgende stap', research: 'Onderzoek', decision: 'Besluit', shared_note: 'Notitie' };
     const rows = items.map((i) => {
-      const meta = [KIND[i.kind] || 'Item', i.due_at ? fmtDate(i.due_at, true) : ''].filter(Boolean).join(' · ');
+      const meta = [KIND[i.kind] || 'Item', i.due_at ? fmtDate(i.due_at, true) : ''].filter(Boolean).join(', ');
       const ico = i.kind === 'research' ? ICON.research : i.due_at ? ICON.check : ICON.handshake;
       return `<div class="glance-row" style="cursor:default">
         <span class="glance-ico ${i.due_at ? 'ok' : 'amber'}">${ico}</span>
@@ -480,23 +552,23 @@
       confirmTitle.textContent = 'Delen met Maculis';
       confirmBody.textContent = 'Als je dit deelt, kan Maculis dit inzicht gebruiken in jullie samenwerking en relevante gesprekken. Je kunt het later weer intrekken.';
       confirmOk.textContent = 'Delen met Maculis';
-      confirmOk.className = 'btn btn-violet';
     } else if (action === 'share-update') {
       confirmTitle.textContent = 'Nieuwe ontwikkeling delen';
       confirmBody.textContent = 'Je werkt de eerder gedeelde lezing bij voor Maculis met de huidige ontwikkeling. Vanaf dat moment gebruikt Maculis de nieuwe lezing. Er wordt niets automatisch gedeeld.';
       confirmOk.textContent = 'Nieuwe ontwikkeling delen';
-      confirmOk.className = 'btn btn-violet';
     } else {
       confirmTitle.textContent = 'Delen intrekken';
       confirmBody.textContent = 'Maculis gebruikt dit inzicht daarna niet langer in jullie samenwerking. Het blijft wel voor jou zichtbaar.';
       confirmOk.textContent = 'Intrekken';
-      confirmOk.className = 'btn btn-primary';
     }
+    confirmOk.className = 'btn btn-primary';
     confirm.classList.remove('hidden');
+    confirmOk.focus();
   }
   function closeConfirm() { confirm.classList.add('hidden'); pending = null; }
   confirmCancel.addEventListener('click', closeConfirm);
   confirm.addEventListener('click', (e) => { if (e.target === confirm) closeConfirm(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !confirm.classList.contains('hidden')) closeConfirm(); });
   confirmOk.addEventListener('click', async () => {
     if (!pending) return;
     const { insight, action } = pending;
@@ -521,6 +593,7 @@
     if (existing) existing.remove();
     const t = document.createElement('div');
     t.className = 'toast';
+    t.setAttribute('role', 'status');
     t.innerHTML = ICON.check + '<span></span>';
     t.querySelector('span').textContent = msg;
     document.body.appendChild(t);
@@ -546,7 +619,7 @@
       return;
     }
     orgName = data.organization || '';
-    $('side-org-name').textContent = data.organization || '—';
+    $('side-org-name').textContent = data.organization || 'Onbekend';
     const name = (data.user && data.user.label) || 'Klant';
     $('side-user-name').textContent = name;
     $('side-user-role').textContent = (data.user && data.user.role) || '';
