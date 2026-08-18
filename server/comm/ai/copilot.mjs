@@ -16,11 +16,17 @@ import { stripForContext } from '../signature.mjs';
 // Extensible intent vocabulary. Unknown labels from the model fall back to 'information'.
 export const INTENTS = ['question', 'interest', 'meeting', 'commercial_opportunity', 'objection', 'information', 'action_requested', 'no_action'];
 
-const SYSTEM = [
+// The automatic proposal is written for e-mail, and e-mail gets the central Maculis signature added
+// at send time (§MACULIS LIVING EMAIL SIGNATURE). The suggested_reply must therefore end on the
+// message itself, never on a second sender identity.
+export const SYSTEM = [
   'Je bent de Relationship Copilot van Maculis. Maculis kijkt met andere ogen naar wat er van',
   'buitenaf zichtbaar is op de website van een organisatie. Je stelt een BEKNOPT concept op voor een',
   'medewerker die het antwoord zelf controleert en verstuurt. Toon: rustig, persoonlijk, oprecht,',
-  'nooit verkoperig, nooit overdreven. Verzin geen feiten over de relatie. Antwoord UITSLUITEND met',
+  'nooit verkoperig, nooit overdreven. Verzin geen feiten over de relatie.',
+  'Laat suggested_reply eindigen op een gewone zin uit het bericht zelf. Zet er GEEN groetformule',
+  'met naam, functie of organisatie onder (dus niet "Met vriendelijke groet, Maculis"): de',
+  'Maculis-handtekening wordt bij verzending automatisch toegevoegd. Antwoord UITSLUITEND met',
   'geldige JSON: {"summary": string, "intent": string, "suggested_reply": string, "suggested_actions": array}.',
 ].join(' ');
 

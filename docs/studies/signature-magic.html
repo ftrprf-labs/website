@@ -1,0 +1,921 @@
+<title>Maculis Signatuurmoment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+:root{
+  --ink:#0a0b10;
+  --ink-panel:#101219;
+  --ink-raise:#151822;
+  --line:#232634;
+  --line-soft:#1a1d27;
+  --copper:#b87333;
+  --copper-lit:#e0ab7a;
+  --violet:#7c4dff;
+  --bone:#f2ede4;
+  --text:#dcd6cc;
+  --dim:#948c81;
+  --faint:#6b6459;
+  --ok:#7fa06a;
+  --warn:#c8913f;
+  --no:#8d5a52;
+  --shell: 1180px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--ink);
+  color:var(--text);
+  font-family:"Instrument Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  font-size:15px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:var(--shell);margin:0 auto;padding:0 28px}
+a{color:var(--copper-lit)}
+
+/* ---------- type ---------- */
+h1,h2,h3{font-family:"Newsreader",Georgia,"Times New Roman",serif;font-weight:300;text-wrap:balance;margin:0}
+h1{font-size:clamp(34px,5vw,54px);line-height:1.08;letter-spacing:-.01em;color:var(--bone)}
+h2{font-size:clamp(24px,3vw,32px);line-height:1.15;color:var(--bone)}
+h3{font-size:20px;line-height:1.25;color:var(--bone)}
+.eyebrow{
+  font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--copper);
+}
+.lede{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.62;color:var(--text);max-width:63ch;font-weight:300}
+p{max-width:66ch}
+.small{font-size:13.5px;line-height:1.6;color:var(--dim)}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- header ---------- */
+header.top{border-bottom:1px solid var(--line-soft);padding:60px 0 40px;position:relative;overflow:hidden}
+.top-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:52px;align-items:end}
+@media (max-width:860px){.top-grid{grid-template-columns:1fr;gap:32px}}
+.paradox{
+  border-left:1px solid var(--copper);
+  padding:4px 0 4px 20px;
+  font-family:"Newsreader",Georgia,serif;
+  font-size:17px;font-style:italic;font-weight:300;line-height:1.55;color:var(--copper-lit);
+}
+.rulebox{
+  border:1px solid var(--line);border-radius:2px;padding:18px 20px;background:var(--ink-panel);
+}
+.rulebox ul{margin:10px 0 0;padding-left:16px;display:flex;flex-direction:column;gap:6px}
+.rulebox li{font-size:13.5px;color:var(--dim)}
+.rulebox li b{color:var(--text);font-weight:500}
+
+/* ---------- controls ---------- */
+.bar{
+  position:sticky;top:0;z-index:40;
+  background:rgba(10,11,16,.93);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line-soft);
+  padding:12px 0;
+}
+.bar-in{display:flex;flex-wrap:wrap;gap:10px 26px;align-items:center}
+.ctl{display:flex;align-items:center;gap:9px}
+.ctl-label{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.seg{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.seg button{
+  appearance:none;background:transparent;border:0;border-right:1px solid var(--line);
+  color:var(--dim);font:inherit;font-size:12.5px;padding:5px 11px;cursor:pointer;
+  font-family:"Instrument Sans",sans-serif;
+}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--copper);color:#1b0f05;font-weight:600}
+.seg button:hover:not([aria-pressed="true"]){color:var(--text);background:var(--ink-raise)}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--copper-lit);outline-offset:2px}
+.btn{
+  appearance:none;border:1px solid var(--copper);background:transparent;color:var(--copper-lit);
+  font:inherit;font-size:12.5px;padding:5px 14px;border-radius:2px;cursor:pointer;
+}
+.btn:hover{background:var(--copper);color:#1b0f05}
+.check{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--dim);cursor:pointer}
+.check input{accent-color:var(--copper);width:14px;height:14px}
+
+/* ---------- study panels ---------- */
+main{padding:52px 0 0}
+section{padding:0 0 68px}
+.section-head{display:flex;align-items:baseline;gap:16px;margin-bottom:8px;flex-wrap:wrap}
+.studies{display:flex;flex-direction:column;gap:34px;margin-top:34px}
+.panel{
+  border:1px solid var(--line);border-radius:3px;background:var(--ink-panel);
+  display:grid;grid-template-columns:minmax(0,1fr) 268px;
+}
+@media (max-width:960px){.panel{grid-template-columns:1fr}}
+.panel[data-active="false"]{opacity:.32;filter:saturate(.5)}
+.panel-stage{padding:26px 26px 22px;border-right:1px solid var(--line);min-width:0}
+@media (max-width:960px){.panel-stage{border-right:0;border-bottom:1px solid var(--line)}}
+.panel-meta{padding:24px 22px;display:flex;flex-direction:column;gap:16px}
+.p-num{
+  font-family:"Newsreader",Georgia,serif;font-size:13px;color:var(--copper);
+  border:1px solid var(--copper);width:26px;height:26px;border-radius:50%;
+  display:grid;place-items:center;flex:none;
+}
+.p-head{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.p-intent{font-size:13.5px;color:var(--dim);line-height:1.55}
+.spec{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:12px;border-top:1px solid var(--line-soft);padding-top:14px}
+.spec dt{color:var(--faint);letter-spacing:.06em;text-transform:uppercase;font-size:10px;font-weight:600;align-self:center}
+.spec dd{margin:0;color:var(--text);font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-variant-numeric:tabular-nums}
+.flag{
+  font-size:12px;line-height:1.5;color:var(--warn);border-left:1px solid var(--warn);padding-left:11px;
+}
+.flag.good{color:var(--ok);border-color:var(--ok)}
+
+/* ---------- signature render ---------- */
+.stage-frame{
+  position:relative;overflow:hidden;border-radius:2px;
+  background:var(--ink);border:1px solid var(--line-soft);
+}
+.stage-frame.on-bone{background:var(--bone)}
+.sig-scaler{transform-origin:0 0;margin:0 auto}
+.sig{position:relative;width:660px;height:186px;background:#0a0b10}
+.sig canvas{position:absolute;inset:0;width:660px;height:186px;pointer-events:none}
+.sig .t{position:absolute;white-space:nowrap;line-height:1}
+.sig .name{font-family:"Newsreader",Georgia,serif;font-weight:300;font-size:25px;color:var(--copper-lit);letter-spacing:.005em}
+.sig .role{font-size:10px;letter-spacing:.19em;text-transform:uppercase;color:#8e857a;font-weight:500}
+.sig .row{font-size:12.5px;color:#a89f92}
+.sig .word{font-family:"Newsreader",Georgia,serif;font-weight:300;font-size:32px;color:var(--copper-lit);letter-spacing:-.005em}
+.sig .tag{font-family:"Newsreader",Georgia,serif;font-weight:300;font-size:13px;color:#a89f92}
+.sig .wording{font-family:"Newsreader",Georgia,serif;font-style:italic;font-weight:300;font-size:13.5px;color:#a08fd6}
+.sig .ico{position:absolute;width:13px;height:13px;opacity:.62}
+.stage-note{
+  display:flex;justify-content:space-between;gap:16px;align-items:baseline;
+  margin-top:14px;font-size:11.5px;color:var(--faint);flex-wrap:wrap;
+}
+.pill{
+  font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;
+  border:1px solid var(--line);border-radius:2px;padding:3px 9px;color:var(--dim);
+}
+.pill.live{border-color:var(--copper);color:var(--copper)}
+.pill.frozen{border-color:var(--line);color:var(--faint)}
+.timeline{height:2px;background:var(--line-soft);margin-top:14px;position:relative;border-radius:2px;overflow:hidden}
+.timeline i{position:absolute;left:0;top:0;bottom:0;background:rgba(184,115,51,.55);width:0}
+
+/* ---------- verdict ---------- */
+.verdict{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-top:30px}
+@media (max-width:820px){.verdict{grid-template-columns:1fr}}
+.vcell{background:var(--ink-panel);padding:22px 20px;display:flex;flex-direction:column;gap:12px}
+.vcell.win{background:var(--ink-raise);box-shadow:inset 3px 0 0 var(--copper)}
+.score{display:flex;flex-direction:column;gap:7px;margin-top:2px}
+.srow{display:grid;grid-template-columns:1fr 84px;gap:10px;align-items:center;font-size:12px;color:var(--dim)}
+.meter{height:3px;background:var(--line);position:relative;border-radius:2px}
+.meter i{position:absolute;inset:0 auto 0 0;background:var(--copper);border-radius:2px}
+.meter.v i{background:var(--violet)}
+.rec{
+  margin-top:34px;border:1px solid var(--copper);border-radius:3px;background:var(--ink-panel);
+  padding:28px 30px;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:32px;
+}
+@media (max-width:820px){.rec{grid-template-columns:1fr;gap:22px}}
+
+/* ---------- tables ---------- */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:3px;margin-top:26px}
+table{border-collapse:collapse;width:100%;min-width:820px;font-size:13px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+thead th{
+  background:var(--ink-raise);color:var(--faint);font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;font-weight:600;position:sticky;top:0;white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:0}
+tbody th{font-weight:500;color:var(--text);white-space:nowrap}
+td.c{text-align:center;font-family:"IBM Plex Mono",monospace;font-size:12px}
+.y{color:var(--ok)}
+.p{color:var(--warn)}
+.n{color:var(--no)}
+.res{color:var(--dim);font-size:12.5px}
+
+/* ---------- ladder ---------- */
+.ladder{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);margin-top:26px}
+.rung{background:var(--ink-panel);padding:16px 20px;display:grid;grid-template-columns:34px minmax(0,1fr) minmax(0,1.15fr);gap:18px;align-items:baseline}
+@media (max-width:760px){.rung{grid-template-columns:26px 1fr;gap:10px}.rung .rung-out{grid-column:2}}
+.rung-n{font-family:"IBM Plex Mono",monospace;color:var(--copper);font-size:12px}
+.rung-in{font-size:13.5px;color:var(--text)}
+.rung-out{font-size:13px;color:var(--dim)}
+
+footer{border-top:1px solid var(--line-soft);padding:34px 0 60px;color:var(--faint);font-size:12.5px}
+.cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:38px;margin-top:26px}
+@media (max-width:760px){.cols{grid-template-columns:1fr;gap:24px}}
+ul.clean{margin:12px 0 0;padding-left:17px;display:flex;flex-direction:column;gap:8px}
+ul.clean li{font-size:13.5px;color:var(--dim)}
+ul.clean li b{color:var(--text);font-weight:500}
+</style>
+
+<header class="top">
+  <div class="wrap top-grid">
+    <div>
+      <div class="eyebrow">Maculis · Visual DNA v1.0 · motion study</div>
+      <h1>Het signatuurmoment<br>van ontwerp 1</h1>
+      <p class="lede" style="margin-top:22px">
+        Drie motion studies op precies dezelfde handtekening. Geen nieuwe ontwerpen, geen extra elementen.
+        Alleen een klein veld lichtpunten bij het zegel, dat zo weinig doet dat je het bijna mist.
+      </p>
+      <div class="paradox" style="margin-top:26px">
+        Je ziet bijna niets gebeuren. Maar als je het ziet, voelt de handtekening ineens levend.
+      </div>
+    </div>
+    <div class="rulebox">
+      <div class="eyebrow" style="color:var(--dim)">Grenzen van de canon</div>
+      <ul>
+        <li><b>Koper</b> is waargenomen en grond. Punten in koper zijn bevestigd licht.</li>
+        <li><b>Violet</b> is betekenis in wording. Eén violet punt, nooit meer.</li>
+        <li><b>Beweging</b> is onzekerheid. <b>Stilte</b> is bevestigd inzicht, dus alles eindigt in stilte.</li>
+        <li><b>Lichtsterkte volgt betekenis.</b> Een punt is helder naarmate het dichter bij het inzicht staat.</li>
+        <li>Beweging draagt <b>geen informatie</b>. Wie niets ziet bewegen, mist niets.</li>
+      </ul>
+    </div>
+  </div>
+</header>
+
+<div class="bar">
+  <div class="wrap bar-in">
+    <button class="btn" id="replay">Speel opnieuw</button>
+    <div class="ctl">
+      <span class="ctl-label">Client</span>
+      <div class="seg" id="seg-client">
+        <button data-v="live" aria-pressed="true">Levend</button>
+        <button data-v="gif" aria-pressed="false">GIF</button>
+        <button data-v="static" aria-pressed="false">Outlook klassiek</button>
+        <button data-v="reduced" aria-pressed="false">Rustige beweging</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="ctl-label">Tempo</span>
+      <div class="seg" id="seg-speed">
+        <button data-v="1" aria-pressed="true">1x</button>
+        <button data-v="0.5" aria-pressed="false">0,5x</button>
+        <button data-v="0.25" aria-pressed="false">0,25x</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="ctl-label">Weergave</span>
+      <div class="seg" id="seg-view">
+        <button data-v="all" aria-pressed="true">Naast elkaar</button>
+        <button data-v="seq" aria-pressed="false">Na elkaar</button>
+      </div>
+    </div>
+    <label class="check"><input type="checkbox" id="reveal"> Toon het veld</label>
+    <label class="check"><input type="checkbox" id="bone"> Lichte achtergrond</label>
+  </div>
+</div>
+
+<main>
+  <section class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Studies</span>
+      <h2>Oplopend van bijna stil naar magie</h2>
+    </div>
+    <p class="small" style="max-width:70ch">
+      De nummering is de intensiteit, niet de voorkeur. Elke studie begint en eindigt op exact hetzelfde beeld:
+      ontwerp 1, onaangeraakt. Zet "Toon het veld" aan om te zien wat er beweegt en binnen welk gebied dat gebeurt.
+    </p>
+    <div class="studies" id="studies"></div>
+  </section>
+
+  <section class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Fallback</span>
+      <h2>Waar alle drie op uitkomen</h2>
+    </div>
+    <p class="small" style="max-width:70ch">
+      Dit is het rustframe. Het is tegelijk het eerste frame van de animatie, het laatste frame, en de statische PNG.
+      Daardoor kan geen enkele client een half beeld tonen. Wie geen beweging krijgt, krijgt geen armere versie,
+      maar dezelfde handtekening.
+    </p>
+    <div class="stage-frame" id="fallback-frame" style="margin-top:26px;padding:22px"></div>
+    <div class="ladder" id="ladder"></div>
+  </section>
+
+  <section class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Oordeel</span>
+      <h2>Getoetst aan de paradox</h2>
+    </div>
+    <div class="verdict" id="verdict"></div>
+    <div class="rec" id="rec"></div>
+  </section>
+
+  <section class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Haalbaarheid</span>
+      <h2>Wat clients werkelijk doen</h2>
+    </div>
+    <p class="small" style="max-width:70ch">
+      Getoetst op de vier technieken die ertoe doen: animated GIF met lus 1, CSS keyframes, de media query
+      voor rustige beweging, en <span class="mono">picture</span> met <span class="mono">source</span>.
+      De laatste kolom is wat de ontvanger in die client feitelijk ziet.
+    </p>
+    <div class="tablewrap" id="clients"></div>
+    <div class="cols">
+      <div>
+        <h3>Waarom geen CSS keyframes</h3>
+        <p class="small">
+          CSS animatie werkt alleen in de Apple clients en gedeeltelijk in Yahoo. Gmail en Outlook strippen
+          <span class="mono">@keyframes</span> volledig. Twee motion bronnen naast elkaar zetten, CSS voor Apple en
+          GIF voor de rest, betekent dat Apple beide krijgt en de beweging dubbel loopt. Eén bron is zuiverder:
+          de GIF, want die haalt ook Apple.
+        </p>
+      </div>
+      <div>
+        <h3>Waarom geen APNG of WebP</h3>
+        <p class="small">
+          APNG valt in Gmail en Outlook voor Windows terug op het eerste frame, wat op zich veilig is, maar het
+          levert niets op boven GIF omdat de kleurdiepte hier niet het probleem is. Het zegel op een vlakke inktgrond
+          heeft ongeveer veertig kleuren nodig. Animated WebP breekt in Outlook voor Windows en wordt door Gmail
+          omgezet. Beide voegen risico toe zonder winst.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Bouw</span>
+      <h2>Specificatie van de aanbevolen variant</h2>
+    </div>
+    <div class="tablewrap"><table id="buildspec"></table></div>
+    <div class="cols">
+      <div>
+        <h3>Architectuur in de e-mail</h3>
+        <ul class="clean">
+          <li>Twee kolommen in een <b>table</b>. Links één cel met het zegel als afbeelding, rechts alle tekst als echte tekst.</li>
+          <li>De animatie zit <b>alleen in de zegelcel</b>. Naam, rol, contact en payoff blijven selecteerbaar, doorzoekbaar en schaalbaar.</li>
+          <li>Het zegel is <b>vierkant en ondoorzichtig</b> op inkt. Dat vermijdt de harde randen die GIF met transparantie geeft.</li>
+          <li>Alt tekst beschrijft het merk, niet de animatie. De platte tekstversie noemt beweging nooit.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Wat deze studie niet doet</h3>
+        <ul class="clean">
+          <li>Niets is geïntegreerd in <span class="mono">signature.mjs</span>. De verzendlogica is niet aangeraakt.</li>
+          <li>Er is niets gedeployed en er zijn geen assets aan <span class="mono">public/brand</span> toegevoegd.</li>
+          <li>De namen en adressen komen uit ontwerp 1. In productie komen ze uit config, nooit uit een ontwerp.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="eyebrow" style="color:var(--faint)">Maculis</div>
+    <p class="small" style="margin-top:8px">
+      Ontwerp 1 blijft leidend. Waar de magie de rust aantast, heeft de magie verloren.
+    </p>
+  </div>
+</footer>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------------------------------------------------------------------------
+   Geometrie van ontwerp 1 (Minimal Seal). Alles in een vast 660x186 raster,
+   zodat de HTML tekst en het canvas exact op elkaar liggen.
+---------------------------------------------------------------------------- */
+const W = 660, H = 186;
+const SEAL = { x: 75, y: 93, r: 44 };
+const WORDING = { x: 456, y: 140 };
+const BOX = { x: 8, y: 20, w: 134, h: 146 };          // animatiegebied van de zegelcel
+const C = { copper:'#b87333', copperLit:'#e6b98d', violet:'#7c4dff', dim:'#8e857a' };
+
+const ICON = {
+  mail:'<path d="M1 3h11v7H1z"/><path d="M1 3.6 6.5 7 12 3.6"/>',
+  globe:'<circle cx="6.5" cy="6.5" r="5.5"/><path d="M1 6.5h11M6.5 1a9 9 0 0 1 0 11 9 9 0 0 1 0-11"/>',
+  pin:'<path d="M6.5 12S11 8.2 11 5.2A4.5 4.5 0 0 0 2 5.2C2 8.2 6.5 12 6.5 12z"/><circle cx="6.5" cy="5.1" r="1.6"/>'
+};
+const svgIcon = (k, left, top) =>
+  `<svg class="ico" style="left:${left}px;top:${top}px" viewBox="0 0 13 13" fill="none" stroke="#9a9186" stroke-width="1" stroke-linejoin="round">${ICON[k]}</svg>`;
+
+function signatureMarkup(){
+  return `
+  <div class="sig">
+    <div class="t name" style="left:176px;top:44px">Ferry van der Vliet</div>
+    <div class="t role" style="left:177px;top:80px">Founder &amp; Steward</div>
+    ${svgIcon('mail', 177, 100)}<div class="t row" style="left:199px;top:100px">ferry@maculis.com</div>
+    ${svgIcon('globe', 177, 122)}<div class="t row" style="left:199px;top:122px">maculis.com</div>
+    ${svgIcon('pin', 177, 144)}<div class="t row" style="left:199px;top:144px">Voorburg, Nederland</div>
+    <div class="t word" style="left:448px;top:52px">maculis</div>
+    <div class="t tag" style="left:450px;top:100px">Waarnemen. Begrijpen. Verlichten.</div>
+    <div class="t wording" style="left:470px;top:133px">In wording.</div>
+    <canvas width="${W}" height="${H}"></canvas>
+  </div>`;
+}
+
+/* ---------------------------------------------------------------------------
+   Tekenprimitieven
+---------------------------------------------------------------------------- */
+function hexA(hex, a){
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${Math.max(0, Math.min(1, a)).toFixed(4)})`;
+}
+function lerp(a,b,t){ return a + (b-a)*t; }
+function clamp01(v){ return v<0?0:v>1?1:v; }
+function seg(t,a,b){ return clamp01((t-a)/(b-a)); }
+function smooth(t){ t=clamp01(t); return t*t*(3-2*t); }
+function outCubic(t){ t=clamp01(t); return 1-Math.pow(1-t,3); }
+function bell(t){ return Math.sin(Math.PI*clamp01(t)); }
+function breathe(x){ return 0.5 - 0.5*Math.cos(2*Math.PI*x); }
+const rad = d => d*Math.PI/180;
+
+// De open curve van ontwerp 1: cirkel met een opening aan de rechterkant.
+function drawArc(ctx, alpha, sweep){
+  const {x,y,r} = SEAL;
+  ctx.lineWidth = 1.15;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = hexA(C.copper, alpha);
+  ctx.beginPath();
+  ctx.arc(x, y, r, rad(34), rad(326));
+  ctx.stroke();
+  if (sweep && sweep.a > 0.001){
+    // Een kort lichtsegment dat over de bestaande curve loopt. De curve zelf verandert niet.
+    const span = rad(46), mid = rad(34) + (rad(292)) * sweep.p;
+    const g = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
+    ctx.save();
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = hexA(C.copperLit, sweep.a);
+    ctx.beginPath();
+    ctx.arc(x, y, r, mid - span/2, mid + span/2);
+    ctx.stroke();
+    ctx.restore();
+    void g;
+  }
+}
+
+// Vierpuntige ster met holle flanken, verticaal langer dan horizontaal.
+function starPath(ctx, x, y, s){
+  const ly = s, lx = s*0.60, k = s*0.045;
+  ctx.beginPath();
+  ctx.moveTo(x, y-ly);
+  ctx.quadraticCurveTo(x+k, y-k, x+lx, y);
+  ctx.quadraticCurveTo(x+k, y+k, x, y+ly);
+  ctx.quadraticCurveTo(x-k, y+k, x-lx, y);
+  ctx.quadraticCurveTo(x-k, y-k, x, y-ly);
+  ctx.closePath();
+}
+function drawStar(ctx, x, y, s, color, alpha, glow){
+  if (glow > 0.001){
+    const g = ctx.createRadialGradient(x, y, 0, x, y, s*2.6);
+    g.addColorStop(0, hexA(color, 0.30*glow));
+    g.addColorStop(1, hexA(color, 0));
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, s*2.6, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.fillStyle = hexA(color, alpha);
+  starPath(ctx, x, y, s);
+  ctx.fill();
+}
+function drawPoint(ctx, x, y, r, color, alpha){
+  if (alpha <= 0.002) return;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r*3.4);
+  g.addColorStop(0, hexA(color, alpha));
+  g.addColorStop(0.34, hexA(color, alpha*0.42));
+  g.addColorStop(1, hexA(color, 0));
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, r*3.4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = hexA(color, Math.min(1, alpha*1.25));
+  ctx.beginPath(); ctx.arc(x, y, r*0.62, 0, Math.PI*2); ctx.fill();
+}
+function drawDividers(ctx){
+  ctx.strokeStyle = hexA(C.copper, 0.34);
+  ctx.lineWidth = 1;
+  [150.5, 424.5].forEach(x => { ctx.beginPath(); ctx.moveTo(x, 38); ctx.lineTo(x, 154); ctx.stroke(); });
+}
+let WM = { x: 540, y: 54 };                                // gemeten zodra het lettertype er is
+function drawWordmarkStar(ctx){
+  drawStar(ctx, WM.x, WM.y, 4.6, C.copperLit, 0.92, 0.30);
+}
+function measureWordmark(sig){
+  const w = sig.querySelector('.word'); if (!w) return;
+  const r = w.getBoundingClientRect(), s = sig.getBoundingClientRect();
+  const k = r.width / (s.width / W);                        // terug naar het 660 raster
+  WM = { x: 448 + k*0.845, y: 55 };
+}
+
+/* ---------------------------------------------------------------------------
+   Studie 1 · Bijna stil
+   Vijf punten ademen op hun plek. Niets verplaatst zich. Elk punt heeft een
+   eigen periode, zodat het patroon nooit herkenbaar herhaalt.
+---------------------------------------------------------------------------- */
+const S1_P = [
+  { a:128, rf:1.16, per:6.4, del:0.0, amp:0.22, r:1.15 },
+  { a:170, rf:1.34, per:7.3, del:0.9, amp:0.19, r:1.00 },
+  { a:212, rf:1.12, per:8.1, del:2.1, amp:0.24, r:1.25 },
+  { a:262, rf:1.42, per:9.0, del:1.4, amp:0.17, r:0.95 },
+  { a:316, rf:1.22, per:7.7, del:3.2, amp:0.21, r:1.10 }
+];
+const study1 = {
+  id:'s1', num:1, key:'Bijna stil', dur:9.0, showcase:12.0, fps:8, loop:'inf', box:'zegel',
+  intent:'Vijf lichtpunten bij de curve ademen heel langzaam op. Er verplaatst zich niets. Je merkt het pas als je blijft kijken.',
+  spec:{ 'Duur':'9,0 s ademcyclus', 'Beeldsnelheid':'8 fps', 'Frames':'72', 'Punten':'5', 'Lus':'doorlopend', 'Gebied':'alleen zegelcel' },
+  flag:{ tone:'warn', text:'Doorlopende beweging betekent in de canon doorlopende onzekerheid. Een handtekening die nooit tot rust komt, bevestigt nooit iets.' },
+  frame(t){
+    const pts = S1_P.map(p => {
+      const x = Math.max(0, t - p.del) / p.per;
+      const b = breathe(x);
+      const rr = SEAL.r * p.rf + Math.sin(x*2*Math.PI*0.5)*0.5;
+      return {
+        x: SEAL.x + Math.cos(rad(p.a))*rr,
+        y: SEAL.y + Math.sin(rad(p.a))*rr,
+        r: p.r, color: C.copper, a: 0.04 + p.amp*b,
+        home: [SEAL.x + Math.cos(rad(p.a))*SEAL.r*p.rf, SEAL.y + Math.sin(rad(p.a))*SEAL.r*p.rf]
+      };
+    });
+    return { arc:0.80, sweep:null, starGain:0.10, starScale:1, pts, wordingA: 1 - 0.16*breathe(t/9.4), halo:0 };
+  }
+};
+
+/* ---------------------------------------------------------------------------
+   Studie 2 · Waarneming
+   De punten verschijnen, naderen één keer het inzicht, de ster bevestigt kort,
+   daarna laat alles los en valt stil. Speelt één keer.
+---------------------------------------------------------------------------- */
+const S2_P = [
+  { a:118, rf:1.30, tr:0.54, r:1.15 },
+  { a:166, rf:1.52, tr:0.48, r:0.95 },
+  { a:212, rf:1.18, tr:0.58, r:1.25 },
+  { a:258, rf:1.44, tr:0.50, r:1.05 },
+  { a:304, rf:1.26, tr:0.56, r:1.15 },
+  { a: 62, rf:1.46, tr:0.50, r:1.00 }
+];
+const study2 = {
+  id:'s2', num:2, key:'Waarneming', dur:6.4, showcase:6.4, fps:10, loop:'once', box:'zegel',
+  intent:'Zes punten komen op, naderen één keer traag het hart van het zegel, de ster bevestigt kort, en alles laat weer los. Daarna is het stil.',
+  spec:{ 'Duur':'6,4 s', 'Beeldsnelheid':'10 fps', 'Frames':'64', 'Punten':'6', 'Lus':'één keer', 'Gebied':'alleen zegelcel' },
+  flag:{ tone:'good', text:'Beweging eindigt in stilte, precies zoals de canon voorschrijft. Het rustframe is ontwerp 1, zonder rest.' },
+  frame(t){
+    const perceive = seg(t, 3.35, 3.95);
+    const pts = S2_P.map((p, i) => {
+      const app = seg(t, i*0.10, i*0.10 + 1.10);
+      const near = smooth(seg(t, 1.70, 3.35));
+      const rel  = outCubic(seg(t, 3.95, 5.60));
+      const k = near*(1-rel);                                  // 0 ver weg, 1 dichtbij
+      const rr = lerp(SEAL.r*p.rf, SEAL.r*p.tr, k);
+      const ang = rad(p.a + 14*k);
+      const glow = 0.22 + 0.42*k + 0.10*bell(perceive);        // licht volgt nabijheid
+      const fade = app * (1 - smooth(seg(t, 4.60, 5.60)));
+      return {
+        x: SEAL.x + Math.cos(ang)*rr, y: SEAL.y + Math.sin(ang)*rr,
+        r: p.r, color: C.copper, a: glow*fade,
+        home: [SEAL.x + Math.cos(rad(p.a))*SEAL.r*p.rf, SEAL.y + Math.sin(rad(p.a))*SEAL.r*p.rf],
+        near: [SEAL.x + Math.cos(rad(p.a+14))*SEAL.r*p.tr, SEAL.y + Math.sin(rad(p.a+14))*SEAL.r*p.tr]
+      };
+    });
+    return {
+      arc: 0.80 + 0.12*bell(perceive), sweep:null,
+      starGain: 0.10 + 0.48*bell(perceive), starScale: 1 + 0.03*bell(perceive),
+      pts, wordingA: 1, halo: 0
+    };
+  }
+};
+
+/* ---------------------------------------------------------------------------
+   Studie 3 · Magic
+   Licht loopt over de curve, elf punten worden naar binnen getrokken, de ster
+   flakkert één keer, en één punt wordt violet en reist naar "In wording.".
+---------------------------------------------------------------------------- */
+const S3_P = Array.from({length:11}, (_, i) => ({
+  a: 96 + i*22.5, rf: 1.28 + ((i*7)%5)*0.09, tr: 0.44 + ((i*3)%4)*0.045, r: 0.85 + ((i*5)%4)*0.14
+}));
+const study3 = {
+  id:'s3', num:3, key:'Magic', dur:7.4, showcase:7.4, fps:12, loop:'once', box:'blok',
+  intent:'Licht loopt één keer over de curve, elf punten worden naar binnen getrokken, de ster flakkert kort, en één punt wordt violet en reist naar de regel in wording.',
+  spec:{ 'Duur':'7,4 s', 'Beeldsnelheid':'12 fps', 'Frames':'89', 'Punten':'11', 'Lus':'één keer', 'Gebied':'zegel plus tekstblok' },
+  flag:{ tone:'warn', text:'Het reizende punt verlaat de zegelcel. In e-mail betekent dat een afbeelding over de volle breedte, dus tekst wordt beeld, of twee GIF bestanden die niet synchroon kunnen lopen.' },
+  frame(t){
+    const flare = seg(t, 3.50, 4.20);
+    const sweepP = smooth(seg(t, 0.10, 1.90));
+    const sweepA = 0.55*bell(seg(t, 0.10, 1.90));
+    const travel = smooth(seg(t, 3.80, 5.60));
+    const pts = S3_P.map((p, i) => {
+      const draw = smooth(seg(t, 1.30 + i*0.055, 3.50));
+      const push = bell(flare)*4;
+      const rel = outCubic(seg(t, 4.20 + (i%3)*0.18, 6.30));
+      const k = draw*(1-rel);
+      const rr = lerp(SEAL.r*p.rf, SEAL.r*p.tr, k) + push*(1-rel);
+      const ang = rad(p.a + 30*k);
+      let x = SEAL.x + Math.cos(ang)*rr, y = SEAL.y + Math.sin(ang)*rr;
+      let color = C.copper, a = (0.04 + 0.66*k) * (1 - smooth(seg(t, 5.20 + (i%3)*0.2, 6.30)));
+      if (i === 4 && travel > 0){                              // het punt dat betekenis wordt
+        const sx = SEAL.x + Math.cos(rad(p.a+30))*SEAL.r*p.tr, sy = SEAL.y + Math.sin(rad(p.a+30))*SEAL.r*p.tr;
+        const cx = 300, cy = 40;                               // boog over de tekst heen, nooit erdoorheen
+        const u = travel, iu = 1-u;
+        x = iu*iu*sx + 2*iu*u*cx + u*u*WORDING.x;
+        y = iu*iu*sy + 2*iu*u*cy + u*u*WORDING.y;
+        color = C.violet;
+        a = 0.75 * (1 - smooth(seg(t, 5.10, 5.75)));
+      }
+      return { x, y, r:p.r, color, a,
+        home:[SEAL.x + Math.cos(rad(p.a))*SEAL.r*p.rf, SEAL.y + Math.sin(rad(p.a))*SEAL.r*p.rf],
+        near:[SEAL.x + Math.cos(rad(p.a+30))*SEAL.r*p.tr, SEAL.y + Math.sin(rad(p.a+30))*SEAL.r*p.tr] };
+    });
+    return {
+      arc: 0.80, sweep:{ p: sweepP, a: sweepA },
+      starGain: 0.10 + 0.80*bell(flare), starScale: 1 + 0.11*bell(flare),
+      pts, wordingA: 1, halo: 0.55*bell(seg(t, 5.40, 6.50))
+    };
+  }
+};
+const STUDIES = [study1, study2, study3];
+
+/* ---------------------------------------------------------------------------
+   Renderer
+---------------------------------------------------------------------------- */
+function render(ctx, study, t, reveal){
+  const f = study.frame(t);
+  ctx.clearRect(0, 0, W, H);
+  drawDividers(ctx);
+  drawArc(ctx, f.arc, f.sweep);
+  drawStar(ctx, SEAL.x, SEAL.y, 25*f.starScale, C.copperLit, 0.88, f.starGain);
+  drawWordmarkStar(ctx);
+  f.pts.forEach(p => drawPoint(ctx, p.x, p.y, p.r, p.color, p.a));
+  if (f.halo > 0.002) drawPoint(ctx, WORDING.x, WORDING.y, 3.4, C.violet, f.halo);
+  drawStar(ctx, WORDING.x, WORDING.y, 6, C.violet, f.wordingA, 0.22 + f.halo);
+
+  if (reveal){
+    ctx.save();
+    ctx.setLineDash([3,3]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = study.box === 'zegel' ? hexA(C.copper, 0.45) : hexA(C.violet, 0.45);
+    if (study.box === 'zegel') ctx.strokeRect(BOX.x, BOX.y, BOX.w, BOX.h);
+    else ctx.strokeRect(6, 14, W-12, H-28);
+    ctx.setLineDash([]);
+    ctx.strokeStyle = hexA('#ffffff', 0.16);
+    f.pts.forEach(p => {
+      if (p.home){ ctx.beginPath(); ctx.arc(p.home[0], p.home[1], 2.6, 0, Math.PI*2); ctx.stroke(); }
+      if (p.near){
+        ctx.beginPath(); ctx.moveTo(p.home[0], p.home[1]); ctx.lineTo(p.near[0], p.near[1]);
+        ctx.strokeStyle = hexA('#ffffff', 0.08); ctx.stroke();
+        ctx.strokeStyle = hexA('#ffffff', 0.16);
+      }
+    });
+    ctx.restore();
+  }
+}
+
+function mountSignature(host){
+  host.innerHTML = signatureMarkup();
+  const sig = host.querySelector('.sig');
+  const cv = sig.querySelector('canvas');
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = W*dpr; cv.height = H*dpr;
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { sig, ctx };
+}
+
+/* ---------------------------------------------------------------------------
+   Besturing
+---------------------------------------------------------------------------- */
+const state = { client:'live', speed:1, view:'all', reveal:false, bone:false, start:0 };
+const panels = [];
+
+const studiesHost = document.getElementById('studies');
+STUDIES.forEach(s => {
+  const el = document.createElement('article');
+  el.className = 'panel';
+  el.dataset.active = 'true';
+  el.innerHTML = `
+    <div class="panel-stage">
+      <div class="p-head">
+        <span class="p-num">${s.num}</span>
+        <h3>${s.key}</h3>
+      </div>
+      <p class="p-intent" style="max-width:74ch;margin:0 0 18px">${s.intent}</p>
+      <div class="stage-frame" style="padding:20px"><div class="sig-scaler"></div></div>
+      <div class="timeline"><i></i></div>
+      <div class="stage-note">
+        <span class="badge pill live">Speelt</span>
+        <span class="mono clock">0,00 s</span>
+      </div>
+    </div>
+    <div class="panel-meta">
+      <dl class="spec" style="border-top:0;padding-top:0">
+        ${Object.entries(s.spec).map(([k,v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}
+      </dl>
+      <div class="flag ${s.flag.tone === 'good' ? 'good' : ''}">${s.flag.text}</div>
+    </div>`;
+  studiesHost.appendChild(el);
+  const { sig, ctx } = mountSignature(el.querySelector('.sig-scaler'));
+  panels.push({ s, el, sig, ctx, scaler: el.querySelector('.sig-scaler'),
+    frame: el.querySelector('.stage-frame'), bar: el.querySelector('.timeline i'),
+    badge: el.querySelector('.badge'), clock: el.querySelector('.clock') });
+});
+
+// Statische fallback, altijd in rust.
+const fbHost = document.getElementById('fallback-frame');
+const fbInner = document.createElement('div');
+fbInner.className = 'sig-scaler';
+fbHost.appendChild(fbInner);
+const fb = mountSignature(fbInner);
+const fbPanel = { s: study2, sig: fb.sig, ctx: fb.ctx, scaler: fbInner, frame: fbHost, static: true };
+
+function fit(){
+  const all = panels.concat([fbPanel]);
+  all.forEach(p => {
+    const avail = p.frame.clientWidth - 40;
+    const k = Math.min(1, avail / W);
+    p.scaler.style.transform = `scale(${k})`;
+    p.scaler.style.height = (H*k) + 'px';
+    p.scaler.style.width = (W*k) + 'px';
+  });
+}
+window.addEventListener('resize', fit);
+
+function localTime(p, elapsed){
+  const s = p.s;
+  if (state.client === 'static' || state.client === 'reduced') return { t:0, playing:false };
+  let t = elapsed;
+  if (state.view === 'seq'){
+    let offset = 0;
+    for (const q of STUDIES){
+      if (q === s) break;
+      offset += q.showcase + 0.9;
+    }
+    t = elapsed - offset;
+    if (t < 0) return { t:0, playing:false, waiting:true };
+    if (t > s.showcase) return { t: s.loop === 'inf' ? 0 : s.dur, playing:false };
+  }
+  if (s.loop === 'inf'){
+    const cycles = state.client === 'gif' ? 3 : Infinity;
+    if (t > s.dur*cycles) return { t:0, playing:false };
+    t = t % s.dur;
+  } else if (t > s.dur){
+    return { t: s.dur, playing:false };
+  }
+  if (state.client === 'gif') t = Math.floor(t * s.fps) / s.fps;
+  return { t, playing:true };
+}
+
+let raf = 0;
+function tick(now){
+  const elapsed = ((now - state.start)/1000) * state.speed;
+  panels.forEach(p => {
+    const { t, playing, waiting } = localTime(p, elapsed);
+    render(p.ctx, p.s, t, state.reveal);
+    const span = p.s.loop === 'inf' ? p.s.dur : p.s.dur;
+    p.bar.style.width = (100 * clamp01(t/span)) + '%';
+    p.clock.textContent = t.toFixed(2).replace('.', ',') + ' s';
+    const frozen = state.client === 'static' || state.client === 'reduced';
+    p.el.dataset.active = (state.view === 'seq' && !playing && !frozen) ? 'false' : 'true';
+    let label = 'Speelt', cls = 'badge pill live';
+    if (state.client === 'static'){ label = 'Frame 1, Outlook klassiek'; cls = 'badge pill frozen'; }
+    else if (state.client === 'reduced'){ label = 'Statische PNG, rustige beweging'; cls = 'badge pill frozen'; }
+    else if (waiting){ label = 'Wacht op de beurt'; cls = 'badge pill frozen'; }
+    else if (!playing){ label = 'In rust'; cls = 'badge pill frozen'; }
+    else if (state.client === 'gif'){ label = `Speelt, ${p.s.fps} fps`; }
+    p.badge.textContent = label; p.badge.className = cls;
+  });
+  render(fbPanel.ctx, fbPanel.s, 0, state.reveal);
+  raf = requestAnimationFrame(tick);
+}
+
+function replay(){ state.start = performance.now(); }
+function segment(id, key, cast){
+  const box = document.getElementById(id);
+  box.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    [...box.querySelectorAll('button')].forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    state[key] = cast ? cast(b.dataset.v) : b.dataset.v;
+    replay();
+  });
+}
+segment('seg-client', 'client');
+segment('seg-speed', 'speed', Number);
+segment('seg-view', 'view');
+document.getElementById('replay').addEventListener('click', replay);
+document.getElementById('reveal').addEventListener('change', e => { state.reveal = e.target.checked; });
+document.getElementById('bone').addEventListener('change', e => {
+  state.bone = e.target.checked;
+  document.querySelectorAll('.stage-frame').forEach(f => f.classList.toggle('on-bone', state.bone));
+});
+
+/* ---------------------------------------------------------------------------
+   Inhoud: fallbackladder, oordeel, aanbeveling, clientmatrix, bouwspec
+---------------------------------------------------------------------------- */
+const LADDER = [
+  ['01', 'Apple Mail of iOS met rustige beweging aan',
+        'De statische PNG. Geen beweging, geen verschil in inhoud.'],
+  ['02', 'Apple Mail, Gmail, nieuw Outlook, Outlook.com, Yahoo, Thunderbird, Proton',
+        'De GIF speelt één keer en komt tot stilstand op ditzelfde beeld.'],
+  ['03', 'Outlook klassiek voor Windows met de Word engine',
+        'Frame 1 van de GIF, en frame 1 is ontwerp 1. Geen kapot beeld, geen halve animatie.'],
+  ['04', 'Beelden geblokkeerd of platte tekst',
+        'De alt tekst en de platte tekstversie. Die noemen beweging nergens, dus er gaat niets verloren.']
+];
+document.getElementById('ladder').innerHTML = LADDER.map(([n, i, o]) =>
+  `<div class="rung"><span class="rung-n">${n}</span><span class="rung-in">${i}</span><span class="rung-out">${o}</span></div>`).join('');
+
+const VERDICT = [
+  { s:study1, win:false,
+    body:'Te weinig om ooit opgemerkt te worden, en te veel om ooit te eindigen. Bij 8 fps in een GIF verdwijnt een ademhaling van 9 seconden in de compressie. Wie het wel ziet, ziet iets dat blijft doorlopen.',
+    scores:[['Blijft rustig',96],['Wordt opgemerkt',24],['Voelt levend',30],['Volgt de canon',48]] },
+  { s:study2, win:true,
+    body:'De beweging heeft een reden, een hoogtepunt en een einde. Je merkt hem in je ooghoek, kijkt terug, en ziet iets naderen en weer loslaten. Daarna is het stil, en die stilte is precies wat de canon bedoelt met bevestigd inzicht.',
+    scores:[['Blijft rustig',88],['Wordt opgemerkt',78],['Voelt levend',86],['Volgt de canon',96]] },
+  { s:study3, win:false,
+    body:'Het mooiste beeld van de drie en tegelijk het meest riskante. Het reizende punt trekt de blik weg van de naam, en dat is precies waar ontwerp 1 de blik wil hebben. Technisch dwingt het bovendien de hele handtekening in één afbeelding.',
+    scores:[['Blijft rustig',52],['Wordt opgemerkt',95],['Voelt levend',97],['Volgt de canon',66]] }
+];
+document.getElementById('verdict').innerHTML = VERDICT.map(v => `
+  <div class="vcell ${v.win ? 'win' : ''}">
+    <div class="p-head" style="margin:0">
+      <span class="p-num">${v.s.num}</span><h3>${v.s.key}</h3>
+    </div>
+    ${v.win ? '<div class="eyebrow">Aanbevolen</div>' : ''}
+    <p class="small" style="margin:0">${v.body}</p>
+    <div class="score">
+      ${v.scores.map(([k, n], i) => `
+        <div class="srow"><span>${k}</span>
+          <span class="meter ${i===3?'v':''}"><i style="width:${n}%"></i></span></div>`).join('')}
+    </div>
+  </div>`).join('');
+
+document.getElementById('rec').innerHTML = `
+  <div>
+    <div class="eyebrow">Aanbeveling</div>
+    <h2 style="margin-top:8px">Studie 2, op 85 procent amplitude</h2>
+    <p class="small" style="margin-top:14px">
+      Studie 2 wint de paradox omdat het de enige is die een gebeurtenis heeft in plaats van een toestand.
+      Er is een moment waarop iets nadert, één ademtocht bevestiging, en daarna niets meer. Wie de eerste twee
+      seconden mist, mist niets, want alles wat de beweging opbouwt komt weer terug bij ontwerp 1.
+    </p>
+    <p class="small">
+      De aanpassing ten opzichte van de studie hierboven is klein en bewust. Zet de piekhelderheid van de punten
+      op 85 procent en de sterflits op 0,4 in plaats van 0,5. In de studie zie je de beweging op een scherm van
+      dichtbij. In een inbox zie je hem naast een onderwerpregel, en daar telt elke tiende.
+    </p>
+    <p class="small">
+      Wat uit studie 3 mag blijven, is precies één ding: de lichtloop over de curve, maar dan op een derde van de
+      sterkte en alleen in de aanloop. Wat niet blijft, is het reizende violette punt. Dat is het punt waarop de
+      magie de rust begint te kosten.
+    </p>
+  </div>
+  <div>
+    <div class="eyebrow" style="color:var(--dim)">Voorwaarden</div>
+    <ul class="clean">
+      <li>Frame 1 en het laatste frame zijn <b>bit voor bit gelijk</b> aan de statische PNG.</li>
+      <li>De GIF loopt <b>één keer</b>. Netscape lus telling op 1.</li>
+      <li>Alleen de <b>zegelcel</b> is beeld. Alle tekst blijft tekst.</li>
+      <li>Geen CSS animatie ernaast, dus geen dubbele beweging in Apple Mail.</li>
+      <li>De platte tekstversie en de alt tekst noemen <b>geen</b> beweging.</li>
+    </ul>
+  </div>`;
+
+const Y = '<span class="y">ja</span>', N = '<span class="n">nee</span>', P = '<span class="p">deels</span>', X = '<span style="color:var(--faint)">n.v.t.</span>';
+const CLIENTS = [
+  ['Apple Mail, macOS 14 en later', Y, Y, Y, Y, Y, 'De volledige studie. Met rustige beweging aan de statische PNG.'],
+  ['Mail op iOS en iPadOS', Y, Y, Y, Y, Y, 'De volledige studie. Met rustige beweging aan de statische PNG.'],
+  ['Gmail webmail', Y, Y, N, N, N, 'De volledige studie. Beelden lopen via de Google proxy, animatie blijft intact.'],
+  ['Gmail app, iOS en Android', Y, Y, N, N, N, 'De volledige studie.'],
+  ['Outlook klassiek voor Windows', N, X, N, N, N, 'Frame 1, dus ontwerp 1 exact. De Word engine toont alleen het eerste frame.'],
+  ['Nieuw Outlook voor Windows', Y, Y, N, P, P, 'De volledige studie. Let op de geforceerde donkere modus.'],
+  ['Outlook.com in de browser', Y, Y, N, P, P, 'De volledige studie. Let op de geforceerde donkere modus.'],
+  ['Outlook voor macOS', Y, Y, P, P, P, 'De volledige studie.'],
+  ['Outlook op iOS en Android', Y, Y, N, N, N, 'De volledige studie.'],
+  ['Yahoo Mail', Y, Y, P, N, N, 'De volledige studie.'],
+  ['Thunderbird', Y, Y, Y, P, Y, 'De volledige studie.'],
+  ['Proton Mail webmail', Y, Y, P, N, P, 'De volledige studie, zodra beelden zijn toegestaan.'],
+  ['Samsung Mail', Y, Y, Y, N, P, 'De volledige studie.'],
+  ['Superhuman, HEY, Spark', Y, Y, Y, P, Y, 'De volledige studie.']
+];
+document.getElementById('clients').innerHTML = `
+  <table>
+    <thead><tr>
+      <th>Client</th><th>GIF speelt</th><th>Lus 1x</th><th>keyframes</th>
+      <th>rustige beweging</th><th>picture</th><th>Wat de ontvanger ziet</th>
+    </tr></thead>
+    <tbody>${CLIENTS.map(r => `<tr>
+      <th scope="row">${r[0]}</th>
+      <td class="c">${r[1]}</td><td class="c">${r[2]}</td><td class="c">${r[3]}</td>
+      <td class="c">${r[4]}</td><td class="c">${r[5]}</td>
+      <td class="res">${r[6]}</td></tr>`).join('')}</tbody>
+  </table>`;
+
+const BUILD = [
+  ['Bestand', 'maculis-seal-perceive.gif', 'Eén bestand, versienaam in de bestandsnaam zodat caches nooit een oude versie vasthouden.'],
+  ['Afmeting', '300 bij 300 px, getoond op 150 px', 'Dubbele dichtheid voor retina. De zegelcel is vierkant, niet de hele handtekening.'],
+  ['Beeldsnelheid', '10 fps', 'Genoeg voor traag naderende punten. Hoger levert alleen bestandsgrootte op.'],
+  ['Duur', '6,4 s', '64 frames. Na het laatste frame gebeurt er niets meer.'],
+  ['Lus', 'één keer', 'Netscape lus telling 1. Sommige clients herstarten bij opnieuw openen, dat is acceptabel.'],
+  ['Kleuren', 'palet van 64', 'Koper op inkt heeft weinig kleuren nodig. Dithering uit, anders gaan de zachte randen ruisen.'],
+  ['Budget', 'maximaal 240 kB', 'Meten na export. Boven dat budget eerst frames eruit, nooit de rust eruit.'],
+  ['Achtergrond', 'ondoorzichtig inkt #0a0b10', 'GIF kent alleen harde transparantie. Een vlakke grond voorkomt gekartelde randen rond de punten.'],
+  ['Levering', 'picture met source', 'source met rustige beweging wijst naar de PNG, de img blijft de GIF. Clients zonder picture krijgen de GIF.'],
+  ['Statische PNG', 'maculis-seal-rest.png', 'Identiek aan frame 1 en aan het laatste frame. Dit bestand is de waarheid, de GIF volgt.'],
+  ['Alt tekst', 'Maculis', 'Beschrijft het merk, nooit de animatie. Beweging draagt geen informatie, dus alt tekst noemt hem niet.'],
+  ['Donkere modus', 'expliciete achtergrond plus data-ogsc', 'Outlook.com en Gmail draaien kleuren om. De inktgrond expliciet zetten en de omkering opvangen.']
+];
+document.getElementById('buildspec').innerHTML = `
+  <thead><tr><th>Onderdeel</th><th>Waarde</th><th>Waarom</th></tr></thead>
+  <tbody>${BUILD.map(r => `<tr><th scope="row">${r[0]}</th>
+    <td class="mono" style="font-size:12px;color:var(--copper-lit);white-space:nowrap">${r[1]}</td>
+    <td class="res">${r[2]}</td></tr>`).join('')}</tbody>`;
+
+fit();
+replay();
+raf = requestAnimationFrame(tick);
+if (document.fonts) document.fonts.ready.then(() => { measureWordmark(panels[0].sig); fit(); });
+measureWordmark(panels[0].sig);
+})();
+</script>

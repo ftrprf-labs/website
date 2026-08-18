@@ -1,0 +1,32 @@
+{
+  "wordmark": {
+    "file": "maculis-wordmark-v1.png",
+    "w": 106,
+    "h": 50,
+    "bytes": 10543
+  },
+  "spark": {
+    "file": "maculis-spark-v1.png",
+    "w": 30,
+    "h": 30,
+    "bytes": 5937
+  },
+  "icon_mail": {
+    "file": "maculis-icon-mail-v1.png",
+    "w": 13,
+    "h": 13,
+    "bytes": 585
+  },
+  "icon_globe": {
+    "file": "maculis-icon-globe-v1.png",
+    "w": 13,
+    "h": 13,
+    "bytes": 1447
+  },
+  "icon_pin": {
+    "file": "maculis-icon-pin-v1.png",
+    "w": 13,
+    "h": 13,
+    "bytes": 1266
+  }
+}

@@ -10,3 +10,5 @@ data/*.json
 
 # Visuele regressie: baseline is bewijs en gaat mee, 'after' is een run-artefact.
 tools/visual/after/
+
+docs/studies/assets/frames/
