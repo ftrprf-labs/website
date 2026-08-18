@@ -33,6 +33,49 @@ vervalt deze waarschuwing. Werk hem dan hier bij in plaats van hem stilzwijgend 
 
 ---
 
+## 2026-08-18 — Website F1 en F4: visueel akkoord op de canonieke grond
+
+**F4 visueel goedgekeurd.** Lud heeft de statische harmonisatie van de Website beoordeeld en
+akkoord bevonden: het koele night-canvas en de warmere verhoogde en interactieve vlakken blijven
+zoals ze nu staan. De overige Website-routes krijgen dezelfde canonieke grond; er komen **geen
+route-specifieke scopes**, want als die oppervlakken dezelfde Website en hetzelfde nachtregime
+delen, hoort de grond gezamenlijk te zijn.
+
+**Goedgekeurde commit:** `0e8fab7712ec71d831c52940e52caf9ef1751745` op
+`claude/website-harmonisatie-nulmeting` in `ftrprf-labs/groeiplatform-website`. Beoordeeld op de
+previewservice `srv-da27a1r7uimc73dvhntg`.
+
+**Wat F4 inhoudt:** `--background` van `#0b0705` warm naar `#0a0b10` koel (`surface.ground`,
+`ink.980`), `--card` naar `surface.raised` `#14120f` en `--card-2` naar `surface.elevated`
+`#251a10`. `--foreground` en `--muted` waren al `text.primary` en `text.secondary`. Eén bestand,
+zes waarden, geen enkele layoutwijziging: alle 36 renders wijzigen met maximaal 11 per kanaal en
+alle afmetingen blijven identiek.
+
+**F1 daaraan voorafgaand** (`bfb3468`) is nul-delta gebleken: 35 van 36 renders byte-identiek en
+één met de bekende ruis van 1 van 255. Daarbij is een namespace-botsing opgelost die anders de
+kleuren had gebroken: de canon bezit `--ink-50` tot `--ink-980` als hex, de Website had dezelfde
+negen namen als HSL-drietallen. De eigen schaal heet nu `--w-ink-*`.
+
+**Nog niet aan de orde:** F5 typografie, en de signature- en magic-laag (M-2, M-3, M-4).
+
+---
+
+## Opschoning bij de afronding van de harmonisatie (openstaande actie)
+
+Vast te leggen zodat het niet bij de laatste GO vergeten wordt.
+
+1. **Tijdelijke previews verwijderen zodra ze niet meer nodig zijn.** Vandaag draaien
+   `maculis-cockpit-harmonisatie-preview` (starter, Frankfurt) en de Website-preview
+   `srv-da27a1r7uimc73dvhntg` (starter, Frankfurt). Beide zijn per definitie tijdelijk.
+2. **Per betaalde service vaststellen of hij nog een productiefunctie heeft.** Op het moment van
+   vastleggen draaien er zeven services in de workspace Maculis, waarvan zes op het starterplan en
+   één gratis. Twee daarvan zijn productie: `ftrlabs-testerbeheer` en `maculis-first-five.`. De
+   overige vijf zijn preview of tooling en verdienen elk een expliciet oordeel: nog nodig, of weg.
+3. **Bij het opruimen dezelfde regel als altijd:** eerst controleren welke branch aan welke service
+   hangt en met welke autoDeploy-stand, en pas daarna iets verwijderen.
+
+---
+
 ## Technische schuld (open)
 
 | # | Onderwerp | Waar | Beschrijving | Ingebracht |
