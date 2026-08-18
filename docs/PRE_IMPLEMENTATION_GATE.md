@@ -84,9 +84,13 @@ canon, maar niet de room grammar.
 | Plain-text variant met RFC 3676-scheider, imiteert de animatie bewust niet | 72 t/m 80 |
 | Centraal en exact eenmaal toegevoegd bij verzenden, idempotent, nooit in de opgeslagen body | 86 t/m 95 |
 
-De laatste drie rijen zijn **architectuur, geen vormgeving**. Het exactly-once-contract, de
-AI-context-scheiding via `stripForContext` en de tracking-vrije opzet blijven staan. Het herontwerp
-raakt de presentatie, niet de verzendlogica.
+**Het onderscheid is bindend.** De laatste drie rijen zijn technische contracten en die blijven
+staan: exactly-once bij verzenden, idempotentie, de AI-context-scheiding via `stripForContext`, en
+de tracking-vrije opzet. Dat is het enige waarvoor dit bestand als implementation fact telt.
+
+**De huidige visuele implementatie vormt geen enkele ontwerpbeperking.** Niet de kleurkeuze, niet de
+typografie, niet de table-layout, niet de compositie, en niet het knipoogmechanisme. Waar het
+herontwerp met iets daarvan overeenkomt, is dat een uitkomst en nooit een uitgangspunt.
 
 ### 2.2 Wat wel en niet uit de canon komt
 
@@ -96,8 +100,8 @@ raakt de presentatie, niet de verzendlogica.
 | Ink-tekstwaarden in plaats van het eigen `#8a8073` | Signal language: geen trappen, geen veld, geen constellatie |
 | De canonieke sans in plaats van de vierde eigen stack | Lichtregimes: e-mail heeft er geen |
 | Newsreader waar de handtekening spreekt, met een echte fallback | Gloed: bestaat niet in e-mail |
-| Serif spreekt en sans wijst, voor zover e-mail dat toelaat | Motion: de cyclus hoort hier niet |
-| Onzeker is kleurloos, en kleur nooit als enige drager | Beweging als betekenisdrager |
+| Serif spreekt en sans wijst, voor zover e-mail dat toelaat | De volledige motion-levenscyclus met zes stadia |
+| Onzeker is kleurloos, en kleur nooit als enige drager | Beweging als **drager** van betekenis, identiteit, contact of bruikbaarheid |
 
 **Geen signal-field-theater.** Waar e-mail iets technisch of inhoudelijk niet draagt, wordt het niet
 nagebootst. Een statisch merkbeeld dat onmiskenbaar Maculis is, is beter dan een halve imitatie van
@@ -115,11 +119,37 @@ Dit bepaalt het ontwerp meer dan smaak. Vier harde grenzen:
 3. **Geen gecontroleerde achtergrond.** De client bepaalt of de handtekening op wit, op donkergrijs
    of op een geïnverteerde variant landt. Kleuren moeten op alle drie standhouden. Dit is precies
    waarom C-7 nodig is.
-4. **Geen motion die betekenis draagt.** De bestaande knipoog is één GIF die eenmaal speelt. Dat is
-   toevallig al canon-conform met hoofdstuk 8: geen oneindige lus, en de eindtoestand is een
-   natuurlijke statische fallback. Dat contract blijft.
+4. **Onvoorspelbare motion-ondersteuning.** Clients verschillen sterk in wat ze afspelen, en
+   sommige tonen alleen het eerste frame. Zie 2.4: dit is geen verbod, het is de reden voor
+   progressive enhancement.
 
-### 2.4 Wanneer
+### 2.4 Motion: de grens, en de opdracht voor het herontwerp
+
+**Er is geen verbod op motion in de signature.** De harde grens is een andere:
+
+> **Motion mag nooit noodzakelijk zijn voor betekenis, identiteit, contactinformatie of
+> bruikbaarheid.**
+
+Alles wat de handtekening moet overbrengen, moet volledig overkomen zonder dat er iets beweegt.
+
+Het herontwerp onderzoekt daarom **expliciet progressive enhancement**, in deze volgorde:
+
+1. **De statische signature is de universele basis en wordt zelfstandig volledig ontworpen.** Niet
+   als afgeleide, niet als reductie, niet als wat er overblijft. Uitzonderlijk sterk op eigen kracht.
+   De toets is streng: wie hem alleen statisch ziet, mag nooit het gevoel hebben de mindere versie te
+   zien. Als de statische variant pas werkt zodra er beweging bij komt, is het ontwerp niet af.
+2. **Subtiele Visual-DNA-motion of signal-life uitsluitend als toevoeging**, en alleen in clients en
+   omgevingen waar dat **aantoonbaar** betrouwbaar, waardig en zonder degradatie kan. Aantoonbaar
+   betekent gemeten in de clientmatrix, niet aangenomen.
+3. **Degradatie is geen optie.** Een client die de verrijking niet aankan, krijgt de statische basis,
+   niet een halve animatie of een leeg kader.
+
+Dat het huidige mechanisme, een GIF die eenmaal speelt met een statische PNG-fallback, hier toevallig
+al bij past, is een technische constatering. Het is uitdrukkelijk **geen ontwerpvoorstel en geen
+vertrekpunt**. Welke vorm de verrijking krijgt, of er überhaupt een komt, en waar de grens tussen
+basis en verrijking ligt, wordt bij het herontwerp bepaald.
+
+### 2.5 Wanneer
 
 **Positie: derde workstream, na de Cockpit-pilot, parallel aan de Website, vóór Lens.**
 
@@ -297,6 +327,15 @@ Elke poort is een harde stop. Geen enkele mag met een oordeel worden gepasseerd.
 15. **Clientmatrix vóór verzending.** Apple Mail, Gmail web, Gmail app, Outlook, elk op lichte én
     donkere clientachtergrond, plus de plain-text variant. Een verzonden mail komt niet terug: dit is
     de enige poort in het hele programma waarachter geen rollback bestaat.
+    De matrix kent drie afzonderlijke, elk blokkerende oordelen:
+    **(a) De statische basis staat op eigen kracht.** Beoordeeld met alle motion uitgeschakeld, in
+    elke client, plus onder `prefers-reduced-motion`. Betekenis, identiteit, contactgegevens en
+    bruikbaarheid zijn volledig aanwezig. Het oordeel is niet "acceptabel" maar "dit is de
+    handtekening". Zakt de basis hier, dan stopt het.
+    **(b) Verrijking is aantoonbaar additief.** Per client gemeten, niet aangenomen. Alleen aan waar
+    het betrouwbaar en waardig speelt.
+    **(c) Geen degradatie.** Nergens een halve animatie, een leeg kader of een zichtbaar gat waar de
+    verrijking niet landt.
 16. **Contract intact.** `stripForContext`, het exactly-once-gedrag en de tracking-vrije opzet
     onveranderd. De comm-suite groen. Het herontwerp raakt presentatie, nooit verzendlogica.
 
@@ -307,7 +346,7 @@ Elke poort is een harde stop. Geen enkele mag met een oordeel worden gepasseerd.
 | Onderwerp | Uitkomst |
 |---|---|
 | **N-1** | Aanbeveling **B**, één codebasis met expliciete runtime-regimes. Omkeerbaar, raakt privacylogica niet, en loopt niet vooruit op canon 16 punt B. Voorwaarde: de nacht-naar-dagovergang is canonwerk, opgenomen als C-8 |
-| **N-2** | Vastgelegd. Volwaardig brand surface, geen vijfde kamer. De huidige handtekening is **implementation fact, geen vertrekpunt**, en wordt opnieuw ontworpen. Eigen workstream **E-mail / Signature**, gepland na de Cockpit-pilot en naast de Website. C-7 versmald tot de waardenset voor een oppervlak zonder regime |
+| **N-2** | Vastgelegd. Volwaardig brand surface, geen vijfde kamer. De huidige handtekening is **implementation fact, geen vertrekpunt**, en wordt opnieuw ontworpen. Eigen workstream **E-mail / Signature**, gepland na de Cockpit-pilot en naast de Website. C-7 versmald tot de waardenset voor een oppervlak zonder regime. Motion is niet verboden maar mag nooit betekenis dragen: het herontwerp onderzoekt progressive enhancement op een zelfstandig volwaardige statische basis |
 | **Canon-amendment** | C-1 t/m C-8. C-1 is blokkerend voor de Cockpit-grond, C-3, C-5 en C-6 zijn triviaal |
 | **Veilige F2-scope** | 7 items bewijsbaar neutraal, 6 items met vooraf beschreven diff, 7 items uitdrukkelijk uitgesteld |
 | **Volgorde** | Cockpit, Website, Lens, Mijn Maculis. E-mail / Signature loopt parallel vanaf de Website |
