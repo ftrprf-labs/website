@@ -10,6 +10,7 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 | # | Onderwerp | Waar | Beschrijving | Ingebracht |
 | --- | --- | --- | --- | --- |
 | TD-001 | Tekstkleur van de e-mailbody in donkere modus | `server/comm/signature.mjs`, `wrapEmail()` | Wanneer de composer platte tekst stuurt, bouwt `wrapEmail()` de HTML-body op met een vaste `color:#2b2b2b`. In een donkere leesomgeving kan dat donker op donker uitpakken. Dit zit in het **bericht**, niet in de handtekening, en is bestaand gedrag van vóór de handtekening-integratie. Bewust niet opgelost bij de deploy van 2026-08-18: het raakt de leesbaarheid van elke verzonden e-mail en verdient een eigen ronde. | 2026-08-18, gezien bij de renderproeven van de handtekening |
+| TD-002 | `/reply` verstuurt buiten de centrale handtekening en buiten de consent-gate om | `server/comm/outbound.mjs` (`sendReply`), route `POST /api/comm/conversations/:id/reply` | Deze AI-vrije fallbackroute verstuurt rechtstreeks via `sendThreadedEmail` en roept dus **niet** `wrapEmail()` aan: uitgaande mail langs deze weg draagt geen enkele handtekening, oud noch nieuw. Dezelfde route passeert ook de `channelAllowed()` consent-gate niet die `sendOnChannel` wel toepast. Geen UI-code roept hem aan; alleen een directe API-aanroep bereikt hem. Bewust ongemoeid gelaten: dit vraagt een eigen architectuur- en securityreview, geen contentcorrectie. | 2026-08-18, bij de audit van de handtekeningroutes |
 
 ---
 

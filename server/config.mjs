@@ -102,9 +102,10 @@ export const config = {
   // to the logged-in user. Never hardcoded to a name.
   senderFirstName: process.env.SENDER_FIRST_NAME || '',
 
-  // Living e-mail signature (§MACULIS LIVING EMAIL SIGNATURE). The blink GIF + static fallback are
-  // served as public static assets by this app; SIGNATURE_ASSET_BASE is the absolute base URL used
-  // in outbound e-mail HTML (must be publicly reachable so mail clients can load the image).
+  // Living e-mail signature (§MACULIS LIVING EMAIL SIGNATURE). The seal GIF, its static fallback
+  // and the small brand marks are served as public static assets by this app; SIGNATURE_ASSET_BASE
+  // is the absolute base URL used in outbound e-mail HTML (must be publicly reachable so mail
+  // clients can load the images).
   signatureAssetBase: (process.env.SIGNATURE_ASSET_BASE || 'https://ftrlabs-testerbeheer.onrender.com').replace(/\/+$/, ''),
   // Canonical personal name shown in the signature. This is the definitive, authorised signature
   // identity (distinct from the per-invitation {sender_first_name}). Env-overridable; never guessed.

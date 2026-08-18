@@ -19,8 +19,15 @@ const TONE = [
 ].join(' ');
 
 // ---- channel-aware shaping (§AI MOET KANAAL BEGRIJPEN) --------------------------------------
-const CHANNEL_HINT = {
-  EMAIL: 'E-mail: ruimte voor structuur en een nette afsluiting.',
+export const CHANNEL_HINT = {
+  // E-mail is the ONLY channel where the Communication Layer adds the central Maculis signature at
+  // send time (§MACULIS LIVING EMAIL SIGNATURE, signature.mjs). So the body must NOT close with a
+  // second sender identity: a greeting formula plus name, role or organisation would show the
+  // sender twice. A closing SENTENCE that belongs to the message (a question, a next step) is
+  // content and stays welcome; a personal sign-off written by the human is theirs to add.
+  EMAIL: 'E-mail: ruimte voor structuur en een rustige afsluitende zin, bijvoorbeeld een vraag of een volgende stap. '
+       + 'Zet onder het bericht GEEN groetformule met naam, functie of organisatie (dus niet "Met vriendelijke groet, Maculis"). '
+       + 'De Maculis-handtekening wordt bij verzending automatisch toegevoegd; een eigen ondertekening zou de afzender twee keer tonen.',
   WHATSAPP: 'WhatsApp: kort, direct, conversationeel; geen formele aanhef of afsluiting.',
   SMS: 'SMS: zeer compact (bij voorkeur < 320 tekens), één kernboodschap.',
   PHONE: 'Telefonisch: geen geschreven bericht maar korte gesprekspunten.',
@@ -48,13 +55,15 @@ function derivedSentence(instruction) {
 }
 
 // ---- deterministic offline transforms -------------------------------------------------------
-function mockDraftFromContext(ctx, channel) {
+export function mockDraftFromContext(ctx, channel) {
   const lastInbound = [...ctx.recent].reverse().find((m) => m.direction === 'INBOUND');
   const asksMore = /(kijken|arbeidsmarkt|ook naar|kun(nen)? jullie|mogelijk|planning|afspraak)/i.test(lastInbound?.body_text || '');
   const first = ctx.contact?.first_name || '';
   let body = `Dank je voor je bericht${first ? `, ${first}` : ''}.` +
     (asksMore ? ' Ja, daar kunnen we met dezelfde blik naar kijken. Ik denk graag even mee over een goede volgende stap.' : ' Ik pak dit op en kom er bij je op terug.');
-  if (channel === 'EMAIL') body += '\n\nMet vriendelijke groet,\nMaculis';
+  // No sender sign-off for EMAIL: the central signature is appended at send time, so a closing
+  // "Met vriendelijke groet, Maculis" here would put the identity in the mail twice. The body
+  // already ends on a full sentence, which reads as a natural close.
   if (channel === 'WHATSAPP' || channel === 'SMS') body = toWhatsAppShape(body);
   return body;
 }
