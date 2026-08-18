@@ -4,12 +4,21 @@
 Zelfstandig spoor. Geen wijziging aan de Visual North Star, de vier bestaande kamers of
 productiecode. Niets gedeployed.
 
-Status: conceptuele architectuur plus interactieve visual study.
-Datum: 2026-08-17.
+**Status: bevroren op 2026-08-18. Exploratieve hypothese, geen vastgelegd ontwerp.**
+Zie `STATUS.md`. De Visual DNA v1.0 is inmiddels centraal gepubliceerd in `ftrlabs-docs/03-ux/` en is de enige canonieke bron. Alles hieronder is geschreven zonder die canon en moet daartegen opnieuw worden beoordeeld voordat er verder wordt ontworpen.
+
+Geschreven: 2026-08-17.
 
 ---
 
 ## 0. Uitgangspunt en source of truth
+
+> **Achterhaald, 2026-08-18.** Dit hoofdstuk is geschreven toen de canon niet in deze
+> werkomgeving stond. Productcode is geen bron voor het Visual DNA. De twee hieronder gemelde
+> inconsistenties, de ontbrekende Newsreader en het ontbrekende epistemische violet, zijn
+> daarmee ingetrokken: zij zeggen iets over de implementatie, niet over de grammatica. Bron B
+> blijft staan als waarneming over de code, niet als grondslag. De toetslijst in hoofdstuk 8
+> vervalt ten gunste van de herbeoordeling in `STATUS.md`.
 
 **Belangrijke bevinding vooraf.** Het canonieke Visual North Star-document bestaat niet in deze
 repository. Er is hier geen `VISUAL_DNA.md`, geen North Star, en geen kamerdocumentatie. Wat wel
@@ -89,6 +98,11 @@ spacing en de bewegingslogica. Hij deelt ook de bron. Wat in Kamer 5 tot rust ko
 omdat het in Kamer 4 is afgehandeld. Kamer 5 heeft geen eigen waarheid en geen eigen administratie.
 
 **Het onderscheid met de Cockpit, in één zin.**
+
+> **Hypothese, niet vastgelegd, 2026-08-18.** De uitspraak hieronder staat stelliger dan haar
+> status rechtvaardigt. Zij is belangrijk genoeg om verder te toetsen, maar geldt niet als
+> bestaansrecht. De oorspronkelijke hypothese, Kamer 5 als persoonlijke werkruimte op de
+> MacBook, weegt even zwaar. Zie `STATUS.md`.
 
 > De Cockpit is de kamer waarin ik werk aan wat aandacht vraagt. De Vijfde Kamer is de kamer die
 > beslist of ik die kamer vandaag hoef te openen.
@@ -375,6 +389,11 @@ voor Kamer 5. **[UITZONDERING]** bewuste afwijking. **[ONZEKER]** nog niet vastg
 | Geen menubalk-item, geen notificatiecentrum | **[NIEUW]** | Een permanent icoon met badge-affordance is precies wat hoofdstuk 9 van de opdracht verbiedt. De kamer spreekt waar de kamer is. |
 
 ### DNA GAPs
+
+> **Alle zes vervallen tot herbeoordeling, 2026-08-18.** Zij zijn afgeleid tegen een
+> onvolledige grondslag. Een ontbrekend token of patroon in productcode is geen DNA GAP.
+> Alleen wat na volledige lezing van de centrale canon werkelijk niet uitdrukbaar blijkt, mag
+> kandidaat blijven. Zie `STATUS.md`.
 
 **DNA GAP 1. Onwaargenomen toestand.**
 Het bestaande DNA beschrijft hoe het veld zich gedraagt, maar niet of het zich gedraagt wanneer
