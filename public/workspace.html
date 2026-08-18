@@ -103,7 +103,11 @@
   .btn:disabled{opacity:.4;cursor:not-allowed}
   .btn.gold{background:linear-gradient(180deg,#efd7a0,var(--gold) 60%,#b0894a);color:#241708;border:0;font-weight:600}
   .empty{font-family:var(--type-serif);font-optical-sizing:auto;font-weight:300;letter-spacing:-.017em;color:var(--dim);font-size:15px;line-height:1.45;padding:24px 0}
-  .list-item{padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  /* Klikbare rijen zijn echte <button>-elementen: bereikbaar met Tab, bedienbaar met
+     Enter. Alleen de knopstijl wordt gereset; vorm en gedrag blijven die van een rij. */
+  .list-item{display:block;width:100%;text-align:left;font:inherit;color:inherit;
+    background:transparent;border:0;border-bottom:1px solid var(--line);
+    padding:12px 0;cursor:pointer}
   .list-item:hover .li-t{color:var(--goldsoft)}
   .li-t{font-size:14px;color:var(--ink)}
   .li-s{font-size:12px;color:var(--faint);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
@@ -120,7 +124,9 @@
   /* Communication: thread + composer */
   .comm{display:grid;grid-template-columns:280px 1fr;gap:0;height:100%}
   .comm .convs{border-right:1px solid var(--line);overflow-y:auto;padding:6px 0}
-  .comm .conv{padding:11px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+  .comm .conv{display:block;width:100%;text-align:left;font:inherit;color:inherit;
+    background:transparent;border:0;border-bottom:1px solid var(--line);
+    padding:11px 16px;cursor:pointer}
   .comm .conv:hover{background:var(--panel)}.comm .conv.on{background:var(--panel3)}
   .comm .conv .t{font-size:13px}.comm .conv .s{font-size:11px;color:var(--faint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .thread{display:flex;flex-direction:column;min-width:0}
@@ -132,6 +138,9 @@
   /* composer */
   .composer{border-top:1px solid var(--line);background:var(--panel);padding:12px 16px}
   .composer .chrow{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  /* Interactieve pillen zijn echte <button>-elementen: bereikbaar met Tab,
+     bedienbaar met Enter. Alleen de knopstijl wordt gereset. */
+  .af, .chan, .sug .s{font-family:inherit;line-height:inherit;-webkit-appearance:none;appearance:none}
   .chan{font-size:12px;border:1px solid var(--line2);color:var(--dim);border-radius:var(--radius-pill);padding:5px 12px;cursor:pointer;background:transparent}
   .chan.on{border-color:var(--amber);color:var(--goldsoft)}
   .chan.blocked{opacity:.45;cursor:not-allowed;text-decoration:line-through}
@@ -165,7 +174,7 @@
      vorm die aan beide voldoet: een dunne koperen outline op afstand, geen gloed, geen
      vulling, geen verspringende layout. Bij een canonieke focusspec vervangt die deze regel. */
   :where(button, a, textarea, input, [tabindex]):focus-visible,
-  .conv:focus-visible, .chan:focus-visible, .list-item:focus-visible, .sug .s:focus-visible{
+  .conv:focus-visible, .chan:focus-visible, .list-item:focus-visible, .sug .s:focus-visible, .af:focus-visible{
     outline:2px solid var(--copper-500);
     outline-offset:2px;
     border-radius:var(--radius-sm);

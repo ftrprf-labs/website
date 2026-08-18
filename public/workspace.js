@@ -93,7 +93,7 @@ function selectTab(tab) {
 
 function renderOverzicht(v) {
   const rel = STATE.rel; const s = rel.summary || {}; const o = rel.organization || {}; const c = rel.contact || {};
-  const convs = (rel.conversations || []).slice(0, 5).map((cv) => `<div class="list-item" data-act="goComm" data-id="${cv.id}"><div class="li-t">${esc(cv.subject || '(zonder onderwerp)')} <span class="att ${cv.status === 'NEW' ? 'new' : ''}">${esc(chan(cv.channel))}</span></div><div class="li-s">${esc((cv.last_body || '').slice(0, 90))}</div></div>`).join('') || '<div class="empty">Nog geen communicatie.</div>';
+  const convs = (rel.conversations || []).slice(0, 5).map((cv) => `<button type="button" class="list-item" data-act="goComm" data-id="${cv.id}"><div class="li-t">${esc(cv.subject || '(zonder onderwerp)')} <span class="att ${cv.status === 'NEW' ? 'new' : ''}">${esc(chan(cv.channel))}</span></div><div class="li-s">${esc((cv.last_body || '').slice(0, 90))}</div></button>`).join('') || '<div class="empty">Nog geen communicatie.</div>';
   const fus = (rel.followUps || []).map((f) => `<div class="list-item"><div class="li-t">${esc(f.title)} ${f.overdue ? '<span class="att delivery_problem">verlopen</span>' : ''}</div><div class="li-s">${f.due_at ? ('uiterlijk ' + fmtd(f.due_at)) : 'geen datum'}${f.channel_hint ? (' · ' + f.channel_hint) : ''}</div></div>`).join('') || '<div class="empty">Geen open follow-ups.</div>';
   v.innerHTML = `<h2 class="sec">Overzicht</h2>
     <div class="grid2">
@@ -157,7 +157,7 @@ async function dismissMemory(id) { const r = await api('/api/comm/memory/' + id,
 async function renderCommunicatie(v) {
   v.innerHTML = '<div class="comm"><div class="convs" id="convs"></div><div class="thread" id="thread"><div class="empty" style="padding:24px">Kies een gesprek of start een nieuw bericht.</div></div></div>';
   const convs = STATE.rel.conversations || [];
-  $('#convs').innerHTML = convs.map((cv) => `<div class="conv" data-act="openConv" data-id="${cv.id}"><div class="t">${esc(cv.subject || '(zonder onderwerp)')}</div><div class="s">${esc(chan(cv.channel))} · ${esc((cv.last_body || '').slice(0, 50))}</div></div>`).join('') || '<div class="empty" style="padding:16px">Nog geen gesprekken.</div>';
+  $('#convs').innerHTML = convs.map((cv) => `<button type="button" class="conv" data-act="openConv" data-id="${cv.id}"><div class="t">${esc(cv.subject || '(zonder onderwerp)')}</div><div class="s">${esc(chan(cv.channel))} · ${esc((cv.last_body || '').slice(0, 50))}</div></button>`).join('') || '<div class="empty" style="padding:16px">Nog geen gesprekken.</div>';
   if (STATE.convId) openConv(STATE.convId);
   else if (convs[0]) openConv(convs[0].id);
 }
@@ -181,7 +181,7 @@ async function openConv(id) {
 async function loadSuggestions(id) {
   const bar = $('#sugbar'); if (!bar) return;
   const r = await api('/api/comm/conversations/' + id + '/ai/suggest', { method: 'POST' });
-  if (r.status === 200) bar.innerHTML = (r.body.suggestions || []).map((s) => `<span class="s" title="${esc(s.why || '')}">${esc(s.label)}</span>`).join('');
+  if (r.status === 200) bar.innerHTML = (r.body.suggestions || []).map((s) => `<button type="button" class="s" title="${esc(s.why || '')}">${esc(s.label)}</button>`).join('');
 }
 
 async function openDraft(convId) {
@@ -196,7 +196,7 @@ function channelButtons() {
   const cur = STATE.draft.draft.channel;
   return sendable.map((ch) => {
     const cs = consent[ch]; const blocked = cs && !cs.allowed;
-    return `<span class="chan ${ch === cur ? 'on' : ''} ${blocked ? 'blocked' : ''}" title="${blocked ? ('Geblokkeerd: ' + esc(cs.reason)) : ''}" ${blocked ? '' : `data-act="switchChannel" data-ch="${ch}"`}>${esc(chan(ch))}</span>`;
+    return `<button type="button" class="chan ${ch === cur ? 'on' : ''} ${blocked ? 'blocked' : ''}" title="${blocked ? ('Geblokkeerd: ' + esc(cs.reason)) : ''}" ${blocked ? '' : `data-act="switchChannel" data-ch="${ch}"`}>${esc(chan(ch))}</button>`;
   }).join('');
 }
 

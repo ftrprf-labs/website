@@ -20,6 +20,7 @@ import * as F from './fixtures.mjs';
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const PUBLIC = join(ROOT, 'public');
 const MODE = process.argv[2] === 'after' ? 'after' : 'baseline';
+const ONLY = process.argv[3] || null;  // optioneel: leg alleen dit oppervlak vast
 const OUT = join(import.meta.dirname, MODE);
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -65,6 +66,12 @@ function route(page) {
     const u = new URL(r.request().url());
     const p = u.pathname;
     const json = (body) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    if (p === '/api/config') return json(F.config);
+    if (p === '/api/invitations') return json(F.invitations);
+    if (p === '/api/comm/attention') return json(F.attention);
+    if (p === '/api/template') return json(F.template);
+    if (p === '/api/evaluations') return json(F.evaluations);
+    if (p === '/api/comm/inbox') return json(F.inbox);
     if (p === '/api/comm/status') return json(F.status);
     if (p === '/api/comm/relationship') return json(F.relationship);
     if (p === '/api/comm/followups') return json(F.followups);
@@ -122,10 +129,16 @@ const base = `http://127.0.0.1:${PORT}`;
 const q = `?contact=${F.CONTACT_ID}`;
 
 console.log(`capture -> ${MODE}`);
+const SURFACES = [
+  ['workspace', `${base}/workspace.html${q}`],
+  ['comm', `${base}/comm.html`],
+  ['testerbeheer', `${base}/index.html`],
+];
 for (const reduce of [false, true]) {
-  // workspace = het pilotoppervlak. comm = de onaangeraakte controlegroep.
-  await capture(browser, 'workspace', `${base}/workspace.html${q}`, { reduce });
-  await capture(browser, 'comm', `${base}/comm.html`, { reduce });
+  for (const [name, url] of SURFACES) {
+    if (ONLY && name !== ONLY) continue;
+    await capture(browser, name, url, { reduce });
+  }
 }
 await browser.close();
 server.close();
