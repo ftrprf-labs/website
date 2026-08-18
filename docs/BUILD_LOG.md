@@ -5,6 +5,34 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## Deploykoppeling: `claude/invitation-manager-mvp-d5r5h8` is ook de productiebranch
+
+**Deze branch is tegelijk merge-target en productie-deploybranch. Gebruik hem niet als gewone
+integratiebranch zolang die koppeling bestaat.**
+
+De Render-service `ftrlabs-testerbeheer` (productie, met persistente schijf) staat op autoDeploy
+met trigger `commit` en volgt `claude/invitation-manager-mvp-d5r5h8`. Elke push naar die branch,
+en dus ook elke merge erin, gaat rechtstreeks en zonder tussenstap naar productie.
+
+Vastgesteld op 2026-08-18, toen de merge van PR #2 een niet-bedoelde productiedeploy veroorzaakte
+naar commit `23ddbba`. Productie bleef gezond en is bewust niet teruggerold, maar de deploy was
+niet geautoriseerd op dat moment. Eerder diezelfde dag liep de handtekening-workstream tegen
+hetzelfde aan: commit `ec02a45` vermeldt "Niet gedeployed", terwijl de push hem wel live zette.
+
+**Praktische regel zolang de koppeling bestaat:**
+
+1. Behandel elke merge naar `claude/invitation-manager-mvp-d5r5h8` als een productierelease en
+   vraag daar expliciet toestemming voor. Ga er niet vanuit dat mergen en deployen los staan.
+2. Controleer vóór een merge welke Render-service aan de doelbranch hangt. `list_services` toont
+   per service het veld `branch` en `autoDeploy`.
+3. Werk niet-vrijgegeven werk af op een eigen branch en houd die uit de doelbranch tot de release
+   bedoeld is.
+
+Zodra autoDeploy op `ftrlabs-testerbeheer` uit staat, of de service een eigen releasebranch krijgt,
+vervalt deze waarschuwing. Werk hem dan hier bij in plaats van hem stilzwijgend te laten staan.
+
+---
+
 ## Technische schuld (open)
 
 | # | Onderwerp | Waar | Beschrijving | Ingebracht |
