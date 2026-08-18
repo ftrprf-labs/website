@@ -437,6 +437,14 @@ de infrastructuur waarvoor deze studie hem houdt.
 
 ## 13. De visuele studie
 
+> **Statusnotitie, toegevoegd 18 augustus 2026.** Deze visuele studie is gemaakt vóór de centrale
+> canon beschikbaar was, en is visueel afgeleid uit deze repository. Zij geldt daarom **niet** als
+> visuele richting en **niet** als canon. Zodra `ftrlabs-docs/03-ux/` de vastgestelde Visual DNA
+> v1.0 en Visual North Star bevat, wordt de visuele uitwerking opnieuw gedaan vanuit die bron. Wat
+> in deze studie standhoudt, is uitsluitend de informatiearchitectuur, en die is verder uitgewerkt
+> in `TWEELAAGS-ARCHITECTUUR.md`.
+
+
 Bij deze studie hoort één interactieve visuele studie, `atelier-study.html`. Zelfstandig bestand,
 geen productie, geen server, geen echte data. Hij staat bewust niet in `public/`, zodat hij nergens
 kan worden uitgeserveerd.
