@@ -3,9 +3,9 @@
 Zelfstandige ontwerpstudie voor de persoonlijke Maculis-werkomgeving.
 Los spoor, later naast Visual DNA v1.0 te leggen.
 
-**Status: bevroren op 2026-08-18. Exploratieve hypothese, geen vastgelegd ontwerp. Lees eerst
-`STATUS.md`.** De canonieke Visual DNA v1.0 staat inmiddels in `ftrlabs-docs/03-ux/` en deze
-studie is zonder die canon geschreven.
+**Status: SOURCE / CLOSED, 2026-08-18. Uitsluitend bronmateriaal. Zie `STATUS.md`.**
+Deze exploratieve werkstroom is afgesloten en de bevindingen zijn overgedragen aan de primaire
+Kamer 5-werkstroom. Hervatting loopt uitsluitend via die werkstroom, nooit via deze map.
 
 **Niets in deze map raakt productiecode, de bestaande vier kamers of de Visual North Star.
 Er is niets gedeployed en niets geharmoniseerd.**

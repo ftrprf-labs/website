@@ -1,9 +1,19 @@
 # Status van deze studie
 
-**Bevroren op 2026-08-18. Exploratieve hypothese, geen vastgelegd ontwerp.**
+**SOURCE / CLOSED, 2026-08-18.**
 
-Alles in deze map blijft volledig behouden: de conceptuele architectuur, de browserbevindingen en de
-drie beslissingen. Er wordt niet verder ontworpen tot de centrale canon gelezen is.
+Deze exploratieve werkstroom is afgesloten. De relevante bevindingen zijn overgedragen aan de
+primaire Kamer 5-werkstroom, die op haar beurt bewust PARKED is tot de harmonisatie van Website,
+Lens, Mijn Maculis en Cockpit is afgerond en beoordeeld.
+
+Alles in deze map blijft volledig behouden en dient **uitsluitend als bronmateriaal**: de
+conceptuele architectuur, de browserbevindingen en de drie beslissingen.
+
+**Hier wordt niets meer uitgewerkt.** Niet verder ontwerpen, de nieuwe canon niet alsnog lezen voor
+deze werkstroom, geen Visual DNA wijzigen, niets bouwen, niets deployen.
+
+**Hervatting loopt uitsluitend via de primaire Kamer 5-werkstroom.** Deze map is nooit het
+vertrekpunt voor nieuw werk.
 
 ---
 
@@ -26,9 +36,12 @@ afgeleid tegen een onvolledige grondslag.
 
 ---
 
-## Wat er gebeurt zodra de canon op `main` staat
+## Overgedragen aan de primaire werkstroom
 
-In deze volgorde, en niet eerder beginnen met ontwerpen.
+> **Vervallen voor deze werkstroom, 2026-08-18.** Wat hieronder staat, is de herbeoordeling die
+> hier zou plaatsvinden. Zij vindt hier niet plaats. Het staat er nog uitsluitend als
+> bronmateriaal, zodat de primaire werkstroom kan zien wat er nog niet getoetst was toen deze
+> studie werd afgesloten.
 
 **1. Eerst volledig lezen.** De hele canon in `ftrlabs-docs/03-ux/`, voordat er één ontwerpuitspraak
 opnieuw wordt beoordeeld.
@@ -70,7 +83,7 @@ Dat die drie samen Kamer 5 zijn, is nu een aanname en geen uitkomst.
 
 ---
 
-## Wat er in de tussentijd niet gebeurt
+## Wat hier niet meer gebeurt
 
-Niets implementeren, niets deployen, geen canon wijzigen, geen productcode aanraken, en geen
-verdere ontwerpontwikkeling in deze map.
+Niets implementeren, niets deployen, geen canon wijzigen, geen productcode aanraken, geen canon
+lezen voor deze werkstroom, en geen verdere ontwerpontwikkeling in deze map.

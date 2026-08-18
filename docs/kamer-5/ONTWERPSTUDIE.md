@@ -4,8 +4,10 @@
 Zelfstandig spoor. Geen wijziging aan de Visual North Star, de vier bestaande kamers of
 productiecode. Niets gedeployed.
 
-**Status: bevroren op 2026-08-18. Exploratieve hypothese, geen vastgelegd ontwerp.**
-Zie `STATUS.md`. De Visual DNA v1.0 is inmiddels centraal gepubliceerd in `ftrlabs-docs/03-ux/` en is de enige canonieke bron. Alles hieronder is geschreven zonder die canon en moet daartegen opnieuw worden beoordeeld voordat er verder wordt ontworpen.
+**Status: SOURCE / CLOSED, 2026-08-18. Uitsluitend bronmateriaal.**
+Zie `STATUS.md`. De Visual DNA v1.0 is inmiddels centraal gepubliceerd in `ftrlabs-docs/03-ux/` en
+is de enige canonieke bron. Alles hieronder is geschreven zonder die canon en is nooit daartegen
+getoetst. Die toetsing hoort in de primaire Kamer 5-werkstroom, niet hier.
 
 Geschreven: 2026-08-17.
 
