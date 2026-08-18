@@ -229,3 +229,88 @@ Alle vier de paden komen uit op hetzelfde beeld. Dat is geen toeval maar de cons
 - Niets geïntegreerd in `server/comm/signature.mjs`, de verzendlogica is niet aangeraakt.
 - Niets gedeployed, geen assets toegevoegd aan `public/brand`.
 - Geen keuze gemaakt over naam, adres of payoff. Die komen uit config, nooit uit een ontwerp.
+
+---
+
+## 9. Verfijningsronde op Waarneming
+
+**Studie:** `docs/studies/signature-waarneming.html`
+**Status:** nog steeds niets geïntegreerd, niets gedeployed.
+
+Richting akkoord: Waarneming is de gekozen variant. De vondst is vastgezet als harde ontwerpvoorwaarde:
+
+> **Eerste frame is gelijk aan het laatste frame en aan de statische fallback.** Ontwerp 1 blijft
+> volledig intact, de magie bestaat uitsluitend uit een eenmalig moment dat terugkeert naar exact
+> dezelfde rusttoestand.
+
+Deze ronde onderzoekt uitsluitend timing en onderlinge vertraging, amplitude en afstand tot het hart,
+de lichtrespons van de ster, de eventuele lichtloop over de curve, en het exacte moment van stilte.
+Geen nieuwe concepten, geen extra elementen, geen reizend violet punt.
+
+### De drie microvarianten
+
+| | 1 · Late adem | 2 · Eén ademtocht | 3 · Grond en licht |
+| --- | --- | --- | --- |
+| Stille aanloop | 2,2 s | 1,6 s | 1,2 s |
+| Punten | 3 | 4 | 5 |
+| Onderlinge vertraging | 0,55 s | 0,34 s | 0,22 s |
+| Nadering | 26 px | 24 px | 23 px |
+| Piekhelderheid | 0,42 | 0,52 | 0,50 |
+| Sterrespons | 0,12 | 0,30 | 0,26 |
+| Lichtloop over de curve | geen | geen | 0,18 piek, dooft voor de opening |
+| Volledig stil | 6,9 s | 6,6 s | 7,6 s |
+| Frames bij 10 fps | 74 | 70 | 80 |
+
+Drie wijzigingen gelden voor alle drie, en die doen het meeste werk:
+
+1. **Een stille aanloop.** De vorige versie begon meteen, waardoor het voelde als iets dat werd
+   afgespeeld. Nu zie je eerst de handtekening zoals hij is. Pas als je niet meer op iets wacht,
+   gebeurt het. In de GIF kost die stilte niets: het is één frame met een lange vertraging.
+2. **Een ongelijk einde.** De punten doven met een onderlinge vertraging van enkele tienden uit. Een
+   gelijktijdig einde leest als een clip die afloopt, een ongelijk einde als iets dat wegtrekt.
+3. **De ster ademt in plaats van te flitsen.** Asymmetrisch: snel op, trager af. Een flits wijst naar
+   zichzelf, een ademtocht is een reactie op iets anders.
+
+Daarbij vertraagt de nadering nu en stopt op vier procent van het doel. De punten komen dus nooit aan,
+want naderen is niet bereiken. En het rustframe wordt aan het einde expliciet 0,4 s vastgehouden,
+zodat het laatste frame aantoonbaar hetzelfde beeld is als het eerste.
+
+### Oordeel op de vijf criteria
+
+| Criterium | 1 | 2 | 3 |
+| --- | :-: | :-: | :-: |
+| Verwondering | 5 | **9** | 8 |
+| Rust | **10** | 9 | 7 |
+| Maculis-eigenheid | 8 | **9** | **9** |
+| Aandacht bij naam en afzender | **10** | 9 | 7 |
+| Waargenomen in plaats van afgespeeld | 7 | **9** | 6 |
+| **Totaal** | 40 | **45** | 37 |
+
+### Aanbeveling: variant 2, Eén ademtocht
+
+Variant 1 haalt de rust volledig, maar de verwondering blijft uit. Wat je niet opmerkt, kun je ook niet
+bijna gemist hebben. Variant 3 is het mooiste beeld, maar zet twee gebeurtenissen achter elkaar, en
+precies dat maakt dat het weer voelt als iets dat wordt afgespeeld. De lichtloop hoort thuis in een
+groter formaat, niet in een zegel van honderdvijftig pixels. Mijn advies is om hem hier niet alsnog toe
+te voegen: op het vijfde criterium kost hij meer dan hij oplevert.
+
+Variant 2 heeft één gebeurtenis, één reactie, en een einde dat niet netjes samenvalt. De stilte vooraf
+doet het meeste werk: omdat er anderhalve seconde niets gebeurt, kijk je al niet meer, en dan beweegt
+er iets in je ooghoek.
+
+### Gevolgen voor de bouwspecificatie uit hoofdstuk 7
+
+| Onderdeel | Vorige ronde | Variant 2 |
+| --- | --- | --- |
+| Duur | 6,4 s | 7,0 s, inclusief 0,4 s vastgehouden rustframe |
+| Frames | 64 | 70 |
+| Punten | 6 | 4 |
+| Piekhelderheid | 0,60 | 0,52 |
+| Nadering | 22 px | 24 px |
+| Sterrespons | flits 0,40, symmetrisch | ademtocht 0,30, asymmetrisch, 0,18 op en 0,32 af |
+| Einde | gelijktijdig | gespreid over 0,6 s |
+| Bestandsgrootte | budget 240 kB | ruim onder budget, minder bewegende pixels plus een lange eerste framevertraging |
+
+Al het overige uit hoofdstuk 7 blijft ongewijzigd: alleen de zegelcel is beeld, ondoorzichtige
+inktgrond, lus 1, levering via `picture` met een `source` voor rustige beweging, alt tekst die de
+animatie niet noemt.
