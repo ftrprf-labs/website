@@ -5,9 +5,13 @@ Onderzoek en visuele studie. Geen implementatie.
 **Studie 1, de drie richtingen:** `docs/studies/whatsapp-signature.html`
 **Studie 2, verfijning van richting C:** `docs/studies/whatsapp-signature-c.html` (zie hoofdstuk 9)
 Beide openen in een browser, geen build nodig.
-**Status:** niets geïntegreerd, niets gedeployed, verzendlogica onaangeraakt, geen template gewijzigd,
-geen Meta-configuratie gewijzigd, geen bericht verzonden.
+**Status:** afgerond op 18 augustus 2026. Besluit vastgelegd in hoofdstuk 10.
+Niets geïntegreerd, niets gedeployed, verzendlogica onaangeraakt, geen template gewijzigd,
+geen Meta-configuratie gewijzigd, geen asset in productie, geen bericht verzonden.
 **De goedgekeurde e-mailhandtekening is niet aangeraakt.**
+
+**Gekozen richting:** C, levende signatuur, in de uitvoering van variant 2, "Eén punt".
+De parameters zijn bevroren in `docs/studies/tools/wa-seal-reference.js`.
 
 ---
 
@@ -583,3 +587,89 @@ browser en komt op 0 van 255. De export moet dat cijfer halen, anders is de teru
 - Geen onderzoek naar hoe software een afgerond gesprek herkent. Eerst het moment, daarna het
   mechanisme.
 - Geen wijziging aan de e-mailhandtekening en niet aan `seal-reference.js`.
+
+---
+
+## 10. Besluit
+
+**Datum:** 18 augustus 2026
+**Gekozen:** richting C, levende signatuur, in de uitvoering van variant 2, "Eén punt".
+**Vastgelegd in:** `docs/studies/tools/wa-seal-reference.js`
+
+### 10.1 Wat er precies is besloten
+
+Het Maculis-slotmoment op WhatsApp is één stille sticker met het zegel, waarin één punt waarneembaar
+wordt aan de rand, tot precies op de curve schuift, de ster één keer laat ademen, en daarna ongelijk
+loslaat. Volledig stil op 3,90 seconden, duur 4,10 seconden, geen lus. Het rustframe is de waarheid en
+de beweging voegt daar niets aan toe wat verloren kan gaan.
+
+Het slot verschijnt uitsluitend nadat het gesprek inhoudelijk is afgerond en iemand dat slot bevestigt.
+Het menselijke bericht ervoor houdt zijn eigen natuurlijke afsluiting. Er komt geen vaste afscheidstekst
+achteraan: geen "Kijk nog eens.", geen groet van het merk, geen slogan. De vorm draagt de signatuur.
+
+De frequentieregel uit hoofdstuk 3 blijft gelden: ten hoogste eens per dertig dagen per persoon, en in
+de praktijk enkele keren per relatie per jaar. Ziet iemand het vaker dan eens per maand, dan is de
+regel gebroken, niet het ontwerp.
+
+De payoff "Kijk nog eens." blijft ongewijzigd waar hij hoort, in de e-mailhandtekening. Het besluit om
+hem niet standaard onder een WhatsApp-gesprek te zetten, verandert niets aan de merkregel zelf.
+
+### 10.2 De bevroren parameters
+
+| | |
+| --- | --- |
+| Stilte voor de gebeurtenis | 1,30 s |
+| Punten | 1 |
+| Aankomst | 42 procent, precies op de straal van de curve |
+| Helderheid op de piek | 0,26 |
+| Respons van de ster | 0,14 s op, 0,34 s af, winst 0,18 |
+| Loslaten | tot 3,90 s, later dan het einde van de nadering |
+| Volledig stil | 3,90 s |
+| Duur | 4,10 s, inclusief het vastgehouden rustframe |
+| Lus | geen |
+| Uitsnede | het merk vult ongeveer tachtig procent van het vlak |
+
+Gemeten op ware grootte, 118 pixels bij dubbele dichtheid, per kleurkanaal: het eerste en het laatste
+frame verschillen 0 van 255, de piek wijkt 75 van 255 af, en er bewegen 99 beeldpunten. Die eerste
+waarde is een eis en geen waarneming. Haalt een toekomstige export hem niet, dan is de statische
+terugval geen terugval en klopt het ontwerp niet meer.
+
+`wa-seal-reference.js` is vanaf nu de enige bron voor deze beweging. De vorm erin is letterlijk die van
+`seal-reference.js` en mag daar nooit los van veranderen. De tijd is nieuw, want WhatsApp is een ander
+medium en dit is een ander ritueel. De referentie is gecontroleerd tegen de beoordeelde variant in de
+studie: op elf gemeten momenten is het verschil 0 van 255.
+
+### 10.3 Wat dit besluit niet is
+
+Dit is een ontwerpbesluit, geen bouwopdracht. Er is niets geïntegreerd, geen asset gemaakt, geen route
+aangepast, geen template gewijzigd, geen Meta-configuratie geraakt en geen bericht verzonden.
+
+Drie vragen zijn bewust nog niet beantwoord en horen bij een volgende ronde:
+
+1. **Past het bestand?** 512 bij 512 met alfa onder 500 kB is aannemelijk maar onbewezen. Variant 2 is
+   van de onderzochte varianten het gunstigst, want hij is het kortst en beweegt het minst.
+2. **Stopt de sticker werkelijk?** Het gerapporteerde gedrag is dat een geanimeerde sticker één keer
+   speelt en opnieuw begint bij langs scrollen. Dat is niet hetzelfde als de GIF in e-mail, die
+   definitief stopt. Toetsen op een echt toestel, op iOS en op Android.
+3. **Hoe stelt software vast dat een gesprek is afgerond?** Vandaag kent het datamodel geen einde van
+   een gesprek. Zolang dat zo is, is het slot een menselijke handeling, en dat is verdedigbaar omdat de
+   mens toch al op verzenden drukt.
+
+Als vraag 1 of 2 slecht uitpakt, is de terugval al ontworpen en al goedgekeurd: de statische sticker.
+Die verliest aantoonbaar niets, want hij is exact het eerste en het laatste frame.
+
+### 10.4 Wat er nodig is voordat er iets wordt gebouwd
+
+- `maculis-seal-perceive-wa-v1.webp` genereren uit de bevroren referentie, en na export opnieuw meten of
+  het eerste en laatste frame identiek zijn.
+- `maculis-seal-rest-wa-v1.webp` uit hetzelfde bestand, als terugval en als los te versturen zegel.
+- Het gedrag op een echt toestel toetsen, voordat er een regel productiecode verandert.
+- Pas daarna de vraag of dit via de handmatige route loopt, via een stickerpak op het toestel van de
+  verzender, of via de Communication Layer met doorgifte van media in `sendOnChannel()`.
+
+### 10.5 Afronding
+
+Hiermee is deze studie gesloten. De drie richtingen uit hoofdstuk 2 en de drie microvarianten uit
+hoofdstuk 9 blijven staan als verantwoording van de keuze, niet als openstaande opties. De twee
+browserstudies blijven bruikbaar om het besluit opnieuw te beoordelen, met de gekozen variant als
+uitgangspunt.

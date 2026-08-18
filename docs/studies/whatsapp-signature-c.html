@@ -64,6 +64,7 @@ h1,h2,h3{text-wrap:balance; margin:0}
 .opt .sub{display:block; font-size:11.5px; color:var(--faint); line-height:1.35; margin-top:2px}
 .opt[aria-pressed="true"]{background:var(--panel-2); border-left-color:var(--copper); color:var(--copper-lit)}
 .opt[aria-pressed="true"] .k{color:var(--copper)}
+.opt.picked .sub{color:var(--jade)}
 .opt:focus-visible{outline:2px solid var(--copper-lit); outline-offset:-2px}
 .opt[disabled]{opacity:.36; cursor:not-allowed}
 .row{display:flex; gap:1px}
@@ -168,6 +169,13 @@ h1,h2,h3{text-wrap:balance; margin:0}
 
 /* ---- oordeel ------------------------------------------------------------ */
 .judge{margin-top:64px; padding-top:34px; border-top:1px solid var(--line)}
+.decision{border-left:2px solid var(--jade); background:var(--panel); padding:20px 24px; margin-bottom:44px}
+.decision h2{font-family:var(--serif); font-weight:300; font-size:28px; color:var(--copper-lit)}
+.decision p{max-width:70ch; margin:0 0 10px; font-size:14px; color:var(--text)}
+.decision p:last-child{margin-bottom:0}
+.decision .stamp{font-family:var(--mono); font-size:10.5px; letter-spacing:1.6px;
+  text-transform:uppercase; color:var(--jade); margin-bottom:12px}
+.decision .frozen{color:var(--dim); font-size:13px; padding-top:10px; border-top:1px solid var(--line)}
 .judge h2{font-family:var(--serif); font-weight:300; font-size:32px; color:var(--copper-lit); margin-bottom:8px}
 .judge .sub{color:var(--dim); max-width:66ch; margin:0 0 28px}
 .tablewrap{overflow-x:auto}
@@ -195,9 +203,11 @@ footer{margin-top:64px; padding-top:22px; border-top:1px solid var(--line); colo
     <p class="eyebrow">Maculis · communication layer · verfijning van richting C</p>
     <h1>Bewoog daar iets</h1>
     <p class="lede">Drie microvarianten van hetzelfde slotmoment, plus de nulvariant zonder
-      beweging. Het gesprek eindigt zoals een gesprek eindigt. Het zegel volgt daarna, als punt.</p>
+      beweging. Het gesprek eindigt zoals een gesprek eindigt. Het zegel volgt daarna, als punt.
+      Variant 2 is gekozen en vastgelegd; de andere drie blijven staan als verantwoording.</p>
     <div class="status">
-      <span>Status <b>onderzoek</b></span>
+      <span>Status <b>besloten op 18 augustus 2026</b></span>
+      <span>Gekozen <b>variant 2, Eén punt</b></span>
       <span>Verzendlogica <b>onaangeraakt</b></span>
       <span>Templates <b>ongewijzigd</b></span>
       <span>Meta-configuratie <b>ongewijzigd</b></span>
@@ -299,7 +309,19 @@ footer{margin-top:64px; padding-top:22px; border-top:1px solid var(--line); colo
 
   <!-- ============================== oordeel ============================== -->
   <section class="judge">
-    <h2>Oordeel</h2>
+    <div class="decision">
+      <p class="stamp">Besluit · 18 augustus 2026</p>
+      <h2 style="margin-bottom:10px">Variant 2, Eén punt</h2>
+      <p>Eén punt wordt waarneembaar aan de rand van het zegel, schuift een haar naar binnen tot
+        precies op de curve, de ster haalt één keer adem, en het laat ongelijk los. Volledig stil op
+        3,90 seconden, duur 4,10 seconden, geen lus.</p>
+      <p>Van de vier punten uit de e-mailhandtekening blijft er in WhatsApp één over. Dat is de
+        uitkomst van deze ronde: er is niets te volgen, dus je kunt het alleen opmerken.</p>
+      <p class="frozen">De parameters zijn bevroren in <code>docs/studies/tools/wa-seal-reference.js</code>.
+        Dat bestand is vanaf nu de enige bron voor deze beweging. De vorm blijft die van
+        <code>seal-reference.js</code> en verandert daar nooit los van.</p>
+    </div>
+    <h2>Onderbouwing</h2>
     <p class="sub">Zes criteria, tien punten per criterium, met uitzondering van het risico op een
       gimmick: daar is tien het laagste risico. De nulvariant zonder beweging doet volwaardig mee,
       want als minder beweging wint, moet de tabel dat kunnen laten zien.</p>
@@ -388,7 +410,7 @@ footer{margin-top:64px; padding-top:22px; border-top:1px solid var(--line); colo
   </section>
 
   <footer>
-    <span>Vorm uit <code>docs/studies/tools/seal-reference.js</code>, timing opnieuw ontworpen</span>
+    <span>Vorm uit <code>seal-reference.js</code>, tijd bevroren in <code>wa-seal-reference.js</code></span>
     <span>De e-mailhandtekening is niet gewijzigd</span>
     <span>Niets geïntegreerd, niets verzonden</span>
   </footer>
@@ -434,7 +456,7 @@ var VARIANTS = [
     ]
   },
   {
-    id:2, k:'2', name:'Eén punt', tag:'één punt, één ademtocht',
+    id:2, k:'2', name:'Eén punt', tag:'gekozen · één punt, één ademtocht',
     lead:'Eén punt wordt waarneembaar, schuift een haar naar binnen, en laat los.',
     body:'De strengste variant. Er is niets te volgen: het punt reist nauwelijks, het licht blijft '+
          'onder de helft van wat het kan, en de respons van de ster is bijna te klein om te '+
@@ -589,6 +611,7 @@ function buttons(host,items,key,render){
 function buildControls(){
   buttons($('variants'),VARIANTS,'v',function(v){
     return '<span class="k">'+v.k+'</span><span>'+v.name+'<span class="sub">'+v.tag+'</span></span>';});
+  document.querySelectorAll('#variants .opt')[2].classList.add('picked');
   buttons($('speeds'),[{id:1,l:'1×'},{id:.5,l:'½×'},{id:.25,l:'¼×'},{id:.125,l:'⅛×'}],'speed',
     function(x){return x.l;});
   buttons($('endings'),ENDINGS,'ending',function(e){
