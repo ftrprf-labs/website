@@ -314,3 +314,85 @@ er iets in je ooghoek.
 Al het overige uit hoofdstuk 7 blijft ongewijzigd: alleen de zegelcel is beeld, ondoorzichtige
 inktgrond, lus 1, levering via `picture` met een `source` voor rustige beweging, alt tekst die de
 animatie niet noemt.
+
+---
+
+## 10. Productievoorstel · handtekening v1
+
+**Referentie (bevroren):** `docs/studies/tools/seal-reference.js`
+**Voorbeeld:** `docs/studies/signature-production.html`
+**Assets:** `docs/studies/assets/`
+**Status:** niet geïntegreerd in `signature.mjs`, niets gedeployed.
+
+Variant 2, Eén ademtocht, is bevroren als ontwerpreferentie. De GIF, de statische PNG en elke
+voorbeeldweergave worden uit dat ene bestand gegenereerd, dus er bestaat geen tweede versie van de
+beweging die uit de pas kan lopen.
+
+### Bevroren parameters
+
+| | |
+| --- | --- |
+| Stilte voor de gebeurtenis | 1,6 s |
+| Punten | 4, onderlinge vertraging 0,34 s |
+| Nadering | 24 px, stopt op 96 procent van de afstand |
+| Helderheid | basis 0,05, piek 0,52, volgt de nabijheid |
+| Ademhaling van de ster | 0,18 s op, 0,32 s af, winst 0,30 |
+| Einde | gespreid over 0,6 s, volledig stil op 6,6 s |
+| Duur | 7,0 s, inclusief 0,4 s vastgehouden rustframe |
+
+### De assets
+
+| Bestand | Pixels | Weergave | Grootte |
+| --- | --- | --- | --- |
+| `maculis-seal-perceive-v1.gif` | 300 bij 300 | 150 bij 150 | 98,1 kB |
+| `maculis-seal-rest-v1.png` | 300 bij 300 | 150 bij 150 | 20,2 kB |
+| `maculis-wordmark-v1.png` | 212 bij 100 | 106 bij 50 | 10,3 kB |
+| `maculis-spark-v1.png` | 60 bij 60 | 30 bij 30 | 5,8 kB |
+| `maculis-icon-mail-v1.png` | 26 bij 26 | 13 bij 13 | 0,6 kB |
+| `maculis-icon-globe-v1.png` | 26 bij 26 | 13 bij 13 | 1,4 kB |
+| `maculis-icon-pin-v1.png` | 26 bij 26 | 13 bij 13 | 1,2 kB |
+
+Samen 138 kB, waarvan 117 kB bij een bewegende weergave en 39 kB bij de rustige route. Alles wordt
+door de beeldproxy van de client gecachet, dus dit is eenmalig per ontvanger en per versie.
+
+**De GIF.** 47 frames, palet van 256 kleuren, dithering uit, geen Netscape-lusblok. De stille aanloop
+is één frame met een vertraging van 1900 ms, de staart één frame van 600 ms. In een browser gemeten:
+het beeld op 0,3 s, op 7,5 s en op 11 s is identiek, en op 4,6 s afwijkend. De GIF speelt dus één keer
+en blijft daarna staan op het rustframe.
+
+Kleurdiepte getest op 32, 64, 128 en 256. Bij 64 werd de gloed rond de ster zichtbaar getrapt. Het
+verschil tussen de referentie en het eerste GIF-frame is gemiddeld 0,98 van 255 per kleurkanaal met een
+uitschieter van 11 van 255, en dat is bij weergave op 150 pixels niet zichtbaar. Dithering blijft uit:
+ruis zou per frame veranderen, waardoor de GIF zowel groter als onrustiger wordt.
+
+**Architectuur.** Drie tabelcellen. Links de zegelcel als beeld, in het midden naam, rol en contact als
+echte tekst, rechts het woordmerk, de payoff en de regel in wording. Alleen het zegel beweegt. Het blok
+is 613 bij 186 pixels, dezelfde verhouding als ontwerp 1.
+
+**De rustige route.** De zegelcel is een `picture` met een `source` die op `prefers-reduced-motion` naar
+de PNG wijst. Apple Mail, iOS, Thunderbird en de WebKit-clients volgen die route. Gmail en Outlook
+kennen hem niet en tonen de GIF. Precies daarom speelt de gebeurtenis één keer en stopt hij: een
+eenmalige gebeurtenis van zeven seconden is zonder die route verdedigbaar, een doorlopende lus niet.
+
+**Donkere modus.** De handtekening is zelf donker, dus in de meeste clients gebeurt er niets. Outlook.com
+en het nieuwe Outlook kunnen kleuren omkeren. De meegeleverde stijlregels met `data-ogsc` en `data-ogsb`
+zetten de inktgrond, de scheidingslijnen en de tekstkleuren terug.
+
+### Technische compromissen die het ontwerp zichtbaar veranderen
+
+Twee, en beide alleen in een specifieke situatie.
+
+1. **Newsreader bestaat niet in e-mail.** Naam, rol, payoff en de regel in wording renderen in
+   Georgia of Times. Het woordmerk is daarom als beeld meegeleverd en behoudt Newsreader wel. De
+   lettervormen van de naamregel wijken dus af van de studie. De Visual DNA staat deze fallback
+   expliciet toe. Het alternatief, ook de naam als beeld, kost selecteerbare tekst, schaalbaarheid en
+   toegankelijkheid, en wordt afgeraden. In het voorbeeld staat een schakelaar om beide naast elkaar te
+   zien.
+2. **Geforceerde donkere modus zonder de meegeleverde stijlregels.** Als een client kleuren omkeert en
+   het stijlblok negeert, wordt het tekstpaneel licht terwijl het zegel donker blijft. Het zegel leest
+   dan als een donkere tegel op een licht vlak. De `data-ogsc` regels vangen dit op in Outlook.com en
+   het nieuwe Outlook, Gmail keert donkere achtergronden niet om, en Apple Mail respecteert de opgegeven
+   kleuren. Volledig uitsluiten kan alleen door het donkere paneel los te laten, en dat verandert
+   ontwerp 1 zelf. Niet doen. In het voorbeeld staat een schakelaar die deze situatie toont.
+
+Verder niets. De kleurreductie, de framevertragingen en de bestandsgroottes veranderen het beeld niet.
