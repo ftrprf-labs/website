@@ -5,6 +5,14 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## Technische schuld (open)
+
+| # | Onderwerp | Waar | Beschrijving | Ingebracht |
+| --- | --- | --- | --- | --- |
+| TD-001 | Tekstkleur van de e-mailbody in donkere modus | `server/comm/signature.mjs`, `wrapEmail()` | Wanneer de composer platte tekst stuurt, bouwt `wrapEmail()` de HTML-body op met een vaste `color:#2b2b2b`. In een donkere leesomgeving kan dat donker op donker uitpakken. Dit zit in het **bericht**, niet in de handtekening, en is bestaand gedrag van vóór de handtekening-integratie. Bewust niet opgelost bij de deploy van 2026-08-18: het raakt de leesbaarheid van elke verzonden e-mail en verdient een eigen ronde. | 2026-08-18, gezien bij de renderproeven van de handtekening |
+
+---
+
 ## 2026-08-15 — Scope & ownership: Communication Layer grens (productbeslissing)
 
 **Geen code-wijziging. Uitsluitend een vastgelegde scope/ownership-grens** (op verzoek), zodat
