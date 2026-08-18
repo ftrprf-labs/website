@@ -80,23 +80,51 @@ renders byte-identiek aan de goedgekeurde F4-staat.
 
 ---
 
-## F5 Website: zes gescheiden beslispunten (open, in beoordeling)
+## F5 Website: zes gescheiden beslispunten (afgehandeld)
 
-Vastgelegd zodat ze niet in elkaar schuiven. De A/B staat op `/f5-ab` van de Website-preview,
-commit `eae9d72`. Er is **geen implementatie-GO**; de gewone Website blijft onaangeraakt.
+Vastgelegd zodat ze niet in elkaar schuiven. De A/B stond op `/f5-ab` van de Website-preview,
+commit `eae9d72`. **Alle zes zijn inmiddels beslist**; de uitkomst zit in de bevroren commit
+`39db6f7`. De tabel blijft staan als verslag van hoe de beslissing tot stand kwam, met de
+uitkomst in de statuskolom.
 
 | # | Beslispunt | Aard | Status |
 |---|---|---|---|
-| **1** | **Hoofdtypografie.** Fraunces plus Inter tegenover Newsreader plus systeemstack | **Visuele merkbeslissing van Lud.** Niet af te leiden uit de canon: de canon wijst Newsreader aan, maar of dat op deze pagina's het juiste merkgevoel geeft is een oordeel | In beoordeling op `/f5-ab` |
-| **2** | **Privacy: veertien functionele juridische sectiekoppen.** "1. Wie is verantwoordelijk" tot "14. Wijzigingen" staan in serif | **Afzonderlijke canoncorrectie.** Canon 4.2: staat er serif, dan staat er een waarneming, gedachte of vraag. Een genummerde juridische sectiekop is structuur. Dit geldt onafhankelijk van welke serif er staat en is **geen argument voor of tegen Newsreader** | Open, los van 1 |
-| **3** | **Wordmark MACULIS.** `site-nav` en `site-footer` | **Merkasset.** Valt buiten de algemene fontmigratie. Verhuist niet mee met `font-display` | Vastgesteld: buiten scope |
-| **4** | **Kleine cursieve serif.** "Ik heb gekeken.", de stapvragen, de twee kaders van blok 6 | Gewicht en leesbaarheid op kleine maten. Canon 4.2 schrijft gewicht 300 voor bij Uitspraak; of dat ook voor de cursieve modifier klein houdbaar is, is de vraag | Niets aanpassen tot Luds visuele oordeel |
-| **5** | **Twee grensgevallen.** De h1 van de privacyverklaring, en het organisatielabel in de lenscirkel (`lenses.tsx:96`, 13px) | Classificatie tussen uitspraak en functie | Nog niet beslissen |
-| **6** | **Afwijkende `clamp()` in `founder.tsx`.** Twee eigen waarden, `clamp(1.35rem,2.6vw,1.9rem)` en `clamp(1.6rem,3.4vw,2.5rem)`, die niet in de canonieke schaal van hoofdstuk 4.3 staan | Schaal, niet familie | **Geregistreerd als later F5-punt. Nu niet wijzigen** |
+| **1** | **Hoofdtypografie.** Fraunces plus Inter tegenover Newsreader plus systeemstack | **Visuele merkbeslissing van Lud.** Niet af te leiden uit de canon: de canon wijst Newsreader aan, maar of dat op deze pagina's het juiste merkgevoel geeft is een oordeel | **Beslist: Newsreader voor Uitspraak, Inter voor functie en body.** Canon 4.1 is hierop verduidelijkt met amendement C-8 |
+| **2** | **Privacy: veertien functionele juridische sectiekoppen.** "1. Wie is verantwoordelijk" tot "14. Wijzigingen" staan in serif | **Afzonderlijke canoncorrectie.** Canon 4.2: staat er serif, dan staat er een waarneming, gedachte of vraag. Een genummerde juridische sectiekop is structuur. Dit geldt onafhankelijk van welke serif er staat en is **geen argument voor of tegen Newsreader** | **Beslist: naar sans.** Een genummerde juridische sectiekop is structuur, geen uitspraak. Uitgevoerd in F5b |
+| **3** | **Wordmark MACULIS.** `site-nav` en `site-footer` | **Merkasset.** Valt buiten de algemene fontmigratie. Verhuist niet mee met `font-display` | **Bevestigd: buiten de fontmigratie.** Fraunces blijft, en uitsluitend op de wordmark |
+| **4** | **Kleine cursieve serif.** "Ik heb gekeken.", de stapvragen, de twee kaders van blok 6 | Gewicht en leesbaarheid op kleine maten. Canon 4.2 schrijft gewicht 300 voor bij Uitspraak; of dat ook voor de cursieve modifier klein houdbaar is, is de vraag | **Beslist: gewicht 400 waar de modifier klein staat.** Gemeten grond: de cursief is 13,9 procent smaller dan de rechte snit. Canon 4.2 is hierop verduidelijkt met amendement C-9 |
+| **5** | **Twee grensgevallen.** De h1 van de privacyverklaring, en het organisatielabel in de lenscirkel (`lenses.tsx:96`, 13px) | Classificatie tussen uitspraak en functie | **Beslist.** De h1 van de privacyverklaring is functioneel en gaat naar sans; het organisatielabel in de lenscirkel blijft bij de uitspraak |
+| **6** | **Afwijkende `clamp()` in `founder.tsx`.** Twee eigen waarden, `clamp(1.35rem,2.6vw,1.9rem)` en `clamp(1.6rem,3.4vw,2.5rem)`, die niet in de canonieke schaal van hoofdstuk 4.3 staan | Schaal, niet familie | **Blijft open.** Niet meegenomen in de harmonisatie en niet in de polishpass; `founder.tsx` is op verzoek vrijwel met rust gelaten |
 
 **Wat de classificatie opleverde.** Van de 74 serif-plekken zijn er 43 levend; 31 zitten in
 componenten die nergens worden gerenderd. Van die 43: veertien Uitspraak, elf Stem van Maculis in
 cursief, twee merkasset, veertien functioneel (punt 2) en twee grensgeval (punt 5).
+
+---
+
+## Hostinginventarisatie bij de afronding van de Website (voorlopig, niets verwijderen)
+
+Opgesteld op 2026-08-18 uit `list_services` van de Render-workspace Maculis
+(`tea-d9tholugekts738lr3gg`). **Voorlopig**, want de afspraak was deze inventarisatie pas te
+definitiveren na geslaagde productieverificatie, en die is geblokkeerd op de Vercel-koppeling.
+**Er is niets verwijderd en er wordt niets verwijderd zonder apart GO.**
+
+| Servicenaam | Repo | Branch | Functie | Soort | autoDeploy | Plan | Veilig te verwijderen |
+|---|---|---|---|---|---|---|---|
+| `ftrlabs-testerbeheer` | `ftrprf-labs/website` | `claude/invitation-manager-mvp-d5r5h8` | Testerbeheer, Cockpit en Communication Layer | **productie** | nee, handmatig uitgezet | starter, betaald, met schijf van 1 GB | **nee.** Productie, en de persistente schijf draagt echte data |
+| `maculis-first-five.` | `ftrprf-labs/maculis-first-five.` | `main` | First Five, de Lens | **productie** | ja, op commit | starter, betaald, met schijf van 1 GB | **nee.** Productie |
+| `maculis-cockpit-preview` | `ftrprf-labs/website` | `claude/maculis-future-cockpit-z9naou` | preview Future Cockpit | preview | ja, op commit | starter, betaald | **nee, nog niet.** Lud heeft deze service expliciet buiten elke ingreep geplaatst |
+| `maculis-cockpit-harmonisatie-preview` | `ftrprf-labs/website` | `claude/maculis-visual-harmonization-s0nt5t` | preview Cockpit-harmonisatie | preview | ja, op commit | starter, betaald | **kandidaat.** De Cockpit-harmonisatie is gemerged en CLOSED, dus de beoordelingsfunctie is vervuld. Wel de laatste visuele referentie van die workstream |
+| `claude/website-harmonisatie-nulmeting` (`srv-da27a1r7uimc73dvhntg`) | `ftrprf-labs/groeiplatform-website` | `claude/website-harmonisatie-nulmeting` | preview Website-harmonisatie | preview | nee | starter, betaald | **nee, nog niet.** Dit is op dit moment de enige draaiende weergave van de goedgekeurde commit `39db6f7` en dient als rollbackreferentie tot productie geverifieerd is |
+| `mijn-maculis-preview` | `ftrprf-labs/website` | `claude/mijn-maculis-customer-v1-d29lib` | preview Mijn Maculis | preview | ja, op commit | starter, betaald | **nee, nog niet.** Mijn Maculis staat nog op de harmonisatieplanning |
+| `maculis-orchestrator` | `ftrprf-labs/website` | `claude/maculis-dev-orchestrator-paox3h` | ontwikkeltooling | tooling | ja, op commit | gratis | **kandidaat**, maar kost niets. Oordeel van Lud nodig over of de tooling nog gebruikt wordt |
+
+Wat deze tabel **niet** dekt: het Vercel-project dat `www.maculis.nl` bedient. Dat valt buiten de
+Render-workspace en is vanuit deze sessie niet leesbaar. Zie de sectie over de productiekoppeling.
+
+Drie services staan op autoDeploy met trigger `commit`. Bij elke push naar die branches deployt
+Render zonder tussenstap. Dat geldt niet voor productie: `ftrlabs-testerbeheer` staat sinds
+2026-08-18 handmatig op autoDeploy uit.
 
 ---
 
@@ -124,6 +152,100 @@ Vast te leggen zodat het niet bij de laatste GO vergeten wordt.
 | TD-002 | `/reply` verstuurt buiten de centrale handtekening en buiten de consent-gate om | `server/comm/outbound.mjs` (`sendReply`), route `POST /api/comm/conversations/:id/reply` | Deze AI-vrije fallbackroute verstuurt rechtstreeks via `sendThreadedEmail` en roept dus **niet** `wrapEmail()` aan: uitgaande mail langs deze weg draagt geen enkele handtekening, oud noch nieuw. Dezelfde route passeert ook de `channelAllowed()` consent-gate niet die `sendOnChannel` wel toepast. Geen UI-code roept hem aan; alleen een directe API-aanroep bereikt hem. Bewust ongemoeid gelaten: dit vraagt een eigen architectuur- en securityreview, geen contentcorrectie. | 2026-08-18, bij de audit van de handtekeningroutes |
 | F3-UITGESTELD | Percentagebalken in Evaluaties, Cockpit | `public/app.js` (`kpi-bar`, `funnel-bar`, verdelingsbalken per vraag), `public/styles.css` | Planregel F3 "percentagebalken uit Evaluaties" is niet uitgevoerd in de Cockpit-workstream. Terecht buiten scope gehouden: het is informatieontwerp, geen tokenwissel, en de opdracht was uitsluitend bewezen canonieke ingrepen toe te passen. De Cockpit is inmiddels CLOSED en bevroren, dus dit punt wordt niet meegenomen zonder een eigen besluit. | 2026-08-18, bij het hernemen van het harmonisatieplan na de Cockpit |
 | TD-003 | Canonieke hairline versus de Tailwind alfa-consumenten, Website | `groeiplatform-website`: `src/app/globals.css` (`--border`, `--border-strong`), `tailwind.config.ts`, en vijftien consumenten | Canon 6 legt `border.hairline` vast als koper op 18 procent en `border.defined` op 34 procent. De Website slaat beide op als HSL-drietal en consumeert ze als `hsl(var(--border))`, waar geen alfa in past. De omzetting naar een kale `var()` is bij de F4-pilot geprobeerd en meteen teruggedraaid: hij breekt vijftien consumenten, acht die zelf een alfa opleggen (`border-border/60`, `divide-border/70`) en zeven die `hsl(var(--border))` rechtstreeks gebruiken. Tailwind kan op een kale `var()` geen alfamodifier toepassen. De kern van het beslispunt is niet technisch maar semantisch: de canonieke hairline op 18 procent en een consument die er `/60` overheen zet kunnen niet allebei gelden. Een voorstel moet de canonieke waarde respecteren zonder de bestaande consumenten stilzwijgend van betekenis te veranderen. | 2026-08-18, bij de F4-grondpilot van de Website |
+
+---
+
+## 2026-08-18 — Website harmonisatie Visual DNA v1.0: visueel akkoord en freeze
+
+**Lud heeft finale GO gegeven op de Website.** Commit
+`39db6f720ca0fadf67bea7532b2e4f1f71c5056f` op `claude/website-harmonisatie-nulmeting` in
+`ftrprf-labs/groeiplatform-website` is vanaf nu de goedgekeurde Website-basis. De onderstaande
+elf punten zijn daarmee vastgesteld en **geen open ontwerppunten meer**. Wie ze wil wijzigen,
+opent een nieuwe workstream met een eigen akkoord.
+
+| # | Vastgelegd | Waarde |
+|---|---|---|
+| 1 | Uitspraak | Newsreader |
+| 2 | Functie en body | Inter |
+| 3 | Wordmark | Fraunces, en uitsluitend daar |
+| 4 | Modifier | Newsreader cursief, gewicht 400 |
+| 5 | Grond | `surface.ground` / `ink.980`, `#0a0b10` |
+| 6 | Verhoogde en interactieve vlakken | `surface.raised` `#14120f`, `surface.elevated` `#251a10` |
+| 7 | Verticaal ritme | zoals in `39db6f7`, per sectie afgestemd, niet mechanisch gelijk |
+| 8 | Lensvisual | de huidige verhouding en schaal |
+| 9 | Signaaltaal | de vier trappen uit canon 9, zoals in de SignalRail |
+| 10 | Constellatie | de bewegende constellatie zoals gebouwd, canon 8.1 en 8.4 |
+| 11 | Motion | speelt eenmalig af naar een betekenisvolle rusttoestand; onder `prefers-reduced-motion` staat die eindtoestand er onmiddellijk |
+
+**Volledige suite opnieuw gedraaid op exact `39db6f7`, schone werkboom, verse build.**
+
+| Controle | Uitkomst |
+|---|---|
+| Tokens en checksum | 3 van 3. Versie `1.0.3`, checksum `a8a21414415b8e06`, niet met de hand bewerkt |
+| Build | `next build` compileert, 13 statische pagina's, geen waarschuwing |
+| Canon- en toegankelijkheidsaudit | 26 controles, 0 afwijkingen, over mobiel en desktop |
+| Regimepoort en grond | precies een `data-maculis-regime` (`night`), grond `rgb(10, 11, 16)` gelijk aan canon |
+| Horizontale overflow | 0px op alle gemeten breedtes |
+| Toetsenbord en focus | elke werkelijke Tab-stop heeft een focusring |
+| Console | nul errors |
+| Reduced motion | nul lopende animaties, nul oneindige lussen, niets blijft op `opacity: 0` |
+| Determinisme | twee volledige capture-runs, **36 van 36 byte-identiek** |
+| Constellatie zonder JavaScript | de bezonken eindtoestand is identiek aan de afgespeelde referentie, in alle vier de condities, nul lopende animaties |
+
+Voor die laatste controle is de eindtoestand gemeten met JavaScript uit, met JavaScript uit plus
+reduced motion, met JavaScript aan plus reduced motion, en als referentie met JavaScript aan en
+normale motion nadat de animatie daadwerkelijk was afgespeeld. Alle vier leveren dezelfde waarden:
+vijf verbindingen volledig getekend, zes punten op eindpositie, kern ontstoken. De klasse
+`mac-play` voegt uitsluitend de weg naar die toestand toe, nooit de toestand zelf. Dat is canon 8.5.
+
+**Wat de vergelijking met de nulmeting laat zien.** Alle 36 renders wijken af van de baseline van
+vóór de harmonisatie. Dat is de bedoelde wijziging, geen regressie: F1 en F4 raken de globale
+tokens in `.dark` en gelden daarom ook op de vijf niet-ontsloten routes. Een controlegroep met nul
+verschil is bij een globale grondwijziging niet haalbaar; het determinismecijfer is daarom de
+werkelijke regressiepoort, en die staat op 36 van 36.
+
+**Niet gewijzigd om testverschillen weg te poetsen.** Twee keer wees mijn eigen poort een verschil
+aan dat geen defect was: de bezonken dekking van de constellatie (0.9 en 0.8 op de svg, 0.92 op de
+kern) is ontwerp, en `matrix(1, 0, 0, 1, 0, 0)` is dezelfde transform als `none`. Beide keren is
+de meting aangepast, niet de productcode.
+
+---
+
+## 2026-08-18 — Productiekoppeling Website: Vercel, niet Render. Deploy staat stil
+
+De Website staat **niet** op Render. Dat is met DNS aangetoond en niet aangenomen.
+
+| Vraag | Bevinding |
+|---|---|
+| Wat bedient publiek productie | Vercel |
+| `www.maculis.nl` | A-records in `76.76.21.0/24` en `66.33.60.0/24`, Vercel-adresruimte, roterend per resolve |
+| `maculis.nl` | `76.76.21.21`, het vaste Vercel-apexadres |
+| Render-ingress ter vergelijking | `216.24.57.15`, met PTR `ip-216-24-57-15.ingress.render.com`. Geen van de maculis-adressen valt daarin |
+| Render-services met een maculis-domein | geen. Zeven services in de workspace, alle op `*.onrender.com` |
+| Repository | vrijwel zeker `ftrprf-labs/groeiplatform-website`. Enige repo in de organisatie die `maculis.nl` noemt, en de enige met `VERCEL_ENV` in de code |
+| Branch in Vercel | **niet vast te stellen vanuit deze sessie** |
+| Huidige productiecommit | **niet vast te stellen vanuit deze sessie** |
+| autoDeploy | onbekend, want de Vercel-projectinstellingen zijn niet leesbaar |
+| Externe deploykoppeling | ja, Vercel. Geen `vercel.json` en geen `.vercel` in enige repo van de organisatie, dus de koppeling zit volledig in het Vercel-project |
+
+Twee harde blokkades in deze sessie: de egressproxy blokkeert `maculis.nl` en `onrender.com`, dus
+de live site is niet op te vragen, en er is geen Vercel-connector aangesloten. De registry toont
+Vercel wel, met `installState: "not_installed"`.
+
+**Conform de afspraak is er daarom niet gedeployed en niets aan DNS, custom domains of
+hostingkoppelingen gewijzigd.** De goedgekeurde commit staat klaar op zijn eigen branch. `main`
+van `groeiplatform-website` is onaangeroerd op `3e8c00e`.
+
+**Wat nog nodig is, precies een ding:** de **Production Branch van het Vercel-project** dat
+`www.maculis.nl` bedient, plus de bevestiging dat dat project aan `ftrprf-labs/groeiplatform-website`
+hangt. Te lezen in het Vercel-dashboard onder Project → Settings → Git, of beschikbaar te maken
+door de Vercel-connector aan deze sessie te koppelen. Met die branchnaam is de rest mechanisch.
+
+**Wat gunstig is voor de overgang:** de SEO-bedrading vraagt geen enkele codewijziging. `SITE_URL`
+valt terug op `https://www.maculis.nl`, `metadataBase`, de canonicals, `sitemap.ts` en `robots.ts`
+lezen allemaal die waarde, en `robots.ts` zet alles op `disallow: /` zolang
+`VERCEL_ENV !== "production"`. De Render-preview is daarmee aantoonbaar niet indexeerbaar en kan
+zonder SEO-risico als rollbackreferentie blijven staan.
 
 ---
 
