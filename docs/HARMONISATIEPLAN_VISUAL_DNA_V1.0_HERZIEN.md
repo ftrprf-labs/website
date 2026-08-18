@@ -393,6 +393,46 @@ canon-risico, het maakt elke latere stap veiliger, en het kan vandaag beginnen.
 staan, als zwaarste ingreep. Die zakt nu naar F4 en wordt aanzienlijk kleiner. Wat omhoog schuift is
 Mijn Maculis, van "niet in het plan" naar de zwaarste stap van allemaal.
 
+### 9.1 Herziening van 2026-08-18: F6 vervalt, F7 opnieuw gedefinieerd
+
+Vastgelegd na de Cockpit, op bewijs en niet op de oorspronkelijke gevolgtrekking.
+
+**De premisse onder F6 en F7 hield niet.** Dit plan ging ervan uit dat Mijn Maculis de stages
+`welcome`, `recognition`, `continuation` en `account` zijn binnen
+`maculis-first-five/public/index.html`, samen met Lens in één documentscope, en dat canon 5 daarmee
+een splitsing of een runtime-regimewissel afdwong. Die koppeling was een gevolgtrekking van dit
+plan, niet een vaststelling uit de code.
+
+**Wat het onderzoek aantoont.** `public/mijn.html`, `mijn.css` en `mijn.js` in
+`ftrprf-labs/website` zijn het actuele Mijn Maculis-productoppervlak:
+
+* eigen API-namespace `/api/mijn/*` met eigen toegangscontrole, gerouteerd vanuit `server/index.mjs`;
+* eigen datamodel, migraties `006_mijn_maculis.sql` en `007_insight_versions.sql`;
+* eigen seed met `assertNoRealCustomers` en een preview-zelfcontrole;
+* drie eigen testbestanden en een eigen Render-preview;
+* een eigen document in dagregime, `color-scheme: light` op een perkamentgrond.
+
+**En de oude stages hebben geen actieve Mijn-Maculisfunctie.** In de 2535 regels van `index.html`
+komt "Mijn Maculis" nul keer voor. Er is nul treffer op login, inloggen, wachtwoord, magic link,
+terugkeren of opnieuw bekijken. `stage-account` biedt geen account: de enige knoppen zijn een
+privacy-dialoog en een debug-inspector. `stage-welcome` is een foutmelding dat de First Encounter
+niet is geladen. Zonder account, zonder terugkeerpad en zonder persistente persoonlijke laag zijn
+dit de slotstappen van een eenmalige Lens-journey, geen reflectieruimte.
+
+**Gevolg.**
+
+| Was | Wordt |
+|---|---|
+| **F6**, beslissen tussen splitsen en runtime-regimewissel | **Vervalt.** De afhankelijkheid bestond uit twee regimes in één documentscope. Die bestaat niet: `index.html` is alleen Lens, en Lens is nacht. Ook **N-1 vervalt**, want de vraag is achterhaald in plaats van beantwoord |
+| **F7**, Mijn Maculis naar dagregime, zeer groot | **Opnieuw gedefinieerd** als canonieke harmonisatie van het zelfstandige `mijn.*`-oppervlak. Geen regime-inversie meer maar een tokenafstemming: `#f2eee4` naar `ink.50 #f7f1e6`, `surface.private` invoeren, en `shadow.diffuse` uit amendement C-3 gebruiken waar nu handmatige schaduwen staan. Vergelijkbaar van omvang met de Cockpit |
+
+**Eén kwalificatie.** `mijn.*` staat niet in productie. Het leeft op
+`claude/mijn-maculis-customer-v1-d29lib`, met eigen commits en achterstand op de productiebranch.
+Het is het actuele oppervlak in ontwikkeling en het enige artefact dat de kamer implementeert, maar
+de kamer is nog niet live.
+
+---
+
 ### Verificatie
 
 Het protocol uit het eerste plan blijft geldig en krijgt vier poorten erbij:
