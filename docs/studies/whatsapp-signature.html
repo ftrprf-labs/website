@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Het WhatsApp-slotmoment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+/* =============================================================================
+   MACULIS · WHATSAPP-SLOTMOMENT · VISUELE STUDIE
+   Bewust één wereld: de inktgrond van Maculis zelf. De WhatsApp-panelen hebben
+   hun eigen licht/donker-schakelaar, want dat is de variabele die onderzocht
+   wordt, niet de smaak van de kijker.
+   ========================================================================== */
+:root{
+  --ink:#08090e; --panel:#11131b; --panel-2:#171a24; --line:#23252f;
+  --copper:#b87333; --copper-lit:#e6b98d; --violet:#a08fd6; --jade:#4e9c86;
+  --text:#c8c0b5; --dim:#8e857a; --faint:#6b6459;
+  --serif:'Newsreader',Georgia,'Times New Roman',serif;
+  --sans:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --mono:'IBM Plex Mono','SFMono-Regular',Menlo,Consolas,monospace;
+  --wa-sans:-apple-system,'Helvetica Neue','Segoe UI',Roboto,'Noto Sans',sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  margin:0; background:var(--ink); color:var(--text);
+  font-family:var(--sans); font-size:15px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--copper-lit)}
+h1,h2,h3{text-wrap:balance; margin:0}
+.wrap{max-width:1420px; margin:0 auto; padding:0 28px 96px}
+
+/* ---- kop ---------------------------------------------------------------- */
+.masthead{padding:56px 0 30px; border-bottom:1px solid var(--line)}
+.eyebrow{
+  font-size:10.5px; letter-spacing:2.6px; text-transform:uppercase;
+  color:var(--copper); margin:0 0 18px;
+}
+.masthead h1{
+  font-family:var(--serif); font-weight:300; font-size:clamp(34px,5vw,58px);
+  line-height:1.04; color:var(--copper-lit); letter-spacing:-0.01em;
+}
+.lede{
+  max-width:60ch; margin:16px 0 0; color:var(--dim);
+  font-family:var(--serif); font-size:18px; line-height:1.55;
+}
+.status{
+  display:flex; flex-wrap:wrap; gap:10px 22px; margin-top:26px;
+  font-family:var(--mono); font-size:11.5px; letter-spacing:.4px; color:var(--faint);
+}
+.status b{color:var(--jade); font-weight:500}
+
+/* ---- raster ------------------------------------------------------------- */
+.rig{
+  display:grid; grid-template-columns:250px minmax(0,1fr) 320px;
+  gap:36px; align-items:start; padding-top:34px;
+}
+@media (max-width:1180px){ .rig{grid-template-columns:230px minmax(0,1fr)} .notes{grid-column:1/-1} }
+@media (max-width:860px){ .rig{grid-template-columns:1fr} .rail{position:static} }
+
+/* ---- bedieningspaneel --------------------------------------------------- */
+.rail{position:sticky; top:22px; display:flex; flex-direction:column; gap:26px}
+.group{display:flex; flex-direction:column; gap:9px}
+.glabel{
+  font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--faint);
+  display:flex; justify-content:space-between; align-items:baseline;
+}
+.glabel span{font-family:var(--mono); letter-spacing:.5px; text-transform:none; color:var(--copper)}
+.opts{display:flex; flex-direction:column; gap:1px}
+.opt{
+  appearance:none; text-align:left; cursor:pointer; width:100%;
+  background:var(--panel); border:1px solid transparent; border-left:2px solid var(--line);
+  color:var(--text); font:inherit; font-size:13.5px; padding:9px 12px;
+  display:flex; gap:10px; align-items:baseline; transition:background .16s, border-color .16s, color .16s;
+}
+.opt:hover{background:var(--panel-2)}
+.opt .k{font-family:var(--mono); font-size:11px; color:var(--faint); min-width:12px}
+.opt .sub{display:block; font-size:11.5px; color:var(--faint); line-height:1.35; margin-top:2px}
+.opt[aria-pressed="true"]{
+  background:var(--panel-2); border-left-color:var(--copper); color:var(--copper-lit);
+}
+.opt[aria-pressed="true"] .k{color:var(--copper)}
+.opt:focus-visible{outline:2px solid var(--copper-lit); outline-offset:-2px}
+.opt[disabled]{opacity:.36; cursor:not-allowed}
+.row{display:flex; gap:1px}
+.row .opt{justify-content:center; text-align:center; border-left:none; border-top:2px solid var(--line)}
+.row .opt[aria-pressed="true"]{border-left:none; border-top-color:var(--copper)}
+.toggle{
+  display:flex; gap:10px; align-items:flex-start; cursor:pointer;
+  background:var(--panel); border-left:2px solid var(--line); padding:10px 12px; font-size:13px;
+}
+.toggle input{accent-color:var(--copper); margin:3px 0 0}
+.toggle small{display:block; color:var(--faint); font-size:11.5px; line-height:1.35}
+.toggle:has(input:checked){border-left-color:var(--copper); background:var(--panel-2)}
+
+/* ---- toestel ------------------------------------------------------------ */
+.stage{display:flex; flex-direction:column; align-items:center; gap:20px}
+.scene-title{
+  align-self:stretch; display:flex; align-items:baseline; gap:14px;
+  border-bottom:1px solid var(--line); padding-bottom:12px;
+}
+.scene-title .n{font-family:var(--mono); color:var(--copper); font-size:12px}
+.scene-title h2{font-family:var(--serif); font-weight:300; font-size:25px; color:var(--copper-lit)}
+.scene-title p{margin:0 0 0 auto; color:var(--faint); font-size:12.5px; text-align:right; max-width:34ch}
+
+.phone{
+  width:352px; max-width:100%; border-radius:34px; padding:9px;
+  background:linear-gradient(#20232c,#0d0f15);
+  box-shadow:0 0 0 1px #2a2d38, 0 34px 70px -30px #000, 0 0 90px -40px rgba(184,115,51,.35);
+}
+.screen{
+  border-radius:26px; overflow:hidden; display:flex; flex-direction:column;
+  height:660px; font-family:var(--wa-sans);
+}
+/* WhatsApp donker (standaard) */
+.screen{--c-bar:#202c33; --c-bg:#0b141a; --c-in:#202c33; --c-out:#005c4b;
+        --c-txt:#e9edef; --c-meta:#8696a0; --c-sub:#8696a0; --c-div:#182229; --c-divtxt:#8696a0;
+        --c-wall:rgba(255,255,255,.035);}
+.screen.light{--c-bar:#f0f2f5; --c-bg:#efeae2; --c-in:#ffffff; --c-out:#d9fdd3;
+        --c-txt:#111b21; --c-meta:#667781; --c-sub:#667781; --c-div:#ffffff; --c-divtxt:#54656f;
+        --c-wall:rgba(0,0,0,.03);}
+
+.wa-bar{
+  background:var(--c-bar); color:var(--c-txt); display:flex; align-items:center; gap:11px;
+  padding:11px 13px; flex:0 0 auto;
+}
+.wa-back{color:var(--c-meta); font-size:19px; line-height:1}
+.wa-av{
+  width:38px; height:38px; border-radius:50%; flex:0 0 auto; background:#0a0b10;
+  display:grid; place-items:center; box-shadow:inset 0 0 0 1px rgba(184,115,51,.5);
+}
+.wa-who{min-width:0; line-height:1.25}
+.wa-who b{display:block; font-size:15.5px; font-weight:500}
+.wa-who small{display:block; font-size:12px; color:var(--c-sub)}
+.wa-icons{margin-left:auto; display:flex; gap:16px; color:var(--c-meta); font-size:16px}
+
+.wa-chat{
+  flex:1 1 auto; overflow-y:auto; padding:14px 9px 18px; background:var(--c-bg);
+  background-image:radial-gradient(var(--c-wall) 1px, transparent 1px);
+  background-size:22px 22px;
+  display:flex; flex-direction:column; gap:3px;
+}
+.wa-chat::-webkit-scrollbar{width:5px}
+.wa-chat::-webkit-scrollbar-thumb{background:rgba(134,150,160,.35); border-radius:3px}
+.day{align-self:center; background:var(--c-div); color:var(--c-divtxt);
+     font-size:11.5px; padding:5px 12px; border-radius:7px; margin:8px 0; letter-spacing:.2px}
+.msg{
+  max-width:78%; padding:6px 9px 5px; border-radius:8px; font-size:14.6px; line-height:1.36;
+  color:var(--c-txt); position:relative; word-wrap:break-word; box-shadow:0 1px 0 rgba(0,0,0,.16);
+}
+.msg.in{align-self:flex-start; background:var(--c-in); border-top-left-radius:2px}
+.msg.out{align-self:flex-end; background:var(--c-out); border-top-right-radius:2px}
+.msg + .msg.in, .msg + .msg.out{margin-top:3px}
+.meta{
+  float:right; margin:6px 0 -2px 9px; font-size:11px; color:var(--c-meta);
+  display:flex; gap:3px; align-items:center; font-variant-numeric:tabular-nums;
+}
+.tick{color:#53bdeb; font-size:12px; letter-spacing:-3px}
+.screen.light .tick{color:#53bdeb}
+.msg.signoff{font-size:14.6px}
+.sticker{
+  align-self:flex-end; background:none; box-shadow:none; padding:0; max-width:none;
+  display:flex; flex-direction:column; align-items:flex-end; margin:4px 2px 2px;
+}
+.sticker canvas{display:block; width:118px; height:118px}
+.sticker .meta{float:none; margin:1px 2px 0 0}
+.enter{animation:pop .22s ease-out}
+@keyframes pop{from{opacity:0; transform:translateY(7px) scale(.985)} to{opacity:1; transform:none}}
+@media (prefers-reduced-motion:reduce){ .enter{animation:none} }
+
+/* ---- tijdlijn ----------------------------------------------------------- */
+.timeline{width:352px; max-width:100%; display:flex; flex-direction:column; gap:8px}
+.tl-head{display:flex; justify-content:space-between; align-items:baseline;
+  font-family:var(--mono); font-size:11px; color:var(--faint)}
+.tl-head b{color:var(--copper-lit); font-weight:500}
+.track{position:relative; height:26px; margin-top:16px; background:var(--panel); border-left:2px solid var(--line)}
+.band{position:absolute; top:0; bottom:0; border-right:1px solid var(--ink)}
+.band span{
+  position:absolute; bottom:4px; left:5px; font-size:9.5px; letter-spacing:.6px;
+  text-transform:uppercase; color:var(--faint); white-space:nowrap;
+}
+.band.breath::after{
+  content:'adem'; position:absolute; left:50%; bottom:calc(100% + 4px); transform:translateX(-50%);
+  font-size:9.5px; letter-spacing:.6px; text-transform:uppercase; color:var(--copper-lit);
+}
+.head-line{position:absolute; top:0; bottom:0; width:1px; background:var(--copper-lit);
+  box-shadow:0 0 8px var(--copper); left:0}
+.tl-note{font-size:11.5px; color:var(--faint); line-height:1.45}
+.no-motion{
+  width:352px; max-width:100%; border-left:2px solid var(--line); background:var(--panel);
+  padding:12px 14px; font-size:12.5px; color:var(--dim); line-height:1.5;
+}
+
+/* ---- observaties -------------------------------------------------------- */
+.notes{display:flex; flex-direction:column; gap:22px}
+.card{background:var(--panel); border-left:2px solid var(--copper); padding:16px 18px}
+.card h3{
+  font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--copper);
+  margin-bottom:10px; font-weight:600; font-family:var(--sans);
+}
+.card p{margin:0 0 10px; font-size:13.5px; line-height:1.55; color:var(--text)}
+.card p:last-child{margin-bottom:0}
+.card.quiet{border-left-color:var(--line)}
+.card.warn{border-left-color:#a5563c}
+.card.warn h3{color:#c9744f}
+.spec{display:grid; grid-template-columns:auto 1fr; gap:5px 14px; font-family:var(--mono);
+  font-size:11.5px; color:var(--dim)}
+.spec dt{color:var(--faint)}
+.spec dd{margin:0; color:var(--text); font-variant-numeric:tabular-nums}
+.legend{display:flex; flex-direction:column; gap:7px; font-size:12.5px}
+.legend div{display:flex; gap:10px; align-items:center; color:var(--dim)}
+.dot{width:8px; height:8px; border-radius:50%; flex:0 0 auto}
+.legend b{color:var(--text); font-weight:500}
+footer{
+  margin-top:60px; padding-top:22px; border-top:1px solid var(--line);
+  color:var(--faint); font-size:12px; display:flex; flex-wrap:wrap; gap:6px 26px;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <p class="eyebrow">Maculis · communication layer · studie</p>
+    <h1>Het WhatsApp-slotmoment</h1>
+    <p class="lede">Drie richtingen voor het kleinste gebaar waardoor een ontvanger denkt: dit was
+      Maculis. Beoordeel ze niet als logo, maar in het gesprek waarin ze zouden landen.</p>
+    <div class="status">
+      <span>Status <b>onderzoek</b></span>
+      <span>Verzendlogica <b>onaangeraakt</b></span>
+      <span>Templates <b>ongewijzigd</b></span>
+      <span>Meta-configuratie <b>ongewijzigd</b></span>
+      <span>Berichten verzonden <b>geen</b></span>
+    </div>
+  </header>
+
+  <div class="rig">
+    <!-- ============================ bediening ============================ -->
+    <aside class="rail">
+      <div class="group">
+        <div class="glabel">Richting <span id="dir-tag">geen</span></div>
+        <div class="opts" id="dirs"></div>
+      </div>
+
+      <div class="group">
+        <div class="glabel">Scène</div>
+        <div class="opts" id="scenes"></div>
+      </div>
+
+      <div class="group">
+        <div class="glabel">Beweging <span id="speed-tag">1×</span></div>
+        <div class="row" id="speeds"></div>
+        <button class="opt" id="replay" style="justify-content:center;text-align:center;border-left-color:var(--copper)">Speel opnieuw</button>
+        <label class="toggle">
+          <input type="checkbox" id="blind">
+          <span>Studiemodus
+            <small>De gebeurtenis start na een onvoorspelbare pauze van 2 tot 9 seconden, zodat je
+              hem niet kunt zien aankomen.</small></span>
+        </label>
+      </div>
+
+      <div class="group">
+        <div class="glabel">Zegel</div>
+        <div class="row" id="grounds"></div>
+      </div>
+
+      <div class="group">
+        <div class="glabel">WhatsApp</div>
+        <div class="row" id="themes"></div>
+      </div>
+
+      <div class="group">
+        <div class="glabel">Slotregel</div>
+        <div class="opts" id="copies"></div>
+      </div>
+    </aside>
+
+    <!-- ============================== toestel ============================ -->
+    <section class="stage">
+      <div class="scene-title">
+        <span class="n" id="scene-n">01</span>
+        <h2 id="scene-h">Gesprek zonder signatuur</h2>
+        <p id="scene-p"></p>
+      </div>
+
+      <div class="phone">
+        <div class="screen" id="screen">
+          <div class="wa-bar">
+            <span class="wa-back">‹</span>
+            <span class="wa-av"><canvas id="avatar" width="76" height="76" style="width:38px;height:38px;border-radius:50%"></canvas></span>
+            <span class="wa-who"><b>Maculis</b><small id="wa-presence">online</small></span>
+            <span class="wa-icons"><span>⌕</span><span>⋮</span></span>
+          </div>
+          <div class="wa-chat" id="chat"></div>
+        </div>
+      </div>
+
+      <div class="timeline" id="timeline">
+        <div class="tl-head"><span>Tijdlijn van de gebeurtenis</span><b id="tl-clock">0,00 s</b></div>
+        <div class="track" id="track"><div class="head-line" id="head"></div></div>
+        <p class="tl-note" id="tl-note"></p>
+      </div>
+      <div class="no-motion" id="no-motion" hidden></div>
+    </section>
+
+    <!-- ============================ observatie =========================== -->
+    <aside class="notes">
+      <div class="card" id="obs">
+        <h3>Wat je hier beoordeelt</h3>
+        <p id="obs-body"></p>
+      </div>
+
+      <div class="card quiet">
+        <h3>Bevroren parameters</h3>
+        <dl class="spec" id="spec"></dl>
+      </div>
+
+      <div class="card quiet">
+        <h3>Betekenisgrammatica</h3>
+        <div class="legend">
+          <div><i class="dot" style="background:#b87333"></i><span><b>Koper.</b> Maculis heeft iets waargenomen.</span></div>
+          <div><i class="dot" style="background:#a08fd6"></i><span><b>Violet.</b> Betekenis is in wording.</span></div>
+          <div><i class="dot" style="background:#4e9c86"></i><span><b>Jade.</b> Bevestigd.</span></div>
+          <div><i class="dot" style="background:linear-gradient(90deg,#b87333,transparent)"></i><span><b>Beweging.</b> Onzekerheid, verwerking.</span></div>
+          <div><i class="dot" style="background:#23252f"></i><span><b>Stilte.</b> Bevestigd inzicht, rust.</span></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer>
+    <span>Bron van de vorm: <code>docs/studies/tools/seal-reference.js</code></span>
+    <span>De e-mailhandtekening is niet gewijzigd.</span>
+    <span>Niets geïntegreerd, niets gedeployed.</span>
+  </footer>
+</div>
+
+<script>
+/* =============================================================================
+   1 · HET ZEGEL
+   De geometrie komt letterlijk uit de bevroren e-mailreferentie: dezelfde boog,
+   dezelfde ster, dezelfde kleuren, dezelfde nadering die nooit aankomt. Alleen
+   de tijd is WhatsApp-tijd, en er is één punt minder omdat het zegel hier op
+   ongeveer 118 px staat in plaats van 150. De e-mailreferentie zelf blijft
+   ongemoeid; dit bestand leest hem na, het schrijft hem niet terug.
+============================================================================= */
+var WA = {
+  cell:150,                                   // rekeneenheid, gelijk aan de e-mailcel
+  seal:{x:75,y:75,r:44},
+  arc:{from:34,to:326,width:1.15,alpha:.80,lift:.05},
+  star:{size:25,alpha:.88,glowBase:.10,scale:.018},
+  color:{ink:'#0a0b10',copper:'#b87333',copperLit:'#e6b98d'},
+  points:[{a:132,rf:1.44,r:1.15},{a:214,rf:1.38,r:1.00},{a:308,rf:1.48,r:1.18}],
+  appear:1.10, stagger:.26, appearDur:.80,
+  approach:1.95, approachEnd:2.85,
+  target:.55, swirl:14, arrive:.96,
+  base:.05, peak:.52,
+  breath:{at:2.75, up:.14, down:.26, gain:.30},
+  release:2.95, releaseStagger:.16, releaseDur:.75,
+  motionEnd:4.00, duration:4.20, fps:15
+};
+
+var clamp01=function(v){return v<0?0:v>1?1:v;};
+var lerp=function(a,b,t){return a+(b-a)*t;};
+var seg=function(t,a,b){return clamp01((t-a)/(b-a));};
+var smooth=function(t){t=clamp01(t);return t*t*(3-2*t);};
+var outCubic=function(t){t=clamp01(t);return 1-Math.pow(1-t,3);};
+var rad=function(d){return d*Math.PI/180;};
+function hexA(hex,a){
+  var n=parseInt(hex.slice(1),16);
+  return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+clamp01(a).toFixed(4)+')';
+}
+/* Ademhaling: snel op, trager af. Een flits wijst naar zichzelf, dit reageert. */
+function breath(t){
+  var b=WA.breath;
+  if(t<b.at) return 0;
+  if(t<b.at+b.up) return smooth((t-b.at)/b.up);
+  if(t<b.at+b.up+b.down) return 1-smooth((t-b.at-b.up)/b.down);
+  return 0;
+}
+function frame(t){
+  var bn=breath(t), g=bn*WA.breath.gain, S=WA.seal;
+  var pts=WA.points.map(function(p,i){
+    var up =smooth(seg(t,WA.appear+i*WA.stagger,WA.appear+i*WA.stagger+WA.appearDur));
+    var inn=outCubic(seg(t,WA.approach,WA.approachEnd));
+    var off=seg(t,WA.release+i*WA.releaseStagger,WA.release+i*WA.releaseStagger+WA.releaseDur);
+    var k=inn*(1-outCubic(off))*WA.arrive;
+    var rr=lerp(S.r*p.rf,S.r*WA.target,k);
+    var ang=rad(p.a+WA.swirl*k);
+    return {x:S.x+Math.cos(ang)*rr, y:S.y+Math.sin(ang)*rr, r:p.r,
+            a:(WA.base+(WA.peak-WA.base)*k+0.05*g)*up*(1-smooth(off))};
+  });
+  return {arcAlpha:WA.arc.alpha+WA.arc.lift*bn, starGlow:WA.star.glowBase+g,
+          starScale:1+WA.star.scale*bn, points:pts};
+}
+function starPath(ctx,x,y,s){
+  var ly=s, lx=s*.60, k=s*.045;
+  ctx.beginPath(); ctx.moveTo(x,y-ly);
+  ctx.quadraticCurveTo(x+k,y-k,x+lx,y); ctx.quadraticCurveTo(x+k,y+k,x,y+ly);
+  ctx.quadraticCurveTo(x-k,y+k,x-lx,y); ctx.quadraticCurveTo(x-k,y-k,x,y-ly);
+  ctx.closePath();
+}
+/* Tekent het zegel op t seconden. ground 'vrij' laat de kanaalachtergrond staan
+   (webp-sticker met alfa), ground 'inkt' zet er de eigen inktgrond onder. */
+function drawSeal(cv,t,ground,zoom){
+  var px=cv.width, s=px/WA.cell, ctx=cv.getContext('2d');
+  var S=WA.seal, C=WA.color, f=frame(t), z=zoom||1;
+  ctx.clearRect(0,0,px,px);
+  ctx.save(); ctx.scale(s,s);
+  // De uitsnede. In e-mail staat het zegel in een cel van 150 met veel lucht eromheen;
+  // een sticker is zelf al de cel, dus het merk mag de ruimte vullen.
+  if(z!==1){ ctx.translate(S.x,S.y); ctx.scale(z,z); ctx.translate(-S.x,-S.y); }
+  if(ground==='inkt'){
+    var m=WA.cell*(1-1/z)/2, r=26/z;   // vult na de uitsnede nog steeds het hele vlak
+    ctx.fillStyle=C.ink; ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(m,m,WA.cell-2*m,WA.cell-2*m,r);
+    else ctx.rect(m,m,WA.cell-2*m,WA.cell-2*m);
+    ctx.fill();
+  }
+  ctx.lineWidth=WA.arc.width; ctx.lineCap='round';
+  ctx.strokeStyle=hexA(C.copper,f.arcAlpha);
+  ctx.beginPath(); ctx.arc(S.x,S.y,S.r,rad(WA.arc.from),rad(WA.arc.to)); ctx.stroke();
+
+  var ss=WA.star.size*f.starScale;
+  if(f.starGlow>.001){
+    var gg=ctx.createRadialGradient(S.x,S.y,0,S.x,S.y,ss*2.6);
+    gg.addColorStop(0,hexA(C.copperLit,.30*f.starGlow));
+    gg.addColorStop(1,hexA(C.copperLit,0));
+    ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(S.x,S.y,ss*2.6,0,Math.PI*2); ctx.fill();
+  }
+  ctx.fillStyle=hexA(C.copperLit,WA.star.alpha); starPath(ctx,S.x,S.y,ss); ctx.fill();
+
+  f.points.forEach(function(p){
+    if(p.a<=.002) return;
+    var pg=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*3.4);
+    pg.addColorStop(0,hexA(C.copper,p.a));
+    pg.addColorStop(.34,hexA(C.copper,p.a*.42));
+    pg.addColorStop(1,hexA(C.copper,0));
+    ctx.fillStyle=pg; ctx.beginPath(); ctx.arc(p.x,p.y,p.r*3.4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=hexA(C.copper,Math.min(1,p.a*1.25));
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r*.62,0,Math.PI*2); ctx.fill();
+  });
+  ctx.restore();
+}
+
+/* =============================================================================
+   2 · HET GESPREK
+   Eén doorlopend gesprek met een tester, niet zes losse schermen. De scènes
+   knippen er stukken uit, zodat elke richting op dezelfde plek wordt beoordeeld.
+============================================================================= */
+var COPY={
+  canon:'Kijk nog eens.',
+  zacht:'Kijk gerust nog eens.',
+  straks:'Kijk er straks nog eens naar.',
+  lang:'Maculis heeft gekeken. Kijk jij ook nog eens?'
+};
+var OPENING=[
+  {d:'day', t:'Vandaag'},
+  {d:'in',  t:'Hoi Ludwig, ik heb de link geopend. Moet ik iets voorbereiden?', at:'09:12'},
+  {d:'out', t:'Hoi Kim, nee. Klik gewoon door en zeg wat je opvalt.', at:'09:14'},
+  {d:'in',  t:'Oké. Ik doe het vanmiddag even rustig.', at:'09:15'},
+  {d:'out', t:'Prima. Ik hoor het wel.', at:'09:16'}
+];
+var INSIGHT=[
+  {d:'in',  t:'Gedaan. Eerlijk gezegd schrok ik van de eerste pagina.', at:'14:41'},
+  {d:'out', t:'Dat is precies waar Maculis naar keek.', at:'14:52'},
+  {d:'out', t:'Van buiten gezien staat er op jullie contactpagina nergens wat jullie doen. Wie jullie kent vult dat zelf in. Wie jullie niet kent, klikt weg.', at:'14:53'},
+  {d:'in',  t:'Ja. Dat had ik nooit zo gezien.', at:'14:55'}
+];
+var AFTER=[
+  {d:'day', t:'Donderdag'},
+  {d:'in',  t:'We hebben de contactpagina herschreven. Wil je nog eens kijken?', at:'10:02'},
+  {d:'out', t:'Doe ik. Ik laat Maculis er vanmiddag opnieuw naar kijken.', at:'10:09'},
+  {d:'in',  t:'Fijn. Geen haast.', at:'10:11'}
+];
+
+var DIRECTIONS=[
+  {id:'geen', k:'0', name:'Geen signatuur', sub:'Zoals het gesprek nu loopt.'},
+  {id:'a',    k:'A', name:'Stil slot',      sub:'Alleen de slotregel, als los bericht.'},
+  {id:'b',    k:'B', name:'Zegel',          sub:'Slotregel plus een stil zegel als sticker.'},
+  {id:'c',    k:'C', name:'Levende signatuur', sub:'Hetzelfde zegel, dat één keer reageert.'}
+];
+var SCENES=[
+  {n:'01', h:'Gesprek zonder signatuur', p:'De nulmeting. Hier hoort niets te gebeuren.'},
+  {n:'02', h:'Vlak vóór het slot',        p:'Het inzicht is teruggegeven en geland.'},
+  {n:'03', h:'Signatuur in rust',         p:'Zoals de ontvanger hem later terugziet.'},
+  {n:'04', h:'De gebeurtenis',            p:'Eén waarneming, daarna stilte.'},
+  {n:'05', h:'De toestand erna',          p:'Dagen later, in de geschiedenis.'},
+  {n:'06', h:'Onder ieder bericht',       p:'Het tegenvoorbeeld. Hetzelfde gebaar, versleten.'}
+];
+var OBS={
+  1:'Lees dit als ijkpunt. Vier berichten, twee mensen, geen merk. Alles wat je hierna toevoegt, moet zich tegen deze rust verantwoorden.',
+  2:'Dit is het enige moment waarop een slot verdiend is: Maculis heeft iets teruggegeven, de ander bevestigt dat het is aangekomen, en er staat geen vraag meer open. Kijk of je zelf voelt dat het gesprek hier afloopt.',
+  3:'Beoordeel de rusttoestand, niet de beweging. Zo ziet het slot eruit als de ontvanger het morgen terugleest. Bij B en C is dit hetzelfde beeld, want het rustframe is de waarheid en de beweging een toevoeging die niets draagt.',
+  4:'Zet de snelheid op een kwart en kijk waar je blik naartoe gaat. De punten naderen maar komen nooit aan, de ster ademt één keer, en het einde valt niet netjes samen. Vraag je daarna af of je het op ware snelheid nog had gezien.',
+  5:'Scroll omhoog. Het zegel hoort nu gewoon geschiedenis te zijn, geen baken. Als het zich hier nog opdringt, is het te groot of te vaak.',
+  6:'Zes slotregels in één gesprek. Hetzelfde teken, en er is niets bijzonders meer aan. Dit is de reden dat de frequentieregel zwaarder weegt dan het ontwerp.'
+};
+
+/* ---------------------------------------------------------------------------
+   3 · STAAT EN OPBOUW
+--------------------------------------------------------------------------- */
+var S={dir:'c', scene:1, speed:1, ground:'vrij', theme:'donker', copy:'canon', blind:false};
+var $=function(id){return document.getElementById(id);};
+var el=function(tag,cls,html){var e=document.createElement(tag); if(cls)e.className=cls;
+  if(html!=null)e.innerHTML=html; return e;};
+var esc=function(s){return String(s).replace(/[&<>]/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});};
+
+function buttons(host,items,key,render){
+  host.innerHTML='';
+  items.forEach(function(it){
+    var b=el('button','opt'); b.type='button'; b.innerHTML=render(it);
+    b.setAttribute('aria-pressed', String(S[key]===it.id));
+    b.addEventListener('click',function(){ S[key]=it.id; sync(); });
+    host.appendChild(b);
+  });
+}
+function buildControls(){
+  buttons($('dirs'),DIRECTIONS,'dir',function(d){
+    return '<span class="k">'+d.k+'</span><span>'+d.name+'<span class="sub">'+d.sub+'</span></span>';});
+  buttons($('scenes'),SCENES.map(function(s,i){return {id:i+1,n:s.n,h:s.h};}),'scene',function(s){
+    return '<span class="k">'+s.n+'</span><span>'+s.h+'</span>';});
+  buttons($('speeds'),[{id:1,l:'1×'},{id:.5,l:'½×'},{id:.25,l:'¼×'}],'speed',function(s){return s.l;});
+  buttons($('grounds'),[{id:'vrij',l:'Vrijstaand'},{id:'inkt',l:'Op inkt'}],'ground',function(g){return g.l;});
+  buttons($('themes'),[{id:'donker',l:'Donker'},{id:'licht',l:'Licht'}],'theme',function(t){return t.l;});
+  buttons($('copies'),[
+    {id:'canon', l:COPY.canon,  s:'De payoff, ongewijzigd.'},
+    {id:'zacht', l:COPY.zacht,  s:'Hypothese. Minder gebiedend in een chat.'},
+    {id:'straks',l:COPY.straks, s:'Hypothese. Verwijst terug naar het inzicht.'},
+    {id:'lang',  l:COPY.lang,   s:'Tegenvoorbeeld. Legt uit wat het gebaar al doet.'}
+  ],'copy',function(c){ return '<span>'+esc(c.l)+'<span class="sub">'+c.s+'</span></span>'; });
+  $('blind').addEventListener('change',function(){ S.blind=this.checked; if(S.scene===4) play(); });
+  $('replay').addEventListener('click',function(){ if(S.scene!==4){S.scene=4; sync();} else play(); });
+}
+
+/* ---------------------------------------------------------------------------
+   4 · RENDEREN
+--------------------------------------------------------------------------- */
+var stickerCanvas=null, anim=null, blindTimer=null;
+var STICKER_ZOOM=1.34;   // uitsnede voor sticker-formaat, zie drawSeal
+
+function bubble(m,fresh){
+  if(m.d==='day') return el('div','day',esc(m.t));
+  var b=el('div','msg '+m.d+(m.sig?' signoff':'')+(fresh?' enter':''));
+  b.dataset.at=m.at||'';
+  b.innerHTML=esc(m.t)+'<span class="meta">'+m.at+
+    (m.d==='out'?'<span class="tick">✓✓</span>':'')+'</span>';
+  return b;
+}
+function stickerNode(fresh){
+  var w=el('div','sticker'+(fresh?' enter':''));
+  var cv=document.createElement('canvas');
+  var dpr=Math.min(window.devicePixelRatio||1,3);
+  cv.width=cv.height=Math.round(118*dpr);
+  cv.style.width=cv.style.height='118px';
+  cv.setAttribute('role','img');
+  cv.setAttribute('aria-label','Maculis');
+  w.appendChild(cv);
+  w.appendChild(el('span','meta','14:56<span class="tick">✓✓</span>'));
+  stickerCanvas=cv;
+  drawSeal(cv,0,S.ground,STICKER_ZOOM);
+  return w;
+}
+function signoffMsgs(at){
+  var out=[{d:'out', t:COPY[S.copy], at:at||'14:56', sig:true}];
+  return out;
+}
+function messagesForScene(){
+  var list=[], sticker=false;
+  if(S.scene===1) list=OPENING.slice();
+  else if(S.scene===2) list=OPENING.concat(INSIGHT);
+  else if(S.scene===3||S.scene===4){
+    list=OPENING.concat(INSIGHT);
+    if(S.dir!=='geen') list=list.concat(signoffMsgs());
+    sticker=(S.dir==='b'||S.dir==='c');
+  } else if(S.scene===5){
+    list=OPENING.concat(INSIGHT);
+    if(S.dir!=='geen') list=list.concat(signoffMsgs());
+    sticker=(S.dir==='b'||S.dir==='c');
+    list=list.concat(AFTER);
+  } else if(S.scene===6){
+    var seq=[];
+    OPENING.concat(INSIGHT,AFTER).forEach(function(m){
+      seq.push(m);
+      if(m.d==='out'&&S.dir!=='geen') seq.push({d:'out',t:COPY[S.copy],at:m.at,sig:true});
+    });
+    list=seq;
+  }
+  return {list:list, sticker:sticker};
+}
+function render(){
+  var chat=$('chat'), data=messagesForScene();
+  chat.innerHTML=''; stickerCanvas=null;
+  var lastOut=-1;
+  data.list.forEach(function(m,i){ if(m.d!=='day') lastOut=i; });
+  data.list.forEach(function(m,i){
+    var fresh=(S.scene===2||S.scene===3||S.scene===4) && i===lastOut && !data.sticker;
+    chat.appendChild(bubble(m,fresh));
+    // Bij scène 5 staat het zegel middenin de geschiedenis, niet onderaan.
+    if(data.sticker && m.sig) chat.appendChild(stickerNode(S.scene!==5));
+  });
+  // Scène 6 krijgt zijn stickers alleen als de richting ze heeft, en dan overal.
+  if(S.scene===6&&(S.dir==='b'||S.dir==='c')){
+    Array.prototype.forEach.call(chat.querySelectorAll('.msg.signoff'),function(node){
+      var w=el('div','sticker'); var cv=document.createElement('canvas');
+      var dpr=Math.min(window.devicePixelRatio||1,3);
+      cv.width=cv.height=Math.round(118*dpr); cv.style.width=cv.style.height='118px';
+      cv.setAttribute('role','img'); cv.setAttribute('aria-label','Maculis');
+      w.appendChild(cv); w.appendChild(el('span','meta',(node.dataset.at||'')+'<span class="tick">\u2713\u2713</span>'));
+      node.parentNode.insertBefore(w,node.nextSibling);
+      drawSeal(cv,0,S.ground,STICKER_ZOOM);
+    });
+  }
+  requestAnimationFrame(function(){
+    chat.scrollTop = chat.scrollHeight;
+  });
+}
+
+/* ---------------------------------------------------------------------------
+   5 · DE GEBEURTENIS
+--------------------------------------------------------------------------- */
+function bands(){
+  var t=$('track'), W=WA.duration;
+  Array.prototype.forEach.call(t.querySelectorAll('.band'),function(b){b.remove();});
+  var marks=[
+    [0,WA.appear,'stilte'],
+    [WA.appear,WA.approach,'opkomen'],
+    [WA.approach,WA.breath.at,'naderen'],
+    [WA.breath.at,WA.release,'adem'],
+    [WA.release,WA.motionEnd,'loslaten'],
+    [WA.motionEnd,W,'stil']
+  ];
+  marks.forEach(function(m,i){
+    var w=(m[1]-m[0])/W*100;
+    var b=el('div','band');
+    b.style.left=(m[0]/W*100)+'%'; b.style.width=w+'%';
+    b.style.background = i%2 ? 'rgba(184,115,51,.07)' : 'rgba(184,115,51,.13)';
+    if(m[2]==='stilte'||m[2]==='stil') b.style.background='rgba(255,255,255,.02)';
+    if(m[2]==='adem'){ b.style.background='rgba(230,185,141,.22)'; b.classList.add('breath'); }
+    else if(w>11) b.appendChild(el('span',null,m[2]));
+    t.insertBefore(b,$('head'));
+  });
+}
+function stop(){
+  if(anim){cancelAnimationFrame(anim); anim=null;}
+  if(blindTimer){clearTimeout(blindTimer); blindTimer=null;}
+}
+function play(){
+  stop();
+  if(S.scene!==4 || S.dir!=='c' || !stickerCanvas) return;
+  var start=null;
+  var run=function(now){
+    if(start===null) start=now;
+    var t=(now-start)/1000*S.speed;
+    if(t>WA.duration) t=WA.duration;
+    drawSeal(stickerCanvas,t,S.ground,STICKER_ZOOM);
+    $('head').style.left=(t/WA.duration*100)+'%';
+    $('tl-clock').textContent=t.toFixed(2).replace('.',',')+' s';
+    if(t<WA.duration) anim=requestAnimationFrame(run); else anim=null;
+  };
+  var begin=function(){
+    $('tl-note').textContent='De sticker is aangekomen. Kijk naar de tekst erboven, niet naar het zegel.';
+    anim=requestAnimationFrame(run);
+  };
+  if(S.blind){
+    var wait=2000+Math.random()*7000;
+    $('tl-note').textContent='Studiemodus. De gebeurtenis komt binnen 2 tot 9 seconden. Kijk ondertussen naar het gesprek.';
+    $('head').style.left='0%'; $('tl-clock').textContent='0,00 s';
+    drawSeal(stickerCanvas,0,S.ground,STICKER_ZOOM);
+    blindTimer=setTimeout(begin,wait);
+  } else begin();
+}
+
+/* ---------------------------------------------------------------------------
+   6 · SYNCHRONISATIE
+--------------------------------------------------------------------------- */
+function sync(){
+  stop();
+  document.querySelectorAll('#dirs .opt').forEach(function(b,i){
+    b.setAttribute('aria-pressed',String(DIRECTIONS[i].id===S.dir));});
+  document.querySelectorAll('#scenes .opt').forEach(function(b,i){
+    b.setAttribute('aria-pressed',String(i+1===S.scene));});
+  document.querySelectorAll('#speeds .opt').forEach(function(b,i){
+    b.setAttribute('aria-pressed',String([1,.5,.25][i]===S.speed));});
+  document.querySelectorAll('#grounds .opt').forEach(function(b,i){
+    b.setAttribute('aria-pressed',String(['vrij','inkt'][i]===S.ground));});
+  document.querySelectorAll('#themes .opt').forEach(function(b,i){
+    b.setAttribute('aria-pressed',String(['donker','licht'][i]===S.theme));});
+  document.querySelectorAll('#copies .opt').forEach(function(b,i){
+    b.setAttribute('aria-pressed',String(['canon','zacht','straks','lang'][i]===S.copy));});
+
+  var d=DIRECTIONS.filter(function(x){return x.id===S.dir;})[0];
+  $('dir-tag').textContent=(d.k==='0'?'geen':d.k);
+  $('speed-tag').textContent=S.speed===1?'1×':(S.speed===.5?'½×':'¼×');
+  $('screen').classList.toggle('light',S.theme==='licht');
+  $('wa-presence').textContent = S.scene>=5 ? 'laatst gezien vandaag om 10:11' : 'online';
+
+  var sc=SCENES[S.scene-1];
+  $('scene-n').textContent=sc.n; $('scene-h').textContent=sc.h; $('scene-p').textContent=sc.p;
+  $('obs-body').textContent=OBS[S.scene];
+  $('obs').className='card'+(S.scene===6?' warn':'');
+  $('obs').querySelector('h3').textContent = S.scene===6 ? 'Waarom dit misgaat' : 'Wat je hier beoordeelt';
+
+  render();
+
+  var motion=(S.scene===4 && S.dir==='c');
+  $('timeline').hidden=!motion;
+  $('no-motion').hidden=motion;
+  if(!motion){
+    $('no-motion').textContent = S.scene!==4
+      ? 'De tijdlijn hoort bij scène 04. Kies die scène om de gebeurtenis te zien.'
+      : (S.dir==='geen' ? 'Zonder signatuur is er niets te bewegen.'
+        : 'Richting '+d.k+' heeft geen beweging. Dat is het ontwerp, niet een gebrek: het rustbeeld draagt de hele betekenis.');
+  } else if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    $('tl-note').textContent='Je systeem vraagt om rustige beweging, dus de gebeurtenis start niet vanzelf. Druk op Speel opnieuw wanneer je hem wilt zien.';
+  } else {
+    $('tl-note').textContent='Druk op Speel opnieuw om de gebeurtenis te herhalen.';
+    play();
+  }
+  $('replay').disabled=(S.dir!=='c');
+}
+
+function specTable(){
+  var rows=[
+    ['Stilte vooraf', WA.appear.toFixed(2).replace('.',',')+' s'],
+    ['Punten', WA.points.length+', vertraging '+WA.stagger.toFixed(2).replace('.',',')+' s'],
+    ['Nadering', 'tot '+Math.round(WA.arrive*100)+' procent'],
+    ['Helderheid', WA.base+' naar '+WA.peak],
+    ['Adem', WA.breath.up.toFixed(2).replace('.',',')+' s op, '+WA.breath.down.toFixed(2).replace('.',',')+' s af'],
+    ['Volledig stil', WA.motionEnd.toFixed(2).replace('.',',')+' s'],
+    ['Duur', WA.duration.toFixed(2).replace('.',',')+' s bij '+WA.fps+' fps'],
+    ['Lus', 'geen']
+  ];
+  var dl=$('spec'); dl.innerHTML='';
+  rows.forEach(function(r){ dl.appendChild(el('dt',null,r[0])); dl.appendChild(el('dd',null,r[1])); });
+}
+
+/* Het avatarzegel in de gespreksbalk staat altijd stil. Dat is de plek waar
+   WhatsApp de afzender al toont, en waar dus niets bewezen hoeft te worden. */
+function avatar(){
+  var cv=$('avatar'); drawSeal(cv,0,'inkt',1.52);
+}
+
+buildControls(); bands(); specTable(); avatar(); sync();
+window.addEventListener('resize',function(){ if(stickerCanvas) drawSeal(stickerCanvas,0,S.ground,STICKER_ZOOM); });
+</script>
+</body>
+</html>
