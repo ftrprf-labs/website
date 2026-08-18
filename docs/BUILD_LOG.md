@@ -5,6 +5,33 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-18 — Mijn Maculis geharmoniseerd op Visual DNA v1.0 (kandidaat)
+
+**Wat.** Mijn Maculis is integraal op de canon gezet als eigen kamer: dagregime, canonieke tokens,
+Newsreader voor Uitspraak, de vijf semantische rollen, `surface.private` als drager van "alleen voor
+jou", en het signaalveld als bewijs met de levenscyclus uit canon 8.1. De donkere navy zijkant is
+verdwenen, want canon 5 laat maar één regime per kamer toe. Volledige verantwoording in
+`docs/MIJN_MACULIS_HARMONISATIE.md`, nulmeting in `docs/MIJN_MACULIS_NULMETING.md`.
+
+**Onaangeraakt.** Informatiearchitectuur, klantreis, alle API-contracten en de sharing boundary in
+`server/mijn/*`. Website, Lens en Cockpit zijn niet gewijzigd; de Cockpit-oppervlakken zijn
+byte-identiek aan de basisbranch.
+
+**Tokens.** Het gevendorde bestand ging van 1.0.2 naar de gemergede canon 1.0.3 (C-3 `shadow.diffuse`,
+C-5 `scrim.modal`). Geen bestaande waarde wijzigt: alle 56 Cockpit-opnamen zijn byte-identiek
+vastgelegd met 1.0.2 en met 1.0.3.
+
+**Bewijs.** Testsuite 89/0 gefaald, tokencontrole groen, audit ALLES GROEN (was 12 gefaald bij de
+nulmeting), motion-poort groen, 32 opnamen voor en 32 na.
+
+**Open canonpunten** M-1 tot M-5, geregistreerd in het harmonisatiedocument, geen ervan blokkerend.
+Kort: er is geen token voor donkere tekst op koper; `text.quiet` haalt in dag maar 3,9:1 en is dus
+alleen voor grote tekst bruikbaar; `semantic.signal` haalt op `surface.private` 4,41:1 en zakt daar
+net onder AA; de verhouding tussen ademen en "geen oneindig lopende animatie"; en de constellatie als
+datavisualisatie is nog steeds open punt E in canon 16.
+
+---
+
 ## Technische schuld (open)
 
 | # | Onderwerp | Waar | Beschrijving | Ingebracht |
