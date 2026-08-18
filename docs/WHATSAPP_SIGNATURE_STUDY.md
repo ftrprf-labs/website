@@ -2,7 +2,9 @@
 
 Onderzoek en visuele studie. Geen implementatie.
 
-**Studie:** `docs/studies/whatsapp-signature.html` (open in een browser, geen build nodig)
+**Studie 1, de drie richtingen:** `docs/studies/whatsapp-signature.html`
+**Studie 2, verfijning van richting C:** `docs/studies/whatsapp-signature-c.html` (zie hoofdstuk 9)
+Beide openen in een browser, geen build nodig.
 **Status:** niets geïntegreerd, niets gedeployed, verzendlogica onaangeraakt, geen template gewijzigd,
 geen Meta-configuratie gewijzigd, geen bericht verzonden.
 **De goedgekeurde e-mailhandtekening is niet aangeraakt.**
@@ -417,3 +419,167 @@ die alleen het stilstaande beeld ziet iets mist.
 - Geen template aangepast, geen Meta-configuratie geraakt, geen bericht verzonden.
 - Geen nieuwe assets aan `public/brand` toegevoegd. De studie tekent het zegel zelf, zodat er geen
   bestand ontstaat dat later uit de pas kan lopen.
+
+---
+
+## 9. Verfijningsronde op C
+
+**Studie:** `docs/studies/whatsapp-signature-c.html`
+**Status:** nog steeds niets geïntegreerd, geen asset in productie, geen bericht verzonden.
+
+Richting akkoord: C is de voorkeursrichting. Deze ronde onderzoekt alleen C, met één opdracht:
+minder animatie, meer verwondering. Het gewenste gevoel is niet "kijk, een animatie", maar "wacht,
+bewoog daar iets?".
+
+### 9.1 Twee besluiten die het ontwerp veranderen
+
+**Geen vaste afscheidstekst.** Het menselijke bericht eindigt zoals het gesprek dat vraagt. "Fijn,
+dan spreken we elkaar donderdag." "Prima, dan is het geregeld." Daar komt geen slogan achteraan, geen
+"Kijk nog eens.", geen groet van het merk. Het zegel is de punt achter het gesprek, en de vorm draagt
+de signatuur. Dat maakt hoofdstuk 5 niet ongeldig: de payoff blijft ongewijzigd waar hij hoort, in de
+e-mailhandtekening. Hij hoort alleen niet standaard onder een WhatsApp-gesprek.
+
+**B is het object, C is het moment.** Het zegel in rust mag bijna vanzelfsprekend ogen. De magie
+komt niet uit het beeld maar uit de ene kleine gebeurtenis eromheen. Dat betekent ook: het rustframe
+blijft de waarheid, en elke variant moet daar exact op eindigen.
+
+### 9.2 Het moment
+
+Het slot is een ritueel, geen footer. Het kan alleen plaatsvinden wanneer het gesprek inhoudelijk
+werkelijk is afgerond, iemand dat slot expliciet bevestigt, en het laatste menselijke bericht zijn
+eigen natuurlijke afsluiting houdt. De signatuur komt daarna, als visuele punt.
+
+Hoe software betrouwbaar vaststelt dat een gesprek is afgerond, is in deze ronde bewust niet
+onderzocht. Eerst het juiste moment ontwerpen, daarna pas de vraag wie of wat het herkent.
+
+### 9.3 De drie microvarianten
+
+Alle drie zijn hetzelfde slotmoment binnen dezelfde grammatica: dezelfde boog, dezelfde ster,
+dezelfde kleuren, punten die naderen zonder aan te komen, één respons, daarna stilte. Wat verschilt is
+uitsluitend de tijd, het aantal en de helderheid. De nulvariant zonder beweging doet als controle mee.
+
+| | 0 · Stil | 1 · Nadering | 2 · Eén punt | 3 · In wording |
+| --- | :-: | :-: | :-: | :-: |
+| Stilte vooraf | n.v.t. | 1,20 s | 1,30 s | 1,15 s |
+| Punten | 0 | 3 | 1 | 3, waarvan 1 violet |
+| Aankomst | n.v.t. | 96 · 62 · 78 procent | 42 procent | 80 · 66 · 40 procent |
+| Helderheid op de piek | n.v.t. | 0,48 · 0,29 · 0,38 | 0,26 | 0,39 · 0,31 · 0,34 |
+| Respons van de ster | geen | 0,16 op, 0,30 af, winst 0,28 | 0,14 op, 0,34 af, winst 0,18 | 0,16 op, 0,30 af, winst 0,26 |
+| Volledig stil | altijd | 4,44 s | 3,90 s | 5,15 s |
+| Duur | n.v.t. | 4,64 s | 4,10 s | 5,35 s |
+
+De verfijning zit in drie dingen die alle drie de varianten delen en die de vorige ronde nog niet had:
+
+1. **Ongelijke aankomst.** De punten komen niet even ver. In de e-mailanimatie deelden ze één
+   aankomstfractie, waardoor ze als groep bewogen. Nu stopt de een vlak bij de ster en blijft de ander
+   ver weg. Naderen is niet bereiken, en niet iedereen nadert even hard.
+2. **Ongelijk einde per punt.** Elk punt heeft een eigen moment en een eigen duur van loslaten. Een
+   gelijk einde leest als een clip die afloopt.
+3. **De helderheid volgt de nabijheid.** Een punt dat maar tot 42 procent komt, wordt ook maar tot
+   42 procent van zijn licht helder. Dat is niet een extra regel, maar dezelfde regel consequent
+   doorgetrokken.
+
+Bij variant 2 komt daar iets bij dat de moeite waard is om te noemen: het enige punt komt exact op de
+straal van de curve tot stilstand. Het gaat er niet doorheen. De curve is de grens van wat is
+waargenomen, en het punt blijft daar precies aan de rand van staan.
+
+### 9.4 De meting
+
+De studie meet zichzelf, zodat het oordeel niet alleen op smaak rust. Alles op ware grootte, 118
+pixels bij dubbele dichtheid, per kleurkanaal.
+
+| | 0 · Stil | 1 · Nadering | 2 · Eén punt | 3 · In wording |
+| --- | :-: | :-: | :-: | :-: |
+| Eerste frame tegen laatste frame | 0 van 255 | **0 van 255** | **0 van 255** | **0 van 255** |
+| Piek van de afwijking | 0 | 132 van 255 | 75 van 255 | 114 van 255 |
+| Bewegend oppervlak op de piek | 0 | 449 beeldpunten | 99 beeldpunten | 441 beeldpunten |
+
+De eerste regel is de belangrijkste: alle drie de varianten eindigen exact op het beeld waarmee ze
+begonnen. De statische terugval verliest dus aantoonbaar niets.
+
+De tweede en derde regel geven het antwoord op "hoeveel animatie is dit eigenlijk". Variant 2 beweegt
+ongeveer een vijfde van het oppervlak van variant 1, met bijna de helft minder afwijking op de piek.
+
+Bij variant 3 leverde de meting een echte correctie op. In de eerste opzet doofde het violette punt
+mee met de rest, en op het moment dat het alleen overbleef mat het 12 van 255 over zes beeldpunten.
+Dat is niets. De betekenis bestond alleen in de toelichting, niet op het scherm. Om het violette
+moment te laten bestaan moest het punt na het koper blijven staan, en toen mat het 119 van 255. Dat
+is meer dan de hele gebeurtenis van variant 2.
+
+### 9.5 Oordeel
+
+Tien punten per criterium. Bij "geen gimmick" is tien het laagste risico.
+
+| Criterium | 0 · Stil | 1 · Nadering | 2 · Eén punt | 3 · In wording |
+| --- | :-: | :-: | :-: | :-: |
+| Rust | 10 | 7 | 9 | 8 |
+| Verwondering | 2 | 8 | 9 | 8 |
+| Maculis-herkenning | 6 | 9 | 8 | 9 |
+| Natuurlijk in WhatsApp | 9 | 6 | 9 | 7 |
+| Geen gimmick | 9 | 6 | 9 | 7 |
+| Technisch robuust | 10 | 7 | 9 | 6 |
+| **Totaal** | 46 | 43 | **53** | 45 |
+
+**Variant 1 valt af** omdat het de e-mailanimatie in het klein is. Drie punten die zichtbaar reizen,
+lezen in een chatvenster als iets dat wordt afgespeeld. Je ziet hem, dus je kijkt ernaar, dus de
+verwondering is bij de tweede keer op.
+
+**Variant 3 valt af** ondanks de mooiste gedachte van de drie. Zodra het violette moment zichtbaar
+genoeg is om iets te betekenen, is het een tweede gebeurtenis geworden, en precies dat heeft de
+e-mailstudie al afgewezen. Daar komt bij dat de betekenis alleen klopt bij een afsluiting die iets
+meedraagt. Zet in de studie de afsluiting op gesloten en kijk opnieuw: het violet belooft dan iets wat
+er niet is. Een slotmoment dat afhangt van de juiste soort afscheid, is een slotmoment met een
+voorwaarde die niemand kan onthouden.
+
+**Variant 0 verliest niet op rust maar op verwondering.** Hij scoort hoog, en dat hoort ook. Als de
+metingen op een echt toestel tegenvallen, is dit de terugval waar niets aan kapot kan.
+
+### 9.6 Aanbeveling
+
+> **Variant 2, Eén punt.** Eén punt wordt waarneembaar aan de rand van het zegel, schuift een haar
+> naar binnen tot precies op de curve, de ster haalt één keer adem, en het laat ongelijk los. Volledig
+> stil op 3,90 seconden, duur 4,10 seconden, geen lus.
+
+Er is niets te volgen, dus je kunt het alleen opmerken. Dat is het verschil tussen een animatie en een
+waarneming, en het is de enige variant waarvan ik durf te zeggen dat hij bij de tiende keer nog werkt.
+
+Streng gelezen betekent dit: van de vier punten uit de e-mailhandtekening blijft er in WhatsApp één
+over, en dat is winst. De rest van de beweging is weggehaald omdat hij niets toevoegde aan wat de
+ontvanger voelt.
+
+### 9.7 Ideaal, drager, ontvangst en terugval
+
+| Laag | Wat het is | Wat er gebeurt |
+| --- | --- | --- |
+| Het ideaal | één waarneming aan de rand van het zichtbare, daarna stilte | volledig bereikbaar in de vorm |
+| Wat WhatsApp kan | geanimeerde WebP-sticker, 512 bij 512, maximaal 500 kB | de enige drager die beweegt zonder afspeelknop. GIF wordt geweigerd, video leest als inhoud |
+| Wat de ontvanger krijgt | de sticker speelt zodra hij in beeld komt | gerapporteerd gedrag: één keer, en opnieuw bij langs scrollen. Nog te toetsen op een echt toestel |
+| De terugval | statische WebP, 512 bij 512, maximaal 100 kB | identiek aan het eerste en het laatste frame, dus er gaat aantoonbaar niets verloren |
+
+Twee dingen blijven onbewezen tot iemand het bouwt en op een telefoon bekijkt: of het bestand onder
+500 kB blijft, en of een geanimeerde sticker werkelijk stopt in plaats van te herhalen. Variant 2 is
+van de drie het gunstigst voor beide vragen, want hij is het kortst en beweegt het minst.
+
+### 9.8 Bouwspecificatie van variant 2
+
+| Onderdeel | Waarde |
+| --- | --- |
+| Bestand | `maculis-seal-perceive-wa-v1.webp` |
+| Terugval | `maculis-seal-rest-wa-v1.webp`, identiek aan het eerste en laatste frame |
+| Afmeting | 512 bij 512, transparant, merk vult ongeveer tachtig procent van het vlak |
+| Beeldsnelheid | 15 fps |
+| Duur | 4,10 s, waarvan 1,30 s stilte vooraf als één frame met een lange vertraging |
+| Lus | geen |
+| Budget | 500 kB voor de bewegende sticker, 100 kB voor de statische |
+| Bron van de vorm | `docs/studies/tools/seal-reference.js`, ongewijzigd |
+
+Meet na export opnieuw of het eerste en het laatste frame identiek zijn. De studie doet dat nu in de
+browser en komt op 0 van 255. De export moet dat cijfer halen, anders is de terugval geen terugval.
+
+### 9.9 Wat deze ronde bewust niet doet
+
+- Geen enkele wijziging aan verzendlogica, WhatsApp-route, templates of Meta-configuratie.
+- Geen asset naar `public/brand`. De studie tekent het zegel live uit de bevroren vorm.
+- Geen onderzoek naar hoe software een afgerond gesprek herkent. Eerst het moment, daarna het
+  mechanisme.
+- Geen wijziging aan de e-mailhandtekening en niet aan `seal-reference.js`.

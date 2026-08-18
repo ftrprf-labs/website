@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bewoog daar iets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+/* =============================================================================
+   MACULIS · WHATSAPP-SLOTMOMENT · VERFIJNING VAN RICHTING C
+   Zelfde laboratorium als de eerste studie, andere opdracht: niet drie
+   richtingen vergelijken, maar één richting uitkleden tot er precies genoeg
+   overblijft. De nulvariant zonder beweging staat er als controle, niet als
+   beleefdheid.
+   ========================================================================== */
+:root{
+  --ink:#08090e; --panel:#11131b; --panel-2:#171a24; --line:#23252f;
+  --copper:#b87333; --copper-lit:#e6b98d; --violet:#a08fd6; --jade:#4e9c86;
+  --text:#c8c0b5; --dim:#8e857a; --faint:#6b6459;
+  --serif:'Newsreader',Georgia,'Times New Roman',serif;
+  --sans:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --mono:'IBM Plex Mono','SFMono-Regular',Menlo,Consolas,monospace;
+  --wa-sans:-apple-system,'Helvetica Neue','Segoe UI',Roboto,'Noto Sans',sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  margin:0; background:var(--ink); color:var(--text);
+  font-family:var(--sans); font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{text-wrap:balance; margin:0}
+.wrap{max-width:1460px; margin:0 auto; padding:0 28px 110px}
+
+.masthead{padding:56px 0 30px; border-bottom:1px solid var(--line)}
+.eyebrow{font-size:10.5px; letter-spacing:2.6px; text-transform:uppercase; color:var(--copper); margin:0 0 18px}
+.masthead h1{font-family:var(--serif); font-weight:300; font-size:clamp(34px,5vw,58px);
+  line-height:1.04; color:var(--copper-lit); letter-spacing:-.01em}
+.lede{max-width:62ch; margin:16px 0 0; color:var(--dim); font-family:var(--serif);
+  font-size:18px; line-height:1.55}
+.status{display:flex; flex-wrap:wrap; gap:10px 22px; margin-top:26px;
+  font-family:var(--mono); font-size:11.5px; letter-spacing:.4px; color:var(--faint)}
+.status b{color:var(--jade); font-weight:500}
+
+.rig{display:grid; grid-template-columns:252px minmax(0,1fr) 300px; gap:34px;
+  align-items:start; padding-top:34px}
+@media (max-width:1240px){ .rig{grid-template-columns:236px minmax(0,1fr)} .side{grid-column:1/-1} }
+@media (max-width:880px){ .rig{grid-template-columns:1fr} .rail{position:static} }
+
+.rail{position:sticky; top:22px; display:flex; flex-direction:column; gap:24px}
+.group{display:flex; flex-direction:column; gap:9px}
+.glabel{font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--faint);
+  display:flex; justify-content:space-between; align-items:baseline}
+.glabel span{font-family:var(--mono); letter-spacing:.5px; text-transform:none; color:var(--copper)}
+.opts{display:flex; flex-direction:column; gap:1px}
+.opt{appearance:none; text-align:left; cursor:pointer; width:100%; background:var(--panel);
+  border:1px solid transparent; border-left:2px solid var(--line); color:var(--text);
+  font:inherit; font-size:13.5px; padding:9px 12px; display:flex; gap:10px; align-items:baseline;
+  transition:background .16s, border-color .16s, color .16s}
+.opt:hover{background:var(--panel-2)}
+.opt .k{font-family:var(--mono); font-size:11px; color:var(--faint); min-width:11px}
+.opt .sub{display:block; font-size:11.5px; color:var(--faint); line-height:1.35; margin-top:2px}
+.opt[aria-pressed="true"]{background:var(--panel-2); border-left-color:var(--copper); color:var(--copper-lit)}
+.opt[aria-pressed="true"] .k{color:var(--copper)}
+.opt:focus-visible{outline:2px solid var(--copper-lit); outline-offset:-2px}
+.opt[disabled]{opacity:.36; cursor:not-allowed}
+.row{display:flex; gap:1px}
+.row .opt{justify-content:center; text-align:center; border-left:none; border-top:2px solid var(--line); padding:8px 4px}
+.row .opt[aria-pressed="true"]{border-left:none; border-top-color:var(--copper)}
+.toggle{display:flex; gap:10px; align-items:flex-start; cursor:pointer; background:var(--panel);
+  border-left:2px solid var(--line); padding:10px 12px; font-size:13px}
+.toggle input{accent-color:var(--copper); margin:3px 0 0}
+.toggle small{display:block; color:var(--faint); font-size:11.5px; line-height:1.35}
+.toggle:has(input:checked){border-left-color:var(--copper); background:var(--panel-2)}
+
+/* ---- toneel ------------------------------------------------------------- */
+.stage{display:flex; flex-direction:column; gap:20px; min-width:0}
+.vhead{display:flex; align-items:baseline; gap:14px; border-bottom:1px solid var(--line); padding-bottom:12px}
+.vhead .n{font-family:var(--mono); color:var(--copper); font-size:12px}
+.vhead h2{font-family:var(--serif); font-weight:300; font-size:25px; color:var(--copper-lit)}
+.vhead p{margin:0 0 0 auto; color:var(--faint); font-size:12.5px; text-align:right; max-width:38ch}
+.pair{display:flex; gap:26px; align-items:flex-start; flex-wrap:wrap; justify-content:center}
+
+.phone{width:340px; max-width:100%; border-radius:34px; padding:9px;
+  background:linear-gradient(#20232c,#0d0f15);
+  box-shadow:0 0 0 1px #2a2d38, 0 34px 70px -30px #000, 0 0 90px -40px rgba(184,115,51,.3)}
+.screen{border-radius:26px; overflow:hidden; display:flex; flex-direction:column; height:600px;
+  font-family:var(--wa-sans);
+  --c-bar:#202c33; --c-bg:#0b141a; --c-in:#202c33; --c-out:#005c4b; --c-txt:#e9edef;
+  --c-meta:#8696a0; --c-div:#182229; --c-wall:rgba(255,255,255,.035)}
+.screen.light{--c-bar:#f0f2f5; --c-bg:#efeae2; --c-in:#fff; --c-out:#d9fdd3; --c-txt:#111b21;
+  --c-meta:#667781; --c-div:#fff; --c-wall:rgba(0,0,0,.03)}
+.wa-bar{background:var(--c-bar); color:var(--c-txt); display:flex; align-items:center; gap:11px;
+  padding:11px 13px; flex:0 0 auto}
+.wa-back{color:var(--c-meta); font-size:19px; line-height:1}
+.wa-av{width:38px; height:38px; border-radius:50%; flex:0 0 auto; background:#0a0b10;
+  display:grid; place-items:center}
+.wa-who b{display:block; font-size:15.5px; font-weight:500}
+.wa-who small{display:block; font-size:12px; color:var(--c-meta)}
+.wa-icons{margin-left:auto; display:flex; gap:16px; color:var(--c-meta); font-size:16px}
+.wa-chat{flex:1 1 auto; overflow-y:auto; padding:14px 9px 18px; background:var(--c-bg);
+  background-image:radial-gradient(var(--c-wall) 1px, transparent 1px); background-size:22px 22px;
+  display:flex; flex-direction:column; gap:3px}
+.wa-chat::-webkit-scrollbar{width:5px}
+.wa-chat::-webkit-scrollbar-thumb{background:rgba(134,150,160,.35); border-radius:3px}
+.day{align-self:center; background:var(--c-div); color:var(--c-meta); font-size:11.5px;
+  padding:5px 12px; border-radius:7px; margin:8px 0}
+.msg{max-width:80%; padding:6px 9px 5px; border-radius:8px; font-size:14.6px; line-height:1.36;
+  color:var(--c-txt); word-wrap:break-word; box-shadow:0 1px 0 rgba(0,0,0,.16)}
+.msg.in{align-self:flex-start; background:var(--c-in); border-top-left-radius:2px}
+.msg.out{align-self:flex-end; background:var(--c-out); border-top-right-radius:2px}
+.meta{float:right; margin:6px 0 -2px 9px; font-size:11px; color:var(--c-meta);
+  display:flex; gap:3px; align-items:center; font-variant-numeric:tabular-nums}
+.tick{color:#53bdeb; font-size:12px; letter-spacing:-3px}
+.sticker{align-self:flex-end; display:flex; flex-direction:column; align-items:flex-end; margin:5px 2px 2px}
+.sticker .meta{float:none; margin:1px 2px 0 0}
+
+/* de loep: hetzelfde moment, drie keer zo groot, zonder gesprek eromheen */
+.loupe{display:flex; flex-direction:column; gap:10px; align-items:center; width:250px; flex:0 0 auto}
+.loupe .frame{width:250px; height:250px; display:grid; place-items:center;
+  background:#0b141a; background-image:radial-gradient(rgba(255,255,255,.035) 1px, transparent 1px);
+  background-size:22px 22px; box-shadow:0 0 0 1px var(--line)}
+.loupe.light .frame{background:#efeae2; background-image:radial-gradient(rgba(0,0,0,.03) 1px, transparent 1px)}
+.loupe .cap{font-family:var(--mono); font-size:10.5px; line-height:1.5; color:var(--faint);
+  text-align:center; margin:0}
+
+/* ---- tijdlijn ----------------------------------------------------------- */
+.timeline{display:flex; flex-direction:column; gap:8px}
+.tl-head{display:flex; justify-content:space-between; align-items:baseline;
+  font-family:var(--mono); font-size:11px; color:var(--faint)}
+.tl-head b{color:var(--copper-lit); font-weight:500}
+.track{position:relative; height:30px; background:var(--panel); border-left:2px solid var(--line); margin-top:18px}
+.band{position:absolute; top:0; bottom:0; border-right:1px solid var(--ink)}
+.band span{position:absolute; bottom:4px; left:5px; font-size:9.5px; letter-spacing:.6px;
+  text-transform:uppercase; color:var(--faint); white-space:nowrap}
+.band.breath{background:rgba(230,185,141,.22)}
+.band.breath::after{content:'respons'; position:absolute; left:50%; bottom:calc(100% + 4px);
+  transform:translateX(-50%); font-size:9.5px; letter-spacing:.6px; text-transform:uppercase;
+  color:var(--copper-lit)}
+.head-line{position:absolute; top:0; bottom:0; width:1px; background:var(--copper-lit);
+  box-shadow:0 0 8px var(--copper); left:0}
+.tl-note{font-size:12px; color:var(--faint); line-height:1.45; min-height:2.9em}
+.flat{background:var(--panel); border-left:2px solid var(--line); padding:13px 15px;
+  font-size:12.5px; color:var(--dim); line-height:1.5}
+
+/* ---- zijkolom ----------------------------------------------------------- */
+.side{display:flex; flex-direction:column; gap:20px}
+.card{background:var(--panel); border-left:2px solid var(--copper); padding:16px 18px}
+.card.quiet{border-left-color:var(--line)}
+.card h3{font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--copper);
+  margin-bottom:11px; font-weight:600}
+.card.quiet h3{color:var(--dim)}
+.card p{margin:0 0 10px; font-size:13.5px; line-height:1.55}
+.card p:last-child{margin-bottom:0}
+.spec{display:grid; grid-template-columns:auto 1fr; gap:5px 14px; font-family:var(--mono); font-size:11.5px}
+.spec dt{color:var(--faint)}
+.spec dd{margin:0; color:var(--text); font-variant-numeric:tabular-nums}
+.proof{display:flex; flex-direction:column; gap:10px}
+.proof .shots{display:flex; gap:8px}
+.proof canvas{width:74px; height:74px; background:#0b141a; box-shadow:0 0 0 1px var(--line)}
+.proof .shot{display:flex; flex-direction:column; gap:4px; align-items:center;
+  font-family:var(--mono); font-size:9.5px; color:var(--faint)}
+.verdict{font-family:var(--mono); font-size:11.5px; line-height:1.6}
+.verdict b{color:var(--jade)}
+.verdict i{color:var(--copper-lit); font-style:normal}
+
+/* ---- oordeel ------------------------------------------------------------ */
+.judge{margin-top:64px; padding-top:34px; border-top:1px solid var(--line)}
+.judge h2{font-family:var(--serif); font-weight:300; font-size:32px; color:var(--copper-lit); margin-bottom:8px}
+.judge .sub{color:var(--dim); max-width:66ch; margin:0 0 28px}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse; width:100%; min-width:660px; font-size:13.5px}
+th,td{text-align:left; padding:11px 14px; border-bottom:1px solid var(--line); vertical-align:top}
+thead th{font-size:10px; letter-spacing:1.6px; text-transform:uppercase; color:var(--faint); font-weight:600}
+tbody th{font-weight:400; color:var(--dim); white-space:nowrap}
+td.num{font-family:var(--mono); font-variant-numeric:tabular-nums; text-align:center; width:96px}
+tr.total td.num{color:var(--copper-lit)}
+tr.total th{color:var(--text)}
+td.win{color:var(--copper-lit); background:rgba(184,115,51,.08)}
+.cols{display:grid; grid-template-columns:repeat(auto-fit,minmax(272px,1fr)); gap:22px; margin-top:34px}
+.cols h3{font-family:var(--serif); font-weight:300; font-size:21px; color:var(--copper-lit); margin-bottom:8px}
+.cols p{font-size:13.5px; color:var(--dim); margin:0 0 10px}
+.cols p:last-child{margin-bottom:0}
+.rule{border-left:2px solid var(--copper); padding:2px 0 2px 18px}
+.rule.quiet{border-left-color:var(--line)}
+footer{margin-top:64px; padding-top:22px; border-top:1px solid var(--line); color:var(--faint);
+  font-size:12px; display:flex; flex-wrap:wrap; gap:6px 26px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <p class="eyebrow">Maculis · communication layer · verfijning van richting C</p>
+    <h1>Bewoog daar iets</h1>
+    <p class="lede">Drie microvarianten van hetzelfde slotmoment, plus de nulvariant zonder
+      beweging. Het gesprek eindigt zoals een gesprek eindigt. Het zegel volgt daarna, als punt.</p>
+    <div class="status">
+      <span>Status <b>onderzoek</b></span>
+      <span>Verzendlogica <b>onaangeraakt</b></span>
+      <span>Templates <b>ongewijzigd</b></span>
+      <span>Meta-configuratie <b>ongewijzigd</b></span>
+      <span>Assets in productie <b>geen</b></span>
+    </div>
+  </header>
+
+  <div class="rig">
+    <aside class="rail">
+      <div class="group">
+        <div class="glabel">Variant <span id="v-tag">1</span></div>
+        <div class="opts" id="variants"></div>
+      </div>
+      <div class="group">
+        <div class="glabel">Snelheid <span id="s-tag">1×</span></div>
+        <div class="row" id="speeds"></div>
+        <button class="opt" id="replay" type="button"
+          style="justify-content:center;text-align:center;border-left-color:var(--copper)">Speel opnieuw</button>
+        <label class="toggle">
+          <input type="checkbox" id="blind">
+          <span>Studiemodus
+            <small>De gebeurtenis begint na een onvoorspelbare pauze van 2 tot 9 seconden. Kijk
+              ondertussen naar het gesprek, niet naar het zegel.</small></span>
+        </label>
+      </div>
+      <div class="group">
+        <div class="glabel">Afsluiting</div>
+        <div class="opts" id="endings"></div>
+      </div>
+      <div class="group">
+        <div class="glabel">Zegel</div>
+        <div class="row" id="grounds"></div>
+      </div>
+      <div class="group">
+        <div class="glabel">WhatsApp</div>
+        <div class="row" id="themes"></div>
+      </div>
+    </aside>
+
+    <section class="stage">
+      <div class="vhead">
+        <span class="n" id="v-n">01</span>
+        <h2 id="v-h">Nadering</h2>
+        <p id="v-p"></p>
+      </div>
+
+      <div class="pair">
+        <div class="phone">
+          <div class="screen" id="screen">
+            <div class="wa-bar">
+              <span class="wa-back">‹</span>
+              <span class="wa-av"><canvas id="avatar" width="76" height="76"
+                style="width:38px;height:38px;border-radius:50%"></canvas></span>
+              <span class="wa-who"><b>Maculis</b><small>online</small></span>
+              <span class="wa-icons"><span>⌕</span><span>⋮</span></span>
+            </div>
+            <div class="wa-chat" id="chat"></div>
+          </div>
+        </div>
+
+        <div class="loupe" id="loupe">
+          <div class="frame"><canvas id="big" width="500" height="500"
+            style="width:250px;height:250px" role="img" aria-label="Maculis"></canvas></div>
+          <p class="cap">Loep · 250 px · hetzelfde moment, dezelfde klok<br>
+            In het gesprek staat hij op 118 px</p>
+        </div>
+      </div>
+
+      <div class="timeline" id="timeline">
+        <div class="tl-head"><span>Anatomie van de stilte</span><b id="clock">0,00 s</b></div>
+        <div class="track" id="track"><div class="head-line" id="head"></div></div>
+        <p class="tl-note" id="tl-note"></p>
+      </div>
+      <div class="flat" id="flat" hidden></div>
+    </section>
+
+    <aside class="side">
+      <div class="card">
+        <h3>Wat deze variant doet</h3>
+        <p id="v-body"></p>
+      </div>
+      <div class="card quiet">
+        <h3>Parameters</h3>
+        <dl class="spec" id="spec"></dl>
+      </div>
+      <div class="card quiet">
+        <h3>Bewijs van het rustframe</h3>
+        <div class="proof">
+          <div class="shots">
+            <span class="shot"><canvas id="p0" width="150" height="150"></canvas>eerste</span>
+            <span class="shot"><canvas id="pk" width="150" height="150"></canvas>hoogtepunt</span>
+            <span class="shot"><canvas id="p1" width="150" height="150"></canvas>laatste</span>
+          </div>
+          <p class="verdict" id="proof-out">meten…</p>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ============================== oordeel ============================== -->
+  <section class="judge">
+    <h2>Oordeel</h2>
+    <p class="sub">Zes criteria, tien punten per criterium, met uitzondering van het risico op een
+      gimmick: daar is tien het laagste risico. De nulvariant zonder beweging doet volwaardig mee,
+      want als minder beweging wint, moet de tabel dat kunnen laten zien.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Criterium</th>
+            <th class="num">0 · Stil</th>
+            <th class="num">1 · Nadering</th>
+            <th class="num">2 · Eén punt</th>
+            <th class="num">3 · In wording</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th>Rust</th>
+            <td class="num">10</td><td class="num">7</td><td class="num win">9</td><td class="num">8</td></tr>
+          <tr><th>Verwondering</th>
+            <td class="num">2</td><td class="num">8</td><td class="num win">9</td><td class="num">8</td></tr>
+          <tr><th>Maculis-herkenning</th>
+            <td class="num">6</td><td class="num">9</td><td class="num win">8</td><td class="num">9</td></tr>
+          <tr><th>Natuurlijk in WhatsApp</th>
+            <td class="num">9</td><td class="num">6</td><td class="num win">9</td><td class="num">7</td></tr>
+          <tr><th>Geen gimmick</th>
+            <td class="num">9</td><td class="num">6</td><td class="num win">9</td><td class="num">7</td></tr>
+          <tr><th>Technisch robuust</th>
+            <td class="num">10</td><td class="num">7</td><td class="num win">9</td><td class="num">6</td></tr>
+          <tr class="total"><th>Totaal</th>
+            <td class="num">46</td><td class="num">43</td><td class="num win">53</td><td class="num">45</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cols">
+      <div class="rule quiet">
+        <h3>Waarom niet 1</h3>
+        <p>Nadering is de e-mailanimatie in het klein, en dat is precies het probleem. Drie punten die
+          zichtbaar reizen, lezen in een chatvenster als een animatie die wordt afgespeeld. Je ziet
+          hem, dus je kijkt ernaar, dus de verwondering verdwijnt bij de tweede keer.</p>
+        <p>Hij is niet fout. Hij is alleen een kopie van een ander medium.</p>
+      </div>
+      <div class="rule quiet">
+        <h3>Waarom niet 3</h3>
+        <p>In wording is de mooiste gedachte van de drie: het violette punt blijft langer dan de rest,
+          omdat er nog iets in wording is. De eerste versie mat 12 van 255 in dat solomoment, en dat
+          is niets. Om de betekenis te laten bestaan moest het violet blijven staan, en toen mat het
+          119 van 255. Sterker dus dan de hele gebeurtenis van variant 2.</p>
+        <p>Daarmee is het geen nagalm meer maar een tweede gebeurtenis, precies wat de e-mailstudie
+          heeft afgewezen. Bovendien klopt de betekenis alleen bij een afsluiting die iets meedraagt.
+          Zet de afsluiting op gesloten en kijk opnieuw: het violet belooft dan iets wat er niet is.</p>
+      </div>
+      <div class="rule">
+        <h3>Waarom 2</h3>
+        <p>Eén punt. Het wordt waarneembaar aan de rand van het zegel, schuift een haar naar binnen,
+          de ster haalt één keer adem, en het laat los. Er is niets te volgen, dus je kunt het alleen
+          opmerken.</p>
+        <p>Gemeten op ware grootte beweegt bij variant 1 ongeveer 449 beeldpunten, bij variant 2
+          nog 99. Een vijfde van het oppervlak, en op het hoogtepunt 75 van 255 in plaats van 132.
+          Dat is precies genoeg om waar te nemen en te weinig om te bekijken.</p>
+        <p>Dat is het verschil tussen een animatie en een waarneming. En het is de enige variant
+          waarvan ik durf te zeggen dat hij bij de tiende keer nog werkt.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="judge">
+    <h2>Wat de ontvanger werkelijk krijgt</h2>
+    <p class="sub">Het ideale slotmoment en het geleverde slotmoment zijn niet hetzelfde ding. Deze
+      tabel houdt ze uit elkaar.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Laag</th><th>Wat het is</th><th>Wat er gebeurt</th></tr></thead>
+        <tbody>
+          <tr><th>Het ideaal</th><td>één waarneming aan de rand van het zichtbare, daarna stilte</td>
+            <td>volledig bereikbaar in de vorm, niet in elke drager</td></tr>
+          <tr><th>Wat WhatsApp kan</th><td>geanimeerde WebP-sticker, 512 bij 512, maximaal 500 kB</td>
+            <td>de enige drager die beweegt zonder afspeelknop. GIF wordt geweigerd, video leest als inhoud</td></tr>
+          <tr><th>Wat de ontvanger krijgt</th><td>de sticker speelt zodra hij in beeld komt</td>
+            <td>gerapporteerd gedrag: één keer, en opnieuw bij langs scrollen. Te toetsen op een echt toestel</td></tr>
+          <tr><th>De terugval</th><td>statische WebP, 512 bij 512, maximaal 100 kB</td>
+            <td>identiek aan het eerste en het laatste frame, dus er gaat niets verloren</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <span>Vorm uit <code>docs/studies/tools/seal-reference.js</code>, timing opnieuw ontworpen</span>
+    <span>De e-mailhandtekening is niet gewijzigd</span>
+    <span>Niets geïntegreerd, niets verzonden</span>
+  </footer>
+</div>
+
+<script>
+/* =============================================================================
+   1 · DE VORM
+   De geometrie is die van de bevroren e-mailreferentie. Wat hier opnieuw is
+   ontworpen, is uitsluitend de tijd: hoeveel punten, hoe ver ze komen, hoe hard
+   ze oplichten, hoe lang de respons duurt en hoe ongelijk alles weer loslaat.
+============================================================================= */
+var GEO = {
+  cell:150, seal:{x:75,y:75,r:44},
+  arc:{from:34,to:326,width:1.15,alpha:.80},
+  star:{size:25,alpha:.88,glowBase:.10,scale:.018},
+  color:{ink:'#0a0b10',copper:'#b87333',copperLit:'#e6b98d',violet:'#a08fd6'}
+};
+
+/* Elk punt draagt zijn eigen tijd. Dat is de kern van deze ronde: de punten
+   delen geen enkel moment, ook hun einde niet, en ze komen niet even ver. */
+var VARIANTS = [
+  {
+    id:0, k:'0', name:'Stil', tag:'zonder beweging',
+    lead:'De controlevariant. Het zegel arriveert en doet niets.',
+    body:'Dit is richting B, hier meegenomen als nulmeting. Zonder deze kolom kan de studie niet '+
+         'aantonen dat beweging iets toevoegt. Kijk hoe lang het duurt voordat je iets mist.',
+    still:true, duration:0
+  },
+  {
+    id:1, k:'1', name:'Nadering', tag:'drie punten, ongelijke aankomst',
+    lead:'Drie punten naderen, en geen van drie komt even ver.',
+    body:'Het dichtst bij de e-mailanimatie. Eén punt komt tot vlak bij de ster, de tweede blijft '+
+         'ver weg, de derde ergens daartussen. Ongelijke aankomst is de verfijning: naderen is niet '+
+         'bereiken, en niet iedereen nadert even hard.',
+    quiet:1.20, approach:[1.95,2.95],
+    breath:{at:2.80,up:.16,down:.30,gain:.28},
+    motionEnd:4.44, duration:4.64, peakArc:.05,
+    points:[
+      {a:132, rf:1.44, r:1.15, arrive:.96, t0:1.20, dur:.85, rel:3.05, relDur:.95, peak:.50},
+      {a:214, rf:1.38, r:1.00, arrive:.62, t0:1.50, dur:.85, rel:3.27, relDur:.95, peak:.44},
+      {a:308, rf:1.50, r:1.18, arrive:.78, t0:1.74, dur:.85, rel:3.49, relDur:.95, peak:.47}
+    ]
+  },
+  {
+    id:2, k:'2', name:'Eén punt', tag:'één punt, één ademtocht',
+    lead:'Eén punt wordt waarneembaar, schuift een haar naar binnen, en laat los.',
+    body:'De strengste variant. Er is niets te volgen: het punt reist nauwelijks, het licht blijft '+
+         'onder de helft van wat het kan, en de respons van de ster is bijna te klein om te '+
+         'benoemen. Precies daarom kun je hem alleen opmerken, niet bekijken.',
+    quiet:1.30, approach:[2.00,2.70],
+    breath:{at:2.62,up:.14,down:.34,gain:.18},
+    motionEnd:3.90, duration:4.10, peakArc:.03,
+    points:[
+      {a:206, rf:1.30, r:1.05, arrive:.42, t0:1.30, dur:1.00, rel:2.85, relDur:1.05, peak:.56}
+    ]
+  },
+  {
+    id:3, k:'3', name:'In wording', tag:'twee koper, één violet',
+    lead:'Twee koperen punten komen tot rust, en één violet punt blijft een tel langer.',
+    body:'Koper is waargenomen, violet is in wording. Het violette punt nadert nauwelijks en dooft '+
+         'als laatste, ruim nadat de rest al stil is. Dat leest als: er is iets gezien, en er is '+
+         'nog iets onderweg. Zet de afsluiting op gesloten om te toetsen of die belofte dan klopt.',
+    quiet:1.15, approach:[1.90,2.85],
+    breath:{at:2.72,up:.16,down:.30,gain:.26},
+    motionEnd:5.15, duration:5.35, peakArc:.05,
+    points:[
+      {a:150, rf:1.42, r:1.10, arrive:.80, t0:1.15, dur:.85, rel:2.75, relDur:.85, peak:.48},
+      {a:292, rf:1.46, r:1.12, arrive:.66, t0:1.43, dur:.85, rel:2.90, relDur:.80, peak:.45},
+      // Het violette punt houdt zijn plek een halve seconde vast nadat het koper
+      // weg is. Zonder dat vasthouden is het violet gemeten onzichtbaar, en dan
+      // bestaat de betekenis alleen in de toelichting.
+      {a:38,  rf:1.34, r:1.15, arrive:.40, t0:1.77, dur:1.10, rel:4.20, relDur:.95, peak:.78, violet:true}
+    ]
+  }
+];
+
+var clamp01=function(v){return v<0?0:v>1?1:v;};
+var lerp=function(a,b,t){return a+(b-a)*t;};
+var seg=function(t,a,b){return clamp01((t-a)/(b-a));};
+var smooth=function(t){t=clamp01(t);return t*t*(3-2*t);};
+var outCubic=function(t){t=clamp01(t);return 1-Math.pow(1-t,3);};
+var rad=function(d){return d*Math.PI/180;};
+function hexA(hex,a){
+  var n=parseInt(hex.slice(1),16);
+  return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+clamp01(a).toFixed(4)+')';
+}
+/* Ademhaling: snel op, trager af. Een flits wijst naar zichzelf, dit reageert. */
+function breathOf(V,t){
+  if(V.still) return 0;
+  var b=V.breath;
+  if(t<b.at) return 0;
+  if(t<b.at+b.up) return smooth((t-b.at)/b.up);
+  if(t<b.at+b.up+b.down) return 1-smooth((t-b.at-b.up)/b.down);
+  return 0;
+}
+function frameOf(V,t){
+  if(V.still) return {arcAlpha:GEO.arc.alpha, starGlow:GEO.star.glowBase, starScale:1, points:[]};
+  var bn=breathOf(V,t), g=bn*V.breath.gain, S=GEO.seal, base=.05;
+  var pts=V.points.map(function(p){
+    var up  = smooth(seg(t,p.t0,p.t0+p.dur));
+    var inn = outCubic(seg(t,V.approach[0],V.approach[1]));
+    var off = seg(t,p.rel,p.rel+p.relDur);
+    var k   = inn*(1-outCubic(off))*p.arrive;
+    var rr  = lerp(S.r*p.rf, S.r*0.55, k);
+    var ang = rad(p.a + 14*k);
+    return {
+      x:S.x+Math.cos(ang)*rr, y:S.y+Math.sin(ang)*rr, r:p.r, violet:!!p.violet,
+      a:(base+(p.peak-base)*k+0.05*g)*up*(1-smooth(off))
+    };
+  });
+  return {arcAlpha:GEO.arc.alpha+(V.peakArc||0)*bn, starGlow:GEO.star.glowBase+g,
+          starScale:1+GEO.star.scale*bn, points:pts};
+}
+function starPath(ctx,x,y,s){
+  var ly=s, lx=s*.60, k=s*.045;
+  ctx.beginPath(); ctx.moveTo(x,y-ly);
+  ctx.quadraticCurveTo(x+k,y-k,x+lx,y); ctx.quadraticCurveTo(x+k,y+k,x,y+ly);
+  ctx.quadraticCurveTo(x-k,y+k,x-lx,y); ctx.quadraticCurveTo(x-k,y-k,x,y-ly);
+  ctx.closePath();
+}
+var ZOOM=1.34;   // een sticker is zelf de cel, dus het merk mag het vlak vullen
+function draw(cv,V,t,ground){
+  var px=cv.width, s=px/GEO.cell, ctx=cv.getContext('2d');
+  var S=GEO.seal, C=GEO.color, f=frameOf(V,t);
+  ctx.clearRect(0,0,px,px);
+  ctx.save(); ctx.scale(s,s);
+  ctx.translate(S.x,S.y); ctx.scale(ZOOM,ZOOM); ctx.translate(-S.x,-S.y);
+  if(ground==='inkt'){
+    var m=GEO.cell*(1-1/ZOOM)/2;
+    ctx.fillStyle=C.ink; ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(m,m,GEO.cell-2*m,GEO.cell-2*m,26/ZOOM);
+    else ctx.rect(m,m,GEO.cell-2*m,GEO.cell-2*m);
+    ctx.fill();
+  }
+  ctx.lineWidth=GEO.arc.width; ctx.lineCap='round';
+  ctx.strokeStyle=hexA(C.copper,f.arcAlpha);
+  ctx.beginPath(); ctx.arc(S.x,S.y,S.r,rad(GEO.arc.from),rad(GEO.arc.to)); ctx.stroke();
+
+  var ss=GEO.star.size*f.starScale;
+  if(f.starGlow>.001){
+    var gg=ctx.createRadialGradient(S.x,S.y,0,S.x,S.y,ss*2.6);
+    gg.addColorStop(0,hexA(C.copperLit,.30*f.starGlow));
+    gg.addColorStop(1,hexA(C.copperLit,0));
+    ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(S.x,S.y,ss*2.6,0,Math.PI*2); ctx.fill();
+  }
+  ctx.fillStyle=hexA(C.copperLit,GEO.star.alpha); starPath(ctx,S.x,S.y,ss); ctx.fill();
+
+  f.points.forEach(function(p){
+    if(p.a<=.002) return;
+    var col=p.violet?C.violet:C.copper;
+    var pg=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*3.4);
+    pg.addColorStop(0,hexA(col,p.a));
+    pg.addColorStop(.34,hexA(col,p.a*.42));
+    pg.addColorStop(1,hexA(col,0));
+    ctx.fillStyle=pg; ctx.beginPath(); ctx.arc(p.x,p.y,p.r*3.4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=hexA(col,Math.min(1,p.a*1.25));
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r*.62,0,Math.PI*2); ctx.fill();
+  });
+  ctx.restore();
+}
+
+/* =============================================================================
+   2 · HET GESPREK
+   Het menselijke bericht sluit af zoals het gesprek dat vraagt. Er staat geen
+   slogan onder, geen groet van het merk, geen vaste zin. Het zegel volgt.
+============================================================================= */
+var BASE=[
+  {d:'day', t:'Vandaag'},
+  {d:'in',  t:'Gedaan. Eerlijk gezegd schrok ik van de eerste pagina.', at:'14:41'},
+  {d:'out', t:'Dat is precies waar Maculis naar keek.', at:'14:52'},
+  {d:'out', t:'Van buiten gezien staat er op jullie contactpagina nergens wat jullie doen. Wie jullie kent vult dat zelf in. Wie jullie niet kent, klikt weg.', at:'14:53'},
+  {d:'in',  t:'Ja. Dat had ik nooit zo gezien.', at:'14:55'}
+];
+var ENDINGS=[
+  {id:'open',  l:'Draagt iets mee', s:'Er blijft iets openstaan voor later.',
+   t:'Fijn. Dan laat ik het hier liggen en spreken we elkaar donderdag.', at:'14:57'},
+  {id:'dicht', l:'Gesloten', s:'Er staat niets meer open.',
+   t:'Prima. Dan is het daarmee geregeld.', at:'14:57'}
+];
+
+var S={v:2, speed:1, ending:'open', ground:'vrij', theme:'donker', blind:false};
+var $=function(id){return document.getElementById(id);};
+function el(tag,cls,html){var e=document.createElement(tag); if(cls)e.className=cls;
+  if(html!=null)e.innerHTML=html; return e;}
+var esc=function(s){return String(s).replace(/[&<>]/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});};
+function V(){ return VARIANTS[S.v]; }
+
+function buttons(host,items,key,render){
+  host.innerHTML='';
+  items.forEach(function(it){
+    var b=el('button','opt'); b.type='button'; b.innerHTML=render(it);
+    b.addEventListener('click',function(){ S[key]=it.id; sync(true); });
+    host.appendChild(b);
+  });
+}
+function buildControls(){
+  buttons($('variants'),VARIANTS,'v',function(v){
+    return '<span class="k">'+v.k+'</span><span>'+v.name+'<span class="sub">'+v.tag+'</span></span>';});
+  buttons($('speeds'),[{id:1,l:'1×'},{id:.5,l:'½×'},{id:.25,l:'¼×'},{id:.125,l:'⅛×'}],'speed',
+    function(x){return x.l;});
+  buttons($('endings'),ENDINGS,'ending',function(e){
+    return '<span>'+e.l+'<span class="sub">'+e.s+'</span></span>';});
+  buttons($('grounds'),[{id:'vrij',l:'Vrijstaand'},{id:'inkt',l:'Op inkt'}],'ground',function(g){return g.l;});
+  buttons($('themes'),[{id:'donker',l:'Donker'},{id:'licht',l:'Licht'}],'theme',function(t){return t.l;});
+  $('blind').addEventListener('change',function(){ S.blind=this.checked; play(); });
+  $('replay').addEventListener('click',function(){ play(); });
+}
+
+/* ---------------------------------------------------------------------------
+   3 · RENDEREN
+--------------------------------------------------------------------------- */
+var chatCanvas=null, anim=null, blindTimer=null;
+
+function render(){
+  var chat=$('chat'); chat.innerHTML=''; chatCanvas=null;
+  var end=ENDINGS.filter(function(e){return e.id===S.ending;})[0];
+  BASE.concat([{d:'out', t:end.t, at:end.at}]).forEach(function(m){
+    if(m.d==='day'){ chat.appendChild(el('div','day',esc(m.t))); return; }
+    var b=el('div','msg '+m.d);
+    b.innerHTML=esc(m.t)+'<span class="meta">'+m.at+
+      (m.d==='out'?'<span class="tick">✓✓</span>':'')+'</span>';
+    chat.appendChild(b);
+  });
+  var w=el('div','sticker');
+  var cv=document.createElement('canvas');
+  var dpr=Math.min(window.devicePixelRatio||1,3);
+  cv.width=cv.height=Math.round(118*dpr);
+  cv.style.width=cv.style.height='118px';
+  cv.setAttribute('role','img'); cv.setAttribute('aria-label','Maculis');
+  w.appendChild(cv);
+  w.appendChild(el('span','meta','14:58<span class="tick">✓✓</span>'));
+  chat.appendChild(w);
+  chatCanvas=cv;
+  drawBoth(0);
+  requestAnimationFrame(function(){ chat.scrollTop=chat.scrollHeight; });
+}
+function drawBoth(t){
+  if(chatCanvas) draw(chatCanvas,V(),t,S.ground);
+  draw($('big'),V(),t,S.ground);
+}
+
+/* ---------------------------------------------------------------------------
+   4 · DE GEBEURTENIS
+--------------------------------------------------------------------------- */
+function bands(){
+  var t=$('track'), v=V();
+  Array.prototype.forEach.call(t.querySelectorAll('.band'),function(b){b.remove();});
+  if(v.still) return;
+  var W=v.duration, lastRel=0;
+  v.points.forEach(function(p){ lastRel=Math.max(lastRel,p.rel); });
+  var marks=[
+    [0, v.quiet, 'stilte'],
+    [v.quiet, v.approach[0], 'waarneembaar'],
+    [v.approach[0], v.breath.at, 'naderen'],
+    [v.breath.at, v.breath.at+v.breath.up+v.breath.down, 'respons'],
+    [v.breath.at+v.breath.up+v.breath.down, v.motionEnd, 'loslaten'],
+    [v.motionEnd, W, 'stil']
+  ];
+  marks.forEach(function(m,i){
+    var w=(m[1]-m[0])/W*100; if(w<=0) return;
+    var b=el('div','band');
+    b.style.left=(m[0]/W*100)+'%'; b.style.width=w+'%';
+    b.style.background = i%2 ? 'rgba(184,115,51,.07)' : 'rgba(184,115,51,.13)';
+    if(m[2]==='stilte'||m[2]==='stil') b.style.background='rgba(255,255,255,.02)';
+    if(m[2]==='respons'){ b.classList.add('breath'); b.style.background='rgba(230,185,141,.22)'; }
+    else if(w>12) b.appendChild(el('span',null,m[2]));
+    t.insertBefore(b,$('head'));
+  });
+}
+function stop(){
+  if(anim){cancelAnimationFrame(anim); anim=null;}
+  if(blindTimer){clearTimeout(blindTimer); blindTimer=null;}
+}
+function play(){
+  stop();
+  var v=V();
+  if(v.still){ drawBoth(0); return; }
+  var start=null;
+  var run=function(now){
+    if(start===null) start=now;
+    var t=(now-start)/1000*S.speed;
+    if(t>v.duration) t=v.duration;
+    drawBoth(t);
+    $('head').style.left=(t/v.duration*100)+'%';
+    $('clock').textContent=t.toFixed(2).replace('.',',')+' s';
+    if(t<v.duration) anim=requestAnimationFrame(run); else anim=null;
+  };
+  var begin=function(){
+    $('tl-note').textContent='De sticker staat er. Kijk naar de tekst erboven, niet naar het zegel.';
+    anim=requestAnimationFrame(run);
+  };
+  drawBoth(0);
+  $('head').style.left='0%'; $('clock').textContent='0,00 s';
+  if(S.blind){
+    $('tl-note').textContent='Studiemodus. Ergens binnen 2 tot 9 seconden gebeurt het. Lees '+
+      'ondertussen het gesprek.';
+    blindTimer=setTimeout(begin, 2000+Math.random()*7000);
+  } else begin();
+}
+
+/* ---------------------------------------------------------------------------
+   5 · BEWIJS
+   Het eerste frame, het laatste frame en de statische terugval moeten hetzelfde
+   beeld zijn. Dat is geen belofte maar een meting: hieronder wordt het per
+   kleurkanaal vergeleken. Het hoogtepunt staat ernaast om te bewijzen dat er
+   daadwerkelijk iets gebeurt.
+--------------------------------------------------------------------------- */
+function peakTime(v){
+  if(v.still) return 0;
+  return v.breath.at + v.breath.up;   // de top van de respons
+}
+function maxDiff(A,B){
+  var a=A.getContext('2d').getImageData(0,0,A.width,A.height).data;
+  var b=B.getContext('2d').getImageData(0,0,B.width,B.height).data;
+  var m=0;
+  for(var i=0;i<a.length;i++){ var d=Math.abs(a[i]-b[i]); if(d>m) m=d; }
+  return m;
+}
+// Hoeveel beeldpunten wijken merkbaar af? Dat is de eerlijkste maat voor
+// "hoeveel animatie", eerlijker dan het gevoel van de ontwerper.
+function movingPixels(A,B){
+  var a=A.getContext('2d').getImageData(0,0,A.width,A.height).data;
+  var b=B.getContext('2d').getImageData(0,0,B.width,B.height).data;
+  var n=0;
+  for(var i=0;i<a.length;i+=4){
+    var d=Math.max(Math.abs(a[i]-b[i]),Math.abs(a[i+1]-b[i+1]),Math.abs(a[i+2]-b[i+2]));
+    if(d>=6) n++;
+  }
+  return n;
+}
+function proof(){
+  var v=V(), a=$('p0'), k=$('pk'), b=$('p1');
+  draw(a,v,0,'inkt'); draw(k,v,peakTime(v),'inkt'); draw(b,v,v.duration,'inkt');
+  // op ware grootte meten, niet op de loep: 118 px bij dubbele dichtheid
+  var m0=document.createElement('canvas'), m1=document.createElement('canvas');
+  m0.width=m0.height=m1.width=m1.height=236;
+  draw(m0,v,0,'inkt'); draw(m1,v,peakTime(v),'inkt');
+  var rest=maxDiff(a,b), top=maxDiff(a,k), moving=movingPixels(m0,m1);
+  $('proof-out').innerHTML = v.still
+    ? 'Zonder beweging is er niets te bewijzen. <b>Eerste gelijk aan laatste: 0 van 255.</b>'
+    : 'Eerste tegen laatste: <b>'+rest+' van 255</b><br>'+
+      'Eerste tegen hoogtepunt: <i>'+top+' van 255</i><br>'+
+      'Bewegend oppervlak: <i>'+moving+' beeldpunten</i> op ware grootte<br>'+
+      (rest===0 ? 'Het rustframe keert exact terug, dus de statische terugval verliest niets.'
+                : 'Let op: het rustframe keert niet exact terug.');
+}
+
+/* ---------------------------------------------------------------------------
+   6 · SYNCHRONISATIE
+--------------------------------------------------------------------------- */
+function specTable(){
+  var v=V(), dl=$('spec'), rows;
+  var nl=function(n,d){return Number(n).toFixed(d===undefined?2:d).replace('.',',');};
+  if(v.still){
+    rows=[['Punten','0'],['Beweging','geen'],['Duur','n.v.t.'],['Rustframe','altijd']];
+  } else {
+    var arr=v.points.map(function(p){return Math.round(p.arrive*100)+'%';}).join(' · ');
+    var pk =v.points.map(function(p){return nl(0.05+(p.peak-0.05)*p.arrive);}).join(' · ');
+    var lastOff=0; v.points.forEach(function(p){ lastOff=Math.max(lastOff,p.rel+p.relDur); });
+    rows=[
+      ['Stilte vooraf', nl(v.quiet)+' s'],
+      ['Punten', v.points.length + (v.points.some(function(p){return p.violet;})?', één violet':'')],
+      ['Aankomst', arr],
+      ['Helderheid op de piek', pk],
+      ['Respons', nl(v.breath.up)+' s op, '+nl(v.breath.down)+' s af, winst '+nl(v.breath.gain)],
+      ['Loslaten', 'tot '+nl(lastOff)+' s, ongelijk'],
+      ['Volledig stil', nl(v.motionEnd)+' s'],
+      ['Duur', nl(v.duration)+' s'],
+      ['Lus', 'geen']
+    ];
+  }
+  dl.innerHTML='';
+  rows.forEach(function(r){ dl.appendChild(el('dt',null,r[0])); dl.appendChild(el('dd',null,r[1])); });
+}
+function sync(autoplay){
+  stop();
+  var press=function(sel,vals,cur){
+    document.querySelectorAll(sel).forEach(function(b,i){
+      b.setAttribute('aria-pressed',String(vals[i]===cur));});
+  };
+  press('#variants .opt',[0,1,2,3],S.v);
+  press('#speeds .opt',[1,.5,.25,.125],S.speed);
+  press('#endings .opt',['open','dicht'],S.ending);
+  press('#grounds .opt',['vrij','inkt'],S.ground);
+  press('#themes .opt',['donker','licht'],S.theme);
+
+  var v=V();
+  $('v-tag').textContent=v.k; $('v-n').textContent='0'+v.k;
+  $('v-h').textContent=v.name; $('v-p').textContent=v.lead;
+  $('v-body').textContent=v.body;
+  $('s-tag').textContent={1:'1×',0.5:'½×',0.25:'¼×',0.125:'⅛×'}[S.speed];
+  $('screen').classList.toggle('light',S.theme==='licht');
+  $('loupe').classList.toggle('light',S.theme==='licht');
+  $('replay').disabled=v.still;
+
+  render(); bands(); specTable(); proof();
+
+  $('timeline').hidden=v.still;
+  $('flat').hidden=!v.still;
+  if(v.still){
+    $('flat').textContent='Variant 0 heeft geen tijdlijn, want er verstrijkt niets. Blijf hier even '+
+      'langer dan comfortabel voelt. De vraag is niet of dit mooi is, maar of je iets mist.';
+    return;
+  }
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce){
+    $('tl-note').textContent='Je systeem vraagt om rustige beweging, dus er start niets vanzelf. '+
+      'Druk op Speel opnieuw wanneer je de gebeurtenis wilt zien.';
+    drawBoth(0);
+  } else if(autoplay!==false){ play(); }
+  else { $('tl-note').textContent='Druk op Speel opnieuw om de gebeurtenis te herhalen.'; drawBoth(0); }
+}
+
+buildControls();
+draw($('avatar'),VARIANTS[0],0,'inkt');
+sync(true);
+</script>
+</body>
+</html>
