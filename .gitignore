@@ -7,3 +7,6 @@ data/*.json
 # Local environment / secrets
 .env
 .env.local
+
+# Visuele regressie: baseline is bewijs en gaat mee, 'after' is een run-artefact.
+tools/visual/after/
