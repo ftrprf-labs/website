@@ -1,3 +1,30 @@
+# Maculis Visual DNA — waar de canon staat
+
+Het visuele DNA van Maculis wordt **niet** in deze repository vastgelegd en mag **nooit** uit
+productcode worden gereconstrueerd. De bindende bron staat centraal:
+
+| Wat | Waar |
+|---|---|
+| De canon | `ftrprf-labs/ftrlabs-docs` → `03-ux/principles/maculis-visual-dna.md` (`UX-VISUAL-DNA`, approved, v1.0) |
+| De tokens | `ftrprf-labs/ftrlabs-docs` → `03-ux/specifications/maculis-tokens.css` en `.json` |
+| Het visuele ijkpunt | `ftrprf-labs/ftrlabs-docs` → `03-ux/assets/maculis-visual-north-star.html` |
+| Leesvolgorde en regels | `ftrprf-labs/ftrlabs-docs` → `03-ux/README.md` |
+
+**`public/styles.css` en de inline styles in `public/workspace.html` en `public/comm.html` zijn geen
+canon.** Ze beschrijven hoe deze omgeving vandaag toevallig gebouwd is, niet hoe het hoort. Wijkt
+deze repository af van de canon, dan wint de canon en staat dit onderdeel op de lijst voor
+harmonisatie. Leid hier dus geen design system uit af.
+
+Bekende afwijkingen, al gepland, niet op eigen initiatief wijzigen: de easing in `styles.css` wijkt
+een cijfer af van de canonieke curve, `workspace.html` en `comm.html` gebruiken neutraal grijze
+hairlines en koele ink waar de canon koper en warme ink voorschrijft, en er is daar geen serif
+terwijl de canon Newsreader voorschrijft.
+
+Heb je geen toegang tot `ftrlabs-docs`, vraag er dan om. Begin niet met visueel werk zonder de canon
+gelezen te hebben.
+
+---
+
 # Maculis Testerbeheer / Communication Layer — repo-instructies
 
 ## Permanente schrijfregel (publieksgerichte copy) — VERPLICHT
