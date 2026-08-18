@@ -60,6 +60,26 @@ negen namen als HSL-drietallen. De eigen schaal heet nu `--w-ink-*`.
 
 ---
 
+## 2026-08-18 — Website M-1: motion-hygiene afgerond
+
+**GO gegeven en afgerond.** De opschoning en de canonieke timing zijn akkoord. De hero-onthulling
+op 1400ms geldt vanaf nu als onderdeel van de motioncanon en niet als een openstaand punt.
+
+**Commit:** `d9698a3ab0d378f130359db5d336641fe65771e6`.
+
+**Wat er is gebeurd.** Vier oneindige lussen verwijderd (`float`, `float-slow`, `marquee`,
+`pulse-ring`) met hun keyframes, conform canon 8.1 en 8.3. Alle vier zaten in code die nooit
+rendert, en `pulse-ring` droeg de enige niet-canonieke curve in het project. Er is nu nog één curve
+en dat is de canonieke. De duren van `animate-lens-in` en `hero-focus` komen uit de canonieke
+tokens in plaats van hardgecodeerd, dus 1400ms `motion.reveal` en 120ms `motion.micro`.
+
+**Bewijs.** Audit 26 controles en 0 afwijkingen, reduced motion blijft harde gate, en 36 van de 36
+renders byte-identiek aan de goedgekeurde F4-staat.
+
+**Blijft open als eigen F2-punt:** elf sectiecomponenten die nergens worden gerenderd.
+
+---
+
 ## Opschoning bij de afronding van de harmonisatie (openstaande actie)
 
 Vast te leggen zodat het niet bij de laatste GO vergeten wordt.
