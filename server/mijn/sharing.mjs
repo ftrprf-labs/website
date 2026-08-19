@@ -23,6 +23,9 @@ import { recordAudit } from '../comm/audit.mjs';
 // Columns that are safe to send to a customer. NB: `provenance` is deliberately excluded — the raw
 // internal evidence/confidence trail never leaves the server toward the customer. Two derived
 // booleans (never the version ids themselves) support the A2 UX:
+//   evidence_count        = how many observations under this insight have a customer-safe label.
+//                           Het Veld sizes the light by this number, so it must come from the same
+//                           fail-closed source the evidence list uses: no label, no count (canon 7).
 //   developed             = this insight has more than one reading (it has developed over time).
 //   unshared_development  = it is SHARED but the current reading is newer than the shared one, so
 //                           there is a new development the customer has not shared with Maculis yet.
@@ -30,7 +33,9 @@ const CUSTOMER_SELECT =
   `ci.id, ci.title, ci.stance, ci.observation, ci.meaning, ci.basis, ci.not_yet_known, ci.sharing,
    ci.source, ci.status, ci.attention, ci.created_at, ci.updated_at, ci.shared_at,
    (select count(*) from insight_version v where v.insight_id = ci.id) > 1 as developed,
-   (ci.sharing='SHARED' and ci.shared_version_id is distinct from ci.current_version_id) as unshared_development`;
+   (ci.sharing='SHARED' and ci.shared_version_id is distinct from ci.current_version_id) as unshared_development,
+   (select count(*)::int from insight_observation o
+     where o.insight_id = ci.id and o.customer_label is not null) as evidence_count`;
 
 // ---- customer-facing reads (own org: PRIVATE + SHARED) -----------------------------------------
 

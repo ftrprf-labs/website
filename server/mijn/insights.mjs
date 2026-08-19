@@ -93,12 +93,31 @@ export async function insightDevelopment(tenantId, organizationId, insightId) {
   }));
 }
 
+// The evidence under one insight: the observations that were deliberately written for the customer.
+// FAIL-CLOSED: an observation without a customer_label is not returned and was not counted either, so
+// nothing reaches the customer because someone forgot to redact it. `provenance` and `signal` stay
+// internal and are not selected here at all.
+export async function insightEvidence(tenantId, organizationId, insightId) {
+  const r = await query(
+    `select o.customer_label as label, o.observed_at
+       from insight_observation o
+       join customer_insight ci on ci.id = o.insight_id
+      where o.insight_id=$1 and o.tenant_id=$2 and o.organization_id=$3
+        and o.customer_label is not null
+      order by o.observed_at asc, o.created_at asc`,
+    [insightId, tenantId, organizationId]);
+  return r.rows.map((o) => ({ label: o.label, at: o.observed_at }));
+}
+
 // One insight detail, strictly own-org scoped (returns null for any other org's id), with its human
 // development timeline. The customer sees the CURRENT reading as the main body (insight.*) and the
 // progression in `development`; nothing technical about the versioning is exposed.
 export async function customerInsightDetail(tenantId, organizationId, insightId) {
   const insight = await insightForCustomer(tenantId, organizationId, insightId);
   if (!insight) return null;
-  const development = await insightDevelopment(tenantId, organizationId, insightId);
-  return { insight, development };
+  const [development, evidence] = await Promise.all([
+    insightDevelopment(tenantId, organizationId, insightId),
+    insightEvidence(tenantId, organizationId, insightId),
+  ]);
+  return { insight, development, evidence };
 }

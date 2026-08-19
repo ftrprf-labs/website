@@ -17,7 +17,7 @@ export async function createInsightWithInitialVersion({
   observation = null, meaning = null, basis = null, notYetKnown = null,
   sharing = 'PRIVATE', source = 'lens', provenance = {}, status = 'new',
   isPreview = false, attention = false, sharedAt = null, sharedBy = null,
-  signal = {}, observedAt = null,
+  signal = {}, observedAt = null, customerLabel = null,
 }) {
   return withTransaction(async (c) => {
     const head = (await c.query(
@@ -40,10 +40,10 @@ export async function createInsightWithInitialVersion({
 
     const obs = (await c.query(
       `insert into insight_observation
-         (tenant_id, organization_id, insight_id, source, source_ref, observed_at, stance_observed, signal, provenance, link_confidence, created_at)
-       values ($1,$2,$3,$4,'{}'::jsonb, coalesce($5::timestamptz, now()), $6, $7::jsonb, $8::jsonb, 'linked', coalesce($5::timestamptz, now()))
+         (tenant_id, organization_id, insight_id, source, source_ref, observed_at, stance_observed, signal, provenance, link_confidence, created_at, customer_label)
+       values ($1,$2,$3,$4,'{}'::jsonb, coalesce($5::timestamptz, now()), $6, $7::jsonb, $8::jsonb, 'linked', coalesce($5::timestamptz, now()), $9)
        returning id`,
-      [tenantId, organizationId, insightId, source, observedAt, stance, JSON.stringify(signal || {}), JSON.stringify(provenance || {})])).rows[0];
+      [tenantId, organizationId, insightId, source, observedAt, stance, JSON.stringify(signal || {}), JSON.stringify(provenance || {}), customerLabel])).rows[0];
 
     // Point the head at the initial version. shared_version_id is bound ONLY if this insight is
     // created already SHARED (a pre-shared fixture) — consent is version-bound from the start.
@@ -55,6 +55,23 @@ export async function createInsightWithInitialVersion({
 
     return { insightId, versionId, observationId: obs.id };
   });
+}
+
+// Append one more observation under an existing insight: another thing Maculis saw that supports the
+// same reading. `customerLabel` is what the customer may read; provenance and signal stay internal.
+// This is the write side of what Het Veld shows as one more point of light under an utterance.
+export async function addObservation({
+  tenantId, organizationId, insightId, customerLabel = null, observedAt = null,
+  source = 'lens', stance = null, signal = {}, provenance = {},
+}) {
+  const r = await query(
+    `insert into insight_observation
+       (tenant_id, organization_id, insight_id, source, source_ref, observed_at, stance_observed, signal, provenance, link_confidence, created_at, customer_label)
+     values ($1,$2,$3,$4,'{}'::jsonb, coalesce($5::timestamptz, now()), $6, $7::jsonb, $8::jsonb, 'linked', coalesce($5::timestamptz, now()), $9)
+     returning id`,
+    [tenantId, organizationId, insightId, source, observedAt, stance,
+      JSON.stringify(signal || {}), JSON.stringify(provenance || {}), customerLabel]);
+  return { observationId: r.rows[0].id };
 }
 
 // Append a newer reading. Advances the head's CURRENT pointer + cached fields (so the customer sees

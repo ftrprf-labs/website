@@ -11,7 +11,7 @@ import { query, commEnabled } from '../comm/db.mjs';
 import { getDefaultTenantId } from '../comm/tenant.mjs';
 import { config } from '../config.mjs';
 import { createAccess } from './access.mjs';
-import { createInsightWithInitialVersion, appendVersion } from './versions.mjs';
+import { createInsightWithInitialVersion, appendVersion, addObservation } from './versions.mjs';
 
 export const PREVIEW_ORG_NAME = 'De Voorbeeld Groep';
 export const PREVIEW_USER = { label: 'Sanne de Vries', role: 'Klantadmin' };
@@ -31,6 +31,127 @@ function daysFromNow(days) {
 // The fixture insights. They deliberately cover the full epistemic range so the UI proves it can
 // hold more than a "spectacular reveal": a tension, a plain reveal, a consistency finding, a
 // non_reveal ("we see NO difference"), and an explicit unknown. `provenance` is internal-only.
+// Wat de klant per inzicht mag lezen als bewijs. Dit is preview-inhoud: klantveilig geschreven,
+// nooit afgeleid uit provenance. Het eerste item wordt de beginwaarneming, de rest komt erbij.
+const FIXTURE_EVIDENCE = {
+  "Jullie positionering wordt intern niet overal hetzelfde ervaren": [
+    {
+      "label": "De pagina Over ons op jullie website",
+      "dagen": -68
+    },
+    {
+      "label": "De klantcase over de gemeente",
+      "dagen": -68
+    },
+    {
+      "label": "Vacaturetekst voor accountmanager",
+      "dagen": -46
+    },
+    {
+      "label": "Vacaturetekst voor projectleider",
+      "dagen": -46
+    },
+    {
+      "label": "Bericht van een teamlid op LinkedIn",
+      "dagen": -28
+    },
+    {
+      "label": "Interne nieuwsbrief, editie mei",
+      "dagen": -9
+    },
+    {
+      "label": "Tweede bericht van een teamlid",
+      "dagen": -5
+    }
+  ],
+  "Interne communicatie mist een consistente lijn": [
+    {
+      "label": "Interne nieuwsbrief, editie maart",
+      "dagen": -74
+    },
+    {
+      "label": "Interne nieuwsbrief, editie mei",
+      "dagen": -9
+    },
+    {
+      "label": "Twee vacatureteksten naast elkaar",
+      "dagen": -46
+    },
+    {
+      "label": "Bericht van een teamlid",
+      "dagen": -28
+    }
+  ],
+  "Sterke betrokkenheid bij klantgerichtheid": [
+    {
+      "label": "Zes klantverhalen op de site",
+      "dagen": -68
+    },
+    {
+      "label": "Reactie op een recensie",
+      "dagen": -52
+    },
+    {
+      "label": "Teampagina, hoe jullie het zelf zeggen",
+      "dagen": -68
+    },
+    {
+      "label": "Nieuwsbericht over een geslaagd project",
+      "dagen": -31
+    },
+    {
+      "label": "Antwoord op een klantvraag, publiek",
+      "dagen": -20
+    },
+    {
+      "label": "De belofte op de homepage",
+      "dagen": -68
+    }
+  ],
+  "Positionering wordt extern duidelijker dan intern": [
+    {
+      "label": "Homepage en dienstenpagina",
+      "dagen": -68
+    },
+    {
+      "label": "Twee persberichten",
+      "dagen": -45
+    },
+    {
+      "label": "Profiel op een brancheplatform",
+      "dagen": -33
+    },
+    {
+      "label": "Presentatie die publiek staat",
+      "dagen": -25
+    },
+    {
+      "label": "Bericht van een teamlid, intern van toon",
+      "dagen": -28
+    }
+  ],
+  "Tussen jullie belofte en wat klanten ervaren zien we geen kloof": [
+    {
+      "label": "Elf publieke reacties van klanten",
+      "dagen": -52
+    },
+    {
+      "label": "De belofte op de homepage",
+      "dagen": -68
+    },
+    {
+      "label": "Drie klantverhalen",
+      "dagen": -68
+    }
+  ],
+  "Over jullie interne besluitvorming hebben we nog onvoldoende zicht": [
+    {
+      "label": "Eén zin in een jaarbericht",
+      "dagen": -110
+    }
+  ]
+};
+
 function fixtureInsights() {
   return [
     {
@@ -170,6 +291,7 @@ export async function seedPreviewCore({ tenantId = null } = {}) {
   // one observation, and (for a pre-shared fixture) a version-bound share pointer.
   const byTitle = {};
   for (const i of fixtureInsights()) {
+    const bewijs = FIXTURE_EVIDENCE[i.title] || [];
     const r = await createInsightWithInitialVersion({
       tenantId: tid, organizationId: orgId, title: i.title, stance: i.stance,
       observation: i.observation, meaning: i.meaning, basis: i.basis, notYetKnown: i.not_yet_known,
@@ -177,8 +299,21 @@ export async function seedPreviewCore({ tenantId = null } = {}) {
       isPreview: true, attention: i.attention,
       sharedAt: i.sharing === 'SHARED' ? daysFromNow(-14) : null,
       signal: { keys: (i.provenance && i.provenance.signals) || [] },
+      observedAt: bewijs.length ? daysFromNow(bewijs[0].dagen) : null,
+      customerLabel: bewijs.length ? bewijs[0].label : null,
     });
     byTitle[i.title] = r.insightId;
+
+    // De overige waarnemingen onder ditzelfde inzicht. Het veld leest hieruit hoeveel
+    // onafhankelijke signalen de uitspraak dragen, en de straal van het licht volgt dat.
+    for (const b of bewijs.slice(1)) {
+      await addObservation({
+        tenantId: tid, organizationId: orgId, insightId: r.insightId,
+        customerLabel: b.label, observedAt: daysFromNow(b.dagen), stance: i.stance,
+        signal: { keys: (i.provenance && i.provenance.signals) || [] },
+        provenance: i.provenance || {},
+      });
+    }
   }
 
   // A2 demonstration: append a later reading to two insights so the preview shows development.
