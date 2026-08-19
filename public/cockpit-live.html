@@ -161,7 +161,11 @@
         <div class="foot">
           <a href="#" data-nav="beheer" class="beheer-link"><span class="ico" aria-hidden="true">≡</span><span class="lbl">Beheer</span></a>
           <div class="whoami"><span class="dot"></span> <span id="who">Maculis</span></div>
-          <div class="live-badge" style="margin-top:8px;color:var(--ok);font-weight:600">Echte data</div>
+          <!-- De badge stond hier hard op "Echte data", ook wanneer de pagina meldde dat er geen
+               database is. Dat is een vertrouwensfout: het scherm beweerde echte data te tonen
+               terwijl het net had gezegd niets te hebben. cockpit-live.js zet hem nu naar de
+               werkelijke toestand. -->
+          <div class="live-badge" id="live-badge" hidden></div>
         </div>
       </aside>
       <main class="main">

@@ -81,10 +81,28 @@ let activeDraft = null; // full draft state
 let agentsOn = false;   // digital-colleague domain enabled (the permanent "Vraag Scout" entry is shown)
 
 /* ---------- boot ---------- */
+// De badge in de rail vertelt wat er werkelijk onder dit scherm ligt. Hij mag nooit "echte data"
+// beweren terwijl de cockpit meldt dat er geen database is: dat zou precies het vertrouwen breken
+// dat deze cockpit bewaakt.
+function setLiveBadge(state) {
+  const b = document.getElementById('live-badge');
+  if (!b) return;
+  const MAP = {
+    live: { text: 'Echte data', color: 'var(--semantic-confirmed)' },
+    off: { text: 'Geen database', color: 'var(--text-quiet)' },
+    locked: { text: 'Niet ingelogd', color: 'var(--text-quiet)' },
+  };
+  const m = MAP[state] || MAP.off;
+  b.textContent = m.text;
+  b.style.color = m.color;
+  b.hidden = false;
+}
+
 async function boot() {
   const { data: cfg } = await api('/api/cockpit/config');
-  if (!cfg || !cfg.commEnabled) return renderDisabled();
-  if (!cfg.authed) return renderLogin();
+  if (!cfg || !cfg.commEnabled) { setLiveBadge('off'); return renderDisabled(); }
+  if (!cfg.authed) { setLiveBadge('locked'); return renderLogin(); }
+  setLiveBadge('live');
   agentsOn = Boolean(cfg.agentsEnabled);
   wireScoutEntry();
   wireNav();
@@ -342,9 +360,12 @@ function radarCard(c) {
   // digitale collega zag, of iets wat Maculis opmerkte zonder dat iemand erom vroeg (de radar).
   // Een binnengekomen bericht is geen waarneming van Maculis en krijgt dus geen punt.
   // Een digitale collega heeft al een eigen regel met lichtpunt eronder; dan hoeft de naam er
-  // geen tweede te dragen. Een kaart die alleen op de radar staat, draagt hem hier.
+  // geen tweede te dragen. Een kaart in de RADAR-bak draagt hem hier: die staat er omdat Maculis
+  // zelf iets opmerkte zonder dat iemand erom vroeg, en dat is precies een waarneming.
+  // (`primary.needs` is alleen gevuld bij werk van een collega, dus dat veld kan deze vraag niet
+  // beantwoorden; de bak van de kaart wel.)
   const byAgent = Boolean(c.primary.origin && c.primary.origin.kind === 'AGENT');
-  const observed = !byAgent && c.primary.needs === 'awareness';
+  const observed = !byAgent && c.bucket === 'RADAR';
   b.innerHTML =
     `<div class="row1">
        ${observed ? '<span class="mac-signal" aria-hidden="true"></span>' : ''}

@@ -51,15 +51,15 @@ export const today = {
   buckets: {
     NU: [
       {
-        contactId: ID(1), conversationId: ID(11), who: 'Hanne Vermeulen', org: 'Vergezicht', channel: 'EMAIL',
+        bucket: 'NU', contactId: ID(1), conversationId: ID(11), who: 'Hanne Vermeulen', org: 'Vergezicht', channel: 'EMAIL',
         hasPrepared: false,
-        primary: { reason: 'Hanne stelde een vraag en wacht sinds gisteren op antwoord.', needs: 'review', origin: { kind: 'HUMAN', label: 'Hanne' } },
+        primary: { reason: 'Hanne stelde een vraag en wacht sinds gisteren op antwoord.', needs: null, origin: null },
         secondary: [{ reason: 'Eerder deze maand ging het gesprek over hetzelfde onderwerp.' }],
         followUps: [],
         work: [],
       },
       {
-        contactId: ID(2), conversationId: null, who: 'Stichting Bergwater', org: 'Stichting Bergwater', channel: null,
+        bucket: 'NU', contactId: ID(2), conversationId: null, who: 'Stichting Bergwater', org: 'Stichting Bergwater', channel: null,
         hasPrepared: false,
         primary: { reason: 'Scout vraagt jouw akkoord voor een nieuwe relatie.', needs: 'approval', origin: { kind: 'AGENT', label: 'Scout' } },
         secondary: [],
@@ -69,9 +69,9 @@ export const today = {
     ],
     KLAAR: [
       {
-        contactId: ID(3), conversationId: ID(13), who: 'Joris Aalders', org: 'De Kade', channel: 'EMAIL',
+        bucket: 'KLAAR', contactId: ID(3), conversationId: ID(13), who: 'Joris Aalders', org: 'De Kade', channel: 'EMAIL',
         hasPrepared: true,
-        primary: { reason: 'Maculis zette een concept klaar op de vraag over de planning.', needs: 'review', origin: { kind: 'HUMAN', label: 'Maculis' } },
+        primary: { reason: 'Maculis zette een concept klaar op de vraag over de planning.', needs: null, origin: null },
         secondary: [],
         followUps: [{ id: ID(41), title: 'Terugkoppeling planning' }],
         work: [],
@@ -79,21 +79,21 @@ export const today = {
     ],
     RADAR: [
       {
-        contactId: ID(4), conversationId: null, who: 'Marijke de Wilde', org: 'Noorderlicht', channel: null,
+        bucket: 'RADAR', contactId: ID(4), conversationId: null, who: 'Marijke de Wilde', org: 'Noorderlicht', channel: null,
         hasPrepared: false,
-        primary: { reason: 'Al negen weken stil, terwijl het laatste gesprek open eindigde.', needs: 'awareness', origin: { kind: 'HUMAN', label: 'Maculis' } },
+        primary: { reason: 'Al negen weken stil, terwijl het laatste gesprek open eindigde.', needs: null, origin: null },
         secondary: [], followUps: [], work: [],
       },
       {
-        contactId: ID(5), conversationId: null, who: 'Sam Okonkwo', org: 'Veldwerk', channel: null,
+        bucket: 'RADAR', contactId: ID(5), conversationId: null, who: 'Sam Okonkwo', org: 'Veldwerk', channel: null,
         hasPrepared: false,
-        primary: { reason: 'Doorliep de Lens en gaf toestemming om contact te houden.', needs: 'awareness', origin: { kind: 'HUMAN', label: 'Maculis' } },
+        primary: { reason: 'Doorliep de Lens en gaf toestemming om contact te houden.', needs: null, origin: null },
         secondary: [], followUps: [], work: [],
       },
       {
-        contactId: ID(6), conversationId: null, who: 'Fenna Bakker', org: null, channel: null,
+        bucket: 'RADAR', contactId: ID(6), conversationId: null, who: 'Fenna Bakker', org: null, channel: null,
         hasPrepared: false,
-        primary: { reason: 'Nieuwe introductie via een bestaande relatie.', needs: 'awareness', origin: { kind: 'HUMAN', label: 'Maculis' } },
+        primary: { reason: 'Nieuwe introductie via een bestaande relatie.', needs: null, origin: null },
         secondary: [], followUps: [], work: [],
       },
     ],
