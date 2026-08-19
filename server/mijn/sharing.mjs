@@ -29,37 +29,55 @@ import { recordAudit } from '../comm/audit.mjs';
 //   developed             = this insight has more than one reading (it has developed over time).
 //   unshared_development  = it is SHARED but the current reading is newer than the shared one, so
 //                           there is a new development the customer has not shared with Maculis yet.
-//   recognition           = the customer's own durable answer to "Herken je dit?" plus their optional
-//                           explanation. It is theirs, so it follows the SAME boundary as the
-//                           insight: sharedContextForOrg only carries it once the insight is SHARED.
+//   recognition           = het eigen antwoord van DEZE persoon op "Herken je dit?". Het komt uit
+//                           insight_recognition en hangt aan (inzicht, contact). Het reist nooit met
+//                           `sharing` mee: zie de opmerking bij sharedContextForOrg.
 const CUSTOMER_SELECT =
   `ci.id, ci.title, ci.stance, ci.observation, ci.meaning, ci.basis, ci.not_yet_known, ci.sharing,
-   ci.source, ci.status, ci.attention, ci.created_at, ci.updated_at, ci.shared_at,
-   ci.recognition, ci.recognition_note, ci.recognition_at,
+   ci.audience, ci.source, ci.status, ci.attention, ci.created_at, ci.updated_at, ci.shared_at,
+   ir.answer as recognition, ir.note as recognition_note, ir.at as recognition_at,
    (select count(*) from insight_version v where v.insight_id = ci.id) > 1 as developed,
    (ci.sharing='SHARED' and ci.shared_version_id is distinct from ci.current_version_id) as unshared_development,
    (select count(*)::int from insight_observation o
      where o.insight_id = ci.id and o.customer_label is not null) as evidence_count`;
 
-// ---- customer-facing reads (own org: PRIVATE + SHARED) -----------------------------------------
+// ---- customer-facing reads ----------------------------------------------------------------------
+//
+// TWEE VRAGEN, TWEE VELDEN. Wat hier wordt beantwoord is dimensie A: wie binnen de klantorganisatie
+// dit inzicht mag zien. Dat leest `ci.audience`. Of Maculis de inhoud mag zien is dimensie B, dat is
+// `ci.sharing`, en dat speelt hier geen enkele rol. De twee mogen nooit dezelfde beslissing worden.
+//
+// In V1 kent audience één waarde. Dat is bewust een expliciete controle en geen weggelaten filter:
+// er staat iets om tegen te programmeren en iets om te testen, en een latere beleidskeuze is dan een
+// waarde erbij in plaats van een verbouwing.
+export const ZICHTBAAR_BINNEN_ORGANISATIE = ['ORGANISATIE'];
 
-// Every insight the customer of this org may see (their own PRIVATE plus what they already SHARED).
-export async function visibleInsights(tenantId, organizationId) {
+// De persoonlijke laag hangt aan (inzicht, contact). Zonder contact blijft hij LEEG, nooit
+// organisatiebreed: dat is de fail-closed kant van deze join.
+const PERSOONLIJK_JOIN =
+  'left join insight_recognition ir on ir.insight_id = ci.id and ir.contact_id = $CONTACT::uuid';
+
+// Elk inzicht dat deze persoon binnen zijn organisatie mag zien.
+export async function visibleInsights(tenantId, organizationId, contactId = null) {
   const r = await query(
     `select ${CUSTOMER_SELECT} from customer_insight ci
+       ${PERSOONLIJK_JOIN.replace('$CONTACT', '$4')}
       where ci.tenant_id=$1 and ci.organization_id=$2 and ci.status <> 'archived'
+        and ci.audience = any($3)
       order by ci.attention desc, ci.updated_at desc`,
-    [tenantId, organizationId]);
+    [tenantId, organizationId, ZICHTBAAR_BINNEN_ORGANISATIE, contactId]);
   return r.rows;
 }
 
 // A single insight, strictly scoped to the customer's own org. Returns null when the id belongs to
 // another organization or tenant — this is what makes direct URL/id manipulation leak nothing.
-export async function insightForCustomer(tenantId, organizationId, insightId) {
+export async function insightForCustomer(tenantId, organizationId, insightId, contactId = null) {
   const r = await query(
     `select ${CUSTOMER_SELECT} from customer_insight ci
-      where ci.id=$1 and ci.tenant_id=$2 and ci.organization_id=$3 and ci.status <> 'archived'`,
-    [insightId, tenantId, organizationId]);
+       ${PERSOONLIJK_JOIN.replace('$CONTACT', '$5')}
+      where ci.id=$1 and ci.tenant_id=$2 and ci.organization_id=$3 and ci.status <> 'archived'
+        and ci.audience = any($4)`,
+    [insightId, tenantId, organizationId, ZICHTBAAR_BINNEN_ORGANISATIE, contactId]);
   return r.rows[0] || null;
 }
 
@@ -72,14 +90,16 @@ export async function insightForCustomer(tenantId, organizationId, insightId) {
 // Imported by the AI context engine, so authorized model context can, by construction, never contain
 // PRIVATE data nor an unshared newer version.
 //
-// The customer's recognition answer travels with the insight and not beside it. On a SHARED insight
-// that answer is exactly what Maculis asked for, so it belongs here. On a PRIVATE insight this query
-// returns nothing at all, so the answer cannot leak either.
+// DE PERSOONLIJKE LAAG REIST HIER NOOIT MEE. Eerder stond het herkenningsantwoord in deze query, met
+// de redenering dat het op een gedeeld inzicht precies is wat Maculis vroeg. Dat was fout, en niet
+// een beetje: het koppelt een persoonlijke keuze aan een handeling van iemand anders. Antwoordt
+// Sanne "Nee" op een inzicht dat nog niet gedeeld is, en deelt Piet dat inzicht later, dan zou haar
+// antwoord alsnog naar de Cockpit stromen. Een handeling van Piet verandert dan een privacykeuze van
+// Sanne. Wie wil dat Maculis zijn antwoord kent, zegt dat in een gesprek.
 export async function sharedContextForOrg(tenantId, organizationId) {
   if (!organizationId) return [];
   const r = await query(
-    `select ci.id, iv.title, iv.stance, iv.observation, iv.meaning, ci.status, ci.sharing, ci.shared_at,
-            ci.recognition, ci.recognition_note, ci.recognition_at
+    `select ci.id, iv.title, iv.stance, iv.observation, iv.meaning, ci.status, ci.sharing, ci.shared_at
        from customer_insight ci
        join insight_version iv on iv.id = ci.shared_version_id
       where ci.tenant_id=$1 and ci.organization_id=$2
@@ -87,6 +107,31 @@ export async function sharedContextForOrg(tenantId, organizationId) {
       order by ci.shared_at desc nulls last, ci.updated_at desc`,
     [tenantId, organizationId]);
   return r.rows;
+}
+
+// De context die de klant BEWUST bij één gesprek heeft gedeeld, zodat een mens bij Maculis de vraag
+// kan begrijpen. Dit is met opzet een APART leespad:
+//
+//   * het is per gesprek opvraagbaar en nergens anders;
+//   * het maakt het inzicht niet gedeeld: `customer_insight.sharing` blijft wat het was;
+//   * het komt NOOIT in sharedContextForOrg terecht, dus het wordt geen onderdeel van de algemene
+//     gedeelde organisatiewerkelijkheid en het beïnvloedt geen enkel ander gesprek;
+//   * het draagt een momentopname van de uitspraak en de houding, en niets van de lezing eronder,
+//     het bewijs of de persoonlijke laag.
+//
+// Delen van gesprekscontext en delen van een inzicht zijn daarmee twee verschillende handelingen,
+// met twee verschillende tabellen en twee verschillende sporen.
+export async function conversationContext(tenantId, conversationId) {
+  if (!conversationId) return [];
+  const r = await query(
+    `select insight_id, title, stance, at
+       from insight_context_share
+      where tenant_id=$1 and conversation_id=$2
+      order by at asc`,
+    [tenantId, conversationId]);
+  // Eén regel per inzicht: een tweede vraag in dezelfde draad deelt niet nog eens iets nieuws.
+  const gezien = new Set();
+  return r.rows.filter((row) => (gezien.has(row.insight_id) ? false : gezien.add(row.insight_id)));
 }
 
 // PREVIEW / ARCHITECTURE PROOF (§25). Demonstrates the boundary from the INTERNAL side: what Maculis

@@ -5,6 +5,45 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-19 — Mijn Maculis fase 1: gedeelde werkelijkheid, persoonlijke aandacht (preview)
+
+**Wat.** Twee mensen bij één organisatie zien vanaf nu dezelfde inzichten, maar niet elkaars
+gesprekken en antwoorden. Daarvoor moesten twee privacyvragen uit elkaar die er tot nu toe als één
+uitzagen. Dimensie A, wie binnen de klantorganisatie een inzicht mag zien, leest `customer_insight.audience`
+en wordt expliciet gecontroleerd. Dimensie B, of Maculis de inhoud mag zien en gebruiken, blijft
+`customer_insight.sharing` en verandert geen letter. Ze mogen nooit hetzelfde veld en nooit dezelfde
+autorisatiebeslissing worden.
+
+**Een privacyfout hersteld.** Bij de communicatielaag waren `recognition` en `recognition_note`
+toegevoegd aan `sharedContextForOrg`, met de redenering dat het antwoord op een gedeeld inzicht
+precies is wat Maculis vroeg. Dat was fout. Het koppelt een persoonlijke keuze aan een handeling van
+iemand anders: antwoordt Sanne "Nee" op een ongedeeld inzicht en deelt Piet dat later, dan zou haar
+antwoord alsnog naar de Cockpit stromen. De persoonlijke laag reist nu nooit mee met `sharing`.
+
+**Gesprekscontext als eigen handeling.** Praten over een nog niet gedeeld inzicht mag, en dat is iets
+anders dan het delen. Het onderwerp van de draad is neutraal geworden, want dat is organisatiebrede
+metadata die ook in het attentiemodel meekomt. Wat Maculis meekrijgt om de vraag te begrijpen staat
+als momentopname in `insight_context_share`: de uitspraak zoals Maculis die zelf schreef en de
+houding, per gesprek. Niet de lezing eronder, niet het bewijs, nooit de persoonlijke laag. Versturen
+ís de keuze, en dat staat er vooraf. `sharing` blijft onaangeraakt en `sharedContextForOrg` leest
+deze tabel niet.
+
+**Verder.** Gesprekken, herkenning en de leesstatus zijn persoonsgebonden, fail-closed: zonder
+contact is de persoonlijke laag leeg en kan er niet geschreven worden. De preview heeft een tweede
+persoon, Piet Jansen, bij dezelfde organisatie.
+
+**Bewijs.** `tests/mijn-toegang.test.mjs` doet de zes gevraagde regressies end to end door de echte
+routes, plus dat `audience` werkelijk gecontroleerd wordt en dat een handeling van Piet niets aan
+Sanne verandert (`deepEqual` over haar herkenning, haar draad en haar gedeelde context, vóór en na).
+Volledige suite 90 van 91; de ene rode is de bekende comm-ai copilot. Audit, motion, affordance,
+gesprek en de mobiele acceptatie ALLES GROEN.
+
+**Geparkeerd.** De copy "Alleen voor jou" is nu op twee manieren onnauwkeurig en blijft bewust staan
+tot daar een eigen ronde voor komt. Opruimen van de ongebruikte `customer_insight.recognition*`
+kolommen is schuld.
+
+---
+
 ## 2026-08-19 — Mijn Maculis: de mobiele compositie van Het Veld (preview)
 
 **Wat.** Op een telefoon liepen de waarnemingen dwars door de leesbare HUD-tekst, terwijl er onderin

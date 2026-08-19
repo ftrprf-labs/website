@@ -48,6 +48,9 @@ export async function handleMijn(req, res, { pathname, method }) {
   if (!access) { json(res, 401, { error: 'Geen geldige toegang tot Mijn Maculis.' }); return true; }
 
   const { tenantId, organizationId } = access;
+  // De persoon achter deze toegang. Alles wat persoonlijk is, hangt hieraan; ontbreekt hij, dan is
+  // de persoonlijke laag leeg in plaats van organisatiebreed.
+  const contactId = access.contactId || null;
 
   // Session / identity for the landing (who am I, which organization is this).
   if (pathname === '/api/mijn/session' && method === 'GET') {
@@ -61,13 +64,13 @@ export async function handleMijn(req, res, { pathname, method }) {
 
   // Overzicht.
   if (pathname === '/api/mijn/overview' && method === 'GET') {
-    json(res, 200, await customerOverview(tenantId, organizationId));
+    json(res, 200, await customerOverview(tenantId, organizationId, contactId));
     return true;
   }
 
   // De Spiegel — insight list.
   if (pathname === '/api/mijn/insights' && method === 'GET') {
-    json(res, 200, { insights: await customerInsights(tenantId, organizationId) });
+    json(res, 200, { insights: await customerInsights(tenantId, organizationId, contactId) });
     return true;
   }
 
@@ -75,7 +78,7 @@ export async function handleMijn(req, res, { pathname, method }) {
   // Returns the current reading (insight.*) plus its human development timeline.
   const detailMatch = pathname.match(new RegExp(`^/api/mijn/insights/${UUID}$`));
   if (detailMatch && method === 'GET') {
-    const detail = await customerInsightDetail(tenantId, organizationId, detailMatch[1]);
+    const detail = await customerInsightDetail(tenantId, organizationId, detailMatch[1], contactId);
     if (!detail) { json(res, 404, { error: 'Inzicht niet gevonden.' }); return true; }
     json(res, 200, detail);
     return true;
@@ -88,7 +91,7 @@ export async function handleMijn(req, res, { pathname, method }) {
   if (shareMatch && method === 'POST') {
     const result = await shareInsight(tenantId, organizationId, shareMatch[1], { actorLabel: access.label, actorAccessId: access.accessId });
     if (!result.ok) { json(res, result.error === 'not_found' ? 404 : 400, result); return true; }
-    const detail = await customerInsightDetail(tenantId, organizationId, shareMatch[1]);
+    const detail = await customerInsightDetail(tenantId, organizationId, shareMatch[1], contactId);
     json(res, 200, { ok: true, sharing: 'SHARED', updated: Boolean(result.updated), ...detail });
     return true;
   }
@@ -99,7 +102,7 @@ export async function handleMijn(req, res, { pathname, method }) {
   if (revokeMatch && method === 'POST') {
     const result = await revokeInsight(tenantId, organizationId, revokeMatch[1], { actorLabel: access.label, actorAccessId: access.accessId });
     if (!result.ok) { json(res, result.error === 'not_found' ? 404 : 400, result); return true; }
-    const detail = await customerInsightDetail(tenantId, organizationId, revokeMatch[1]);
+    const detail = await customerInsightDetail(tenantId, organizationId, revokeMatch[1], contactId);
     json(res, 200, { ok: true, sharing: 'PRIVATE', ...detail });
     return true;
   }
@@ -111,7 +114,7 @@ export async function handleMijn(req, res, { pathname, method }) {
 
   // De rustige lijst met gesprekken. Geen postvak: alleen draden en hun onderwerp.
   if (pathname === '/api/mijn/conversations' && method === 'GET') {
-    json(res, 200, { items: await draden(tenantId, organizationId), unread: await ongelezen(tenantId, organizationId) });
+    json(res, 200, { items: await draden(tenantId, organizationId, contactId), unread: await ongelezen(tenantId, organizationId, contactId) });
     return true;
   }
 
@@ -122,7 +125,7 @@ export async function handleMijn(req, res, { pathname, method }) {
     if (!body) { json(res, 400, { error: 'Ongeldig verzoek.' }); return true; }
     const result = await stuurBericht(tenantId, organizationId, {
       accessId: access.accessId,
-      contactId: access.contactId || null,
+      contactId,
       insightId: body.insightId || null,
       conversationId: body.conversationId || null,
       text: body.text,
@@ -136,7 +139,7 @@ export async function handleMijn(req, res, { pathname, method }) {
   // Eén draad openen. Dit verzet alleen het klantwatermerk, nooit dat van Maculis.
   const draadMatch = pathname.match(new RegExp(`^/api/mijn/conversations/${UUID}$`));
   if (draadMatch && method === 'GET') {
-    const draad = await draadVoorKlant(tenantId, organizationId, draadMatch[1]);
+    const draad = await draadVoorKlant(tenantId, organizationId, contactId, draadMatch[1]);
     if (!draad) { json(res, 404, { error: 'Gesprek niet gevonden.' }); return true; }
     json(res, 200, { conversation: draad });
     return true;
@@ -148,7 +151,7 @@ export async function handleMijn(req, res, { pathname, method }) {
     const body = await readJson(req);
     if (!body) { json(res, 400, { error: 'Ongeldig verzoek.' }); return true; }
     const result = await zetHerkenning(tenantId, organizationId, herkenMatch[1], {
-      answer: body.answer || null, note: body.note || null, accessId: access.accessId,
+      answer: body.answer || null, note: body.note || null, accessId: access.accessId, contactId,
     });
     if (!result.ok) { json(res, 404, result); return true; }
     json(res, 200, result);

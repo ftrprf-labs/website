@@ -96,8 +96,13 @@ async function ronde(br, { breedte, hoogte, naam }) {
 
   // ---- 2. praten over een privépatroon: de grens staat er, en delen is apart -------------------
   const context = (await page.locator('.praat-context').textContent()).trim();
-  chk('bij een privépatroon staat wat Maculis wél en niet meekrijgt',
-    /van jou alleen/i.test(context) && /niet de lezing eronder/i.test(context), context.slice(0, 92) + '...');
+  // Versturen ís de keuze om context te delen, dus dat moet er vóór het versturen staan, en er moet
+  // staan wat er NIET meegaat en dat het inzicht ongedeeld blijft.
+  chk('bij een niet gedeeld patroon staat wat versturen wél en niet deelt',
+    /nog niet gedeeld met Maculis/i.test(context)
+    && /door te versturen/i.test(context)
+    && /blijven bij jou/i.test(context)
+    && /blijft ongedeeld/i.test(context), context.slice(0, 96) + '...');
   chk('en er staat een aparte knop om het inzicht er wél bij te doen',
     await page.locator('.praat-grens .knop', { hasText: 'Deel dit inzicht met Maculis' }).count() === 1);
 
@@ -136,7 +141,7 @@ async function ronde(br, { breedte, hoogte, naam }) {
   chk('en het antwoord is meteen bewaard',
     store.herkenningen.some((h) => h.insightId === PRIVE.id && h.answer === 'deels'));
   chk('de tekst zegt waar je antwoord blijft',
-    /blijft je antwoord ook bij jou/i.test(await page.locator('#bw-uitkomst').textContent()));
+    /je antwoord blijft bij jou/i.test(await page.locator('#bw-uitkomst').textContent()));
 
   await page.fill('#bw-toel-tekst', 'De helft klopt, de andere helft speelde vorig jaar.');
   await page.click('#bw-toel-bewaar');

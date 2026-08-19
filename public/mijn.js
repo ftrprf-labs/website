@@ -711,17 +711,17 @@
     }
   }
 
-  // Waar het antwoord blijft is onderdeel van het antwoord. Bij een gedeeld inzicht ziet Maculis
-  // het; bij een inzicht dat nog van jou alleen is, niet. Dat staat er, elke keer.
-  function bestemming(i) {
-    return i && i.sharing === 'SHARED'
-      ? ' Maculis ziet je antwoord bij dit gedeelde inzicht.'
-      : ' Zolang dit inzicht van jou alleen is, blijft je antwoord ook bij jou.';
+  // Waar het antwoord blijft is onderdeel van het antwoord, en het antwoord is van jou. Het reist
+  // nooit mee met het delen van een inzicht en het wordt niet zichtbaar doordat een collega iets
+  // deelt. Wie wil dat Maculis het weet, zegt het hier in een gesprek. Dat geldt altijd, dus staat
+  // er ook altijd hetzelfde.
+  function bestemming() {
+    return ' Je antwoord blijft bij jou. Wil je dat Maculis het weet, zeg het dan hier.';
   }
   function uitkomstTekst(a, i) {
-    if (a === 'ja') return '<b>Bevestigd door jou.</b> Het patroon komt tot rust en het licht wordt sterker.' + esc(bestemming(i));
-    if (a === 'deels') return '<b>Deels herkend.</b> Maculis houdt het inzicht aan en het licht neemt iets af.' + esc(bestemming(i));
-    if (a === 'nee') return '<b>Niet herkend.</b> Het patroon wordt weer onzeker: de waarnemingen komen los en gaan opnieuw bewegen.' + esc(bestemming(i));
+    if (a === 'ja') return '<b>Bevestigd door jou.</b> Het patroon komt tot rust en het licht wordt sterker.' + esc(bestemming());
+    if (a === 'deels') return '<b>Deels herkend.</b> Maculis houdt het inzicht aan en het licht neemt iets af.' + esc(bestemming());
+    if (a === 'nee') return '<b>Niet herkend.</b> Het patroon wordt weer onzeker: de waarnemingen komen los en gaan opnieuw bewegen.' + esc(bestemming());
     return 'Jouw antwoord verandert wat het veld laat zien. Er wordt niets gedeeld zonder dat jij het deelt.';
   }
 
@@ -1087,7 +1087,7 @@
     if (insight.sharing === 'SHARED') {
       return 'Je stuurt dit mee: dit patroon, het bewijs eronder en wie je bent. Dit inzicht is al gedeeld, dus Maculis kan er volledig op ingaan.';
     }
-    return 'Dit inzicht is nog van jou alleen. Maculis ziet je bericht en waar het over gaat, maar niet de lezing eronder, niet het bewijs en niet je antwoord op onze vraag. Wil je dat er wel bij, deel het inzicht dan.';
+    return 'Dit inzicht is nog niet gedeeld met Maculis. Door te versturen laat je zien over welk inzicht je vraag gaat, met de uitspraak zoals wij die schreven. De lezing eronder, het bewijs en jouw antwoord op onze vraag blijven bij jou, en het inzicht blijft ongedeeld. Wil je het inzicht er wel bij, deel het dan apart.';
   }
 
   // De invoer. Eén tekstveld dat meegroeit, drie openingen die het veld vullen in plaats van iets

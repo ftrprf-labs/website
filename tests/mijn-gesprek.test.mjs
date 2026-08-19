@@ -118,10 +118,25 @@ test('Mijn Maculis: de communicatielaag, van patroon tot antwoord', opts, async 
     // Wat Maculis met het gesprek wél meekrijgt is de uitspraak zoals Maculis die zelf opschreef, en
     // niets van de lezing eronder. Dat is precies wat de klant vooraf te zien krijgt.
     const convPrive = (await query('select subject, insight_id from conversation where id=$1', [draadPrive])).rows[0];
-    assert.equal(convPrive.subject, 'Sterke betrokkenheid bij klantgerichtheid');
+    // Het ONDERWERP is neutraal. Dat is organisatiebrede metadata die ook in het attentiemodel
+    // meekomt, en daar hoort de uitspraak van een nog niet gedeeld inzicht niet impliciet in.
+    assert.equal(convPrive.subject, 'Over een inzicht in Mijn Maculis');
     for (const geheim of ['privé lezing', 'privé betekenis', 'privé basis', 'privé open vraag']) {
       assert.ok(!String(convPrive.subject).includes(geheim), 'de privélezing staat niet in het onderwerp');
     }
+    // Wat Maculis wél meekreeg staat als eigen handeling vastgelegd: de uitspraak en de houding,
+    // per gesprek, en verder niets.
+    const { conversationContext } = await import('../server/mijn/sharing.mjs');
+    const ctx = await conversationContext(tid, draadPrive);
+    assert.equal(ctx.length, 1, 'versturen deelde precies één stuk context');
+    assert.equal(ctx[0].title, 'Sterke betrokkenheid bij klantgerichtheid');
+    assert.equal(ctx[0].stance, 'consistency');
+    for (const geheim of ['privé lezing', 'privé betekenis', 'privé basis', 'privé open vraag']) {
+      assert.ok(!JSON.stringify(ctx).includes(geheim), 'de lezing eronder reist niet mee');
+    }
+    // En die handeling is niet het inzicht delen.
+    assert.equal((await query('select sharing from customer_insight where id=$1', [priveInzicht])).rows[0].sharing,
+      'PRIVATE', 'gesprekscontext delen verandert de deelstatus niet');
 
     // ---- 3. hetzelfde patroon daarna wél delen: een aparte handeling ----------------------------
     r = await mijnCall(handleMijn, 'POST', `/api/mijn/insights/${gedeeldInzicht}/share`, { token: access.token });
@@ -156,8 +171,11 @@ test('Mijn Maculis: de communicatielaag, van patroon tot antwoord', opts, async 
     intern = await sharedContextForOrg(tid, org);
     assert.equal(intern.length, 1);
     assert.equal(intern[0].id, gedeeldInzicht);
-    assert.equal(intern[0].recognition, 'ja', 'bij een gedeeld inzicht is het antwoord wél voor Maculis');
+    // De persoonlijke laag reist NOOIT mee met het delen van een inzicht. Anders zou een handeling
+    // van de een een privacykeuze van de ander veranderen.
     const alleTekst = JSON.stringify(intern);
+    assert.equal(intern[0].recognition, undefined, 'het herkenningsantwoord staat niet in de gedeelde werkelijkheid');
+    assert.ok(!alleTekst.includes('De helft klopt'), 'en de toelichting evenmin');
     assert.ok(!alleTekst.includes('Dit gaat over iets wat wij niet zo ervaren'),
       'de toelichting bij een privé-inzicht bereikt de interne kant nooit');
 

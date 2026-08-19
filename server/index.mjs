@@ -728,6 +728,7 @@ server.listen(config.port, bindHost, () => {
             await assertNoRealCustomers(tid);
             const seeded = await seedPreviewCore({ tenantId: tid });
             console.log(`  Mijn Maculis: preview geseed (${seeded.organizationName}) → ${seeded.link}`);
+            if (seeded.tweede) console.log(`  Mijn Maculis: tweede previewpersoon (${seeded.tweede.label}) → ${seeded.tweede.link}`);
             await previewSelfCheck({ tenantId: tid, organizationId: seeded.organizationId });
           } catch (e) { console.log(`  Mijn Maculis: preview seed overgeslagen (${e.message})`); }
         }
