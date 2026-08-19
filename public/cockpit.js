@@ -1030,7 +1030,7 @@ function moverCard(m) {
   c.innerHTML =
     `<span class="av" aria-hidden="true">${esc(initials(m.name))}</span>
      <div class="mover-main">
-       <div class="mover-top"><span class="mover-name">${esc(m.name)}</span> ${badge}<span class="mover-touch">${esc(m.touch)}</span></div>
+       <div class="mover-top">${m.reveal ? '<span class="mac-signal" aria-hidden="true"></span>' : ''}<span class="mover-name">${esc(m.name)}</span> ${badge}<span class="mover-touch">${esc(m.touch)}</span></div>
        <div class="mover-org">${esc(m.org)}</div>
        <div class="mover-reason">${esc(m.reason)}</div>
      </div>
