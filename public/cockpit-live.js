@@ -15,6 +15,33 @@ function el(tag, cls, html) { const n = document.createElement(tag); if (cls) n.
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function initials(name) { const p = String(name || '').trim().split(/\s+/); return (((p[0] || '')[0] || '') + ((p[p.length - 1] || '')[0] || '')).toUpperCase(); }
 const CHAN_ICO = { EMAIL: '✉', WHATSAPP: '◇', SMS: '▤', PHONE: '☎' };
+
+// Canon 10: statuslabels zijn Nederlands en menselijk. Geen Engelse hoofdletterbadges.
+// De kaarten dekken de opslagwaarden; humanLabel vangt alles wat er nog bij komt op,
+// zodat een nieuwe enumwaarde nooit als schreeuwende code in beeld verschijnt.
+const CONV_STATUS_LABEL = {
+  NEW: 'nieuw', OPEN: 'open', ANSWERED: 'beantwoord', CLOSED: 'afgerond',
+  WAITING_ON_US: 'wacht op jou', WAITING_ON_CONTACT: 'wacht op de klant',
+};
+const DELIVERY_LABEL = {
+  RECEIVED: 'ontvangen', DRAFT: 'concept', QUEUED: 'in de wachtrij', SENT: 'verzonden',
+  DELIVERED: 'afgeleverd', BOUNCED: 'geweigerd', FAILED: 'niet verzonden',
+};
+const STAGE_LABEL = {
+  NEW: 'nieuw', NIEUW: 'nieuw', LEAD: 'lead', PROSPECT: 'prospect',
+  ACTIVE: 'actief', ACTIEF: 'actief', QUIET: 'stil', STIL: 'stil',
+  CUSTOMER: 'klant', KLANT: 'klant', ARCHIVED: 'archief',
+};
+const CHANNEL_LABEL = {
+  EMAIL: 'e-mail', WHATSAPP: 'WhatsApp', SMS: 'sms', PHONE: 'telefoon',
+  LINKEDIN: 'LinkedIn', INSTAGRAM: 'Instagram', FACEBOOK_MESSENGER: 'Messenger',
+  WEB: 'web', JOURNEY: 'journey', INTERNAL_NOTE: 'interne notitie', OTHER: 'overig',
+};
+function humanLabel(map, v) {
+  if (v == null || v === '') return '';
+  const key = String(v).toUpperCase();
+  return map[key] || String(v).toLowerCase().replace(/_/g, ' ');
+}
 const NL_MONTHS = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
 function lensDate(iso) { try { const d = new Date(iso); if (isNaN(d)) return null; return `${d.getDate()} ${NL_MONTHS[d.getMonth()]}`; } catch { return null; } }
 
@@ -284,7 +311,7 @@ function radarCard(c) {
   b.innerHTML =
     `<div class="row1">
        <span class="who">${esc(c.who)}</span>
-       ${c.channel ? `<span class="chan">${esc(CHAN_ICO[c.channel] || '')} ${esc((c.channel || '').toLowerCase())}</span>` : ''}
+       ${c.channel ? `<span class="chan">${esc(CHAN_ICO[c.channel] || '')} ${esc(humanLabel(CHANNEL_LABEL, c.channel))}</span>` : ''}
        <span class="go-chevron" aria-hidden="true">›</span>
      </div>
      ${attribution}
@@ -353,11 +380,13 @@ function evidenceItems(ev) {
 }
 
 // Fit is not the same as certainty about identity: keep them visually separate on the card.
+// Canon 11: Maculis toont een ding, geen score. Geen percentage, geen meter. De
+// onderbouwing leest als een woord; wat het betekent staat in de zin eronder.
 function fitLabel(v) {
   if (typeof v !== 'number') return null;
   const word = v >= 0.6 ? 'sterk' : v >= 0.35 ? 'redelijk' : v > 0 ? 'zwak' : 'nog geen';
   const tone = v >= 0.6 ? 'hi' : v >= 0.35 ? 'mid' : 'lo';
-  return { word, pct: Math.round(v * 100), tone };
+  return { word, tone };
 }
 // Identity in human language: a main line plus a short explanation. The underlying epistemic status
 // (unverified | probable | verified) is unchanged; this is presentation only, and it already covers
@@ -416,7 +445,7 @@ function workBlock(w, onResolve) {
   const id = idStatus && IDENTITY_UI[idStatus];
   if (fit || id) {
     const box = el('div', 'work-assess');
-    if (fit) box.appendChild(el('div', 'assess-row', `<span class="assess-k">Aanwijzingen dat dit past</span><span class="assess-v fit-${fit.tone}">${esc(fit.word)}${fit.pct ? ` · ${fit.pct}%` : ''}</span>`));
+    if (fit) box.appendChild(el('div', 'assess-row', `<span class="assess-k">Aanwijzingen dat dit past</span><span class="assess-v fit-${fit.tone}">${esc(fit.word)}</span>`));
     if (id) box.appendChild(el('div', 'assess-id', `<div class="assess-id-main ${id.cls}">${esc(id.main)}</div><div class="assess-id-sub">${esc(id.sub)}</div>`));
     wrap.appendChild(box);
   }
@@ -479,7 +508,7 @@ async function renderDossier(contactId) {
     `<span class="dos-av">${esc(initials(id.name))}</span>
      <div class="dos-idmain"><div class="dos-name">${esc(id.name)}</div>
        <div class="dos-sub">${esc(id.role || 'Contactpersoon')}${id.org ? ' · ' + esc(id.org) : ''}</div></div>
-     <div class="dos-meta">${id.stage ? `<span class="dos-stage">${esc(id.stage)}</span>` : ''}</div>`;
+     <div class="dos-meta">${id.stage ? `<span class="dos-stage">${esc(humanLabel(STAGE_LABEL, id.stage))}</span>` : ''}</div>`;
   wrap.appendChild(idc);
 
   // reachability zone (honest 3 layers; email is the only sendable channel in Slice 1)
@@ -519,7 +548,7 @@ async function renderDossier(contactId) {
   secWrap.appendChild(dosSection('Gesprekshistorie', 'A', true, () => {
     const b = el('div', 'dos-timeline');
     if (!data.conversations.length) b.innerHTML = '<p class="muted">Nog geen gesprekken.</p>';
-    data.conversations.forEach(cv => { b.innerHTML += `<div class="tl-ev"><span class="tl-when">${esc((cv.channel || '').toLowerCase())}</span><p>${esc(cv.subject || 'Gesprek')} · ${esc(cv.status)}${cv.aiReady ? ' · concept klaar' : ''}</p></div>`; });
+    data.conversations.forEach(cv => { b.innerHTML += `<div class="tl-ev"><span class="tl-when">${esc(humanLabel(CHANNEL_LABEL, cv.channel))}</span><p>${esc(cv.subject || 'Gesprek')} · ${esc(humanLabel(CONV_STATUS_LABEL, cv.status))}${cv.aiReady ? ' · concept klaar' : ''}</p></div>`; });
     return b;
   }));
   // Observation vs durable memory, kept explicit.
@@ -627,8 +656,8 @@ async function renderGesprek(convId) {
   const grid = el('div', 'work-grid');
   const thread = el('div', 'thread');
   let msgs = '';
-  data.messages.forEach(m => { msgs += `<div class="msg ${m.direction === 'OUTBOUND' ? 'out' : 'in'}"><div class="who">${esc(m.direction === 'OUTBOUND' ? 'Maculis · jij' : conv.who)} · ${esc((m.channel || '').toLowerCase())}${m.delivery ? ' · ' + esc(m.delivery) : ''}</div><div class="b">${esc(m.body_text || '')}</div></div>`; });
-  thread.innerHTML = `<div class="th-head"><h2>${esc(conv.subject || 'Gesprek')}</h2><div class="meta">${esc(conv.who)}${conv.org ? ' · ' + esc(conv.org) : ''} · ${esc((conv.channel || '').toLowerCase())} · ${esc(conv.status)}</div></div><div class="msgs">${msgs}</div>`;
+  data.messages.forEach(m => { msgs += `<div class="msg ${m.direction === 'OUTBOUND' ? 'out' : 'in'}"><div class="who">${esc(m.direction === 'OUTBOUND' ? 'Maculis · jij' : conv.who)} · ${esc(humanLabel(CHANNEL_LABEL, m.channel))}${m.delivery ? ' · ' + esc(humanLabel(DELIVERY_LABEL, m.delivery)) : ''}</div><div class="b">${esc(m.body_text || '')}</div></div>`; });
+  thread.innerHTML = `<div class="th-head"><h2>${esc(conv.subject || 'Gesprek')}</h2><div class="meta">${esc(conv.who)}${conv.org ? ' · ' + esc(conv.org) : ''} · ${esc(humanLabel(CHANNEL_LABEL, conv.channel))} · ${esc(humanLabel(CONV_STATUS_LABEL, conv.status))}</div></div><div class="msgs">${msgs}</div>`;
 
   // Slice 2 — what Maculis reads in this thread, grounded in a real ai_draft. Only shown when a
   // reading exists; never an invented understanding.
@@ -771,7 +800,7 @@ function relRow(r) {
   const hint = r.openConversations ? `${r.openConversations} open gesprek${r.openConversations === 1 ? '' : 'ken'}` : (r.email || '');
   const chips = [];
   if (r.openConversations) chips.push(`<span class="chip now"><span class="k"></span>${r.openConversations} open</span>`);
-  if (r.stage) chips.push(`<span class="chip">${esc(r.stage)}</span>`);
+  if (r.stage) chips.push(`<span class="chip">${esc(humanLabel(STAGE_LABEL, r.stage))}</span>`);
   row.innerHTML =
     `<span class="av" aria-hidden="true">${esc(initials(r.name))}</span>
      <div class="conv-main">
@@ -805,7 +834,7 @@ function gespRow(c) {
   const chips = [];
   if (c.hasPrepared) chips.push('<span class="chip ready"><span class="k"></span>concept klaar</span>');
   if (c.waitingOnUs) chips.push('<span class="chip now"><span class="k"></span>wacht op jou</span>');
-  chips.push(`<span class="chip">${esc((c.status || '').toLowerCase())}</span>`);
+  chips.push(`<span class="chip">${esc(humanLabel(CONV_STATUS_LABEL, c.status))}</span>`);
   const snip = c.subject
     ? `<b>${esc(c.subject)}</b>${c.preview ? ' · ' + esc(c.preview) : ''}`
     : (c.preview ? esc(c.preview) : '');

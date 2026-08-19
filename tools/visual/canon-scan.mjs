@@ -65,7 +65,8 @@ function scanEase(src) {
     const key = norm(m[0]);
     out.set(key, (out.get(key) || 0) + 1);
   }
-  for (const m of src.matchAll(/\b(ease-in-out|ease-out|ease-in|linear|\bease\b)(?=[\s;,)])/g)) {
+  // `var(--ease)` is de canonieke curve en telt niet als losse keyword-easing.
+  for (const m of src.matchAll(/(?<![-\w])(ease-in-out|ease-out|ease-in|linear|ease)(?=[\s;,)])/g)) {
     const key = m[1];
     out.set(key, (out.get(key) || 0) + 1);
   }

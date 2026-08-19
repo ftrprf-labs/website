@@ -37,6 +37,8 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
   '.json': 'application/json; charset=utf-8',
+  // De canonieke serif wordt zelf gehost. Zonder dit type weigert de browser het bestand.
+  '.woff2': 'font/woff2',
 };
 
 // ---- helpers -------------------------------------------------------------

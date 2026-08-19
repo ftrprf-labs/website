@@ -38,8 +38,13 @@ const werk = {
 };
 
 export const today = {
-  headline: 'Twee relaties vragen nu iets van je. Bij een derde staat een concept klaar.',
-  counts: { NU: 2, KLAAR: 1, RADAR: 3 },
+  // Vorm exact zoals radarHeadline() in server/cockpit/routes.mjs hem teruggeeft.
+  headline: {
+    primary: 'Twee relaties vragen nu iets van je.',
+    secondary: 'Bij een derde staat een concept klaar.',
+    zero: false,
+  },
+  counts: { nu: 2, klaar: 1, radar: 3 },
   quietThresholdDays: 45,
   source: 'radar',
   dataGaps: [],

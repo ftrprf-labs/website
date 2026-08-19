@@ -1,35 +1,39 @@
 <!doctype html>
-<html lang="nl">
+<html lang="nl" data-maculis-regime="worklight">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>Maculis Cockpit · echte data</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23140e08'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%23c8894a' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2.4' fill='%23c8894a'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23080503'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%23c8894a' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2.4' fill='%23c8894a'/%3E%3C/svg%3E">
+  <!-- Canon eerst: de gegenereerde tokens en de canonieke serif. Wijzigen kan
+       uitsluitend via hoofdstuk 17 van de Maculis Visual DNA, nooit hier. -->
+  <link rel="stylesheet" href="/vendor/maculis-tokens.css">
+  <link rel="stylesheet" href="/vendor/newsreader.css">
   <link rel="stylesheet" href="/cockpit.css">
   <style>
     /* Slice 2 — the intelligence layer, made legible. Scoped to the operational cockpit so the
        frozen prototype and its stylesheet stay untouched. Colours are taken from cockpit.css tokens. */
-    .intent-chip{display:inline-flex;align-items:center;gap:.4em;font-size:.72rem;font-weight:600;
-      letter-spacing:.02em;padding:.18em .6em;border-radius:999px;border:1px solid var(--line,#3a2e20);
-      color:var(--ink-2,#b3a48f);text-transform:lowercase}
-    .intent-chip.ready{color:var(--ok,#5a9e7a);border-color:color-mix(in srgb,var(--ok,#5a9e7a) 45%,transparent)}
-    .intent-chip.now{color:var(--gold,#c8894a);border-color:color-mix(in srgb,var(--gold,#c8894a) 45%,transparent)}
-    .item .echo{margin:.25rem 0 .1rem;font-size:.86rem;font-style:italic;opacity:.62}
-    .lens{margin:0 0 1.1rem;padding:.95rem 1.1rem;border:1px solid var(--line,#e2d8c6);border-radius:14px;
-      background:color-mix(in srgb,var(--gold,#c8894a) 7%,transparent)}
-    .lens .lens-h{display:flex;align-items:center;gap:.55rem;font-size:.72rem;letter-spacing:.14em;
-      text-transform:uppercase;color:var(--gold,#b0703a);font-weight:600;margin-bottom:.4rem}
-    .lens .lens-body{font-size:.98rem;line-height:1.5}
+    .intent-chip{display:inline-flex;align-items:center;gap:.4em;font-size:var(--t-label);font-weight:600;
+      letter-spacing:.02em;padding:.18em .6em;border-radius:var(--radius-pill);border:1px solid var(--line);
+      color:var(--ink-2);text-transform:lowercase}
+    .intent-chip.ready{color:var(--ok);border-color:var(--bs-confirmed)}
+    .intent-chip.now{color:var(--gold);border-color:var(--bs-signal)}
+    .item .echo{margin:var(--s1) 0 var(--s1);font-family:var(--serif);font-style:italic;font-weight:400;font-size:var(--t-body);color:var(--text-quiet)}
+    .lens{margin:0 0 1.1rem;padding:.95rem 1.1rem;border:1px solid var(--line);border-radius:var(--radius-md);
+      background:transparent}
+    .lens .lens-h{display:flex;align-items:center;gap:.55rem;font-size:var(--t-label);letter-spacing:.14em;
+      text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:.4rem}
+    .lens .lens-body{font-family:var(--serif);font-weight:300;font-optical-sizing:auto;font-size:var(--t-lead);line-height:1.45;letter-spacing:-.017em;color:var(--text)}
     .lens .lens-intent{margin-top:.55rem}
     .moves{margin-top:1.1rem;display:flex;flex-direction:column;gap:.5rem}
-    .moves-h{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2,#6b5e4f);
+    .moves-h{font-size:var(--t-label);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);
       font-weight:600;margin-bottom:.15rem}
     .move{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.6rem .8rem;
-      border:1px solid var(--line,#e2d8c6);border-radius:12px}
-    .move .move-lbl{font-size:.92rem}
-    .move .move-prepared{font-size:.74rem;color:var(--ink-2,#6b5e4f);opacity:.8}
-    .move .move-done{font-size:.82rem;color:var(--ok,#3f7d5c);font-weight:600}
+      border:1px solid var(--line);border-radius:var(--radius-sm)}
+    .move .move-lbl{font-size:var(--t-body)}
+    .move .move-prepared{font-size:var(--t-fine);color:var(--ink-2);opacity:.8}
+    .move .move-done{font-size:var(--t-fine);color:var(--ok);font-weight:600}
     /* Slice 3 — real Relaties/Gesprekken overviews reuse the .conv row; this just spaces the list. */
     .ck-list{display:flex;flex-direction:column;gap:10px;margin-top:14px}
     .ck-list .conv{cursor:pointer}
@@ -37,45 +41,45 @@
     .prepared-actions{display:flex;gap:.5rem;margin-top:.7rem}
     .dos-followups{display:flex;flex-direction:column;gap:.55rem}
     .fu-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.55rem .7rem;
-      border:1px solid var(--line,#e2d8c6);border-radius:10px}
+      border:1px solid var(--line);border-radius:var(--radius-sm)}
     .fu-row .fu-main{display:flex;align-items:center;gap:.6rem;min-width:0}
-    .fu-row .fu-k{font-size:.66rem;text-transform:uppercase;letter-spacing:.1em;font-weight:700;
-      color:var(--ink-2,#6b5e4f);border:1px solid var(--line,#e2d8c6);border-radius:999px;padding:.1em .5em}
-    .fu-row .fu-k.overdue{color:var(--gold,#b0703a);border-color:color-mix(in srgb,var(--gold,#b0703a) 45%,transparent)}
-    .fu-row .fu-title{font-size:.92rem}
+    .fu-row .fu-k{font-size:var(--t-label);text-transform:uppercase;letter-spacing:.1em;font-weight:700;
+      color:var(--ink-2);border:1px solid var(--line);border-radius:var(--radius-pill);padding:.1em .5em}
+    .fu-row .fu-k.overdue{color:var(--gold);border-color:var(--bs-signal)}
+    .fu-row .fu-title{font-size:var(--t-body)}
     /* Slice 5 — Scout as a colleague. Calling a colleague is not an attention item, so the entry
        lives in the rail header and opens a compact modal. Colours from cockpit.css tokens. */
     .ask-scout{display:flex;align-items:center;gap:.5rem;width:100%;margin:.2rem 0 1rem;padding:.5rem .7rem;
-      border:1px solid color-mix(in srgb,var(--gold,#c8894a) 40%,transparent);border-radius:10px;cursor:pointer;
-      background:color-mix(in srgb,var(--gold,#c8894a) 8%,transparent);color:var(--ink,#f0e6d6);
-      font:inherit;font-size:.86rem;font-weight:600;letter-spacing:.01em;text-align:left}
-    .ask-scout:hover{border-color:color-mix(in srgb,var(--gold,#c8894a) 65%,transparent);
-      background:color-mix(in srgb,var(--gold,#c8894a) 14%,transparent)}
-    .ask-scout:focus-visible{outline:2px solid color-mix(in srgb,var(--gold,#c8894a) 65%,transparent);outline-offset:2px}
-    .ask-scout .ask-dot{width:.55rem;height:.55rem;border-radius:999px;background:var(--gold,#c8894a);flex:none;
-      box-shadow:0 0 0 3px color-mix(in srgb,var(--gold,#c8894a) 20%,transparent)}
+      border:1px solid var(--bs-signal);border-radius:var(--radius-sm);cursor:pointer;
+      background:transparent;color:var(--ink);
+      font:inherit;font-size:var(--t-body);font-weight:600;letter-spacing:.01em;text-align:left}
+    .ask-scout:hover{border-color:var(--primary);
+      background:transparent}
+    .ask-scout:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+    .ask-scout .ask-dot{width:.55rem;height:.55rem;border-radius:var(--radius-pill);background:var(--gold);flex:none;
+      box-shadow:0 0 0 3px color-mix(in srgb,var(--gold) 20%,transparent)}
     /* Compact modal that opens over the cockpit; the page beneath does not move.
        Colours use the real cockpit.css tokens so the fields sit legibly in the warm dark theme:
        modal = --surface (calm dark plane), input = --field (a distinct, slightly darker plane with a
        warm --border), text = --text, placeholder = --faint, focus = --primary. */
     .scout-modal{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
-      padding:1rem;background:color-mix(in srgb,#000 55%,transparent)}
+      padding:1rem;background:var(--scrim)}
     .scout-modal-card{width:min(460px,92vw);max-height:90vh;overflow:auto;padding:1.1rem 1.2rem 1.2rem;
-      border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)}
+      border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);box-shadow:var(--shadow)}
     .scout-modal-head{display:flex;align-items:center;gap:.6rem;margin-bottom:.2rem}
-    .scout-modal-head .colleague-dot{width:.6rem;height:.6rem;border-radius:999px;background:var(--primary);flex:none;
+    .scout-modal-head .colleague-dot{width:.6rem;height:.6rem;border-radius:var(--radius-pill);background:var(--primary);flex:none;
       box-shadow:0 0 0 3px var(--primary-soft)}
-    .scout-x{margin-left:auto;border:0;background:none;color:var(--muted);font-size:1.3rem;line-height:1;cursor:pointer;padding:.1rem .3rem}
+    .scout-x{margin-left:auto;border:0;background:none;color:var(--muted);font-size:var(--t-lead);line-height:1;cursor:pointer;padding:.1rem .3rem}
     .scout-x:hover{color:var(--text)}
     .scout-id{display:flex;align-items:baseline;gap:.5rem}
-    .scout-id b{font-size:1rem;color:var(--text)}
-    .scout-role{font-size:.72rem;letter-spacing:.04em;color:var(--muted)}
+    .scout-id b{font-size:var(--t-lead);color:var(--text)}
+    .scout-role{font-size:var(--t-label);letter-spacing:.04em;color:var(--muted)}
     .scout-form{margin-top:.6rem;display:flex;flex-direction:column;gap:.7rem}
-    .scout-explain{margin:0;font-size:.86rem;line-height:1.5;color:var(--muted)}
-    .scout-f{display:flex;flex-direction:column;gap:.28rem;font-size:.8rem;color:var(--muted)}
+    .scout-explain{margin:0;font-size:var(--t-body);line-height:1.5;color:var(--muted)}
+    .scout-f{display:flex;flex-direction:column;gap:.28rem;font-size:var(--t-fine);color:var(--muted)}
     .scout-f em{font-style:normal;color:var(--faint)}
-    .scout-f input{padding:.55rem .7rem;border:1px solid var(--border);border-radius:10px;
-      background:var(--field);color:var(--text);font-size:.95rem;caret-color:var(--primary)}
+    .scout-f input{padding:.55rem .7rem;border:1px solid var(--border);border-radius:var(--radius-sm);
+      background:var(--field);color:var(--text);font-size:var(--t-body);caret-color:var(--primary)}
     .scout-f input::placeholder{color:var(--faint);opacity:1}
     .scout-f input:hover{border-color:var(--border-strong)}
     .scout-f input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
@@ -90,51 +94,51 @@
     /* Clear primary hierarchy: "Laat Scout kijken" leads; Annuleren stays quiet and secondary. */
     .scout-actions{display:flex;align-items:center;gap:.6rem;margin-top:.3rem}
     .scout-actions .btn-primary{flex:1;justify-content:center;font-weight:700;padding-top:.6rem;padding-bottom:.6rem}
-    .scout-actions .btn-ghost{flex:none;opacity:.8;font-size:.9rem}
-    .scout-status{margin:.1rem 0 0;font-size:.84rem;color:var(--muted);min-height:1em}
+    .scout-actions .btn-ghost{flex:none;opacity:.8;font-size:var(--t-body)}
+    .scout-status{margin:.1rem 0 0;font-size:var(--t-body);color:var(--muted);min-height:1em}
     /* Calm post-run confirmation. It never moves the page; "Bekijk" jumps to the item on request. */
     .scout-toast{position:fixed;left:50%;bottom:1.4rem;transform:translateX(-50%);z-index:55;display:flex;align-items:center;gap:.8rem;
-      max-width:min(560px,94vw);padding:.7rem .9rem .7rem 1rem;border:1px solid color-mix(in srgb,var(--ok,#5a9e7a) 45%,transparent);
-      border-radius:12px;background:var(--bg-1,#1c140c);box-shadow:0 12px 30px rgba(0,0,0,.4);font-size:.9rem}
-    .scout-toast .toast-msg{color:var(--ink,#f0e6d6)}
-    .scout-toast .toast-look{border:1px solid color-mix(in srgb,var(--gold,#c8894a) 55%,transparent);border-radius:8px;
-      background:color-mix(in srgb,var(--gold,#c8894a) 12%,transparent);color:var(--ink,#f0e6d6);font:inherit;font-weight:600;padding:.3rem .7rem;cursor:pointer}
-    .scout-toast .toast-x{margin-left:.1rem;border:0;background:none;color:var(--ink-2,#b3a48f);font-size:1.1rem;line-height:1;cursor:pointer}
-    .item.just-landed{outline:2px solid color-mix(in srgb,var(--gold,#c8894a) 65%,transparent);outline-offset:3px;
-      transition:outline-color 1.2s ease;border-radius:14px}
+      max-width:min(560px,94vw);padding:.7rem .9rem .7rem 1rem;border:1px solid var(--bs-confirmed);
+      border-radius:var(--radius-sm);background:var(--bg-1);box-shadow:var(--shadow);font-size:var(--t-body)}
+    .scout-toast .toast-msg{color:var(--ink)}
+    .scout-toast .toast-look{border:1px solid var(--bs-signal);border-radius:var(--radius-sm);
+      background:transparent;color:var(--ink);font:inherit;font-weight:600;padding:.3rem .7rem;cursor:pointer}
+    .scout-toast .toast-x{margin-left:.1rem;border:0;background:none;color:var(--ink-2);font-size:var(--t-lead);line-height:1;cursor:pointer}
+    .item.just-landed{outline:2px solid var(--primary);outline-offset:3px;
+      transition:outline-color 1.2s var(--ease);border-radius:var(--radius-md)}
     /* Evidence, honestly labelled: real external observations must be distinguishable from Scout's
        own inference and from a demonstration fixture. */
-    .work-demo{display:inline-block;margin:.2rem 0 .3rem;padding:.12em .55em;border-radius:999px;font-size:.7rem;
-      font-weight:600;color:var(--gold,#b0703a);border:1px dashed color-mix(in srgb,var(--gold,#c8894a) 55%,transparent)}
+    .work-demo{display:inline-block;margin:.2rem 0 .3rem;padding:.12em .55em;border-radius:var(--radius-pill);font-size:var(--t-label);
+      font-weight:600;color:var(--uncertain);border:1px dashed var(--bs-uncertain)}
     .work-ev .ev-item{list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:.45rem;margin:.3rem 0;
-      padding:0;font-size:.88rem;line-height:1.45}
-    .ev-k{flex:none;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;font-weight:700;
-      padding:.12em .5em;border-radius:999px;border:1px solid var(--line,#3a2e20);color:var(--ink-2,#b3a48f)}
-    .ev-k.fact{color:var(--ok,#7bbf9a);border-color:color-mix(in srgb,var(--ok,#5a9e7a) 45%,transparent)}
-    .ev-k.obs{color:var(--gold,#d79b5c);border-color:color-mix(in srgb,var(--gold,#c8894a) 55%,transparent)}
-    .ev-k.inf{color:var(--ink-2,#b3a48f)}
-    .ev-k.hyp{color:var(--ink-2,#b3a48f);border-style:dashed}
+      padding:0;font-size:var(--t-body);line-height:1.45}
+    .ev-k{flex:none;font-size:var(--t-label);letter-spacing:.06em;text-transform:uppercase;font-weight:700;
+      padding:.12em .5em;border-radius:var(--radius-pill);border:1px solid var(--line);color:var(--ink-2)}
+    .ev-k.fact{color:var(--ok);border-color:var(--bs-confirmed)}
+    .ev-k.obs{color:var(--primary);border-color:var(--bs-signal)}
+    .ev-k.inf{color:var(--uncertain);border-color:var(--bs-uncertain)}
+    .ev-k.hyp{color:var(--uncertain);border-color:var(--bs-uncertain);border-style:dashed}
     .ev-t{flex:1 1 60%}
-    .ev-src{white-space:nowrap;font-size:.8rem;color:var(--gold,#c8894a)}
+    .ev-src{white-space:nowrap;font-size:var(--t-fine);color:var(--gold)}
     a.ev-src{text-decoration:underline}
-    .ev-unc{flex-basis:100%;margin-left:.2rem;font-size:.78rem;font-style:italic;opacity:.7}
-    .ev-foot{margin-top:.5rem;font-size:.76rem;letter-spacing:.02em;color:var(--ink-2,#6b5e4f);opacity:.85}
+    .ev-unc{flex-basis:100%;margin-left:.2rem;font-size:var(--t-fine);font-style:italic;opacity:.7}
+    .ev-foot{margin-top:.5rem;font-size:var(--t-fine);letter-spacing:.02em;color:var(--ink-2);opacity:.85}
     /* Fit vs identity, made legible: "interessant" is not the same as "we weten zeker wie dit is". */
     .work-assess{display:flex;flex-direction:column;gap:.3rem;margin:.5rem 0 .2rem;padding:.55rem .7rem;
-      border:1px solid var(--line,#3a2e20);border-radius:10px;background:color-mix(in srgb,#000 10%,transparent)}
-    .assess-row{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;font-size:.86rem}
-    .assess-k{color:var(--ink-2,#b3a48f)}
+      border:1px solid var(--line);border-radius:var(--radius-sm);background:transparent}
+    .assess-row{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;font-size:var(--t-body)}
+    .assess-k{color:var(--ink-2)}
     .assess-v{font-weight:600;text-align:right}
-    .assess-v.fit-hi{color:var(--ok,#7bbf9a)}
-    .assess-v.fit-mid{color:var(--gold,#d79b5c)}
-    .assess-v.fit-lo{color:var(--ink-2,#b3a48f)}
+    .assess-v.fit-hi{color:var(--ok)}
+    .assess-v.fit-mid{color:var(--primary)}
+    .assess-v.fit-lo{color:var(--uncertain)}
     /* Identity as a human two-line statement (main + explanation), covering all three states. */
     .assess-id{display:flex;flex-direction:column;gap:.12rem;margin-top:.1rem}
-    .assess-id-main{font-weight:600;font-size:.9rem}
-    .assess-id-main.id-ok{color:var(--ok,#7bbf9a)}
-    .assess-id-main.id-maybe{color:var(--gold,#d79b5c)}
-    .assess-id-main.id-no{color:var(--ink-2,#b3a48f)}
-    .assess-id-sub{font-size:.78rem;color:var(--ink-2,#6b5e4f)}
+    .assess-id-main{font-weight:600;font-size:var(--t-body)}
+    .assess-id-main.id-ok{color:var(--ok)}
+    .assess-id-main.id-maybe{color:var(--emerging)}
+    .assess-id-main.id-no{color:var(--uncertain)}
+    .assess-id-sub{font-size:var(--t-fine);color:var(--ink-2)}
   </style>
 </head>
 <body>

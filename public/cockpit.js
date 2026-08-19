@@ -41,6 +41,16 @@ function el(tag, cls, html) {
   return n;
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+// Canon 11: een getal mag een getal blijven, maar Maculis toont geen score. Zekerheid
+// krijgt daarom een woord in plaats van een percentage of een meter.
+function confWord(v) {
+  if (typeof v !== 'number') return 'onbekend';
+  if (v >= 0.8) return 'hoog';
+  if (v >= 0.55) return 'redelijk';
+  if (v > 0) return 'laag';
+  return 'nog geen';
+}
 function appendIf(parent, node) { if (node) parent.appendChild(node); }
 function initials(name) {
   const p = name.trim().split(/\s+/);
@@ -140,7 +150,7 @@ const REVEAL_LENS = {
   relto: 'Finance lens · deze lens bestaat nog niet',
   why: 'Illustratie van hoe een toekomstige lens via Reveal zou landen. Nog geen echte intelligence.',
   layers: [
-    { prov: 'fact', tag: 'Feit', text: 'Je omzet ligt dit kwartaal 7 procent hoger dan vorig kwartaal.',
+    { prov: 'fact', tag: 'Feit', text: 'Je omzet ligt dit kwartaal hoger dan vorig kwartaal.',
       evidence: 'Voorbeeldcijfers. Deze lens bestaat nog niet in Maculis.', conf: null },
     { prov: 'observation', tag: 'Observatie', text: 'Je vrije tijd tussen afspraken werd juist krapper.',
       evidence: 'Voorbeeldobservatie op fictieve agendadata.', conf: 0.6 },
@@ -671,12 +681,10 @@ function revealBlock(data, opts = {}) {
   const layers = el('div', 'layers');
   data.layers.forEach((L, i) => {
     const d = el('div', 'layer' + (i === 0 || expandAll ? ' on' : ''));
+    // Canon 11: Maculis toont een ding, geen score. Geen percentage en geen meter;
+    // de zekerheid staat als woord, en wat het betekent staat in de zin erboven.
     let conf = '';
-    if (L.conf != null) {
-      const pct = Math.round(L.conf * 100);
-      conf = `<div class="conf">Zekerheid ${pct} procent</div>
-              <div class="bar" role="img" aria-label="Zekerheid ${pct} procent"><i style="width:${pct}%"></i></div>`;
-    }
+    if (L.conf != null) conf = `<div class="conf">Zekerheid ${esc(confWord(L.conf))}</div>`;
     d.innerHTML =
       `<span class="prov ${L.prov}">${esc(L.tag)}</span>
        <p>${esc(L.text)}</p>
@@ -1119,7 +1127,7 @@ function viewWork() {
      <p class="ap-text">${esc(a.text)}</p>
      <button class="why-btn ghost" aria-expanded="false">Kijk nog eens.</button>
      <div class="ap-evidence" hidden>
-       <span class="prov ${a.prov}">${esc(a.tag)} · zekerheid ${Math.round(a.conf * 100)} procent</span>
+       <span class="prov ${a.prov}">${esc(a.tag)} · zekerheid ${esc(confWord(a.conf))}</span>
        <p>${esc(a.evidence)}</p>
      </div>`;
   const apBtn = ap.querySelector('.why-btn'), apEv = ap.querySelector('.ap-evidence');
@@ -1770,18 +1778,15 @@ function buildDevPanel() {
      </div>
      <p class="dp-note">Alleen voor ontwerp en test. Geen onderdeel van het product. Een echte gebruiker ziet dit niet.</p>
      <div class="dp-group">
-       <div class="dp-label">Visuele richting</div>
-       <div class="dp-seg" id="dp-dir">
-         <button data-d="C" aria-pressed="${dir === 'C'}">C · Reveal/Work</button>
-         <button data-d="A" aria-pressed="${dir === 'A'}">A · Deep</button>
-       </div>
+       <div class="dp-label">Lichtregime</div>
+       <p class="dp-note">Werklicht. De Cockpit draagt precies een regime, vastgelegd in de
+         Maculis Visual DNA. Er valt hier niets meer te kiezen.</p>
      </div>
      <div class="dp-group">
        <div class="dp-label">Spring naar een state</div>
        <div class="dp-states" id="dp-states"></div>
      </div>`;
   protoPanel.querySelector('.dp-close').addEventListener('click', () => setProtoOpen(false));
-  protoPanel.querySelectorAll('#dp-dir button').forEach(b => b.addEventListener('click', () => { setDir(b.getAttribute('data-d')); buildDevPanel(); render(); }));
   const list = protoPanel.querySelector('#dp-states');
   const cur = curStateKey();
   STATES.forEach(([lbl, fn], i) => {
@@ -1807,8 +1812,9 @@ function markCurrentState() {
 
 /* boot with deep-link support (params are for us, not product UI) */
 const params = new URLSearchParams(location.search);
-const wantDir = (params.get('dir') || 'C').toUpperCase();
-setDir(['A', 'C'].includes(wantDir) ? wantDir : 'C');
+// Het attribuut blijft staan zodat bestaande deeplinks en de opmaak blijven werken;
+// alle waarden wijzen naar hetzelfde canonieke werklicht.
+setDir('C');
 const wantScn = params.get('scn');
 if (['vandaag', 'reveal', 'relaties', 'gesprekken', 'work', 'dossier', 'journeys', 'groei', 'beheer', 'testerbeheer'].includes(wantScn)) scn = wantScn;
 const wantDay = params.get('day');

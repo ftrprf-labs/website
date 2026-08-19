@@ -1,149 +1,127 @@
 /* =====================================================================
-   Maculis Future Cockpit — PROTOTYPE stylesheet
-   Isolated, additive design exploration. Not production.
+   Maculis Cockpit — vormtaal op Visual DNA v1.0
 
-   Three visual directions live here, selected via [data-direction] on
-   the shell root:
-     A  "Deep Maculis"   full dark / brown / gold (evolves the current admin)
-     B  "Maculis Licht"  warm light / ivory (evolves the earlier lighter dashboard)
-     C  "Reveal / Work"  dual-space: dark to SEE, light to WORK
+   De Cockpit is de werkruimte: hoogste dichtheid, laagste magie, en precies
+   een lichtregime. Kleur, letter, ruimte, radius en beweging komen uit
+   /vendor/maculis-tokens.css (canon 1.0.3). Dit bestand bezit geen eigen
+   kleurwaarden. Het legt alleen vast welke canonieke rol een onderdeel draagt.
 
-   Direction C additionally switches per view via [data-space="reveal"|"work"].
-   All three share ONE type scale, spacing scale, and component set, so the
-   product reads as one system regardless of palette.
-   CSP-safe: no inline handlers, external JS only. Inline <style> not used.
+   Canon    ftrlabs-docs 03-ux/principles/maculis-visual-dna.md
+   Regime   <html data-maculis-regime="worklight">, grond ink.950 #080503
+   Hoofdstuk 14: dichtheid hoogst, magie laagst, signaaltaal alleen trap 1,
+   stil behalve wat aandacht vraagt, vaste pixelmaten in plaats van clamp().
+   CSP-veilig: geen inline handlers, externe JS.
    ===================================================================== */
 
-/* ---------- shared primitives (space, type, motion) ---------- */
+/* ---------- aliaslaag ----------
+   Hier stonden drie eigen paletten (A "Deep Maculis", B "Maculis Licht" en
+   C "Reveal / Work") plus een tweede, licht regime voor [data-space="work"].
+   Canon 5 laat per kamer precies een regime toe, en canon 13 verbiedt een
+   eigen :root met eigen kleuren per scherm. Wat overblijft is een aliaslaag:
+   lokale namen die naar canonieke tokens wijzen. Een kleur wijzigen gebeurt
+   in de canon, nooit hier.
+
+   De laag staat op :root omdat de prototypelade en de scrim buiten .shell
+   hangen en dezelfde waarden nodig hebben.
+*/
 :root {
-  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color-scheme: dark;
 
-  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
-  --s5: 24px; --s6: 32px; --s7: 48px; --s8: 72px;
+  /* --- drie tonale niveaus, canon 6 regel 2 --- */
+  --bg: var(--surface-ground);
+  --bg-1: var(--surface-raised);
+  --field: var(--surface-raised);
+  --surface: var(--surface-raised);
+  --surface-2: var(--surface-elevated);
+  --surface-3: var(--surface-elevated);
 
-  --radius: 12px;
-  --radius-lg: 18px;
+  /* --- hairlines, nooit neutraal grijs, canon 6 --- */
+  --border: var(--border-hairline);
+  --border-strong: var(--border-defined);
+  --hair: var(--border-hairline);
+  --line: var(--border-hairline);
 
-  /* type scale (a calm, editorial rhythm, not a SaaS metric grid) */
-  --t-eyebrow: 11px;
+  /* --- tekst --- */
+  --text: var(--text-primary);
+  --ink: var(--text-primary);
+  --muted: var(--text-secondary);
+  --ink-2: var(--text-secondary);
+  --faint: var(--text-quiet);
+
+  /* --- koper is het signaal en het is schaars, canon 2 ---
+     Beslispunt O-4 is beslist: goud is licht, koper is signaal. Wat hier
+     vroeger goud heette, draagt signaalbetekenis en is dus koper. */
+  --primary: var(--semantic-signal);
+  --gold: var(--semantic-signal);
+  --primary-text: var(--ink-950);
+  /* Uitsluitend als selectiewaas. Nooit als vulling van een knop, pil of
+     navigatie-item: canon 12 kent daar transparant plus een hairline. */
+  --primary-soft: var(--border-defined);
+
+  /* --- semantiek, canon 3.3 --- */
+  --ok: var(--semantic-confirmed);
+  --warn: var(--semantic-signal);
+  --danger: var(--semantic-broken);
+  --emerging: var(--semantic-emerging);
+  --uncertain: var(--semantic-uncertain);
+
+  /* --- border.semantic, canon 6 en amendement C-2 --- */
+  --bs-signal: var(--border-semantic-signal);
+  --bs-emerging: var(--border-semantic-emerging);
+  --bs-confirmed: var(--border-semantic-confirmed);
+  --bs-uncertain: var(--border-semantic-uncertain);
+  --bs-broken: var(--border-semantic-broken);
+
+  /* --- diepte, canon 6 regel 1 en 3: een hairline of een schaduw --- */
+  --shadow: var(--shadow-diffuse);
+  --scrim: var(--scrim-modal);
+
+  /* --- licht, canon 7: gloed volgt bewijs, nooit opmaak --- */
+  --reveal-glow: none;
+
+  /* --- letter, canon 4 --- */
+  --serif: var(--type-serif);
+  --sans: var(--type-sans);
+
+  /* --- ruimte, canon 6: 4 · 8 · 12 · 16 · 24 · 40 · 64 --- */
+  --s1: var(--space-1);
+  --s2: var(--space-2);
+  --s3: var(--space-3);
+  --s4: var(--space-4);
+  --s5: var(--space-5);
+  --s6: var(--space-6);
+  --s7: var(--space-7);
+  --s8: var(--space-7);
+
+  /* --- radius, canon 6: sm 10 · md 16 · lg 20 · pill 999 ---
+     --radius-sm, --radius-lg en --radius-pill komen rechtstreeks uit de canon. */
+  --radius: var(--radius-md);
+
+  /* --- typeschaal, canon 4.3 ---
+     De Cockpit gebruikt vaste pixels in plaats van clamp(). Dat is de enige
+     toegestane afwijking. De schaal kent hier vier stappen: label, fine, body
+     en insight. Insight is de kop; hero en statement komen in de Cockpit nooit
+     voor, dus de drie oude kopmaten vallen samen op die ene stap. */
+  --t-label: var(--type-label);
+  --t-eyebrow: var(--type-label);
+  --t-fine: 12.5px;
   --t-body: 14px;
   --t-lead: 17px;
-  --t-title: 22px;
-  --t-display: 30px;
-  --t-hero: 40px;
+  --t-insight: 28px;
+  --t-title: var(--t-insight);
+  --t-display: var(--t-insight);
+  --t-hero: var(--t-insight);
 
-  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* --- beweging, canon 8.2: een curve, de duur verschilt per kamer --- */
+  --ease: var(--motion-ease);
 }
 
-/* =====================================================================
-   DIRECTION A — Deep Maculis (dark / brown / gold)
-   Grounded in the real production tokens in public/styles.css.
-   ===================================================================== */
-[data-direction="A"] {
-  color-scheme: dark;
-  /* Same readability pass as direction C: lighter text, a plane lifted off pure
-     black, gold as accent only. */
-  --bg: #0a0705;
-  --field: #120c07;
-  --surface: #1b130b;
-  --surface-2: #241810;
-  --surface-3: #2e2013;
-  --border: rgba(200, 137, 74, 0.22);
-  --border-strong: rgba(200, 137, 74, 0.38);
-  --text: #f4ecdf;
-  --muted: #c6b8a2;
-  --faint: #95886f;
-  --primary: #d79c58;
-  --primary-soft: rgba(215, 156, 88, 0.16);
-  --primary-text: #241606;
-  --ok: #4cae86;
-  --warn: #cf8a3c;
-  --danger: #e5674f;
-  --reveal-glow: radial-gradient(120% 90% at 50% -10%, rgba(215,156,88,0.14), transparent 62%);
-  --shadow: 0 1px 2px rgba(0,0,0,.45), 0 18px 48px rgba(0,0,0,.46);
-  --hair: rgba(200,137,74,0.14);
-}
-
-/* =====================================================================
-   DIRECTION B — Maculis Licht (warm light / ivory)
-   The lighter world done with Maculis warmth, not generic SaaS white.
-   ===================================================================== */
-[data-direction="B"] {
-  color-scheme: light;
-  --bg: #f7f2ea;
-  --field: #fffdf9;
-  --surface: #fffdf9;
-  --surface-2: #f2eadd;
-  --surface-3: #ece0cd;
-  --border: rgba(120, 84, 42, 0.16);
-  --border-strong: rgba(120, 84, 42, 0.30);
-  --text: #2b2114;
-  --muted: #7a6b55;
-  --faint: #a4917a;
-  --primary: #9a5f21;
-  --primary-soft: rgba(154, 95, 33, 0.10);
-  --primary-text: #fffdf9;
-  --ok: #2f7d5b;
-  --warn: #a86a1e;
-  --danger: #b23b28;
-  --reveal-glow: radial-gradient(120% 90% at 50% -10%, rgba(154,95,33,0.08), transparent 60%);
-  --shadow: 0 1px 2px rgba(70,45,15,.06), 0 20px 45px rgba(70,45,15,.10);
-  --hair: rgba(120,84,42,0.08);
-}
-
-/* =====================================================================
-   DIRECTION C — Reveal / Work (dual-space)
-   Default (reveal) space is dark. [data-space="work"] flips to light.
-   Same component set; the palette carries the cognitive mode.
-   ===================================================================== */
-[data-direction="C"] {
-  color-scheme: dark;
-  /* Readability pass: the dark plane is lifted off pure black so cards feel less
-     heavy, primary and secondary text are lighter, and gold stays an accent only
-     (never body text). Tested by eye at normal laptop distance, not only on
-     formal contrast values. Attention value and warm signature are preserved. */
-  --bg: #0c0806;
-  --field: #130d08;
-  --surface: #1d140c;
-  --surface-2: #271b10;
-  --surface-3: #322414;
-  --border: rgba(206, 156, 96, 0.24);
-  --border-strong: rgba(206, 156, 96, 0.40);
-  --text: #f6efe3;
-  --muted: #cabda6;
-  --faint: #9a8c73;
-  --primary: #e0ad67;
-  --primary-soft: rgba(224, 173, 103, 0.16);
-  --primary-text: #241606;
-  /* semantic colors unchanged: they are shared with the light work space, where
-     brightening would cost contrast on white */
-  --ok: #4cae86;
-  --warn: #cf8a3c;
-  --danger: #e5674f;
-  --reveal-glow: radial-gradient(120% 90% at 50% -10%, rgba(224,173,103,0.15), transparent 62%);
-  --shadow: 0 1px 2px rgba(0,0,0,.45), 0 18px 48px rgba(0,0,0,.48);
-  --hair: rgba(206,156,96,0.14);
-}
-[data-direction="C"][data-space="work"],
-[data-direction="C"] [data-space="work"] {
-  color-scheme: light;
-  --bg: #f4efe6;
-  --field: #ffffff;
-  --surface: #ffffff;
-  --surface-2: #efe7d9;
-  --surface-3: #e6dac6;
-  --border: rgba(120, 84, 42, 0.16);
-  --border-strong: rgba(120, 84, 42, 0.30);
-  --text: #241a0f;
-  --muted: #72634e;
-  --faint: #a08d76;
-  --primary: #9a5f21;
-  --primary-soft: rgba(154, 95, 33, 0.10);
-  --primary-text: #ffffff;
-  --reveal-glow: none;
-  --shadow: 0 1px 2px rgba(70,45,15,.06), 0 18px 40px rgba(70,45,15,.10);
-  --hair: rgba(120,84,42,0.08);
+/* Reveal en work zijn geen twee regimes maar twee momenten. Het verschil is
+   niet de grond maar of Maculis iets toont: alleen op het toonmoment ligt er
+   light.field over het oppervlak (canon 7, alfabandbreedte 6 tot 14 procent). */
+.shell[data-space="reveal"] {
+  --reveal-glow: radial-gradient(120% 90% at 50% -10%,
+    color-mix(in srgb, var(--semantic-signal) 10%, transparent), transparent 62%);
 }
 
 /* ---------------------------- base ---------------------------- */
@@ -175,7 +153,7 @@ body {
 :focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 /* ---------------------------- prototype banner ---------------------------- */
@@ -194,7 +172,7 @@ body {
 .ctrl { display: inline-flex; align-items: center; gap: var(--s1); }
 .ctrl label { color: var(--faint); }
 .seg {
-  display: inline-flex; border: 1px solid var(--border); border-radius: 999px;
+  display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-pill);
   overflow: hidden; background: var(--field);
 }
 .seg button {
@@ -221,17 +199,24 @@ body {
   font-size: 20px; margin-bottom: var(--s5); color: var(--text);
 }
 .rail .brand span { color: var(--primary); }
-.rail .payoff { font-family: var(--serif); font-style: italic; color: var(--muted); font-size: 12px; letter-spacing: .02em; margin-top: -18px; margin-bottom: var(--s5); }
+.rail .payoff { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--muted); font-size: var(--t-fine); letter-spacing: .02em; margin-top: -18px; margin-bottom: var(--s5); }
 .nav { display: flex; flex-direction: column; gap: 2px; }
 .nav a {
   display: flex; align-items: center; gap: var(--s3);
-  padding: var(--s2) var(--s3); border-radius: 10px;
+  padding: var(--s2) var(--s3); border-radius: var(--radius-sm);
   color: var(--muted); text-decoration: none; font-size: var(--t-body);
   transition: background .15s var(--ease), color .15s var(--ease);
 }
 .nav a .ico { width: 18px; text-align: center; opacity: .85; font-size: 15px; }
 .nav a:hover { background: var(--surface-2); color: var(--text); }
-.nav a[aria-current="page"] { background: var(--primary-soft); color: var(--text); }
+/* Canon 12: een navigatie-item is rustig in ruststand, en actief is een
+   koperen markering aan een zijde. Nooit een gevuld blok. */
+.nav a { position: relative; }
+.nav a[aria-current="page"] { color: var(--text); }
+.nav a[aria-current="page"]::before {
+  content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2px;
+  background: var(--primary); border-radius: var(--radius-pill);
+}
 .nav a[aria-current="page"] .ico { color: var(--primary); opacity: 1; }
 .nav .count {
   margin-left: auto; font-size: 11px; min-width: 18px; text-align: center;
@@ -260,8 +245,9 @@ body {
 .greet > * { position: relative; z-index: 1; }
 .greet .eyebrow { font-size: var(--t-eyebrow); letter-spacing: .18em; text-transform: uppercase; color: var(--faint); }
 .greet h1 {
-  font-family: var(--serif); font-weight: 600; font-size: var(--t-hero);
-  margin: var(--s2) 0 var(--s2); line-height: 1.1; letter-spacing: -.01em;
+  font-family: var(--serif); font-weight: 300; font-size: var(--t-insight);
+  font-optical-sizing: auto;
+  margin: var(--s2) 0 var(--s2); line-height: 1.2; letter-spacing: -.017em;
 }
 .greet .sub { font-size: var(--t-lead); color: var(--muted); max-width: 34ch; }
 
@@ -273,7 +259,7 @@ body {
   color: var(--muted); display: inline-flex; align-items: center; gap: var(--s2);
 }
 .attn-head .tier .pip { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
-.attn-head .tier.now .pip { background: var(--danger); box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 22%, transparent); }
+.attn-head .tier.now .pip { background: var(--primary); box-shadow: 0 0 0 4px color-mix(in srgb, var(--semantic-signal) 22%, transparent); }
 .attn-head .tier.notice .pip { background: var(--warn); }
 .attn-head .tier.ready .pip { background: var(--ok); }
 .attn-head .tier.quiet .pip { background: var(--faint); }
@@ -290,20 +276,26 @@ body {
 }
 .item:hover { border-color: var(--border-strong); transform: translateY(-1px); }
 .item .row1 { display: flex; align-items: center; gap: var(--s3); }
-.item .who { font-family: var(--serif); font-size: var(--t-lead); color: var(--text); }
+.item .who { font-size: var(--t-lead); color: var(--text); font-weight: 600; }
 .item .chan { font-size: 11px; color: var(--faint); letter-spacing: .04em; text-transform: uppercase; }
 .item .when { margin-left: auto; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
 .item .line { color: var(--muted); margin-top: 6px; font-size: var(--t-body); }
 .item .tags { margin-top: var(--s3); display: flex; gap: var(--s2); flex-wrap: wrap; }
 
+/* Canon 10 en amendement C-2: een transparant vlak, een border.semantic als
+   hairline en de semantische kleur als tekst. Geen gevulde badge, want dan zou
+   kleur de drager worden en dat sluit canon 10 juist uit. */
 .chip {
-  font-size: 11px; letter-spacing: .03em; padding: 3px 9px; border-radius: 999px;
-  border: 1px solid var(--border); color: var(--muted); background: var(--field);
+  font-size: var(--t-label); letter-spacing: .03em; padding: 3px 9px; border-radius: var(--radius-pill);
+  border: 1px solid var(--bs-uncertain); color: var(--uncertain); background: transparent;
   display: inline-flex; align-items: center; gap: 6px;
 }
-.chip.ready { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
-.chip.now { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
-.chip.notice { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+.chip.ready { color: var(--ok); border-color: var(--bs-confirmed); }
+/* "Nu" vraagt aandacht, en aandacht vragen is koper. Rood blijft voorbehouden
+   aan wat gebroken is (canon 2 en 3.3). */
+.chip.now { color: var(--primary); border-color: var(--bs-signal); }
+.chip.notice { color: var(--primary); border-color: var(--bs-signal); }
+.chip.broken { color: var(--danger); border-color: var(--bs-broken); }
 .chip .k { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
 /* ---------------------------- REVEAL ---------------------------- */
@@ -319,8 +311,9 @@ body {
 .reveal > * { position: relative; }
 .reveal .noticed { font-size: var(--t-eyebrow); letter-spacing: .18em; text-transform: uppercase; color: var(--primary); }
 .reveal h2 {
-  font-family: var(--serif); font-weight: 600; font-size: var(--t-display);
-  line-height: 1.15; margin: var(--s3) 0 var(--s2); letter-spacing: -.01em;
+  font-family: var(--serif); font-weight: 300; font-size: var(--t-insight);
+  font-optical-sizing: auto;
+  line-height: 1.2; margin: var(--s3) 0 var(--s2); letter-spacing: -.017em;
 }
 .reveal .relto { color: var(--muted); font-size: var(--t-body); }
 .reveal .layers { margin-top: var(--s5); display: flex; flex-direction: column; gap: var(--s3); }
@@ -338,18 +331,18 @@ body {
 }
 .layer .prov.fact { color: var(--ok); }
 .layer .prov.observation { color: var(--primary); }
-.layer .prov.inference { color: var(--warn); }
-.layer .prov.suggestion { color: var(--muted); }
+.layer .prov.inference { color: var(--uncertain); }
+.layer .prov.suggestion { color: var(--emerging); }
 .layer p { margin: 0; color: var(--text); }
 .layer .evidence { margin-top: var(--s2); color: var(--muted); font-size: 13px; }
 .layer .conf { margin-top: var(--s2); font-size: 11px; color: var(--faint); }
-.layer .bar { height: 4px; border-radius: 4px; background: var(--surface-3); margin-top: 4px; max-width: 180px; }
-.layer .bar i { display: block; height: 100%; border-radius: 4px; background: var(--primary); }
+/* Canon 11: Maculis toont een ding, geen score. De zekerheidsbalk is
+   vervallen; de zekerheid staat als woord in de zin eronder. */
 
 .look-again {
   margin-top: var(--s5); display: inline-flex; align-items: center; gap: var(--s2);
   background: transparent; border: 1px solid var(--border-strong); color: var(--text);
-  padding: 9px 16px; border-radius: 999px; cursor: pointer; font-family: var(--serif);
+  padding: 9px 16px; border-radius: var(--radius-pill); cursor: pointer; font-family: var(--serif);
   font-style: italic; font-size: 15px;
   transition: background .18s var(--ease), border-color .18s var(--ease), gap .18s var(--ease);
 }
@@ -361,9 +354,9 @@ body {
 /* prototype-lens marker for hypothetical intelligence */
 .fixture-note {
   margin-top: var(--s4); display: inline-flex; align-items: center; gap: var(--s2);
-  font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
-  color: var(--warn); border: 1px dashed color-mix(in srgb, var(--warn) 55%, transparent);
-  padding: 5px 10px; border-radius: 8px;
+  font-size: var(--t-label); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--uncertain); border: 1px dashed var(--bs-uncertain);
+  padding: 5px 10px; border-radius: var(--radius-pill);
 }
 
 /* ---------------------------- zero state / silence ---------------------------- */
@@ -372,32 +365,30 @@ body {
   width: 66px; height: 66px; margin: 0 auto var(--s5); border-radius: 50%;
   border: 1px solid var(--border-strong);
   display: grid; place-items: center; color: var(--primary);
-  animation: breathe 6s var(--ease) infinite;
 }
-@keyframes breathe {
-  0%, 100% { transform: scale(1); opacity: .85; box-shadow: 0 0 0 0 var(--primary-soft); }
-  50% { transform: scale(1.04); opacity: 1; box-shadow: 0 0 0 14px transparent; }
-}
-.silence h2 { font-family: var(--serif); font-weight: 600; font-size: var(--t-display); margin: 0 0 var(--s2); }
+/* Hier ademde de lege staat oneindig door. Canon 8.4 sluit constante
+   achtergrondbeweging in een werkomgeving uit, en canon 14 geeft de Cockpit
+   "stil, behalve wat aandacht vraagt". De stilte staat nu ook echt stil. */
+.silence h2 { font-family: var(--serif); font-weight: 300; font-size: var(--t-insight); font-optical-sizing: auto; letter-spacing: -.017em; margin: 0 0 var(--s2); }
 .silence p { color: var(--muted); font-size: var(--t-lead); margin: 0; }
 .silence .whisper { margin-top: var(--s6); color: var(--faint); font-size: 13px; font-style: italic; font-family: var(--serif); max-width: 42ch; margin-left: auto; margin-right: auto; }
 
 /* ---------------------------- Relaties (scale) ---------------------------- */
 .rel-top { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s4); flex-wrap: wrap; }
-.rel-top h1 { font-family: var(--serif); font-weight: 600; font-size: var(--t-title); margin: 0; }
+.rel-top h1 { font-weight: 600; font-size: var(--t-insight); margin: 0; letter-spacing: -.01em; }
 .rel-top .n { color: var(--faint); font-variant-numeric: tabular-nums; }
 .search {
   flex: 1; min-width: 200px; display: flex; align-items: center; gap: var(--s2);
-  background: var(--field); border: 1px solid var(--border); border-radius: 999px;
+  background: var(--field); border: 1px solid var(--border); border-radius: var(--radius-pill);
   padding: 8px var(--s4); color: var(--muted);
 }
 .search input { flex: 1; border: 0; background: transparent; color: var(--text); outline: none; font-size: var(--t-body); }
 .views { display: flex; gap: var(--s2); margin-bottom: var(--s4); flex-wrap: wrap; }
 .viewpill {
-  font-size: 12px; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  font-size: 12px; padding: 6px 12px; border-radius: var(--radius-pill); cursor: pointer;
   border: 1px solid var(--border); background: var(--field); color: var(--muted);
 }
-.viewpill[aria-pressed="true"] { border-color: var(--primary); color: var(--text); background: var(--primary-soft); }
+.viewpill[aria-pressed="true"] { border-color: var(--primary); color: var(--primary); background: transparent; }
 .viewpill .c { color: var(--faint); margin-left: 6px; font-variant-numeric: tabular-nums; }
 
 /* relationship rows: quiet by default, actions on hover/focus (progressive disclosure) */
@@ -412,7 +403,6 @@ body {
 .rel .av {
   width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
   font-size: 12px; font-weight: 600; color: var(--primary-text); background: var(--primary);
-  font-family: var(--serif);
 }
 .rel .nm { color: var(--text); }
 .rel .nm small { display: none; color: var(--faint); font-size: 12px; }
@@ -426,7 +416,7 @@ body {
 .rel:hover .act, .rel:focus-within .act { opacity: 1; }
 .rel .act button {
   border: 1px solid var(--border); background: var(--field); color: var(--muted);
-  border-radius: 8px; width: 30px; height: 30px; cursor: pointer; font-size: 14px;
+  border-radius: var(--radius-sm); width: 30px; height: 30px; cursor: pointer; font-size: 14px;
 }
 .rel .act button:hover { color: var(--primary); border-color: var(--primary); }
 .rel .movement { position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: transparent; }
@@ -440,19 +430,21 @@ body {
 .work-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--s5); }
 .thread { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
 .thread .th-head { padding: var(--s4) var(--s5); border-bottom: 1px solid var(--border); }
-.thread .th-head h2 { margin: 0; font-family: var(--serif); font-weight: 600; font-size: var(--t-lead); }
+.thread .th-head h2 { margin: 0; font-weight: 600; font-size: var(--t-lead); }
 .thread .th-head .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .msgs { padding: var(--s4) var(--s5); display: flex; flex-direction: column; gap: var(--s4); max-height: 340px; overflow: auto; }
 .msg { max-width: 82%; }
-.msg .b { padding: var(--s3) var(--s4); border-radius: 14px; font-size: 13px; }
-.msg.in .b { background: var(--surface-2); border-top-left-radius: 4px; }
+.msg .b { padding: var(--s3) var(--s4); border-radius: var(--radius-md); font-size: 13px; }
+/* Canon 12, collaboration surface: het onderscheid zit in het oppervlak.
+   Binnenkomend is een verhoogd vlak, uitgaand is een omlijnd vlak. */
+.msg.in .b { background: var(--surface-elevated); border-top-left-radius: 0; }
 .msg.out { margin-left: auto; }
-.msg.out .b { background: var(--primary-soft); border-top-right-radius: 4px; }
+.msg.out .b { background: transparent; border: 1px solid var(--border); border-top-right-radius: 0; }
 .msg .who { font-size: 11px; color: var(--faint); margin-bottom: 3px; }
 .composer { border-top: 1px solid var(--border); padding: var(--s4) var(--s5); }
 .composer textarea {
   width: 100%; min-height: 90px; resize: vertical; border: 1px solid var(--border);
-  border-radius: 10px; background: var(--field); color: var(--text); padding: var(--s3);
+  border-radius: var(--radius-sm); background: var(--field); color: var(--text); padding: var(--s3);
   font-family: var(--sans); font-size: 13px; line-height: 1.5;
 }
 .composer .bar { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s3); }
@@ -469,22 +461,24 @@ body {
 
 /* ---------------------------- buttons ---------------------------- */
 .btn {
-  border: 1px solid var(--border-strong); background: var(--field); color: var(--text);
-  padding: 8px 14px; border-radius: 10px; cursor: pointer; font-size: 13px;
-  transition: background .14s var(--ease), border-color .14s var(--ease), transform .05s;
+  border: 1px solid var(--border-strong); background: transparent; color: var(--text);
+  padding: 8px 16px; border-radius: var(--radius-pill); cursor: pointer; font-size: var(--t-body);
+  transition: border-color var(--motion-micro) var(--ease), color var(--motion-micro) var(--ease),
+              transform var(--motion-micro) var(--ease);
 }
-.btn:hover { background: var(--surface-2); }
+.btn:hover { border-color: var(--primary); }
 .btn:active { transform: translateY(1px); }
 .btn-primary { background: var(--primary); border-color: var(--primary); color: var(--primary-text); font-weight: 600; }
-.btn-primary:hover { background: var(--primary); filter: brightness(1.08); }
+/* Hover is een lift van 1 tot 2px, nooit een schaalsprong (canon 12). */
+.btn-primary:hover { background: var(--copper-400); border-color: var(--copper-400); transform: translateY(-1px); }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--muted); }
-.btn-ghost:hover { color: var(--text); background: var(--surface-2); }
+.btn-ghost:hover { color: var(--primary); background: transparent; }
 
 /* space badge for direction C */
 .space-badge {
   display: inline-flex; align-items: center; gap: 7px; font-size: 11px;
   letter-spacing: .1em; text-transform: uppercase; color: var(--faint);
-  border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; margin-bottom: var(--s4);
+  border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 4px 10px; margin-bottom: var(--s4);
 }
 .space-badge .d { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
 [data-space="work"] .space-badge .d { background: var(--ok); }
@@ -550,19 +544,19 @@ body {
 .settle-menu {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 5;
   display: flex; flex-direction: column; min-width: 180px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface-elevated); border-radius: var(--radius-sm);
   padding: 6px; gap: 2px; box-shadow: var(--shadow);
 }
 .settle-menu[hidden] { display: none; }
 .settle-menu button {
   text-align: left; border: 0; background: transparent; color: var(--text);
-  font-size: 13px; padding: 7px 10px; border-radius: 7px; cursor: pointer;
+  font-size: 13px; padding: 7px 10px; border-radius: var(--radius-sm); cursor: pointer;
 }
 .settle-menu button:hover { background: var(--surface-2); color: var(--primary); }
-.why-btn.ghost { border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; color: var(--muted); }
+.why-btn.ghost { border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 6px 12px; color: var(--muted); }
 .why-btn.ghost:hover { border-color: var(--primary); color: var(--primary); }
 .item .why {
-  margin-top: var(--s3); padding: var(--s3) var(--s4); border-radius: 10px;
+  margin-top: var(--s3); padding: var(--s3) var(--s4); border-radius: var(--radius-sm);
   background: var(--field); border: 1px solid var(--hair); color: var(--muted); font-size: 13px;
 }
 .item .why .prov { margin-right: 8px; }
@@ -576,7 +570,7 @@ body {
 .rest-area .rest-list { display: flex; flex-direction: column; gap: 6px; }
 .rest-item {
   display: flex; align-items: center; gap: var(--s2); font-size: 13px; color: var(--muted);
-  padding: 8px var(--s4); border: 1px solid var(--hair); border-radius: 8px; background: var(--field);
+  padding: 8px var(--s4); border: 1px solid var(--hair); border-radius: var(--radius-sm); background: var(--field);
 }
 .rest-item .rk { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
 .rest-item.landing { animation: land .5s var(--ease) both; }
@@ -592,9 +586,9 @@ body {
 .daybar-label { font-size: var(--t-eyebrow); letter-spacing: .16em; text-transform: uppercase; color: var(--faint); margin-right: var(--s2); }
 .dayopt {
   border: 1px solid var(--border); background: var(--field); color: var(--muted);
-  border-radius: 999px; padding: 5px 13px; font-size: 12px; cursor: pointer;
+  border-radius: var(--radius-pill); padding: 5px 13px; font-size: 12px; cursor: pointer;
 }
-.dayopt[aria-pressed="true"] { border-color: var(--primary); color: var(--text); background: var(--primary-soft); }
+.dayopt[aria-pressed="true"] { border-color: var(--primary); color: var(--primary); background: transparent; }
 
 /* the quiet majority: many signals held as one calm, openable line */
 .grouped { border: 1px dashed var(--border); border-radius: var(--radius); background: transparent; }
@@ -620,7 +614,7 @@ body {
 .reveal-teaser:hover { transform: translateY(-1px); border-color: var(--primary); }
 .reveal-teaser > * { position: relative; }
 .reveal-teaser .rt-noticed { font-size: var(--t-eyebrow); letter-spacing: .16em; text-transform: uppercase; color: var(--primary); display: block; }
-.reveal-teaser .rt-head { font-family: var(--serif); font-size: var(--t-lead); color: var(--text); display: block; margin: 6px 0 2px; }
+.reveal-teaser .rt-head { font-family: var(--serif); font-weight: 300; font-size: var(--t-lead); color: var(--text); display: block; margin: 6px 0 2px; }
 .reveal-teaser .rt-rel { color: var(--muted); font-size: 13px; display: block; }
 .reveal-teaser .rt-go { display: inline-flex; align-items: center; gap: 6px; margin-top: var(--s3); color: var(--primary); font-family: var(--serif); font-style: italic; font-size: 14px; }
 .reveal-teaser .rt-go .arw { transition: transform .3s var(--ease); }
@@ -628,8 +622,8 @@ body {
 
 /* reveal view extras */
 .reveal-switch { display: inline-flex; gap: var(--s2); margin-bottom: var(--s5); flex-wrap: wrap; }
-.rsw { border: 1px solid var(--border); background: var(--field); color: var(--muted); border-radius: 999px; padding: 6px 14px; font-size: 12px; cursor: pointer; }
-.rsw[aria-pressed="true"] { border-color: var(--primary); color: var(--text); background: var(--primary-soft); }
+.rsw { border: 1px solid var(--border); background: var(--field); color: var(--muted); border-radius: var(--radius-pill); padding: 6px 14px; font-size: 12px; cursor: pointer; }
+.rsw[aria-pressed="true"] { border-color: var(--primary); color: var(--primary); background: transparent; }
 .reveal-why { margin-top: var(--s4); }
 .reveal-why .why { margin-top: var(--s3); color: var(--muted); font-size: 13px; border-left: 2px solid var(--primary); padding-left: var(--s3); }
 .reveal-silence {
@@ -646,7 +640,7 @@ body {
   transition: border-color .15s var(--ease), background .15s var(--ease);
 }
 .segment:hover { border-color: var(--border-strong); }
-.segment[aria-pressed="true"] { border-color: var(--primary); background: var(--primary-soft); }
+.segment[aria-pressed="true"] { border-color: var(--primary); background: transparent; }
 .segment .seg-l { font-size: var(--t-body); color: var(--text); }
 .segment .seg-d { font-size: 11px; color: var(--faint); }
 .segment .seg-c { font-size: 12px; color: var(--primary); font-variant-numeric: tabular-nums; margin-top: 2px; }
@@ -654,7 +648,7 @@ body {
 /* relationship row: sub-hint visible, reveal badge */
 .rel .nm small { display: block; color: var(--faint); font-size: 12px; }
 .rel .state { flex-wrap: wrap; gap: 6px; }
-.rev-badge { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 45%, transparent); border-radius: 6px; padding: 1px 6px; }
+.rev-badge { font-size: var(--t-label); letter-spacing: .16em; text-transform: uppercase; color: var(--primary); border: 1px solid var(--bs-signal); border-radius: var(--radius-pill); padding: 1px 8px; }
 .rel .state.reveal .k { background: var(--primary); }
 
 /* conversations (omnichannel) */
@@ -665,9 +659,9 @@ body {
   transition: transform .16s var(--ease), border-color .16s var(--ease);
 }
 .conv:hover, .conv:focus-within { transform: translateY(-1px); border-color: var(--border-strong); }
-.conv .av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 600; color: var(--primary-text); background: var(--primary); font-family: var(--serif); }
+.conv .av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 600; color: var(--primary-text); background: var(--primary); }
 .conv-top { display: flex; align-items: center; gap: var(--s3); }
-.conv-who { font-family: var(--serif); font-size: var(--t-lead); color: var(--text); }
+.conv-who { font-size: var(--t-lead); color: var(--text); font-weight: 600; }
 .conv-chan { font-size: 11px; color: var(--faint); letter-spacing: .03em; }
 .conv-when { margin-left: auto; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
 .conv-org { color: var(--muted); font-size: 12px; margin-top: 1px; }
@@ -675,7 +669,7 @@ body {
 .conv-tags { margin-top: var(--s3); display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
 .alt-chans { font-size: 11px; color: var(--faint); }
 
-.work-h1 { font-family: var(--serif); font-weight: 600; font-size: var(--t-title); margin: 8px 0 4px; }
+.work-h1 { font-weight: 600; font-size: var(--t-insight); margin: 8px 0 4px; letter-spacing: -.01em; }
 .silence.soft { padding: var(--s6) var(--s4); }
 
 /* composer larger for real deep work */
@@ -686,21 +680,20 @@ body {
    Seeing happens in dark, even inside a light room. Forces C dark tokens
    locally so it holds regardless of the surrounding space.
    ===================================================================== */
+/* Het onthullingsvlak. Vroeger dwong dit een eigen donker palet af omdat de
+   werkruimte licht was; met een regime is dat niet meer nodig. Wat blijft is
+   canon 12: een verhoogd vlak met een hairline, plus light.edge dat markeert
+   dat hier iets onthuld wordt (canon 7). */
 .aperture {
-  color-scheme: dark;
-  /* Same lifted, higher-contrast dark tokens as direction C, so the reveal
-     aperture stays comfortably readable inside the light work room. */
-  --bg: #0c0806; --field: #130d08; --surface: #1d140c; --surface-2: #271b10; --surface-3: #322414;
-  --border: rgba(206,156,96,0.24); --border-strong: rgba(206,156,96,0.40);
-  --text: #f6efe3; --muted: #cabda6; --faint: #9a8c73;
-  --primary: #e0ad67; --primary-soft: rgba(224,173,103,0.16); --primary-text: #241606;
-  --hair: rgba(206,156,96,0.14);
-  background: var(--surface); color: var(--text);
+  background: var(--surface-elevated); color: var(--text);
   border: 1px solid var(--border-strong); border-radius: var(--radius);
   padding: var(--s4) var(--s5); position: relative; overflow: hidden;
-  box-shadow: inset 0 0 48px rgba(0,0,0,.20);
 }
-.aperture::before { content: ""; position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% -10%, rgba(224,173,103,0.15), transparent 62%); pointer-events: none; }
+.aperture::before {
+  content: ""; position: absolute; inset: 0 0 auto; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent,
+    color-mix(in srgb, var(--semantic-signal) 55%, transparent), transparent);
+}
 .aperture > * { position: relative; }
 .aperture .ap-noticed { font-size: var(--t-eyebrow); letter-spacing: .16em; text-transform: uppercase; color: var(--primary); }
 .aperture .ap-text { color: var(--text); margin: var(--s2) 0 var(--s3); font-size: 14px; }
@@ -767,7 +760,7 @@ body {
 .orient-p:last-child { margin-bottom: 0; }
 .orient-close {
   border: 1px solid var(--border-strong); background: var(--field); color: var(--text);
-  border-radius: 999px; padding: 7px 15px; font-size: 13px; cursor: pointer; white-space: nowrap;
+  border-radius: var(--radius-pill); padding: 7px 15px; font-size: 13px; cursor: pointer; white-space: nowrap;
 }
 .orient-close:hover { border-color: var(--primary); color: var(--primary); }
 
@@ -789,13 +782,13 @@ body {
 
 /* a reveal that returned because new events made it relevant again */
 .rt-recur, .rc-badge {
-  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
-  color: var(--ok); border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent);
-  border-radius: 6px; padding: 1px 6px; margin-left: var(--s2);
+  font-size: var(--t-label); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ok); border: 1px solid var(--bs-confirmed);
+  border-radius: var(--radius-pill); padding: 1px 8px; margin-left: var(--s2);
 }
 .reveal-recur {
   position: relative; margin-top: var(--s3); padding: var(--s3) var(--s4);
-  border-left: 2px solid var(--ok); background: var(--field); border-radius: 8px;
+  border-left: 2px solid var(--ok); background: var(--field); border-radius: var(--radius-sm);
   color: var(--muted); font-size: 13px;
 }
 .reveal-recur .rc-badge { margin-left: 0; margin-right: 6px; }
@@ -822,12 +815,17 @@ body {
 /* discreet Beheer in the rail foot, plus a conditional Groei entry */
 .rail .foot .beheer-link {
   display: flex; align-items: center; gap: var(--s3); text-decoration: none;
-  color: var(--faint); font-size: 13px; padding: var(--s2) var(--s3); border-radius: 10px;
+  color: var(--faint); font-size: 13px; padding: var(--s2) var(--s3); border-radius: var(--radius-sm);
   margin-bottom: var(--s3);
 }
 .rail .foot .beheer-link .ico { width: 18px; text-align: center; }
 .rail .foot .beheer-link:hover { color: var(--muted); background: var(--surface-2); }
-.rail .foot .beheer-link[aria-current="page"] { color: var(--text); background: var(--primary-soft); }
+.rail .foot .beheer-link { position: relative; }
+.rail .foot .beheer-link[aria-current="page"] { color: var(--text); }
+.rail .foot .beheer-link[aria-current="page"]::before {
+  content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 2px;
+  background: var(--primary); border-radius: var(--radius-pill);
+}
 .nav a.conditional { position: relative; }
 .nav a.conditional .lbl { color: var(--primary); }
 .new-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); padding: 0; min-width: 0; }
@@ -838,7 +836,7 @@ body {
 .rel-find { display: flex; gap: var(--s3); align-items: stretch; margin: 0 0 var(--s6); max-width: 640px; }
 .rel-find .search.big { flex: 1; }
 .rel-find .btn { flex: 0 0 auto; }
-.rel-count { font-family: var(--serif); font-size: var(--t-title); color: var(--text); margin: 0 0 var(--s2); font-weight: 500; }
+.rel-count { font-size: var(--t-insight); color: var(--text); margin: 0 0 var(--s2); font-weight: 600; letter-spacing: -.01em; }
 .rel-count b { color: var(--primary); font-weight: 600; }
 .rel-sub { color: var(--muted); font-size: var(--t-body); max-width: 62ch; margin: 0; }
 
@@ -850,10 +848,10 @@ body {
   transition: transform .16s var(--ease), border-color .16s var(--ease);
 }
 .mover:hover, .mover:focus-visible { transform: translateY(-1px); border-color: var(--border-strong); }
-.mover .av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 600; color: var(--primary-text); background: var(--primary); font-family: var(--serif); }
+.mover .av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 600; color: var(--primary-text); background: var(--primary); }
 .mover-main { min-width: 0; }
 .mover-top { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
-.mover-name { font-family: var(--serif); font-size: var(--t-lead); color: var(--text); }
+.mover-name { font-size: var(--t-lead); color: var(--text); font-weight: 600; }
 .mover-touch { margin-left: auto; font-size: 12px; color: var(--faint); }
 .mover-org { color: var(--muted); font-size: 12px; margin-top: 1px; }
 .mover-reason { color: var(--text); font-size: 13px; margin-top: 6px; }
@@ -865,7 +863,7 @@ body {
 .rel-all-note { color: var(--faint); font-size: 13px; max-width: 62ch; margin: 0 0 var(--s3); }
 .rel-all-toggle {
   border: 1px solid var(--border); background: var(--field); color: var(--muted);
-  border-radius: 999px; padding: 8px 16px; font-size: 13px; cursor: pointer;
+  border-radius: var(--radius-pill); padding: 8px 16px; font-size: 13px; cursor: pointer;
   display: inline-flex; align-items: center; gap: var(--s2);
 }
 .rel-all-toggle:hover { border-color: var(--border-strong); color: var(--text); }
@@ -875,7 +873,7 @@ body {
 .rel-all-body.hidden { display: none; }
 
 /* the growth-pattern teaser is a reveal teaser with a Groei mark */
-.rt-recur.groei { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
+.rt-recur.groei { color: var(--primary); border-color: var(--bs-signal); }
 .pattern-teaser { border-style: dashed; }
 
 @media (max-width: 860px) {
@@ -897,45 +895,46 @@ body {
   position: fixed; z-index: 80; right: 14px; bottom: 14px;
   display: inline-flex; align-items: center; gap: 7px;
   font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
-  color: #b9a88f; background: rgba(20,14,8,.92); border: 1px dashed rgba(206,156,96,.5);
-  border-radius: 999px; padding: 7px 13px; cursor: pointer; backdrop-filter: blur(4px);
+  color: var(--muted); background: var(--surface-elevated); border: 1px dashed var(--border-defined);
+  border-radius: var(--radius-pill); padding: 7px 13px; cursor: pointer;
 }
-.proto-toggle:hover { color: #e6cfa6; border-color: rgba(206,156,96,.8); }
+.proto-toggle:hover { color: var(--text); border-color: var(--primary); }
 .proto-toggle .pt-ico { font-size: 13px; }
-.proto-scrim { position: fixed; inset: 0; z-index: 85; background: rgba(0,0,0,.35); }
+.proto-scrim { position: fixed; inset: 0; z-index: 85; background: var(--scrim); }
 
 /* the dev drawer: monospace-ish, dashed, unmistakably not the product */
 .proto-panel {
   position: fixed; z-index: 90; top: 0; right: 0; height: 100vh; width: 330px; max-width: 88vw;
-  background: #14100b; color: #e7dcc9; border-left: 2px dashed rgba(206,156,96,.55);
-  box-shadow: -20px 0 50px rgba(0,0,0,.5); overflow-y: auto; padding: 18px;
+  background: var(--surface-elevated); color: var(--text); border-left: 2px dashed var(--border-defined);
+  overflow-y: auto; padding: 18px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  transform: translateX(8px); opacity: 0; transition: transform .2s ease, opacity .2s ease;
+  transform: translateX(8px); opacity: 0;
+  transition: transform var(--motion-micro) var(--ease), opacity var(--motion-micro) var(--ease);
 }
 .proto-panel.open { transform: none; opacity: 1; }
 .dp-head { display: flex; align-items: center; justify-content: space-between; }
-.dp-title { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: #e6cfa6; }
-.dp-close { background: transparent; border: 0; color: #b9a88f; cursor: pointer; font-size: 16px; }
-.dp-note { font-size: 11px; line-height: 1.5; color: #a08d76; margin: 8px 0 18px; }
+.dp-title { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--text); }
+.dp-close { background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; }
+.dp-note { font-size: 11px; line-height: 1.5; color: var(--faint); margin: 8px 0 18px; }
 .dp-group { margin-bottom: 18px; }
-.dp-label { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: #8a7a63; margin-bottom: 8px; }
+.dp-label { font-size: var(--t-label); letter-spacing: .16em; text-transform: uppercase; color: var(--faint); margin-bottom: 8px; }
 .dp-seg { display: flex; gap: 6px; flex-wrap: wrap; }
 .dp-seg button, .dp-state {
-  border: 1px solid rgba(206,156,96,.3); background: #1c150d; color: #d7c6ac;
-  border-radius: 8px; padding: 7px 10px; font-size: 12px; cursor: pointer; text-align: left;
+  border: 1px solid var(--border); background: transparent; color: var(--muted);
+  border-radius: var(--radius-sm); padding: 7px 10px; font-size: 12px; cursor: pointer; text-align: left;
   font-family: inherit;
 }
-.dp-seg button[aria-pressed="true"] { background: #d29a5b; color: #241606; border-color: #d29a5b; }
+.dp-seg button[aria-pressed="true"] { background: var(--primary); color: var(--primary-text); border-color: var(--primary); }
 .dp-states { display: flex; flex-direction: column; gap: 6px; }
-.dp-state[aria-current="true"] { border-color: #d29a5b; color: #f0e3cc; background: #241a10; }
-.dp-state:hover { border-color: rgba(206,156,96,.6); }
+.dp-state[aria-current="true"] { border-color: var(--primary); color: var(--text); background: transparent; }
+.dp-state:hover { border-color: var(--border-strong); }
 
 /* Relaties mode tag + the hand-off between "Maculis selects" and "you drive" */
 .mode-tag {
   font-size: 11px; letter-spacing: .06em; color: var(--muted);
-  border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; white-space: nowrap;
+  border: 1px solid var(--border); border-radius: var(--radius-pill); padding: 4px 11px; white-space: nowrap;
 }
-.mode-tag.you { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
+.mode-tag.you { color: var(--primary); border-color: var(--bs-signal); }
 .rel-handoff { margin-top: var(--s6); }
 .handoff-btn {
   width: 100%; text-align: left; cursor: pointer; display: grid; grid-template-columns: 1fr auto;
@@ -944,13 +943,13 @@ body {
   padding: var(--s4) var(--s5); color: inherit; transition: transform .16s var(--ease), border-color .16s var(--ease);
 }
 .handoff-btn:hover { transform: translateY(-1px); border-color: var(--primary); }
-.handoff-btn .hb-title { font-family: var(--serif); font-size: var(--t-lead); color: var(--text); grid-column: 1; }
+.handoff-btn .hb-title { font-size: var(--t-lead); color: var(--text); font-weight: 600; grid-column: 1; }
 .handoff-btn .hb-sub { font-size: 12px; color: var(--muted); grid-column: 1; }
 .handoff-btn .arw { grid-column: 2; grid-row: 1 / span 2; color: var(--primary); font-size: 20px; transition: transform .2s var(--ease); }
 .handoff-btn:hover .arw { transform: translateX(4px); }
 .back-btn {
   border: 1px solid var(--border); background: var(--field); color: var(--muted);
-  border-radius: 999px; padding: 6px 13px; font-size: 13px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center;
+  border-radius: var(--radius-pill); padding: 6px 13px; font-size: 13px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center;
 }
 .back-btn:hover { border-color: var(--border-strong); color: var(--text); }
 
@@ -959,13 +958,13 @@ body {
 .filterbar .search { flex: 1 1 200px; min-width: 160px; }
 .filterbar select {
   border: 1px solid var(--border); background: var(--field); color: var(--text);
-  border-radius: 999px; padding: 8px 12px; font-size: 13px; cursor: pointer; max-width: 100%;
+  border-radius: var(--radius-pill); padding: 8px 12px; font-size: 13px; cursor: pointer; max-width: 100%;
 }
 .fchip {
   border: 1px solid var(--border); background: var(--field); color: var(--muted);
-  border-radius: 999px; padding: 8px 13px; font-size: 13px; cursor: pointer;
+  border-radius: var(--radius-pill); padding: 8px 13px; font-size: 13px; cursor: pointer;
 }
-.fchip.on { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+.fchip.on { border-color: var(--primary); color: var(--primary); background: transparent; }
 .fclear { border: 0; background: transparent; color: var(--faint); cursor: pointer; font-size: 13px; padding: 8px 6px; }
 .fclear:hover { color: var(--danger); }
 
@@ -974,16 +973,16 @@ body {
 .wm-count { color: var(--muted); font-size: 13px; }
 .wm-count b { color: var(--text); font-variant-numeric: tabular-nums; }
 .wm-sort { display: inline-flex; align-items: center; gap: var(--s2); font-size: 12px; color: var(--faint); }
-.wm-sort select { border: 1px solid var(--border); background: var(--field); color: var(--text); border-radius: 8px; padding: 5px 9px; font-size: 12px; }
+.wm-sort select { border: 1px solid var(--border); background: var(--field); color: var(--text); border-radius: var(--radius-sm); padding: 5px 9px; font-size: 12px; }
 
 /* selection bar */
 .selbar {
   position: sticky; top: 8px; z-index: 5; display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap;
-  background: var(--primary-soft); border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  background: var(--surface); border: 1px solid var(--border-strong);
   border-radius: var(--radius); padding: 10px var(--s4); margin-bottom: var(--s3);
 }
 .sb-count { font-weight: 600; color: var(--text); }
-.sb-act { border: 1px solid var(--border-strong); background: var(--field); color: var(--text); border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+.sb-act { border: 1px solid var(--border-strong); background: var(--field); color: var(--text); border-radius: var(--radius-sm); padding: 6px 12px; font-size: 13px; cursor: pointer; }
 .sb-act:hover { border-color: var(--primary); color: var(--primary); }
 .sb-clear { margin-left: auto; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 13px; }
 .sb-done { color: var(--ok); font-size: 13px; }
@@ -1028,22 +1027,22 @@ body {
 .crumb-cur { color: var(--text); }
 
 /* provenance chips: A in Maculis, B afgeleid, C toekomstig */
-.prov-chip { font-size: 10px; letter-spacing: .04em; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
-.prov-chip.a { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
-.prov-chip.b { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
-.prov-chip.c { color: var(--warn); border: 1px dashed color-mix(in srgb, var(--warn) 55%, transparent); }
+.prov-chip { font-size: var(--t-label); letter-spacing: .04em; padding: 1px 7px; border-radius: var(--radius-pill); border: 1px solid var(--bs-uncertain); color: var(--uncertain); background: transparent; white-space: nowrap; }
+.prov-chip.a { color: var(--ok); border-color: var(--bs-confirmed); }
+.prov-chip.b { color: var(--emerging); border-color: var(--bs-emerging); }
+.prov-chip.c { color: var(--uncertain); border: 1px dashed var(--bs-uncertain); }
 
 /* status + consent badges (faithful to Testerbeheer) */
-.badge { font-size: 11px; letter-spacing: .03em; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); display: inline-block; white-space: nowrap; }
-.st-DRAFT { color: var(--muted); }
-.st-SENT { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
-.st-OPENED { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
-.st-COMPLETED { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
-.st-DECLINED, .st-ERROR { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
-.cs-OPTED_IN { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
-.cs-UNKNOWN { color: var(--muted); }
-.cs-OPTED_OUT { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
-.ptl-tag { display: inline-block; margin-left: var(--s2); font-size: 10px; letter-spacing: .04em; color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent); border-radius: 6px; padding: 1px 6px; }
+.badge { font-size: var(--t-label); letter-spacing: .03em; padding: 2px 9px; border-radius: var(--radius-pill); border: 1px solid var(--bs-uncertain); color: var(--uncertain); background: transparent; display: inline-block; white-space: nowrap; }
+.st-DRAFT { color: var(--uncertain); border-color: var(--bs-uncertain); }
+.st-SENT { color: var(--primary); border-color: var(--bs-signal); }
+.st-OPENED { color: var(--emerging); border-color: var(--bs-emerging); }
+.st-COMPLETED { color: var(--ok); border-color: var(--bs-confirmed); }
+.st-DECLINED, .st-ERROR { color: var(--danger); border-color: var(--bs-broken); }
+.cs-OPTED_IN { color: var(--ok); border-color: var(--bs-confirmed); }
+.cs-UNKNOWN { color: var(--uncertain); border-color: var(--bs-uncertain); }
+.cs-OPTED_OUT { color: var(--danger); border-color: var(--bs-broken); }
+.ptl-tag { display: inline-block; margin-left: var(--s2); font-size: var(--t-label); letter-spacing: .04em; color: var(--primary); border: 1px solid var(--bs-signal); border-radius: var(--radius-pill); padding: 1px 8px; }
 
 /* Beheer index */
 .beheer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: var(--s3); margin-top: var(--s5); }
@@ -1052,7 +1051,7 @@ body {
 .beheer-card.clickable:hover { transform: translateY(-1px); border-color: var(--primary); }
 .beheer-card.primary { border-color: var(--border-strong); }
 .beheer-card.muted { opacity: .7; }
-.bc-title { font-family: var(--serif); font-size: var(--t-lead); color: var(--text); }
+.bc-title { font-size: var(--t-lead); color: var(--text); font-weight: 600; }
 .bc-sub { font-size: 13px; color: var(--muted); }
 .bc-n { font-size: 12px; color: var(--primary); margin-top: 4px; }
 .bc-soon { font-size: 11px; color: var(--faint); margin-top: 4px; }
@@ -1076,25 +1075,25 @@ body {
 .linkname:hover { color: var(--primary); text-decoration: underline; }
 .tb-co, .tb-contact { color: var(--muted); }
 .tb-contact small { display: block; color: var(--faint); font-size: 11px; }
-.tb-link code { font-size: 11px; color: var(--faint); background: var(--field); padding: 2px 6px; border-radius: 6px; white-space: nowrap; }
+.tb-link code { font-size: 11px; color: var(--faint); background: var(--field); padding: 2px 6px; border-radius: var(--radius-sm); white-space: nowrap; }
 .tb-acts { display: flex; gap: 4px; }
-.tb-acts button { border: 1px solid var(--border); background: var(--field); color: var(--muted); border-radius: 7px; width: 28px; height: 28px; cursor: pointer; font-size: 13px; }
+.tb-acts button { border: 1px solid var(--border); background: var(--field); color: var(--muted); border-radius: var(--radius-sm); width: 28px; height: 28px; cursor: pointer; font-size: 13px; }
 .tb-acts button:hover:not(:disabled) { color: var(--primary); border-color: var(--primary); }
 .tb-acts button:disabled { opacity: .35; cursor: not-allowed; }
 .tb-foot { margin-top: var(--s3); color: var(--muted); font-size: 12px; }
 .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--s3); margin: var(--s4) 0; }
 .kpi { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: var(--s4); }
-.kpi-n { font-family: var(--serif); font-size: var(--t-display); color: var(--text); }
+.kpi-n { font-size: var(--t-insight); color: var(--text); font-variant-numeric: tabular-nums; }
 .kpi-l { font-size: 12px; color: var(--muted); }
 
 /* Dossier: identity strip */
 .dos-id { display: flex; align-items: center; gap: var(--s4); margin-bottom: var(--s5); flex-wrap: wrap; }
-.dos-av { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-family: var(--serif); font-size: 18px; font-weight: 600; color: var(--primary-text); background: var(--primary); }
+.dos-av { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 18px; font-weight: 600; color: var(--primary-text); background: var(--primary); }
 .dos-idmain { min-width: 0; }
-.dos-name { font-family: var(--serif); font-size: var(--t-title); color: var(--text); }
+.dos-name { font-size: var(--t-insight); color: var(--text); font-weight: 600; letter-spacing: -.01em; }
 .dos-sub { color: var(--muted); font-size: 13px; }
 .dos-meta { margin-left: auto; text-align: right; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
-.dos-stage { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent); border-radius: 999px; padding: 3px 10px; }
+.dos-stage { font-size: var(--t-label); letter-spacing: .16em; text-transform: uppercase; color: var(--primary); border: 1px solid var(--bs-signal); border-radius: var(--radius-pill); padding: 3px 10px; background: transparent; }
 .dos-owner { font-size: 12px; color: var(--faint); display: inline-flex; gap: 6px; align-items: center; }
 
 /* Dossier: identity + reachability zone, directly under the header */
@@ -1108,8 +1107,8 @@ body {
 .reach-item { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
 .reach-ic { color: var(--primary); width: 16px; text-align: center; }
 .reach-v { color: var(--text); }
-.reach-consent { font-size: 12px; padding: 2px 9px; border-radius: 999px; border: 1px dashed color-mix(in srgb, var(--warn) 55%, transparent); color: var(--warn); }
-.reach-consent.out { border-style: solid; border-color: color-mix(in srgb, var(--danger) 50%, transparent); color: var(--danger); }
+.reach-consent { font-size: var(--t-fine); padding: 2px 9px; border-radius: var(--radius-pill); border: 1px dashed var(--bs-uncertain); color: var(--uncertain); }
+.reach-consent.out { border-style: solid; border-color: var(--bs-broken); color: var(--danger); }
 .dos-reach .dos-contact { position: relative; flex: 0 0 auto; }
 .dos-reach .dos-contact-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 5; }
 
@@ -1117,6 +1116,11 @@ body {
 .dos-now { border: 1px solid var(--border-strong); border-radius: var(--radius-lg); padding: var(--s5); margin-bottom: var(--s5); background: var(--surface); }
 .dos-now-h { font-size: var(--t-eyebrow); letter-spacing: .16em; text-transform: uppercase; color: var(--faint); margin-bottom: var(--s3); }
 .dos-now-item .dni-line { margin: var(--s2) 0 var(--s3); color: var(--text); }
+.dos-now-item .dni-top .chip {
+  border: 0; border-left: 2px solid currentColor; border-radius: 0;
+  padding: 0 0 0 var(--s3); font-size: var(--t-body); letter-spacing: 0;
+}
+.dos-now-item .dni-top .chip .k { display: none; }
 .dos-now .aperture { margin-top: var(--s2); }
 .dos-now .aperture .ap-text { font-family: var(--serif); font-size: var(--t-lead); }
 
@@ -1133,7 +1137,7 @@ body {
 .dos-facts .fact .k { color: var(--faint); min-width: 120px; }
 .dos-facts .fact .v { color: var(--text); }
 .dos-note { font-size: 12px; color: var(--muted); margin-top: var(--s3); }
-.dos-note.dos-c { border-left: 2px dashed color-mix(in srgb, var(--warn) 55%, transparent); padding-left: var(--s3); }
+.dos-note.dos-c { border-left: 2px dashed var(--bs-uncertain); padding-left: var(--s3); }
 .dos-timeline { display: flex; flex-direction: column; gap: var(--s3); }
 .tl-ev { border-left: 2px solid var(--hair); padding-left: var(--s4); position: relative; }
 .tl-ev.out { border-color: var(--primary); }
@@ -1143,22 +1147,22 @@ body {
 .dos-memory .mem { padding: var(--s3) 0; border-top: 1px solid var(--hair); }
 .dos-memory .mem:first-child { border-top: 0; padding-top: 0; }
 .mem-top { display: flex; align-items: center; gap: var(--s2); margin-bottom: 4px; }
-.mem-ai { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); border-radius: 6px; padding: 1px 6px; }
-.mem-conf { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ok); border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); border-radius: 6px; padding: 1px 6px; }
+.mem-ai { font-size: var(--t-label); text-transform: uppercase; letter-spacing: .08em; color: var(--emerging); border: 1px solid var(--bs-emerging); border-radius: var(--radius-pill); padding: 1px 8px; }
+.mem-conf { font-size: var(--t-label); text-transform: uppercase; letter-spacing: .08em; color: var(--ok); border: 1px solid var(--bs-confirmed); border-radius: var(--radius-pill); padding: 1px 8px; }
 .mem-when { font-size: 11px; color: var(--faint); }
 .mem p { margin: 0; font-size: 13px; color: var(--text); }
 .mem-acts { font-size: 12px; color: var(--faint); }
 .dos-foot { margin-top: var(--s5); display: flex; align-items: flex-start; gap: var(--s3); flex-wrap: wrap; }
 .dos-contact { position: relative; }
 .dos-contact-menu {
-  margin-top: var(--s2); border: 1px solid var(--border); border-radius: var(--radius);
-  background: var(--surface); padding: var(--s3); display: flex; flex-direction: column; gap: 6px;
+  margin-top: var(--s2); border-radius: var(--radius);
+  background: var(--surface-elevated); padding: var(--s3); display: flex; flex-direction: column; gap: 6px;
   min-width: 320px; box-shadow: var(--shadow);
 }
 .dos-contact-menu[hidden] { display: none; }
 .dos-chan {
   text-align: left; border: 1px solid var(--border); background: var(--field); color: var(--text);
-  border-radius: 8px; padding: 8px var(--s3); font-size: 13px; cursor: pointer;
+  border-radius: var(--radius-sm); padding: 8px var(--s3); font-size: 13px; cursor: pointer;
 }
 .dos-chan:hover:not([disabled]) { border-color: var(--primary); }
 .dos-chan[disabled] { opacity: .6; cursor: not-allowed; }
@@ -1172,7 +1176,7 @@ body {
 .colleague { display: flex; align-items: center; gap: .5rem; font-size: .82rem; color: var(--muted); margin: .1rem 0 .35rem; letter-spacing: .01em; }
 .colleague b { color: var(--text); font-weight: 600; }
 .colleague-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent); flex: 0 0 auto; }
-.work-block { margin: .5rem 0 .2rem; padding: .6rem .7rem; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--primary) 5%, transparent); }
+.work-block { margin: var(--s2) 0 var(--s1); padding: var(--s3); border: 1px solid var(--line); border-radius: var(--radius-sm); background: transparent; }
 .work-proposal { color: var(--text); font-size: .9rem; margin-bottom: .35rem; }
 .work-ev { margin: .1rem 0 .45rem; padding-left: 1.1rem; color: var(--muted); font-size: .82rem; }
 .work-ev li { margin: .12rem 0; }
@@ -1181,7 +1185,7 @@ body {
 /* Beheer → Testerbeheer: a compact admin form in the cockpit vormtaal. */
 .beheer-add { margin: .3rem 0 .2rem; display: flex; flex-direction: column; gap: .5rem; }
 .beheer-add .ba-row { display: flex; gap: .5rem; flex-wrap: wrap; }
-.beheer-add input { flex: 1 1 160px; min-width: 120px; padding: .55rem .7rem; border: 1px solid var(--line); border-radius: 9px; background: color-mix(in srgb, var(--primary) 4%, transparent); color: var(--text); font: inherit; }
+.beheer-add input { flex: 1 1 160px; min-width: 120px; padding: var(--s2) var(--s3); border: 1px solid var(--line); border-radius: var(--radius-sm); background: transparent; color: var(--text); font: inherit; }
 .beheer-add input:focus { outline: none; border-color: var(--primary); }
 .beheer-add .btn { flex: 0 0 auto; }
 .beheer-more { margin-top: 1rem; opacity: .85; }
@@ -1192,6 +1196,21 @@ body {
 .dos-lens .dos-note { margin-top: .5rem; }
 
 /* AI context layer — the relational assessment shown before drafting. */
-.assess { margin: .4rem 0 .2rem; padding: .5rem .7rem; border-left: 2px solid var(--primary); background: color-mix(in srgb, var(--primary) 5%, transparent); font-size: .88rem; color: var(--muted); border-radius: 0 8px 8px 0; }
+.assess { margin: var(--s2) 0 var(--s1); padding: var(--s2) var(--s3); border-left: 2px solid var(--primary); background: transparent; font-size: var(--t-body); color: var(--muted); }
 .assess b { color: var(--text); font-weight: 600; }
 .assess-k { color: var(--primary); margin-right: .35rem; }
+
+/* =====================================================================
+   SMAL SCHERM — twee overgebleven regels uit een eerdere ronde rechtzetten
+   ===================================================================== */
+@media (max-width: 860px) {
+  /* Op smal scherm is de rail een rij. De ONE-NAV-ronde zette .rail daarna
+     alsnog op 100vh, en omdat die regel later in het bestand staat won hij van
+     de media query: er bleef een scherm hoogte leeg boven de inhoud. Canon 14
+     geeft de Cockpit juist de hoogste dichtheid. */
+  .rail { height: auto; }
+  /* De ingang naar Scout is in die rij een item naast de navigatie, geen balk
+     over de volle breedte. De selector noemt de rail, omdat de eigen stijl van
+     het operationele scherm na dit bestand wordt geladen. */
+  .rail .ask-scout { width: auto; flex: 0 0 auto; margin: 0; white-space: nowrap; }
+}
