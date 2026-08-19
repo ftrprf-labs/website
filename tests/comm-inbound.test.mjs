@@ -28,7 +28,7 @@ test('inbound pipeline: persist, route, thread, idempotency, outbound reply-back
     process.env.RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET || ('whsec_' + Buffer.from('inbound-test-secret').toString('base64'));
     const { runMigrations } = await import('../server/comm/migrate.mjs');
     const { processInbound } = await import('../server/comm/inbound.mjs');
-    const { sendReply } = await import('../server/comm/outbound.mjs');
+    const { sendOnChannel } = await import('../server/comm/send.mjs');
     const { query, closePool } = await import('../server/comm/db.mjs');
     const { config } = await import('../server/config.mjs');
     try {
@@ -41,7 +41,8 @@ test('inbound pipeline: persist, route, thread, idempotency, outbound reply-back
       assert.equal(r1.stored, true);
       const dup = await processInbound({ ...mk({ email_id: 'e1', from: 'kim@oca.nl', to: ['hello@maculis.nl'] }, 'w1'), fetchEmail: email({ mid: '<c1@oca.nl>' }) });
       assert.equal(dup.duplicate, true);
-      const rep = await sendReply({ conversationId: r1.conversationId, text: 'ja', send: async () => ({ ok: true, id: 'x' }) });
+      // Antwoorden gaat via de enige uitgaande weg, dus door consent, handtekening en threading.
+      const rep = await sendOnChannel({ conversationId: r1.conversationId, channel: 'EMAIL', text: 'ja' });
       assert.equal(rep.ok, true);
       const r2 = await processInbound({ ...mk({ email_id: 'e2', from: 'kim@oca.nl', to: ['hello@maculis.nl'], subject: 'Re: Vraag' }, 'w2'), fetchEmail: email({ mid: '<c2@oca.nl>', inReplyTo: rep.rfcMessageId, references: [rep.rfcMessageId] }) });
       assert.equal(r2.conversationId, r1.conversationId, 'reply-back threads into same conversation');

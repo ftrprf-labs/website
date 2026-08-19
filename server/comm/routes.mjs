@@ -9,7 +9,6 @@
 import { config } from '../config.mjs';
 import { commEnabled, query } from './db.mjs';
 import { processInbound } from './inbound.mjs';
-import { sendReply } from './outbound.mjs';
 import { sendOnChannel } from './send.mjs';
 import { getDefaultTenantId } from './tenant.mjs';
 import { recordAudit } from './audit.mjs';
@@ -211,11 +210,23 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
     return true;
   }
 
-  // Manual reply (email) — the AI-free fallback path (§FALLBACK). Human-in-the-loop.
+  // Manual reply — de AI-vrije terugvalweg (§FALLBACK). Human-in-the-loop.
+  //
+  // TD-002 gesloten. Deze route liep vroeger langs sendReply(), en dus langs de consent-gate en
+  // langs wrapEmail() heen: uitgaande post kon hier zonder toestemmingscontrole en zonder de
+  // centrale handtekening naar buiten. Er is nu nog één uitgaande weg, sendOnChannel, en die draagt
+  // consent, handtekening, threading, audit en deliveryregistratie. Het kanaal komt van het gesprek
+  // zelf, dus deze weg kan een gesprek ook niet stilzwijgend naar een ander kanaal verplaatsen.
   const replyMatch = pathname.match(new RegExp(`^/api/comm/conversations/${UUID}/reply$`));
   if (replyMatch && method === 'POST') {
     const body = await readJson(req); if (!body) { json(res, 400, { error: 'bad_body' }); return true; }
-    const result = await sendReply({ conversationId: replyMatch[1], userId: null, text: body.text, html: body.html, ipRef: ipRefOf(req) });
+    const conv = (await query('select channel, contact_id, organization_id from conversation where id=$1 and tenant_id=$2',
+      [replyMatch[1], tenantId])).rows[0];
+    if (!conv) { json(res, 404, { error: 'conversation_not_found' }); return true; }
+    const result = await sendOnChannel({
+      tenantId, conversationId: replyMatch[1], contactId: conv.contact_id, organizationId: conv.organization_id,
+      channel: conv.channel || 'EMAIL', text: body.text, html: body.html, ipRef: ipRefOf(req),
+    });
     json(res, result.ok ? 200 : 400, result);
     return true;
   }

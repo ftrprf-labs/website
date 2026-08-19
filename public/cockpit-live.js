@@ -14,7 +14,27 @@ const view = document.getElementById('view');
 function el(tag, cls, html) { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function initials(name) { const p = String(name || '').trim().split(/\s+/); return (((p[0] || '')[0] || '') + ((p[p.length - 1] || '')[0] || '')).toUpperCase(); }
-const CHAN_ICO = { EMAIL: '✉', WHATSAPP: '◇', SMS: '▤', PHONE: '☎' };
+const CHAN_ICO = { EMAIL: '✉', WHATSAPP: '◇', SMS: '▤', PHONE: '☎', MIJN_MACULIS: '◐' };
+
+// Privacy: een telling en een ouderdom, en verder niets.
+//
+// De Cockpit toont geen privacygesprek en kan er ook geen openen; de server geeft daar 403 op. Maar
+// een AVG-verzoek mag niet ongezien blijven liggen, dus staat hier één regel die zegt DAT er iets
+// wacht en HOE LANG al. Geen naam, geen onderwerp, geen tekst, geen AI. De weg erheen is de
+// bestaande Privacy-inbox, want daar hoort de inhoud thuis.
+function privacyNotice(p) {
+  if (!p || !p.open) return null;
+  const n = p.open;
+  const wrap = el('section', 'privacy-notice');
+  const hoelang = p.oldestDays == null ? ''
+    : p.oldestDays === 0 ? ' Het oudste kwam vandaag binnen.'
+    : ` Het oudste wacht ${p.oldestDays} dag${p.oldestDays === 1 ? '' : 'en'}.`;
+  wrap.innerHTML =
+    `<span class="mac-signal" aria-hidden="true"></span>
+     <span class="pn-text">${n} privacyverzoek${n === 1 ? '' : 'en'} open.${esc(hoelang)}</span>
+     <a class="pn-link" href="/comm.html">Open de Privacy-inbox</a>`;
+  return wrap;
+}
 
 // Canon 10: statuslabels zijn Nederlands en menselijk. Geen Engelse hoofdletterbadges.
 // De kaarten dekken de opslagwaarden; humanLabel vangt alles wat er nog bij komt op,
@@ -36,6 +56,8 @@ const CHANNEL_LABEL = {
   EMAIL: 'e-mail', WHATSAPP: 'WhatsApp', SMS: 'sms', PHONE: 'telefoon',
   LINKEDIN: 'LinkedIn', INSTAGRAM: 'Instagram', FACEBOOK_MESSENGER: 'Messenger',
   WEB: 'web', JOURNEY: 'journey', INTERNAL_NOTE: 'interne notitie', OTHER: 'overig',
+  // Het kanaal van de klant zelf. Zonder dit label zou humanLabel er "mijn maculis" van maken.
+  MIJN_MACULIS: 'Mijn Maculis',
 };
 function humanLabel(map, v) {
   if (v == null || v === '') return '';
@@ -218,6 +240,8 @@ async function renderVandaag() {
     items.forEach(c => g.appendChild(radarCard(c)));
     wrap.appendChild(g);
   }
+  const pa = privacyNotice(data.privacy);
+  if (pa) wrap.appendChild(pa);
   view.appendChild(wrap);
 }
 

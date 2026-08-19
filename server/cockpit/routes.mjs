@@ -30,10 +30,11 @@ import * as drafts from '../comm/drafts.mjs';
 import { sendOnChannel } from '../comm/send.mjs';
 import { confirmMemory, dismissMemory } from '../comm/memory.mjs';
 import { channelConsentState } from '../comm/consent.mjs';
+import { getChannelProvider } from '../comm/providers/index.mjs';
 import { createFollowUp, updateFollowUp, listFollowUps } from '../comm/followups.mjs';
 import { recordAudit } from '../comm/audit.mjs';
 import { listRelationships } from '../comm/relationship.mjs';
-import { inboxConversations } from '../comm/inbox.mjs';
+import { inboxConversations, privacyAttention } from '../comm/inbox.mjs';
 import { stripForContext } from '../comm/signature.mjs';
 import { config } from '../config.mjs';
 
@@ -52,6 +53,29 @@ function readJson(req, limit = 1024 * 1024) {
   });
 }
 const ipRefOf = (req) => (req.socket && req.socket.remoteAddress ? String(req.socket.remoteAddress).slice(0, 40) : null);
+
+// Mag er op dit kanaal geantwoord worden? Dit is geen productaanname maar een providerfeit: de
+// adapter zegt zelf of hij uitgaand kan. Daardoor werkt een antwoord op een Mijn Maculis-gesprek
+// zonder dat de Cockpit dat kanaal hoeft te kennen, en blijft een kanaal zonder uitgaande weg
+// eerlijk geweigerd in plaats van gefingeerd.
+//
+// Let op het verschil met SENDABLE_CHANNELS: dat is de lijst kanalen waar je een gesprek NAARTOE
+// mag verplaatsen. Antwoorden op het kanaal waar iemand jou aansprak is iets anders, en ruimer.
+// De verzameling blijft bewust smal. WHATSAPP, SMS en de sociale kanalen draaien als mock-adapter;
+// daar een antwoord op "versturen" zou aflevering fingeren, en dat weigert de Cockpit uitdrukkelijk.
+// MIJN_MACULIS hoort er wel bij, want daar IS opslag de aflevering: het bericht staat meteen in de
+// database die de klant zelf leest. Dit is dus geen verbreding van het product, alleen het opheffen
+// van de aanname dat elk antwoord een e-mail is.
+const COCKPIT_REPLY_CHANNELS = ['EMAIL', 'MIJN_MACULIS'];
+
+export function canReplyOnChannel(channel) {
+  if (!COCKPIT_REPLY_CHANNELS.includes(channel)) return false;
+  // Tweede net: de adapter moet werkelijk een bericht kunnen afleveren. PHONE meldt outbound omdat
+  // het een gesprek kan OPZETTEN, maar heeft geen send(). Zo kan een kanaal nooit binnenglippen
+  // doordat het alleen in de lijst hierboven wordt gezet.
+  const p = getChannelProvider(channel);
+  return Boolean(p && typeof p.send === 'function' && p.capabilities && p.capabilities().outbound);
+}
 
 // ---- meaning-first shaping ---------------------------------------------------
 
@@ -194,8 +218,12 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
   // OP DE RADAR (relevant, no action needed). Recomputed every call, so it can never go stale.
   if (pathname === '/api/cockpit/today' && method === 'GET') {
     const radar = await buildRadar(tenantId);
+    // Privacy rijdt mee op dezelfde aanroep, maar blijft buiten de radar en buiten de bakken. Het is
+    // een telling en een ouderdom, geen aandachtskaart: de Cockpit toont nooit een privacygesprek.
+    const privacy = await privacyAttention(tenantId);
     json(res, 200, {
       headline: radarHeadline(radar.counts, radar.replyReady),
+      privacy,
       counts: radar.counts,
       buckets: radar.buckets,          // { NU:[cards], KLAAR:[cards], RADAR:[cards] }
       dataGaps: radar.dataGaps,
@@ -381,10 +409,13 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
     return true;
   }
 
-  // ---- Open (or reuse) the working draft for a conversation (EMAIL) ------------
+  // ---- Open (or reuse) the working draft for a conversation ---------------------
+  // Het kanaal wordt NIET opgelegd. openDraft() neemt het kanaal van het gesprek zelf, dus een
+  // gesprek dat in Mijn Maculis begon krijgt daar zijn concept, en een mailthread blijft e-mail.
+  // Je antwoordt waar iemand jou aansprak; je verplaatst een gesprek niet stilzwijgend.
   const draftOpen = pathname.match(new RegExp(`^/api/cockpit/conversation/${UUID}/draft$`));
   if (draftOpen && method === 'POST') {
-    const result = await drafts.openDraft({ tenantId, conversationId: draftOpen[1], channel: 'EMAIL' });
+    const result = await drafts.openDraft({ tenantId, conversationId: draftOpen[1] });
     json(res, result.ok ? 200 : 400, result);
     return true;
   }
@@ -393,7 +424,8 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
   const draftEdit = pathname.match(new RegExp(`^/api/cockpit/draft/${UUID}$`));
   if (draftEdit && method === 'PATCH') {
     const body = await readJson(req) || {};
-    json(res, 200, await drafts.humanEdit({ draftId: draftEdit[1], body: body.body ?? '', subject: body.subject, channel: 'EMAIL' }));
+    // Geen kanaal meesturen: humanEdit doet coalesce, dus het kanaal van het concept blijft staan.
+    json(res, 200, await drafts.humanEdit({ draftId: draftEdit[1], body: body.body ?? '', subject: body.subject }));
     return true;
   }
 
@@ -406,21 +438,22 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
     return true;
   }
 
-  // ---- Approve + send: the last human step. EMAIL-only, consent-gated, audited -
-  // Mirrors the verified comm draft-send path. Never the legacy /reply path (which
-  // bypasses the consent gate). Non-email channels are refused, not faked.
+  // ---- Approve + send: the last human step. Consent-gated, audited ------------
+  // Antwoordt op het kanaal van het GESPREK, niet op een vast kanaal. De provider is de bron van
+  // waarheid: kan hij niet uitgaand, dan wordt er geweigerd en niets gefingeerd. Loopt altijd via
+  // sendOnChannel, dus door de consent-gate, de handtekening, threading, audit en delivery.
   const draftSend = pathname.match(new RegExp(`^/api/cockpit/draft/${UUID}/send$`));
   if (draftSend && method === 'POST') {
     const state = await drafts.getDraftState(draftSend[1]);
     if (!state) { json(res, 404, { error: 'not_found' }); return true; }
     const d = state.draft;
-    if (d.channel !== 'EMAIL') { json(res, 400, { error: 'kanaal_niet_beschikbaar', channel: d.channel }); return true; }
+    if (!canReplyOnChannel(d.channel)) { json(res, 400, { error: 'kanaal_niet_beschikbaar', channel: d.channel }); return true; }
     if (d.status !== 'draft') { json(res, 400, { error: 'already_' + d.status }); return true; }
     if (!d.body || !String(d.body).trim()) { json(res, 400, { error: 'empty_body' }); return true; }
     await query("update comm_draft set status='approved', approved_at=now() where id=$1", [d.id]);
     const result = await sendOnChannel({
       tenantId, conversationId: d.conversation_id, contactId: d.contact_id, organizationId: d.organization_id,
-      channel: 'EMAIL', subject: d.subject, text: d.body, draftId: d.id, ipRef: ipRefOf(req),
+      channel: d.channel, subject: d.subject, text: d.body, draftId: d.id, ipRef: ipRefOf(req),
     });
     if (!result.ok) await query("update comm_draft set status='draft', approved_at=null where id=$1", [d.id]);
     json(res, result.ok ? 200 : 400, result);

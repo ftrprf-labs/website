@@ -13,7 +13,7 @@ test('inbound e-mail is visible under the right customer in Communicatie + usabl
   process.env.RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET || ('whsec_' + Buffer.from('inbound-vis-secret').toString('base64'));
   const { runMigrations } = await import('../server/comm/migrate.mjs');
   const { processInbound } = await import('../server/comm/inbound.mjs');
-  const { sendReply } = await import('../server/comm/outbound.mjs');
+  const { sendOnChannel } = await import('../server/comm/send.mjs');
   const { migrateInvitations } = await import('../server/comm/repo.mjs');
   const { getRelationship, relationshipTimeline } = await import('../server/comm/relationship.mjs');
   const drafts = await import('../server/comm/drafts.mjs');
@@ -68,7 +68,7 @@ test('inbound e-mail is visible under the right customer in Communicatie + usabl
     assert.ok((await getRelationship(tenantId, { contactId: known.id })).conversations.some((c) => c.id === in1.conversationId), 'refresh keeps the message');
 
     // --- 3) reply threading: our outbound -> their reply lands in the SAME conversation ---------
-    const rep = await sendReply({ conversationId: in1.conversationId, text: 'Ja, dat kan.', send: async () => ({ ok: true, id: 'out1' }) });
+    const rep = await sendOnChannel({ conversationId: in1.conversationId, channel: 'EMAIL', text: 'Ja, dat kan.' });
     assert.ok(rep.ok, '3: outbound reply sent (human)');
     const in2 = await processInbound({ ...hook({ email_id: 'e2', from: 'kim@oca.nl', to: ['hello@maculis.nl'], subject: 'Re: Vraag over de planning' }, 'svx-2'), fetchEmail: body({ id: 'e2', mid: '<m2@oca.nl>', inReplyTo: rep.rfcMessageId, references: [rep.rfcMessageId], text: 'Top, bedankt!' }) });
     assert.equal(in2.conversationId, in1.conversationId, '3: reply threads into the same conversation');

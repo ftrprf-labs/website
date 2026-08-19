@@ -39,6 +39,29 @@ export async function inboxConversations(tenantId, { box = 'communication', filt
 }
 
 // Attention counters for the calm header + follow-ups / missed calls that are not a conversation.
+// Privacy-attentie voor de Cockpit: UITSLUITEND een telling en een ouderdom.
+//
+// De Cockpit toont geen privacygesprekken en mag dat ook niet: de attentieafleiding sluit ze uit en
+// het openen ervan geeft 403. Maar een AVG-verzoek mag ook niet ongezien blijven liggen voor wie
+// operationeel verantwoordelijk is. Deze functie is het compromis dat beide eisen respecteert: zij
+// geeft terug HOEVEEL er open staan en HOE LANG het oudste al wacht, en verder niets. Geen id, geen
+// naam, geen onderwerp, geen tekst, geen kanaal. Er is dus niets te lekken, en er valt niets af te
+// leiden over wie het verzoek deed.
+export async function privacyAttention(tenantId) {
+  const r = (await query(
+    `select count(*)::int as open, min(coalesce(last_message_at, created_at)) as oldest
+       from conversation
+      where tenant_id=$1 and deleted_at is null and is_privacy=true and status in ('NEW','OPEN')`,
+    [tenantId])).rows[0];
+  const open = Number(r.open || 0);
+  const oldest = open > 0 && r.oldest ? new Date(r.oldest) : null;
+  return {
+    open,
+    oldestAt: oldest ? oldest.toISOString() : null,
+    oldestDays: oldest ? Math.max(0, Math.floor((Date.now() - oldest.getTime()) / 86400000)) : null,
+  };
+}
+
 export async function inboxSummary(tenantId) {
   const [conv, followUps, missed] = await Promise.all([
     query(
