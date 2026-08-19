@@ -1,10 +1,68 @@
 # Lens strategie onderzoek
 
-**Strategisch productonderzoek naar de kracht van Lens 1 en de meest logische volgende Lens.**
+**Onderzoeksnotitie met hypotheses. Geen productstrategie en geen governancebesluit.**
 
-Datum: 2026-08-19
-Status: **onderzoek. Geen bouwopdracht, geen code, geen gate gewijzigd, geen Epic gestart.**
+Datum onderzoek: 2026-08-19
+Status vastgesteld: 2026-08-19 door Lud
 Aanleiding: de eerste volledige end to end testjourney met echte testers.
+
+---
+
+## STATUS EN GELDIGHEID
+
+> **Dit document is een onderzoeksnotitie. Alles erin is een hypothese, ook waar de tekst
+> stellig is geformuleerd. Er is op basis van dit document GEEN GO gegeven, niet voor een
+> wijziging van de Lens strategie en niet voor Lens 2.**
+
+Reden, en die is doorslaggevend. De actuele `ftrprf-labs/maculis-first-five.` en
+`ftrprf-labs/ftrlabs-docs` zijn tijdens dit onderzoek **niet gelezen**, zie hoofdstuk 0.2. Daarmee
+ontbraken precies de bronnen die nodig zijn om conclusies als "Lens 1 heeft drie beschrijvende paden
+en één revealpad" en "Lens 2 wordt Verbanden" als besluit te kunnen vastleggen: de actuele
+detectorinventaris, de gatelogica, de Lens 1 implementatie en de canon.
+
+**Bestaande governance blijft onverkort gelden.**
+
+| Regel | Status |
+|---|---|
+| Lens werk | **PAUSED** |
+| Lens 2 | **niet bouwen** |
+| Nieuwe Epic | **niet starten** |
+| Detectoren toevoegen | **niet doen** |
+| Gate aanpassen | **niet doen** |
+| First Five aanpassen | **niet vóór echte pilot evidence en expliciete GO van Lud** |
+| De twee voorstellen uit 11.1 (SILENCE anders presenteren, revealklasse per sessie vastleggen) | **niet bouwen.** Meenemen als hypotheses voor de pilotopzet |
+| Never weaken a gate to avoid SILENCE. Expand evidence before lowering truth standards | **onveranderd van kracht** |
+
+### De volgende stap is niet bouwen
+
+Zodra repository access beschikbaar is, volgt een **tweede read only validatieronde** op de actuele
+bronnen. Pas daarna kan iets uit dit document de status van besluit krijgen.
+
+| # | Validatiestap | Raakt |
+|---|---|---|
+| 1 | Lees de actuele Lens 1 implementatie volledig | hoofdstuk 1 |
+| 2 | Reconstrueer exact welke detectoren, evidence types en gates werkelijk actief zijn | hoofdstuk 1, 3 |
+| 3 | Lees de actuele canon en alle relevante Lens governance | hele document |
+| 4 | Leg de werkelijke Lens 1 architectuur naast de hypothese uit dit onderzoek | hoofdstuk 1 |
+| 5 | Beoordeel opnieuw of bewijsafstand inderdaad de beperkende factor is | H-1, hoofdstuk 1.3 |
+| 6 | Toets de twaalf voorbeelden tegen de bestaande truth standards en bewijsregels | hoofdstuk 4 |
+| 7 | Herbeoordeel pas daarna de bake off tussen Reputation, Finance, Dependency en Verbanden | hoofdstuk 6, 7, 8 |
+
+### H-1 · De open onderzoeksvraag die bewaard blijft
+
+> **Is de revealkracht van Maculis sterker afhankelijk van de afstand tussen onafhankelijke
+> bewijsbronnen dan van de analysediepte binnen één bron?**
+
+Dit is de vraag die uit dit onderzoek behouden blijft. Hij is **expliciet nog geen principe.**
+
+Voorwaarde om H-1 tot Maculis principe te verklaren, en beide moeten waar zijn:
+
+1. de **actuele implementatie** ondersteunt hem, vastgesteld in de validatieronde hierboven;
+2. **echte pilotdata** ondersteunen hem.
+
+Zolang aan één van beide niet is voldaan, blijft H-1 een hypothese en mag er niets op gebouwd worden.
+
+Hoofdstuk 1.3 is de argumentatie ónder H-1, niet het bewijs ervóór.
 
 ---
 
@@ -146,12 +204,14 @@ instrumentatievraag vóór de pilot.
 *Te verifiëren in `maculis-first-five.`: stempelt de journey vandaag al een revealklasse in de
 sessie? Zo ja, dan is het enige werk dat de export hem meegeeft.*
 
-### 1.6 Het expliciete oordeel
+### 1.6 Het expliciete oordeel, als hypothese
 
-De opdracht vraagt hier niet om diplomatie, dus:
+De opdracht vroeg hier niet om diplomatie, dus het oordeel staat er scherp. Het is wel een
+**hypothese**, want het rust op de bewijstopologie en niet op de gelezen detectorinventaris.
+Validatiestap 1, 2 en 4 kunnen het weerleggen.
 
-> **Lens 1 is sterk genoeg om een pilot te dragen. Hij is nog niet sterk genoeg om de eerste
-> betaalwaardige Maculis ervaring te dragen.**
+> **HYPOTHESE.** Lens 1 is sterk genoeg om een pilot te dragen. Hij is nog niet sterk genoeg om de
+> eerste betaalwaardige Maculis ervaring te dragen.
 
 Onderbouwing in één alinea. De ervaring is vakkundig, de vormtaal is af, de evaluatie meet het
 juiste, en de Reveal Gate is principieel correct. Maar de kans dat een willekeurige ondernemer uit
@@ -169,7 +229,10 @@ aandacht. De oplossing zit in bewijs, niet in een tweede onderwerp.
 
 ### 2.1 De kernvraag in één menselijke zin
 
-> **"Laat je van buiten het bedrijf zien dat je inmiddels bent?"**
+Voorgestelde formulering, nog niet vastgesteld. De canon is niet gelezen, dus het is mogelijk dat
+Lens 1 daar al een kernvraag heeft. Validatiestap 3 gaat daarover, en de canon wint.
+
+> **VOORSTEL.** "Laat je van buiten het bedrijf zien dat je inmiddels bent?"
 
 Drie dingen zitten er bewust in.
 
@@ -321,10 +384,14 @@ nieuwe relaties op.
 | **Alles waarvoor de ondernemer een account moet koppelen** | Breekt de belofte dat Maculis zelfstandig kijkt. Voor de eerste ervaring is dat de kern van de magie. **Buiten voor de eerste ervaring.** |
 | **Gedeponeerde jaarrekening** | Betrouwbaar en publiek, maar het is geen presentatiehandeling. Het valt buiten de kernvraag van Lens 1. Zie hoofdstuk 6 en 8. |
 
-### 3.5 Een getrapte gate in plaats van één gate
+### 3.5 Hypothese: een getrapte gate in plaats van één gate
 
-Dit is nadrukkelijk **geen verlaging.** Het is een verfijning die op sommige claimsoorten juist
-strenger is dan vandaag.
+> **De gate wordt niet aangepast.** Dit is een denkmodel, geen voorstel dat klaarligt om gebouwd te
+> worden. De actuele gatelogica is niet gelezen, dus het is goed mogelijk dat de bestaande gate al
+> getrapt is of om goede redenen bewust niet. Validatiestap 2 en 6 gaan hierover.
+
+Als denkmodel is dit nadrukkelijk **geen verlaging.** Het zou een verfijning zijn die op sommige
+claimsoorten juist strenger is dan vandaag.
 
 | Niveau | Bewijs | Wat Maculis dan mag doen |
 |---|---|---|
@@ -750,11 +817,17 @@ een reputatievraag.
 
 ---
 
-## 8. De beargumenteerde keuze, en wat bewust nog niet gebouwd wordt
+## 8. De beargumenteerde voorkeur, en wat bewust nog niet gebouwd wordt
 
-### 8.1 Lens 2 wordt Verbanden
+> **Statuswaarschuwing.** Dit hoofdstuk lag in de oorspronkelijke opdracht als "jouw beargumenteerde
+> keuze". Het is een **beargumenteerde voorkeur en geen besluit.** De eerdere bake off tussen
+> Reputation, Finance en Dependency is niet gelezen, alleen als tweedehands input meegenomen. Het
+> hele hoofdstuk staat op de herbeoordeling van validatiestap 7. Er wordt geen Lens 2 gebouwd.
 
-> **Lens 2 · Verbanden. "Klopt wat jij over jezelf claimt met wat een ander bevestigt?"**
+### 8.1 Hypothese: de sterkste kandidaat voor Lens 2 is Verbanden
+
+> **VOORSTEL, GEEN BESLUIT.** Lens 2 · Verbanden. "Klopt wat jij over jezelf claimt met wat een
+> ander bevestigt?"
 
 Vier argumenten, in volgorde van gewicht.
 
@@ -874,7 +947,8 @@ De reveal is dan nooit "hier is een nieuw onderwerp" maar:
 
 ## 10. De voorkeur, en waarom hij de drie zinnen oplevert
 
-**Voorkeur: Model C+, met Lens 2 Verbanden als tweede getuige.**
+**Voorkeur, geen besluit: Model C+, met Lens 2 Verbanden als tweede getuige.** Dit hoofdstuk erft de
+status van hoofdstuk 8 en valt onder validatiestap 7.
 
 Getoetst aan de drie zinnen uit de opdracht.
 
@@ -905,27 +979,33 @@ bewijsuitbreiding volgens de definitie in 3.1, en nadrukkelijk geen versoepeling
 
 ## 11. Nu nodig, leren, en pas daarna bouwen
 
-### 11.1 NU NODIG VOOR DE EERSTE PILOT
+### 11.1 HYPOTHESES VOOR DE PILOTOPZET
 
-Alles hieronder is klein, en niets ervan raakt de Reveal Gate.
+> **Status. Dit was in de eerste versie een lijst "nu nodig". Dat is het niet. Niets hieronder wordt
+> gebouwd. Het zijn hypotheses voor de pilotopzet, ter beoordeling, en punt 2 en 3 vallen expliciet
+> onder de bouwstop op First Five.**
 
-**1. Leg de kernvraag en de grens van Lens 1 vast.** Eén zin plus de tweedelige grensregel uit
-hoofdstuk 2. Kost niets en bepaalt alles wat erna gebouwd wordt. Zonder dit besluit dijt Lens 1
-vanzelf uit tot alles.
+Alles hieronder is klein, en niets ervan raakt de Reveal Gate. Dat maakt het nog geen GO.
 
-**2. Maak SILENCE een geloofwaardige uitkomst in plaats van een troostprijs.** Dit is een copy en
-ontwerpbesluit, geen gatebesluit. Vandaag wordt SILENCE gevuld met drie uitgeklapte panelen, en dat
-leest als een verontschuldiging. Benoemd met een bewijstelling leest het als karakter:
+**1. Overweeg de kernvraag en de grens van Lens 1 vast te leggen.** Eén zin plus de tweedelige
+grensregel uit hoofdstuk 2. Alleen zinvol nádat de canon is gelezen, want die kan er al een hebben.
+Validatiestap 3.
+
+**2. Hypothese: SILENCE presenteren als geloofwaardige uitkomst in plaats van als troostprijs.**
+**Niet bouwen.** Dit zou een copy en ontwerpwijziging zijn, geen gatewijziging, maar het raakt First
+Five en valt dus onder de bouwstop. Vandaag wordt SILENCE gevuld met drie uitgeklapte panelen, en dat
+leest als een verontschuldiging. Benoemd met een bewijstelling zou het als karakter lezen:
 
 > "Ik heb elf bronnen bekeken en geen verband gevonden dat sterk genoeg was om te tonen."
 
-Canon: stilte is inzicht. Dit is de goedkoopste wijziging in het hele rapport en waarschijnlijk de
-meest waardevolle voor de pilot, want zonder haar haakt een SILENCE deelnemer af en levert hij
-helemaal geen meting op.
+Canon: stilte is inzicht. Als hypothese is dit de goedkoopste wijziging in het hele rapport en
+mogelijk de meest waardevolle voor de pilot, want zonder haar zou een SILENCE deelnemer kunnen
+afhaken en helemaal geen meting opleveren. Dat vermoeden is niet getoetst.
 
-**3. Leg per sessie de revealklasse vast.** Zonder dat kan `novelty` niet worden teruggerekend naar
-een revealtype, en levert de pilot een gemiddelde op in plaats van een richting. *Eerst verifiëren of
-de journey dit al stempelt. Zo ja, dan is het enige werk dat de export hem meegeeft.*
+**3. Hypothese: de revealklasse per sessie vastleggen.** **Niet bouwen.** Zonder die klasse kan
+`novelty` niet worden teruggerekend naar een revealtype, en levert de pilot een gemiddelde op in
+plaats van een richting. *Eerst verifiëren of de journey dit al stempelt. Dat is een leesvraag voor
+de validatieronde, geen bouwvraag.*
 
 **4. Draai de pilot op de ONGEWIJZIGDE Lens 1.** Dit is contra-intuïtief en het is belangrijk. De
 pilot moet meten of de huidige Lens 1 volstaat. Wie hem eerst verbetert, meet zijn eigen verbetering
@@ -960,6 +1040,10 @@ zijn naam aan een aanbeveling verbindt, heeft waarde ervaren. De lus draait al i
 
 ### 11.3 PAS DAARNA BOUWEN
 
+> **Status. Dit is een voorgestelde volgorde voor als er ooit een GO komt, geen goedgekeurde
+> roadmap.** Er ligt vandaag geen GO, Lens werk is PAUSED, en de hele volgorde staat op de uitkomst
+> van de validatieronde en de pilot.
+
 In deze volgorde, en elke stap pas na de vorige.
 
 **1. Bewijsuitbreiding as 3, de tijd.** Het archief. Hoogste waarde, laagste inspanning, laagste
@@ -985,32 +1069,40 @@ vraag en moet beantwoord zijn voordat er een regel code voor geschreven wordt.
 
 ## 12. Samenvatting in tien regels
 
-1. Lens 1 heeft drie herkenningspaden en één revealpad, en dat revealpad is voorwaardelijk.
-2. Daardoor eindigt de huidige eerste ervaring meestal tussen herkenning en betekenis, niet bij de
-   reveal.
-3. De oorzaak is niet de Reveal Engine maar de bewijstopologie: één bron, die de ondernemer zelf
-   beheert en het beste kent.
-4. Revealkracht is een functie van bewijsafstand, niet van analysediepte.
-5. Lens 1 wordt sterker langs twee assen die de gate onaangeroerd laten: de tijd, en de eigen kanalen
-   van de organisatie.
+**Alle tien zijn hypotheses, niet vastgestelde uitspraken.** Regel 1 tot en met 4 staan op
+validatiestap 1, 2, 4 en 5. Regel 7 tot en met 9 staan op validatiestap 3 en 7.
+
+1. Lens 1 lijkt drie herkenningspaden en één voorwaardelijk revealpad te hebben.
+2. Daardoor zou de huidige eerste ervaring meestal eindigen tussen herkenning en betekenis, niet bij
+   de reveal.
+3. De vermoede oorzaak is niet de Reveal Engine maar de bewijstopologie: één bron, die de ondernemer
+   zelf beheert en het beste kent.
+4. Vermoeden H-1: revealkracht is een functie van bewijsafstand, niet van analysediepte.
+5. Lens 1 zou sterker kunnen worden langs twee assen die de gate onaangeroerd laten: de tijd, en de
+   eigen kanalen van de organisatie.
 6. Bewijsuitbreiding en gateverlaging verschillen hierin: uitbreiding voegt een bron toe,
-   gateverlaging niet. De valkuil ertussen heet schijnonafhankelijkheid.
-7. De kernvraag van Lens 1 is: laat je van buiten het bedrijf zien dat je inmiddels bent. De grens is:
-   alleen bewijs dat de organisatie zelf heeft geschreven, en alleen over zelfpresentatie.
-8. Lens 2 wordt Verbanden, want dat is de enige kandidaat met binair extern bewijs die tegelijk Het
-   Veld met echte relaties vult.
-9. Reputatie en Financiën worden bewust uitgesteld, en worden door dat uitstel beter.
-10. **Lens 1 kan een pilot dragen. Nog geen betaalde ervaring. Bouw geen tweede Lens om dat te
-    compenseren.**
+   gateverlaging niet. De valkuil ertussen heet schijnonafhankelijkheid. Dit is de enige regel in
+   deze lijst die geen bronkennis vraagt en dus zelfstandig houdbaar is.
+7. Voorgestelde kernvraag van Lens 1: laat je van buiten het bedrijf zien dat je inmiddels bent. De
+   voorgestelde grens: alleen bewijs dat de organisatie zelf heeft geschreven, en alleen over
+   zelfpresentatie. De canon is niet gelezen en gaat voor.
+8. Voorgestelde richting voor Lens 2: Verbanden, als enige kandidaat met binair extern bewijs die
+   tegelijk Het Veld met echte relaties vult. Geen besluit, en er wordt geen Lens 2 gebouwd.
+9. Voorstel om Reputatie en Financiën uit te stellen. Berust op een niet gelezen bake off en moet in
+   validatiestap 7 opnieuw.
+10. **Vermoeden: Lens 1 kan een pilot dragen, nog geen betaalde ervaring. Bouw in geen geval een
+    tweede Lens om dat te compenseren.**
 
 ---
 
-## 13. Wat dit rapport niet is
+## 13. Wat dit document niet is
 
 Geen code. Geen UI. Geen nieuwe detector. Geen gewijzigde gate. Geen roadmap van twintig Lenzen. Geen
-Epic. Geen wijziging aan preview of productie.
+Epic. Geen wijziging aan preview of productie. **En geen productstrategie en geen governancebesluit.**
 
 Alle bestaande governance blijft ongewijzigd gelden, in het bijzonder: **een gate wordt nooit
-verzwakt om SILENCE te vermijden. Breid bewijs uit voordat je waarheidsstandaarden verlaagt.**
+verzwakt om SILENCE te vermijden. Breid bewijs uit voordat je waarheidsstandaarden verlaagt.** Lens
+werk blijft PAUSED. Zie het statusblok bovenaan dit document voor de volledige lijst.
 
-Dit document legt het onderzoeksresultaat vast en stopt daar. Elke vervolgstap wacht op beoordeling.
+Dit document legt onderzoek en hypotheses vast en stopt daar. De volgende stap is de read only
+validatieronde uit het statusblok, niet bouwen.

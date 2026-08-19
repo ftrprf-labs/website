@@ -14,35 +14,35 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
-## 2026-08-19 — Lens strategie onderzoek (alleen onderzoek, geen bouw)
+## 2026-08-19 — Lens strategie: onderzoeksnotitie met hypotheses. GEEN GO
 
 **Geen code, geen UI, geen detector, geen gate gewijzigd, geen productie of preview geraakt.**
 Vastgelegd in `docs/LENS_STRATEGIE_ONDERZOEK.md`.
 
-Strategisch productonderzoek ter voorbereiding op de eerste volledige end to end testjourney:
-hoe sterk is Lens 1 als eerste kennismaking, kan hij rijker worden zonder de Reveal Gate te
-verlagen, wat is zijn natuurlijke grens, en welke Lens is de sterkste tweede ervaring.
+**Statusbesluit van Lud, 2026-08-19.** Het document is een **onderzoeksnotitie met hypotheses**, geen
+productstrategie en geen governancebesluit. Er is **geen GO** gegeven, niet voor een wijziging van de
+Lens strategie en niet voor Lens 2. Reden: de actuele `ftrprf-labs/maculis-first-five.` en
+`ftrprf-labs/ftrlabs-docs` waren tijdens het onderzoek niet leesbaar, waardoor precies de
+detectorinventaris, gatelogica, Lens 1 implementatie en canon ontbraken die nodig zijn om conclusies
+als "drie beschrijvende paden en één revealpad" of "Lens 2 wordt Verbanden" vast te leggen.
 
-**Kernconclusies.**
-- Lens 1 heeft drie herkenningspaden (First Impression, Story of the Site, Technical Signals) en
-  één voorwaardelijk revealpad. De ervaring eindigt daardoor meestal tussen herkenning en betekenis.
-- De oorzaak is de bewijstopologie en niet de Reveal Engine: één bron, het domein, en dat is
-  uitgerekend de bron die de ondernemer zelf beheert en het beste kent.
-- Voorstel: bewijsuitbreiding langs de tijd (publiek archief) en langs de eigen kanalen van de
-  organisatie. Expliciet onderscheiden van gateverlaging, inclusief de valkuil
-  schijnonafhankelijkheid.
-- Voorstel Lens 2: **Verbanden**, claims over lidmaatschap, keurmerk en partnerschap getoetst aan
-  het publieke register van de uitgevende partij. Reputatie en Financiën bewust uitgesteld.
-- **Expliciet oordeel:** Lens 1 kan een pilot dragen, nog geen betaalde ervaring. Geen tweede Lens
-  bouwen om dat te compenseren.
+**Geldende bouwstop, ongewijzigd.** Lens werk PAUSED. Geen Lens 2. Geen nieuwe Epic. Geen detectoren
+toevoegen. Geen gate aanpassen. Geen First Five aanpassen vóór echte pilot evidence en expliciete GO
+van Lud. Ook de twee voorstellen uit het rapport, SILENCE anders presenteren en de revealklasse per
+sessie vastleggen, worden **niet** gebouwd; ze blijven hypotheses voor de pilotopzet.
 
-**Advies voor de pilot:** draaien op de ongewijzigde Lens 1, met twee kleine niet-gate-wijzigingen
-als voorwaarde: SILENCE als geloofwaardige uitkomst presenteren in plaats van als troostprijs, en
-de revealklasse per sessie vastleggen zodat `novelty` terug te rekenen is naar een revealtype.
+**Volgende stap is niet bouwen.** Zodra repository access beschikbaar is volgt een tweede **read
+only** validatieronde op de actuele bronnen: actuele Lens 1 implementatie volledig lezen, exact
+reconstrueren welke detectoren, evidence types en gates werkelijk actief zijn, de actuele canon en
+Lens governance lezen, de werkelijke architectuur naast de hypothese leggen, opnieuw beoordelen of
+bewijsafstand de beperkende factor is, de twaalf voorbeelden toetsen aan de bestaande truth
+standards, en pas daarna de bake off tussen Reputation, Finance, Dependency en Verbanden
+herbeoordelen.
 
-**Bewijsbeperking.** Toegang tot `ftrprf-labs/maculis-first-five.` en `ftrprf-labs/ftrlabs-docs`
-was in deze sessie geblokkeerd. De detectorinventaris en de exacte gatelogica zijn dus niet
-gelezen. Het rapport verantwoordt in hoofdstuk 0 per uitspraak wat wel en niet geverifieerd is.
+**Wat behouden blijft als open onderzoeksvraag (H-1):** is de revealkracht van Maculis sterker
+afhankelijk van de afstand tussen onafhankelijke bewijsbronnen dan van de analysediepte binnen één
+bron? Dit is **expliciet nog geen principe**. Het wordt pas tot Maculis principe verklaard wanneer
+zowel de actuele implementatie als echte pilotdata het ondersteunen.
 
 ---
 
