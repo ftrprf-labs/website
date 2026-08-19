@@ -21,6 +21,7 @@ import { whatsappProvider } from './whatsapp.mjs';
 import { smsProvider } from './sms.mjs';
 import { phoneProvider } from './phone.mjs';
 import { socialProvider } from './social.mjs';
+import { mijnMaculisProvider } from './mijn-maculis.mjs';
 
 const REGISTRY = {
   EMAIL: emailProvider,
@@ -30,10 +31,15 @@ const REGISTRY = {
   INSTAGRAM: socialProvider,
   FACEBOOK_MESSENGER: socialProvider,
   LINKEDIN: socialProvider,
+  MIJN_MACULIS: mijnMaculisProvider,
 };
 
 // Channels that can carry an outbound message from the composer today (INTERNAL_NOTE is handled
 // separately; JOURNEY/WEB are inbound/system only).
+// MIJN_MACULIS is deliberately NOT in this list. It is reply-only: you answer someone there because
+// they wrote to you there, and a draft on such a conversation already opens on that channel by
+// itself (drafts.mjs takes the conversation's channel). Offering it as a channel you can SWITCH TO
+// would let a mail thread be pushed into a customer environment that person may not even have.
 export const SENDABLE_CHANNELS = ['EMAIL', 'WHATSAPP', 'SMS'];
 
 export function getChannelProvider(channel) {

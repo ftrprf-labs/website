@@ -53,8 +53,12 @@ async function ensureConversation(client, tenantId, { conversationId, contactId,
 }
 
 // Resolve the recipient address/handle for a channel.
-async function resolveRecipient(tenantId, { channel, contactId, conversationId, toOverride }) {
+async function resolveRecipient(tenantId, { channel, contactId, conversationId, organizationId, toOverride }) {
   if (toOverride) return toOverride;
+  // Mijn Maculis has no address. The message lands in one organization's own environment, so THAT
+  // is the recipient. Named, non-PII, and impossible to mistake for an outside destination. No
+  // organization means no environment to deliver into, so the send fails closed.
+  if (channel === 'MIJN_MACULIS') return organizationId ? `mijn-maculis:${organizationId}` : null;
   if (channel === 'EMAIL' && conversationId) {
     const lastInbound = (await query(
       `select from_address from message where conversation_id=$1 and direction='INBOUND' order by created_at desc limit 1`, [conversationId])).rows[0];
@@ -99,7 +103,7 @@ export async function sendOnChannel({
   const consent = await channelAllowed(tid, effContact, channel, purpose);
   if (!consent.allowed) return { ok: false, reason: 'consent_blocked', consent };
 
-  const to = await resolveRecipient(tid, { channel, contactId: effContact, conversationId, toOverride });
+  const to = await resolveRecipient(tid, { channel, contactId: effContact, conversationId, organizationId: effOrg, toOverride });
   if (!to) return { ok: false, reason: 'no_recipient', consent };
 
   const prov = provider || getChannelProvider(channel);
@@ -169,5 +173,17 @@ export async function sendOnChannel({
     meta: { messageId: result.messageId, to, provider: prov.name, mode: prov.mode } });
 
   if (!sent.ok) return { ok: false, reason: sent.reason || 'send_failed', messageId: result.messageId, delivery, consent };
-  return { ok: true, messageId: result.messageId, conversationId: result.convId, delivery, providerMode: prov.mode, consent, rfcMessageId: threading.messageId };
+
+  // An answer placed in Mijn Maculis is invisible until the customer happens to come back. A sober
+  // e-mail says only THAT there is an answer, never what it says. Dynamically imported so the
+  // Communication Layer keeps no static dependency on the customer environment, and awaited but
+  // never allowed to fail the send: the answer itself has already been delivered.
+  let notified = null;
+  if (channel === 'MIJN_MACULIS') {
+    notified = await import('../mijn/notify.mjs')
+      .then((m) => m.announceReply({ tenantId: tid, organizationId: effOrg, conversationId: result.convId, messageId: result.messageId }))
+      .catch((err) => ({ ok: false, reason: `announce_failed:${err.message}` }));
+  }
+
+  return { ok: true, messageId: result.messageId, conversationId: result.convId, delivery, providerMode: prov.mode, consent, rfcMessageId: threading.messageId, notified };
 }

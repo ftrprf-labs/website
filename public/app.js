@@ -17,7 +17,11 @@ const ICON = {
 };
 
 // Dutch UI labels for the consent enum (internal values stay English).
-const CONSENT_LABEL = { UNKNOWN: 'ONBEKEND', OPTED_IN: 'TOEGESTAAN', OPTED_OUT: 'AFGEWEZEN' };
+const CONSENT_LABEL = { UNKNOWN: 'Onbekend', OPTED_IN: 'Toegestaan', OPTED_OUT: 'Afgewezen' };
+// Canon 10: statuslabels zijn Nederlands en menselijk. De interne waarden blijven Engels.
+const STATUS_LABEL = { DRAFT: 'Concept', INVITED: 'Uitgenodigd', SENT: 'Verstuurd', OPENED: 'Geopend',
+  COMPLETED: 'Afgerond', DECLINED: 'Afgewezen', OPTED_OUT: 'Afgemeld', ERROR: 'Mislukt' };
+const EVAL_LABEL = { NOT_STARTED: 'Nog niet gestart', IN_PROGRESS: 'Bezig', COMPLETED: 'Afgerond' };
 // Dutch labels for the standardised consent-method machine values (audit/reporting).
 const METHOD_LABEL = { VERBAL: 'Mondeling', PHONE: 'Telefonisch', EMAIL: 'Per e-mail', WHATSAPP: 'Via WhatsApp', WRITTEN: 'Schriftelijk', OTHER: 'Anders' };
 
@@ -79,7 +83,7 @@ const ATTN_PRESENT = {
   WAITING_FOR_CUSTOMER: 'Wacht op klant',
   RESOLVED: 'Afgehandeld',
 };
-const ATTN_CHANNEL = { EMAIL: 'E-mail', WHATSAPP: 'WhatsApp', SMS: 'SMS', PHONE: 'Telefoon', SOCIAL: 'Social' };
+const ATTN_CHANNEL = { EMAIL: 'E-mail', WHATSAPP: 'WhatsApp', SMS: 'SMS', PHONE: 'Telefoon', SOCIAL: 'Social', MIJN_MACULIS: 'Mijn Maculis' };
 const attnLabel = (s) => ATTN_PRESENT[s] || 'Vraagt aandacht';
 
 // ---- tiny API layer ------------------------------------------------------
@@ -243,8 +247,8 @@ function rowHtml(r) {
   // OPTED_OUT both disable the WhatsApp/e-mail actions.
   const noContact = r.consent_status !== 'OPTED_IN';
   const blockTitle = r.consent_status === 'OPTED_OUT'
-    ? 'Geblokkeerd — toestemming ingetrokken/geweigerd'
-    : 'Geblokkeerd — geen toestemming (OPTED_IN vereist)';
+    ? 'Geblokkeerd: toestemming ingetrokken of geweigerd'
+    : 'Geblokkeerd: geen toestemming vastgelegd';
   return `
     <td class="col-check" data-label="">
       <input type="checkbox" data-check="${r.id}" ${checked} />
@@ -263,10 +267,10 @@ function rowHtml(r) {
       </div>
     </td>
     <td data-label="Status">
-      <span class="status-badge status-${r.status}" title="Systeemgestuurd — corrigeren via Bewerken">${r.status}</span>
+      <span class="status-badge status-${r.status}" title="Systeemgestuurd. Corrigeren via Bewerken">${esc(STATUS_LABEL[r.status] || r.status)}</span>
     </td>
     <td data-label="Toestemming">
-      <span class="status-badge consent-${r.consent_status}" title="Toestemming — wijzigen via Bewerken">${CONSENT_LABEL[r.consent_status] || r.consent_status}</span>
+      <span class="status-badge consent-${r.consent_status}" title="Toestemming. Wijzigen via Bewerken">${CONSENT_LABEL[r.consent_status] || r.consent_status}</span>
     </td>
     <td class="col-actions" data-label="Acties">
       <div class="row-actions">
@@ -298,7 +302,7 @@ function renderStats() {
   const counts = {};
   for (const r of state.invitations) counts[r.status] = (counts[r.status] || 0) + 1;
   $('#stat-breakdown').textContent = Object.entries(counts)
-    .map(([s, n]) => `${n} ${s}`)
+    .map(([s, n]) => `${n} ${(STATUS_LABEL[s] || s).toLowerCase()}`)
     .join('  ·  ');
 }
 
@@ -335,7 +339,7 @@ function previewCard(c, { hero = false } = {}) {
   const meta = [c.org || c.email, ATTN_CHANNEL[c.channel] || c.channel].filter(Boolean).join(' · ');
   const snippet = c.preview ? `<span class="attn-snippet">${esc(c.preview)}</span>` : '';
   const cta = hero ? 'Bekijk gesprek' : 'Bekijk';
-  const aria = `Open gesprek met ${c.name}${c.org ? ' van ' + c.org : ''} — ${st}`;
+  const aria = `Open gesprek met ${c.name}${c.org ? ' van ' + c.org : ''}. ${st}`;
   return `
     <button class="attn-card${hero ? ' attn-card-hero' : ''} attn-${c.state}" data-attn-conv="${c.id}" aria-label="${esc(aria)}">
       <span class="attn-state">${esc(st)}</span>
@@ -404,7 +408,7 @@ function attnDot(email) {
   const key = (email || '').trim().toLowerCase();
   const hit = map && key ? map[key] : null;
   if (!hit) return '';
-  const label = `${attnLabel(hit.state)} — open gesprek`;
+  const label = `${attnLabel(hit.state)}. Open gesprek`;
   return `<span class="row-attn attn-${hit.state}" role="button" tabindex="0" title="${esc(label)}" aria-label="${esc(label)}" data-attn-conv="${hit.conversationId}"></span>`;
 }
 
@@ -546,7 +550,7 @@ async function sendEmailInvites() {
     if (!res.delivers) {
       // No real delivering transport (mock/unset): nothing was actually sent and
       // NOBODY was moved to INVITED — say so honestly.
-      toast('E-mail niet echt verzonden (geen verzendend transport) — niemand op INVITED' +
+      toast('E-mail niet echt verzonden, geen verzendend transport. Niemand op INVITED' +
         (blocked ? ` · ${blocked} geblokkeerd (geen toestemming)` : ''));
     } else {
       const parts = [`${res.sent} verzonden`];
@@ -580,7 +584,7 @@ async function showWaCurrent() {
   // Fail-closed: WhatsApp only with explicit OPTED_IN (server enforces 403 too).
   if (r.consent_status !== 'OPTED_IN') {
     const why = r.consent_status === 'OPTED_OUT' ? 'AFGEWEZEN' : 'geen toestemming';
-    toast(`${r.first_name || r.company_name || 'Tester'}: ${why} — WhatsApp overgeslagen`);
+    toast(`${r.first_name || r.company_name || 'Tester'}: ${why}. WhatsApp overgeslagen`);
     advanceWa(); return;
   }
   let wa;
@@ -624,7 +628,7 @@ async function confirmWaSent() {
   const id = $('#btn-wa-sent').dataset.id;
   try {
     await api(`/api/invitations/${id}/status`, { method: 'POST', body: JSON.stringify({ status: 'SENT', channel: 'whatsapp' }) });
-    toast('Uitnodiging geregistreerd — SENT');
+    toast('Uitnodiging geregistreerd als Verstuurd');
   } catch (e) { toast(e.message); }
   advanceWa();
 }
@@ -756,7 +760,7 @@ function openEdit(id) {
     const src = SOURCE_LABEL[r.consent_source] || r.consent_source;
     // Method label (new machine value) or the legacy free-text note, whichever is present.
     const wijze = r.consent_method
-      ? (METHOD_LABEL[r.consent_method] || r.consent_method) + (r.consent_method === 'OTHER' && r.consent_note ? ` — ${r.consent_note}` : '')
+      ? (METHOD_LABEL[r.consent_method] || r.consent_method) + (r.consent_method === 'OTHER' && r.consent_note ? `: ${r.consent_note}` : '')
       : (r.consent_note || '');
     prov.textContent = `Toestemming via ${src}${wijze ? ' · ' + wijze : ''}${r.consent_at ? ' · ' + fmtTs(r.consent_at) : ''}` +
       (r.consent_version ? ` · versie ${r.consent_version}` : '');
@@ -1028,7 +1032,7 @@ function renderEvaluations() {
           ['Compleet', r.eval_status === 'COMPLETED'],
         ];
         const prog = `<div class="et-steps" role="img" aria-label="Voortgang: ${steps.filter((s) => s[1]).map((s) => s[0]).join(', ') || 'nog geen'}">` +
-          steps.map(([lbl, on]) => `<span class="et-step ${on ? 'on' : ''}" title="${esc(lbl)}${on ? '' : ' — nog niet'}"></span>`).join('') + `</div>`;
+          steps.map(([lbl, on]) => `<span class="et-step ${on ? 'on' : ''}" title="${esc(lbl)}${on ? '' : ', nog niet'}"></span>`).join('') + `</div>`;
         return `<div class="eval-tester">
           <div class="eval-tester-main">
             <span class="et-name">${esc(r.name)}</span>
@@ -1036,7 +1040,7 @@ function renderEvaluations() {
             ${prog}
           </div>
           ${consentTag}
-          <span class="status-badge eval-${r.eval_status}">${r.eval_status.replace('_', ' ')}</span>
+          <span class="status-badge eval-${r.eval_status}">${esc(EVAL_LABEL[r.eval_status] || r.eval_status)}</span>
           <button class="btn btn-ghost" data-eval="${r.id}">Evaluatie bekijken</button>
         </div>`;
       }).join('')

@@ -30,8 +30,15 @@ const OUTPUT_CONTRACT = [
 ].join(' ');
 
 // ---- channel-aware shaping (§AI MOET KANAAL BEGRIJPEN) --------------------------------------
-const CHANNEL_HINT = {
-  EMAIL: 'E-mail: ruimte voor structuur en een nette afsluiting.',
+export const CHANNEL_HINT = {
+  // E-mail is the ONLY channel where the Communication Layer adds the central Maculis signature at
+  // send time (§MACULIS LIVING EMAIL SIGNATURE, signature.mjs). So the body must NOT close with a
+  // second sender identity: a greeting formula plus name, role or organisation would show the
+  // sender twice. A closing SENTENCE that belongs to the message (a question, a next step) is
+  // content and stays welcome; a personal sign-off written by the human is theirs to add.
+  EMAIL: 'E-mail: ruimte voor structuur en een rustige afsluitende zin, bijvoorbeeld een vraag of een volgende stap. '
+       + 'Zet onder het bericht GEEN groetformule met naam, functie of organisatie (dus niet "Met vriendelijke groet, Maculis"). '
+       + 'De Maculis-handtekening wordt bij verzending automatisch toegevoegd; een eigen ondertekening zou de afzender twee keer tonen.',
   WHATSAPP: 'WhatsApp: kort, direct, conversationeel; geen formele aanhef of afsluiting.',
   SMS: 'SMS: zeer compact (bij voorkeur < 320 tekens), één kernboodschap.',
   PHONE: 'Telefonisch: geen geschreven bericht maar korte gesprekspunten.',
@@ -59,10 +66,11 @@ function derivedSentence(instruction) {
 }
 
 // ---- deterministic offline transforms -------------------------------------------------------
-// The offline draft is RELATIONSHIP-aware, not just a reply to the last line: when a prior commitment
-// exists (a confirmed agreement in memory or an open follow-up), it is carried into the concept, so
-// the output verifiably changes with the relationship history even without a live model.
-function mockDraftFromContext(ctx, channel) {
+// Het offline concept is RELATIEBEWUST, niet alleen een reactie op de laatste regel: bestaat er een
+// eerdere toezegging (een bevestigde afspraak in het geheugen of een open follow-up), dan draagt het
+// concept die mee. Zo verandert de uitvoer aantoonbaar met de relatiegeschiedenis, ook zonder een
+// levend model. Geëxporteerd omdat de handtekeningtests hier rechtstreeks op meten.
+export function mockDraftFromContext(ctx, channel) {
   const lastInbound = [...ctx.recent].reverse().find((m) => m.direction === 'INBOUND');
   const asksMore = /(kijken|arbeidsmarkt|ook naar|kun(nen)? jullie|mogelijk|planning|afspraak)/i.test(lastInbound?.body_text || '');
   const first = ctx.contact?.first_name || '';
@@ -70,9 +78,12 @@ function mockDraftFromContext(ctx, channel) {
   const commitmentText = commitment ? (commitment.content || commitment.title) : null;
   let body = `Dank je voor je bericht${first ? `, ${first}` : ''}.` +
     (asksMore ? ' Ja, daar kunnen we met dezelfde blik naar kijken. Ik denk graag even mee over een goede volgende stap.' : ' Ik pak dit op en kom er bij je op terug.');
-  // Relatie vóór transactie: acknowledge what we already agreed, so the thread stays one relationship.
+  // Relatie vóór transactie: benoem wat er al is afgesproken, zodat de draad één relatie blijft.
   if (commitmentText) body += ` Ik kom ook terug op wat we eerder afspraken: ${String(commitmentText).replace(/\.$/, '')}.`;
-  if (channel === 'EMAIL') body += '\n\nMet vriendelijke groet,\nMaculis';
+  // Geen afzender-ondertekening bij EMAIL. De centrale handtekening wordt bij verzending toegevoegd,
+  // dus een afsluitend "Met vriendelijke groet, Maculis" zou de identiteit twee keer in dezelfde mail
+  // zetten. Het concept eindigt al op een volledige zin, en dat leest als een natuurlijke afsluiting.
+  // De twee regels spreken elkaar niet tegen: de relatiebewuste zin blijft, de ondertekening vervalt.
   if (channel === 'WHATSAPP' || channel === 'SMS') body = toWhatsAppShape(body);
   return body;
 }

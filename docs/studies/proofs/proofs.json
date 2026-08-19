@@ -1,0 +1,192 @@
+{
+  "report": [
+    {
+      "id": "01-rust",
+      "title": "Desktop, lichte body, stille aanloop",
+      "note": "Wat de ontvanger het eerste anderhalve seconde ziet. Dit is ook het beeld waar alles op eindigt.",
+      "file": "01-rust.png",
+      "requested": [
+        "maculis-icon-globe-v1.png",
+        "maculis-icon-mail-v1.png",
+        "maculis-seal-perceive-v1.gif",
+        "maculis-spark-v1.png",
+        "maculis-wordmark-v1.png"
+      ],
+      "size": "562 bij 186"
+    },
+    {
+      "id": "02-waarneming",
+      "title": "Desktop, lichte body, het moment zelf",
+      "note": "De vier punten staan bij de ster, de ster ademt. Dit duurt ongeveer een halve seconde.",
+      "file": "02-waarneming.png",
+      "requested": [
+        "maculis-icon-globe-v1.png",
+        "maculis-icon-mail-v1.png",
+        "maculis-seal-perceive-v1.gif",
+        "maculis-spark-v1.png",
+        "maculis-wordmark-v1.png"
+      ],
+      "size": "562 bij 186"
+    },
+    {
+      "id": "03-stil",
+      "title": "Desktop, lichte body, na afloop",
+      "note": "Acht seconden na openen. Identiek aan de eerste proef, dus de GIF is gestopt en herhaalt niet.",
+      "file": "03-stil.png",
+      "requested": [
+        "maculis-icon-globe-v1.png",
+        "maculis-icon-mail-v1.png",
+        "maculis-seal-perceive-v1.gif",
+        "maculis-spark-v1.png",
+        "maculis-wordmark-v1.png"
+      ],
+      "size": "562 bij 186"
+    },
+    {
+      "id": "04-donkere-body",
+      "title": "Donkere leesomgeving",
+      "note": "Apple Mail en Gmail in donkere modus laten donkere achtergronden staan.",
+      "file": "04-donkere-body.png",
+      "requested": [
+        "maculis-icon-globe-v1.png",
+        "maculis-icon-mail-v1.png",
+        "maculis-seal-perceive-v1.gif",
+        "maculis-spark-v1.png",
+        "maculis-wordmark-v1.png"
+      ],
+      "size": "562 bij 186"
+    },
+    {
+      "id": "05-mobiel",
+      "title": "Mobiel, 390 px",
+      "note": "Gmail app en Mail op iOS. Het blok is breder dan het venster en schuift horizontaal, zoals elke tabelhandtekening.",
+      "file": "05-mobiel.png",
+      "requested": [
+        "maculis-icon-globe-v1.png",
+        "maculis-icon-mail-v1.png",
+        "maculis-seal-perceive-v1.gif",
+        "maculis-spark-v1.png",
+        "maculis-wordmark-v1.png"
+      ],
+      "size": "562 bij 186"
+    },
+    {
+      "id": "06-reduced-motion",
+      "title": "Rustige beweging ingeschakeld",
+      "note": "De source met prefers-reduced-motion wint: de client haalt de PNG op en de GIF wordt niet eens gedownload.",
+      "file": "06-reduced-motion.png",
+      "requested": [
+        "maculis-icon-globe-v1.png",
+        "maculis-icon-mail-v1.png",
+        "maculis-seal-rest-v1.png",
+        "maculis-spark-v1.png",
+        "maculis-wordmark-v1.png"
+      ],
+      "size": "562 bij 186"
+    },
+    {
+      "id": "07-images-uit",
+      "title": "Beelden geblokkeerd",
+      "note": "Alle tekst blijft staan. De alt tekst van het woordmerk draagt de merknaam.",
+      "file": "07-images-uit.png",
+      "requested": [
+        "maculis-icon-globe-v1.png",
+        "maculis-icon-mail-v1.png",
+        "maculis-seal-perceive-v1.gif",
+        "maculis-spark-v1.png",
+        "maculis-wordmark-v1.png"
+      ],
+      "size": "562 bij 186"
+    },
+    {
+      "id": "08-images-404",
+      "title": "Assets onbereikbaar (404)",
+      "note": "Zelfde situatie als geblokkeerd, met de placeholder van de client. Er gaat geen informatie verloren.",
+      "file": "08-images-404.png",
+      "requested": [
+        "maculis-icon-globe-v1.png",
+        "maculis-icon-mail-v1.png",
+        "maculis-seal-perceive-v1.gif",
+        "maculis-spark-v1.png",
+        "maculis-wordmark-v1.png"
+      ],
+      "size": "562 bij 186"
+    },
+    {
+      "id": "09-hidpi",
+      "title": "HiDPI, twee keer de pixeldichtheid",
+      "note": "De assets zijn op 300 px gerenderd en worden op 150 px getoond, dus scherp op retina.",
+      "file": "09-hidpi.png",
+      "requested": [
+        "maculis-icon-globe-v1.png",
+        "maculis-icon-mail-v1.png",
+        "maculis-seal-perceive-v1.gif",
+        "maculis-spark-v1.png",
+        "maculis-wordmark-v1.png"
+      ],
+      "size": "562 bij 186"
+    },
+    {
+      "id": "10-outlook-klassiek",
+      "title": "Outlook klassiek, alleen frame 1",
+      "note": "De Word engine toont het eerste frame. Dat frame is bit voor bit de statische PNG.",
+      "file": "10-outlook-klassiek.png",
+      "requested": [
+        "maculis-icon-globe-v1.png",
+        "maculis-icon-mail-v1.png",
+        "maculis-seal-rest-v1.png",
+        "maculis-spark-v1.png",
+        "maculis-wordmark-v1.png"
+      ],
+      "size": "562 bij 186"
+    },
+    {
+      "id": "11-forced-dark",
+      "title": "Geforceerde donkere modus zonder onze stijlregels",
+      "note": "De geaccepteerde randsituatie: tekstpaneel keert om, het zegel blijft donker.",
+      "file": "11-forced-dark.png",
+      "requested": [
+        "maculis-icon-globe-v1.png",
+        "maculis-icon-mail-v1.png",
+        "maculis-seal-perceive-v1.gif",
+        "maculis-spark-v1.png",
+        "maculis-wordmark-v1.png"
+      ],
+      "size": "562 bij 186"
+    },
+    {
+      "id": "00-volledige-mail",
+      "title": "De volledige e-mail",
+      "note": "Bericht plus handtekening, zoals de ontvanger hem opent. De handtekening staat los onder de tekst.",
+      "file": "00-volledige-mail.png",
+      "requested": [
+        "maculis-icon-globe-v1.png",
+        "maculis-icon-mail-v1.png",
+        "maculis-seal-perceive-v1.gif",
+        "maculis-spark-v1.png",
+        "maculis-wordmark-v1.png"
+      ],
+      "size": "n.v.t."
+    }
+  ],
+  "text": "Hoi Kim,\n\nDank je voor je bericht. Ik heb het bekeken en kom er morgen op terug.\n\nHartelijke groet,\n\n-- \nLudwig van der Kuijl\nMaculis\nKijk nog eens.\nhello@maculis.nl\nmaculis.nl",
+  "html": "<div style=\"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#2b2b2b\">Hoi Kim,<br><br>Dank je voor je bericht. Ik heb het bekeken en kom er morgen op terug.<br><br>Hartelijke groet,</div>\n<!--maculis-signature-->\n<style type=\"text/css\">\n[data-ogsc] .mac-ink,[data-ogsb] .mac-ink{background-color:#0a0b10 !important}\n[data-ogsc] .mac-rule,[data-ogsb] .mac-rule{border-left-color:#b87333 !important}\n[data-ogsc] .mac-name{color:#e6b98d !important}\n[data-ogsc] .mac-dim{color:#8e857a !important}\n[data-ogsc] .mac-row{color:#a89f92 !important}\n[data-ogsc] .mac-wording{color:#a08fd6 !important}\n</style>\n<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" class=\"mac-ink\" style=\"border-collapse:collapse;background-color:#0a0b10;mso-line-height-rule:exactly;margin-top:20px\">\n  <tr>\n    <td class=\"mac-ink\" width=\"150\" style=\"width:150px;padding:18px 0;line-height:0;background-color:#0a0b10\" valign=\"middle\">\n      <picture>\n        <source media=\"(prefers-reduced-motion: reduce)\" srcset=\"http://127.0.0.1:3111/brand/maculis-seal-rest-v1.png\">\n        <img src=\"http://127.0.0.1:3111/brand/maculis-seal-perceive-v1.gif\" width=\"150\" height=\"150\" alt=\"\" style=\"display:block;border:0;outline:none;width:150px;height:150px\">\n      </picture>\n    </td>\n    <td class=\"mac-ink mac-rule\" style=\"padding:16px 22px;border-left:1px solid #b87333;background-color:#0a0b10\" valign=\"middle\">\n      <div class=\"mac-name\" style=\"font-family:Georgia,'Times New Roman',Times,serif;font-weight:normal;font-size:25px;line-height:30px;color:#e6b98d;white-space:nowrap\">Ludwig van der Kuijl</div>\n      \n      <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;margin-top:10px\">\n          <tr>\n            <td style=\"padding:0 9px 7px 0;line-height:0\"><img src=\"http://127.0.0.1:3111/brand/maculis-icon-mail-v1.png\" width=\"13\" height=\"13\" alt=\"\" style=\"display:block;border:0;width:13px;height:13px\"></td>\n            <td class=\"mac-row\" style=\"padding:0 0 7px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12.5px;line-height:13px;color:#a89f92;white-space:nowrap\"><a href=\"mailto:hello@maculis.nl\" style=\"color:#a89f92;text-decoration:none\">hello@maculis.nl</a></td>\n          </tr>\n          <tr>\n            <td style=\"padding:0 9px 7px 0;line-height:0\"><img src=\"http://127.0.0.1:3111/brand/maculis-icon-globe-v1.png\" width=\"13\" height=\"13\" alt=\"\" style=\"display:block;border:0;width:13px;height:13px\"></td>\n            <td class=\"mac-row\" style=\"padding:0 0 7px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12.5px;line-height:13px;color:#a89f92;white-space:nowrap\"><a href=\"https://maculis.nl\" style=\"color:#a89f92;text-decoration:none\">maculis.nl</a></td>\n          </tr>\n      </table>\n    </td>\n    <td class=\"mac-ink mac-rule\" style=\"padding:16px 22px;border-left:1px solid #b87333;background-color:#0a0b10\" valign=\"middle\">\n      <img src=\"http://127.0.0.1:3111/brand/maculis-wordmark-v1.png\" width=\"106\" height=\"50\" alt=\"Maculis\" style=\"display:block;border:0;width:106px;height:50px\">\n      <div class=\"mac-row\" style=\"font-family:Georgia,'Times New Roman',Times,serif;font-size:13px;line-height:20px;color:#a89f92;padding-top:6px;white-space:nowrap\">Kijk nog eens.</div>\n      <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;margin-top:6px\">\n        <tr>\n          <td style=\"padding:0 2px 0 0;line-height:0\"><img src=\"http://127.0.0.1:3111/brand/maculis-spark-v1.png\" width=\"30\" height=\"30\" alt=\"\" style=\"display:block;border:0;width:30px;height:30px\"></td>\n          <td class=\"mac-wording\" style=\"font-family:Georgia,'Times New Roman',Times,serif;font-style:italic;font-size:13.5px;line-height:16px;color:#a08fd6;white-space:nowrap\">In wording.</td>\n        </tr>\n      </table>\n    </td>\n  </tr>\n</table>",
+  "assets": {
+    "name": "Ludwig van der Kuijl",
+    "org": "Maculis",
+    "role": "",
+    "payoff": "Kijk nog eens.",
+    "location": "",
+    "wording": "In wording.",
+    "email": "hello@maculis.nl",
+    "website": "maculis.nl",
+    "sealGif": "http://127.0.0.1:3111/brand/maculis-seal-perceive-v1.gif",
+    "sealPng": "http://127.0.0.1:3111/brand/maculis-seal-rest-v1.png",
+    "wordmark": "http://127.0.0.1:3111/brand/maculis-wordmark-v1.png",
+    "spark": "http://127.0.0.1:3111/brand/maculis-spark-v1.png",
+    "iconMail": "http://127.0.0.1:3111/brand/maculis-icon-mail-v1.png",
+    "iconGlobe": "http://127.0.0.1:3111/brand/maculis-icon-globe-v1.png",
+    "iconPin": "http://127.0.0.1:3111/brand/maculis-icon-pin-v1.png"
+  },
+  "textOnly": "\n-- \nLudwig van der Kuijl\nMaculis\nKijk nog eens.\nhello@maculis.nl\nmaculis.nl"
+}

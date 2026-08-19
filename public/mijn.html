@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="nl" data-maculis-regime="night">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Mijn Maculis</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" href="/brand/maculis-eye.png" />
+  <!-- Canonieke tokens en letter. Gegenereerd uit ftrlabs-docs 03-ux, nooit met de hand
+       bewerken. De checksum wordt bewaakt door tools/check-tokens.mjs. -->
+  <link rel="stylesheet" href="/vendor/maculis-tokens.css" />
+  <link rel="stylesheet" href="/vendor/newsreader.css" />
+  <link rel="stylesheet" href="/mijn.css" />
+</head>
+<body class="mijn">
+  <!-- Toegangspoort: zichtbaar tot een token is opgelost. -->
+  <div id="gate" class="gate">
+    <div class="gate-card">
+      <span class="punt" aria-hidden="true"></span>
+      <h1 class="merkwoord">Mijn Maculis</h1>
+      <p id="gate-msg" class="gate-msg">Mijn Maculis wordt geopend.</p>
+    </div>
+  </div>
+
+  <!-- Het veld IS de kamer. De rest komt eruit voort. -->
+  <div id="app" class="app hidden">
+    <canvas id="veld" class="veld" aria-hidden="true"></canvas>
+    <div class="vig" aria-hidden="true"></div>
+
+    <div class="hud">
+      <div class="merk">
+        <span class="punt" aria-hidden="true"></span>
+        <span class="merk-tekst">
+          <span class="merk-naam">Mijn Maculis</span>
+          <span id="org-naam" class="merk-org"></span>
+        </span>
+      </div>
+
+      <nav class="rand" aria-label="Mijn Maculis">
+        <button class="knop" id="btn-patronen" type="button">Alle patronen</button>
+        <button class="knop" id="btn-blind" type="button">Wat zie ik niet?</button>
+        <button class="knop" id="btn-samen" type="button">Samenwerking</button>
+        <button class="knop" id="btn-gesprekken" type="button">Gesprekken<span class="stip-nieuw hidden" id="gs-stip" aria-hidden="true"></span></button>
+        <button class="knop" id="btn-opnieuw" type="button">Opnieuw</button>
+      </nav>
+
+      <div class="onder">
+        <p class="groet" id="groet"></p>
+        <p class="sinds" id="sinds"></p>
+        <p class="toestand" id="toestand" role="status"></p>
+      </div>
+
+      <!-- De uitspraak komt uit haar kern voort en is eraan verankerd. -->
+      <div class="zeg" id="zeg">
+        <p class="lab v" id="zeg-aanhef"></p>
+        <h1 class="zeg-titel" id="zeg-titel"></h1>
+        <p class="zeg-rust" id="zeg-rust"></p>
+        <div class="zeg-acties">
+          <button class="knop primair" id="btn-waarom" type="button">Waarom ziet Maculis dit?</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Het bewijs komt uit het veld: de kern treedt naar voren, de rest treedt terug. -->
+    <aside class="blad bewijs" id="bewijs" aria-labelledby="bw-titel" aria-hidden="true">
+      <div class="blad-kop">
+        <button class="knop tekst" id="btn-sluit" type="button">Terug naar het veld</button>
+      </div>
+      <div class="blad-body">
+        <p class="lab c" id="bw-aanhef"></p>
+        <h2 class="blad-titel" id="bw-titel"></h2>
+        <p class="blad-lead" id="bw-lead"></p>
+
+        <div class="sterkte">
+          <span class="sterkte-getal" id="bw-getal"></span>
+          <p id="bw-sterkte"></p>
+        </div>
+
+        <p class="lab" id="bw-bronnen-kop">Waarop dit rust</p>
+        <ul class="bronnen" id="bw-bronnen"></ul>
+
+        <div class="qa" id="bw-qa"></div>
+
+        <details class="dev hidden" id="bw-dev">
+          <summary><span class="dev-titel">Hoe dit inzicht zich ontwikkelde</span><span class="dev-hint" id="bw-dev-hint"></span></summary>
+          <ol class="dev-lijst" id="bw-dev-lijst"></ol>
+        </details>
+
+        <!-- De menselijke laag: Maculis verkondigt niet, het vraagt. -->
+        <div class="vraag" id="bw-vraag">
+          <p class="vraag-q">Herken je dit?</p>
+          <div class="vraag-keuzes">
+            <button class="knop" data-antwoord="ja" type="button">Ja</button>
+            <button class="knop" data-antwoord="deels" type="button">Deels</button>
+            <button class="knop" data-antwoord="nee" type="button">Nee</button>
+          </div>
+          <p class="vraag-uit" id="bw-uitkomst"></p>
+          <!-- Deels en Nee zijn zonder toelichting arm, en dat weet je zelf ook. -->
+          <div class="vraag-toel hidden" id="bw-toel">
+            <label class="vraag-toel-vraag" id="bw-toel-vraag" for="bw-toel-tekst"></label>
+            <textarea class="veldtekst" id="bw-toel-tekst" rows="2"></textarea>
+            <div class="vraag-toel-acties">
+              <button class="knop" id="bw-toel-bewaar" type="button">Bewaren</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- De grens tussen wat van jou is en wat gedeeld is. -->
+        <div class="grens">
+          <p class="grens-staat"><span class="grens-punt" id="bw-grens-punt" aria-hidden="true"></span><span id="bw-staat"></span></p>
+          <p class="grens-tekst" id="bw-grens-tekst"></p>
+          <div class="grens-acties" id="bw-grens-acties"></div>
+        </div>
+
+        <!-- Doorpraten over wat Maculis ziet, in de ruimte waar je het ziet. Geen supportkanaal
+             en geen chat: één ingang, en het gesprek dat er al is. -->
+        <div class="praat" id="bw-praat"></div>
+      </div>
+    </aside>
+
+    <!-- De volledige, niet-ruimtelijke weg naar dezelfde inhoud. Geen tweederangs lijst:
+         alles wat het veld toont staat hier ook, met toetsenbord bereikbaar. -->
+    <aside class="blad patronen" id="patronen" aria-labelledby="pt-titel" aria-hidden="true">
+      <div class="blad-kop">
+        <button class="knop tekst" id="btn-patronen-sluit" type="button">Terug naar het veld</button>
+      </div>
+      <div class="blad-body">
+        <p class="lab c">Alles wat Maculis nu ziet</p>
+        <h2 class="blad-titel" id="pt-titel">Alle patronen</h2>
+        <p class="blad-lead">Dezelfde inhoud als in het veld, op een rij. Kies een patroon om het bewijs eronder te openen.</p>
+        <ul class="pt-lijst" id="pt-lijst"></ul>
+      </div>
+    </aside>
+
+    <!-- Terugkijken. Geen postvak: een rustige lijst met draden, elk met het patroon waar hij
+         over ging als context. En de ingang voor wat bij geen enkel patroon hoort. -->
+    <aside class="blad gesprekken" id="gesprekken" aria-labelledby="gs-titel" aria-hidden="true">
+      <div class="blad-kop">
+        <button class="knop tekst" id="btn-gesprekken-sluit" type="button">Terug naar het veld</button>
+      </div>
+      <div class="blad-body">
+        <p class="lab c">Wat we tegen elkaar hebben gezegd</p>
+        <h2 class="blad-titel" id="gs-titel">Gesprekken</h2>
+        <p class="blad-lead" id="gs-lead">Wat je hier hebt gezegd en wat wij hebben teruggezegd. Nieuwste boven.</p>
+        <div class="gs-nieuw" id="gs-nieuw"></div>
+        <ul class="gs-lijst" id="gs-lijst"></ul>
+        <div class="gs-draad" id="gs-draad"></div>
+      </div>
+    </aside>
+
+    <!-- Wat we samen doen. Blijft bestaan; het veld is de kamer, dit is wat we afspraken. -->
+    <aside class="blad samen" id="samen" aria-labelledby="sm-titel" aria-hidden="true">
+      <div class="blad-kop">
+        <button class="knop tekst" id="btn-samen-sluit" type="button">Terug naar het veld</button>
+      </div>
+      <div class="blad-body">
+        <p class="lab c">Wat we samen doen</p>
+        <h2 class="blad-titel" id="sm-titel">Samenwerking</h2>
+        <ul class="sm-lijst" id="sm-lijst"></ul>
+        <div class="grens">
+          <p class="lab">Jouw informatie, jouw keuze</p>
+          <p class="grens-tekst">Inzichten zijn van jou tot je ze deelt. Alleen gedeelde inzichten worden onderdeel van onze samenwerking, en je kunt dat op elk moment intrekken.</p>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- Bevestiging bij het oversteken van de grens. -->
+  <div id="confirm" class="confirm hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="confirm-card">
+      <h2 id="confirm-title" class="confirm-title">Delen met Maculis</h2>
+      <p id="confirm-body" class="confirm-body"></p>
+      <div class="confirm-actions">
+        <button id="confirm-cancel" class="knop" type="button">Annuleren</button>
+        <button id="confirm-ok" class="knop primair" type="button">Deel dit met Maculis</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/mijn.js" defer></script>
+</body>
+</html>

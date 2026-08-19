@@ -1,12 +1,10 @@
-// Tokenpoort voor de Maculis Cockpit.
-//
-// Het gevendorde tokenbestand moet de checksum dragen die de canon zelf noemt. Wijkt hij af,
-// dan is het bestand stale en mag het niet als referentie worden gebruikt
-// (ftrlabs-docs 03-ux/README.md, regel 3).
+// Poort 2 uit de pre-implementation gate: het gevendorde tokenbestand moet de checksum
+// dragen die de canon zelf noemt. Wijkt hij af, dan is het bestand stale en mag het niet
+// als referentie worden gebruikt (03-ux/README.md, regel 3).
 //
 // Het bestand is GEGENEREERD. Hand-bewerken is verboden (canon hoofdstuk 17, punt 4).
-// Deze test bewaakt dat: elke handmatige wijziging aan een tokenwaarde verandert de inhoud,
-// en dan klopt de zelf-gedeclareerde checksum niet meer met de vastgelegde.
+// Deze test bewaakt dat: elke handmatige wijziging aan een tokenwaarde verandert de
+// inhoud, en dan klopt de zelf-gedeclareerde checksum niet meer met de vastgelegde.
 
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -18,14 +16,18 @@ import assert from 'node:assert/strict';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const TOKENS = join(ROOT, 'public', 'vendor', 'maculis-tokens.css');
 
-// De canon die dit product vendort. Volgt canon MAIN: C-1, C-2, C-3 en C-5 zijn gemerged
-// (ftrlabs-docs PR #3 en #4). Bij een canon-amendement wordt deze waarde bijgewerkt in
-// dezelfde commit als het nieuwe tokenbestand, nooit los.
-const EXPECTED_CANON_CHECKSUM = 'a8a21414415b8e06';
-const EXPECTED_VERSION = '1.0.3';
+// De canon die dit product vendort. Bij een canon-amendement wordt deze waarde
+// bijgewerkt in dezelfde commit als het nieuwe tokenbestand, nooit los.
+// Volgt de canon inclusief amendement C-10 (Mijn Maculis van dag naar nacht) en C-10b
+// (surface.private is een rol en verhuist naar :root). Beide zijn in ftrlabs-docs
+// vastgelegd voordat hier iets is gebouwd, conform hoofdstuk 17 punt 2.
+// Bewijs dat de Cockpit hier niets van merkt: alle 56 opnamen van workspace, comm en
+// testerbeheer zijn byte-identiek vastgelegd met 1.0.3 en met 1.0.4.
+const EXPECTED_CANON_CHECKSUM = '069d988aeef024ba';
+const EXPECTED_VERSION = '1.0.4';
 
 // Inhoudshash van het bestand zoals het uit de canon kwam. Bewaakt hand-bewerken.
-const EXPECTED_CONTENT_SHA256 = '0b64440b0c964882';
+const EXPECTED_CONTENT_SHA256 = '485a1689f4a0acf9';
 
 test('tokenbestand draagt de canonieke checksum', async () => {
   const css = await readFile(TOKENS, 'utf8');
@@ -48,8 +50,12 @@ test('tokenbestand is niet met de hand bewerkt', async () => {
     + 'Een tokenwaarde hoort via de canon te wijzigen, nooit hier.');
 });
 
-test('het werklichtregime staat in het tokenbestand', async () => {
+test('elk regime dat een kamer gebruikt staat in het tokenbestand', async () => {
   const css = await readFile(TOKENS, 'utf8');
+  // Werklicht draagt de Cockpit; nacht draagt de Website, de Lens en sinds amendement C-10 ook
+  // Mijn Maculis. Deze poort komt uit de Cockpit-lijn en blijft staan naast de canonchecksum.
   assert.match(css, /\[data-maculis-regime="worklight"\]/);
-  assert.match(css, /--surface-ground:\s*#080503/);
+  assert.match(css, /\[data-maculis-regime="night"\]/);
+  assert.match(css, /--surface-ground:\s*#080503/);   // werklicht, canon 5 amendement C-1
+  assert.match(css, /--surface-ground:\s*#0a0b10/);   // nacht, ink.980
 });

@@ -4,16 +4,16 @@
 
    canon      UX-VISUAL-DNA  ·  Maculis Visual DNA v1.0 (vastgesteld)
    bron       ftrprf-labs/ftrlabs-docs  03-ux/principles/maculis-visual-dna.md
-   versie     1.0.3
-   datum      2026-08-18
-   checksum   a8a21414415b8e06
+   versie     1.0.4
+   datum      2026-08-19
+   checksum   069d988aeef024ba
    generator  .github/scripts/generate_tokens.py
 
    Gebruik per kamer:
      Website      <html data-maculis-regime="night">
      Lens         <html data-maculis-regime="night">
      Cockpit      <html data-maculis-regime="worklight">
-     Mijn Maculis <html data-maculis-regime="day">
+     Mijn Maculis <html data-maculis-regime="night">
 
    Wijzigen kan uitsluitend via hoofdstuk 17 van de canon.
    Wijkt de checksum af van de canon, dan is dit bestand niet meer geldig.
@@ -68,6 +68,9 @@
   /* ---- border  ·  nooit neutraal grijs (canon 6) ---- */
   --border-hairline: rgba(200,137,74,.18);
   --border-defined: rgba(200,137,74,.34);
+
+  /* ---- oppervlakrol  ·  van jou alleen; geen regimewaarde (canon 6, C-10b) ---- */
+  --surface-private: #ece0c9;
 
   /* ---- schaduw  ·  diffuus of hij is er niet; nooit samen met een hairline (canon 6) ---- */
   --shadow-diffuse: 0 22px 55px -32px rgba(0,0,0,.85);
@@ -144,7 +147,6 @@
   --surface-ground: #f7f1e6;
   --surface-raised: #fdfbf6;
   --surface-elevated: #ffffff;
-  --surface-private: #ece0c9;
   --text-primary: #17120c;
   --text-secondary: #6b6152;
   --text-quiet: #8a8073;

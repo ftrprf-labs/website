@@ -10,6 +10,7 @@ import { migrateInvitations } from './repo.mjs';
 import { listFollowUps } from './followups.mjs';
 import { channelConsentState } from './consent.mjs';
 import { listMemory } from './memory.mjs';
+import { sharedContextForOrg } from '../mijn/sharing.mjs';
 
 // Resolve a Contact from a legacy invitation id or personal token (the Testerbeheer entry point),
 // migrating the JSON invitation into a permanent Contact on demand (idempotent).
@@ -36,7 +37,7 @@ export async function getRelationship(tenantId, { contactId = null, orgId = null
        from contact where id=$1 and tenant_id=$2`, [contactId, tenantId])).rows[0] : null;
   const organizationId = orgId || (contact && contact.organization_id) || null;
 
-  const [org, orgContacts, identities, journey, conversations, followUps, consent, lastActivity, memory] = await Promise.all([
+  const [org, orgContacts, identities, journey, conversations, followUps, consent, lastActivity, memory, sharedInsights] = await Promise.all([
     organizationId ? query('select id, name, primary_domain, relationship_stage, created_at from organization where id=$1 and tenant_id=$2', [organizationId, tenantId]).then((r) => r.rows[0]) : null,
     organizationId ? query('select id, first_name, last_name, email, role from contact where organization_id=$1 and tenant_id=$2 and deleted_at is null order by created_at', [organizationId, tenantId]).then((r) => r.rows) : [],
     contactId ? query('select channel, value, verified, is_primary from channel_identity where tenant_id=$1 and contact_id=$2 order by is_primary desc', [tenantId, contactId]).then((r) => r.rows) : [],
@@ -54,6 +55,7 @@ export async function getRelationship(tenantId, { contactId = null, orgId = null
     contactId ? channelConsentState(tenantId, contactId) : null,
     contactId ? query('select type, channel, at from activity where tenant_id=$1 and contact_id=$2 order by at desc limit 1', [tenantId, contactId]).then((r) => r.rows[0] || null) : null,
     contactId ? listMemory(tenantId, { contactId }) : [],
+    organizationId ? sharedContextForOrg(tenantId, organizationId) : [],
   ]);
 
   const unread = conversations.reduce((n, c) => n + Number(c.unread || 0), 0);
@@ -70,7 +72,7 @@ export async function getRelationship(tenantId, { contactId = null, orgId = null
 
   return {
     contact, organization: org, orgContacts, identities, journey,
-    conversations, followUps, consent, memory,
+    conversations, followUps, consent, memory, sharedInsights,
     stage: (org && org.relationship_stage) || (contact && contact.relationship_stage) || null,
     summary: {
       unread, openConversations, aiReady,

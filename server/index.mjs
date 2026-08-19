@@ -24,6 +24,7 @@ import { handleComm } from './comm/routes.mjs';
 import { handleAgents } from './agents/routes.mjs';
 import { sourceProviderStatus } from './agents/providers/registry.mjs';
 import { handleCockpit } from './cockpit/routes.mjs';
+import { handleMijn } from './mijn/routes.mjs';
 import { migrateOnBoot } from './comm/migrate.mjs';
 import { commEnabled, agentsEnabled, dbFeaturesEnabled } from './comm/db.mjs';
 import { bridgePassTheLens } from './comm/pass-the-lens.mjs';
@@ -34,12 +35,22 @@ const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
+  // Zelf gehoste Newsreader uit public/vendor/fonts. Zonder dit type weigert de browser het bestand.
+  '.woff2': 'font/woff2',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
   '.json': 'application/json; charset=utf-8',
-  // De canonieke serif wordt zelf gehost. Zonder dit type weigert de browser het bestand.
-  '.woff2': 'font/woff2',
+  // Signature assets are fetched by external mail clients and their image proxies. Without a real
+  // image content type they are served as octet-stream and proxies (Gmail, Outlook) refuse them.
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
 };
+// Asset types that must NEVER fall through to the SPA: a mail client asking for a missing image
+// has to get a 404, not an HTML page with status 200 (which renders as a broken image forever).
+const ASSET_EXT = new Set(['.png', '.gif', '.jpg', '.jpeg', '.webp', '.svg', '.ico', '.css', '.js', '.json']);
 
 // ---- helpers -------------------------------------------------------------
 
@@ -206,6 +217,10 @@ async function serveStatic(req, res, urlPath) {
     });
     res.end(data);
   } catch {
+    if (ASSET_EXT.has(extname(full).toLowerCase())) {
+      res.writeHead(404, securityHeaders).end('Not found');
+      return;
+    }
     // SPA fallback: serve index.html for unknown non-API paths.
     try {
       const data = await readFile(join(PUBLIC, 'index.html'));
@@ -247,6 +262,13 @@ async function handleApi(req, res, pathname) {
   // handleCockpit (503 unless the Communication Layer is enabled). Owns work landing + resolution.
   if (pathname.startsWith('/api/cockpit/')) {
     const handled = await handleCockpit(req, res, { pathname, method, isAuthed });
+    if (handled) return;
+  }
+
+  // Mijn Maculis — customer-facing routes (token-authenticated, NOT admin-gated). Additive; shares
+  // the Communication Layer's Postgres. Never touches the Invitation Manager / First Five routes.
+  if (pathname.startsWith('/api/mijn/')) {
+    const handled = await handleMijn(req, res, { pathname, method });
     if (handled) return;
   }
 
@@ -666,6 +688,11 @@ if (config.production) {
   if (!/^https:\/\//i.test(config.maculisPublicUrl) || isLocalUrl(config.maculisPublicUrl)) {
     problems.push(`MACULIS_PUBLIC_URL must be a public https:// URL (got "${config.maculisPublicUrl}") — invitations may not contain localhost.`);
   }
+  // Not a security problem, so never fatal: a signature asset base that is not publicly reachable
+  // only breaks the e-mail signature image for external recipients. Warn loudly, keep serving.
+  if (!/^https:\/\//i.test(config.signatureAssetBase) || isLocalUrl(config.signatureAssetBase)) {
+    console.warn(`[SIGNATURE] SIGNATURE_ASSET_BASE is "${config.signatureAssetBase}" — mail clients cannot load signature images from a non-public URL; the static fallback text stays intact.`);
+  }
   if (problems.length) {
     console.error('\n[SECURITY] Refusing to start in production:\n' + problems.map((p) => '  - ' + p).join('\n') + '\n');
     process.exit(1);
@@ -734,6 +761,31 @@ server.listen(config.port, bindHost, () => {
               console.log('##VAL## DONE ' + JSON.stringify({ ok: out.ok, error: out.error || null }));
             } catch (e) { console.log('##VAL## ERROR ' + JSON.stringify({ error: String(e && e.message || e) })); }
           }
+        }
+
+        // De twee bootstraps van Mijn Maculis. Ze hangen aan het schema, niet aan de
+        // Communication Layer, en staan daarom buiten de commEnabled()-poort hierboven.
+        // Slice A1: backfill an initial version + observation for any existing V1 insight that lacks
+        // one (idempotent; content copied verbatim). Additive, best-effort, never blocks the boot.
+        try {
+          const { backfillInitialVersions } = await import('./mijn/versions.mjs');
+          const bf = await backfillInitialVersions();
+          if (bf.backfilled > 0) console.log(`  Mijn Maculis: ${bf.backfilled} inzicht(en) voorzien van een beginversie`);
+        } catch (e) { console.log(`  Mijn Maculis: version-backfill uitgesteld (${e.message})`); }
+
+        // PREVIEW ONLY (§24): seed the Mijn Maculis fixtures + run a live boundary self-check when
+        // MIJN_PREVIEW_SEED is on. Triple-guarded (flag + no real customers) so it can never run or
+        // seed on production. Best-effort — never blocks or crashes the boot.
+        if (/^(1|true|yes|on)$/i.test(process.env.MIJN_PREVIEW_SEED || '')) {
+          try {
+            const { seedPreviewCore, assertNoRealCustomers, previewSelfCheck } = await import('./mijn/seed.mjs');
+            const { getDefaultTenantId } = await import('./comm/tenant.mjs');
+            const tid = await getDefaultTenantId();
+            await assertNoRealCustomers(tid);
+            const seeded = await seedPreviewCore({ tenantId: tid });
+            console.log(`  Mijn Maculis: preview geseed (${seeded.organizationName}) → ${seeded.link}`);
+            await previewSelfCheck({ tenantId: tid, organizationId: seeded.organizationId });
+          } catch (e) { console.log(`  Mijn Maculis: preview seed overgeslagen (${e.message})`); }
         }
       } else if (!r.skipped) console.log(`  Schema   : migrations pending (${r.error})`);
     });

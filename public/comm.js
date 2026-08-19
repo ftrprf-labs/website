@@ -21,11 +21,16 @@ async function boot() {
   const m = (location.hash || '').match(/conv=([0-9a-f-]{36})/i);
   if (m) openConv(m[1]);
 }
-const FILTERS = [['all', 'Alles'], ['new', 'Nieuw'], ['waiting_on_us', 'Wacht op mij'], ['ai_ready', 'AI-voorstel'], ['unknown_contact', 'Onbekend'], ['delivery_problem', 'Levering']];
+// Canon 10: statuslabels zijn Nederlands en menselijk. De attentielabels waren dat al;
+// alleen de kanaalnamen kwamen nog rauw uit de data. Uitsluitend weergave.
+const CHANNEL_LABEL = { EMAIL: 'E-mail', WHATSAPP: 'WhatsApp', SMS: 'Sms', PHONE: 'Telefoon', SOCIAL: 'Social', MIJN_MACULIS: 'Mijn Maculis' };
+const chan = (c) => CHANNEL_LABEL[c] || (c ? c.charAt(0) + c.slice(1).toLowerCase() : '');
+
+const FILTERS = [['all', 'Alles'], ['new', 'Nieuw'], ['waiting_on_us', 'Wacht op mij'], ['ai_ready', 'AI-voorstel'], ['unknown_contact', 'Onbekend'], ['delivery_problem', 'Leveringsprobleem']];
 function renderAttbar(sum) {
   const map = { all: '', new: sum.new, waiting_on_us: sum.waiting_on_us, ai_ready: sum.ai_ready, unknown_contact: sum.unknown_contact, delivery_problem: sum.delivery_problem };
-  $('#attbar').innerHTML = FILTERS.map(([k, l]) => `<span class="af ${filter === k ? 'on' : ''}" data-act="filter" data-f="${k}">${l}${map[k] ? ` <b>${map[k]}</b>` : ''}</span>`).join('')
-    + (sum.follow_up_due ? `<span class="af" title="Open follow-ups">Follow-ups <b>${sum.follow_up_due}</b></span>` : '');
+  $('#attbar').innerHTML = FILTERS.map(([k, l]) => `<button type="button" class="af ${filter === k ? 'on' : ''}" data-act="filter" data-f="${k}">${l}${map[k] ? ` <b>${map[k]}</b>` : ''}</button>`).join('')
+    + (sum.follow_up_due ? `<button type="button" class="af" title="Open follow-ups">Follow-ups <b>${sum.follow_up_due}</b></button>` : '');
 }
 function setFilter(f) { filter = f; loadList(); }
 function setBox(b) { box = b; current = null; filter = 'all'; $('#tab-comm').classList.toggle('on', b === 'communication'); $('#tab-priv').classList.toggle('on', b === 'privacy'); $('#thread').innerHTML = '<div class="empty">Kies een gesprek.</div>'; $('#ctx').innerHTML = ''; loadList(); }
@@ -36,11 +41,11 @@ async function loadList() {
   if (r.status !== 200) { $('#list').innerHTML = '<div class="empty">Kon inbox niet laden.</div>'; return; }
   if (box === 'communication') renderAttbar(r.body.summary || {}); else $('#attbar').innerHTML = '';
   const cs = r.body.conversations || [];
-  const label = { new: 'nieuw', waiting_on_us: 'wacht op mij', ai_ready: 'voorstel klaar', unknown_contact: 'onbekend', delivery_problem: 'levering', waiting_on_contact: 'wacht op klant' };
+  const label = { new: 'nieuw', waiting_on_us: 'wacht op mij', ai_ready: 'voorstel klaar', unknown_contact: 'onbekend', delivery_problem: 'leveringsprobleem', waiting_on_contact: 'wacht op klant' };
   $('#list').innerHTML = cs.length ? cs.map((c) => {
     const who = [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || 'Onbekend';
     const tags = (c.attention || []).filter((a) => a !== 'open').slice(0, 2).map((a) => `<span class="att ${a}">${label[a] || a}</span>`).join('');
-    return `<div class="conv" data-act="openConv" data-id="${c.id}"><div class="who">${esc(who)}${tags}</div><div class="org">${esc(c.org || c.email || '')} · ${esc(c.channel)}</div><div class="snip">${esc((c.last_body || '').slice(0, 80))}</div></div>`;
+    return `<button type="button" class="conv" data-act="openConv" data-id="${c.id}"><div class="who">${esc(who)}${tags}</div><div class="org">${esc(c.org || c.email || '')} · ${esc(chan(c.channel))}</div><div class="snip">${esc((c.last_body || '').slice(0, 80))}</div></button>`;
   }).join('') : '<div class="empty">Niets vraagt hier je aandacht.</div>';
 }
 
@@ -59,7 +64,7 @@ async function openConv(id) {
   openDraft(id);
   renderCtx(d, c);
 }
-async function loadSuggestions(id) { const bar = $('#sugbar'); if (!bar) return; const r = await api('/api/comm/conversations/' + id + '/ai/suggest', { method: 'POST' }); if (r.status === 200) bar.innerHTML = (r.body.suggestions || []).map((s) => `<span class="s" title="${esc(s.why || '')}">${esc(s.label)}</span>`).join(''); }
+async function loadSuggestions(id) { const bar = $('#sugbar'); if (!bar) return; const r = await api('/api/comm/conversations/' + id + '/ai/suggest', { method: 'POST' }); if (r.status === 200) bar.innerHTML = (r.body.suggestions || []).map((s) => `<button type="button" class="s" title="${esc(s.why || '')}">${esc(s.label)}</button>`).join(''); }
 
 async function openDraft(id) {
   const r = await api('/api/comm/conversations/' + id + '/draft', { method: 'POST', body: JSON.stringify({}) });
@@ -68,7 +73,7 @@ async function openDraft(id) {
 }
 function channelButtons() {
   const consent = (STATE.conv && STATE.conv.consent) || {}; const sendable = (STATE.status.sendable) || ['EMAIL', 'WHATSAPP', 'SMS']; const cur = STATE.draft.draft.channel;
-  return sendable.map((ch) => { const cs = consent[ch]; const b = cs && !cs.allowed; return `<span class="chan ${ch === cur ? 'on' : ''} ${b ? 'blocked' : ''}" title="${b ? ('Geblokkeerd: ' + esc(cs.reason)) : ''}" ${b ? '' : `data-act="switchChannel" data-ch="${ch}"`}>${ch === 'EMAIL' ? 'E-mail' : ch === 'WHATSAPP' ? 'WhatsApp' : ch}</span>`; }).join('');
+  return sendable.map((ch) => { const cs = consent[ch]; const b = cs && !cs.allowed; return `<button type="button" class="chan ${ch === cur ? 'on' : ''} ${b ? 'blocked' : ''}" title="${b ? ('Geblokkeerd: ' + esc(cs.reason)) : ''}" ${b ? '' : `data-act="switchChannel" data-ch="${ch}"`}>${esc(chan(ch))}</button>`; }).join('');
 }
 function renderComposer() {
   const dr = STATE.draft.draft; const chat = STATE.draft.chat || [];

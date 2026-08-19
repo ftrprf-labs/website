@@ -1,0 +1,858 @@
+<title>Waarneming, drie microvarianten</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+:root{
+  --ink:#0a0b10;
+  --ink-panel:#101219;
+  --ink-raise:#151822;
+  --line:#232634;
+  --line-soft:#1a1d27;
+  --copper:#b87333;
+  --copper-lit:#e0ab7a;
+  --violet:#7c4dff;
+  --bone:#f2ede4;
+  --text:#dcd6cc;
+  --dim:#948c81;
+  --faint:#6b6459;
+  --ok:#7fa06a;
+  --warn:#c8913f;
+  --no:#8d5a52;
+  --shell: 1180px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--ink);
+  color:var(--text);
+  font-family:"Instrument Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  font-size:15px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:var(--shell);margin:0 auto;padding:0 28px}
+a{color:var(--copper-lit)}
+
+/* ---------- type ---------- */
+h1,h2,h3{font-family:"Newsreader",Georgia,"Times New Roman",serif;font-weight:300;text-wrap:balance;margin:0}
+h1{font-size:clamp(34px,5vw,54px);line-height:1.08;letter-spacing:-.01em;color:var(--bone)}
+h2{font-size:clamp(24px,3vw,32px);line-height:1.15;color:var(--bone)}
+h3{font-size:20px;line-height:1.25;color:var(--bone)}
+.eyebrow{
+  font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--copper);
+}
+.lede{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.62;color:var(--text);max-width:63ch;font-weight:300}
+p{max-width:66ch}
+.small{font-size:13.5px;line-height:1.6;color:var(--dim)}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+
+/* ---------- header ---------- */
+header.top{border-bottom:1px solid var(--line-soft);padding:60px 0 40px;position:relative;overflow:hidden}
+.top-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:52px;align-items:end}
+@media (max-width:860px){.top-grid{grid-template-columns:1fr;gap:32px}}
+.paradox{
+  border-left:1px solid var(--copper);
+  padding:4px 0 4px 20px;
+  font-family:"Newsreader",Georgia,serif;
+  font-size:17px;font-style:italic;font-weight:300;line-height:1.55;color:var(--copper-lit);
+}
+.rulebox{
+  border:1px solid var(--line);border-radius:2px;padding:18px 20px;background:var(--ink-panel);
+}
+.rulebox ul{margin:10px 0 0;padding-left:16px;display:flex;flex-direction:column;gap:6px}
+.rulebox li{font-size:13.5px;color:var(--dim)}
+.rulebox li b{color:var(--text);font-weight:500}
+
+/* ---------- controls ---------- */
+.bar{
+  position:sticky;top:0;z-index:40;
+  background:rgba(10,11,16,.93);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line-soft);
+  padding:12px 0;
+}
+.bar-in{display:flex;flex-wrap:wrap;gap:10px 26px;align-items:center}
+.ctl{display:flex;align-items:center;gap:9px}
+.ctl-label{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.seg{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.seg button{
+  appearance:none;background:transparent;border:0;border-right:1px solid var(--line);
+  color:var(--dim);font:inherit;font-size:12.5px;padding:5px 11px;cursor:pointer;
+  font-family:"Instrument Sans",sans-serif;
+}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--copper);color:#1b0f05;font-weight:600}
+.seg button:hover:not([aria-pressed="true"]){color:var(--text);background:var(--ink-raise)}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--copper-lit);outline-offset:2px}
+.btn{
+  appearance:none;border:1px solid var(--copper);background:transparent;color:var(--copper-lit);
+  font:inherit;font-size:12.5px;padding:5px 14px;border-radius:2px;cursor:pointer;
+}
+.btn:hover{background:var(--copper);color:#1b0f05}
+.check{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--dim);cursor:pointer}
+.check input{accent-color:var(--copper);width:14px;height:14px}
+
+/* ---------- study panels ---------- */
+main{padding:52px 0 0}
+section{padding:0 0 68px}
+.section-head{display:flex;align-items:baseline;gap:16px;margin-bottom:8px;flex-wrap:wrap}
+.studies{display:flex;flex-direction:column;gap:34px;margin-top:34px}
+.panel{
+  border:1px solid var(--line);border-radius:3px;background:var(--ink-panel);
+  display:grid;grid-template-columns:minmax(0,1fr) 268px;
+}
+@media (max-width:960px){.panel{grid-template-columns:1fr}}
+.panel[data-active="false"]{opacity:.32;filter:saturate(.5)}
+.panel-stage{padding:26px 26px 22px;border-right:1px solid var(--line);min-width:0}
+@media (max-width:960px){.panel-stage{border-right:0;border-bottom:1px solid var(--line)}}
+.panel-meta{padding:24px 22px;display:flex;flex-direction:column;gap:16px}
+.p-num{
+  font-family:"Newsreader",Georgia,serif;font-size:13px;color:var(--copper);
+  border:1px solid var(--copper);width:26px;height:26px;border-radius:50%;
+  display:grid;place-items:center;flex:none;
+}
+.p-head{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.p-intent{font-size:13.5px;color:var(--dim);line-height:1.55}
+.spec{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:12px;border-top:1px solid var(--line-soft);padding-top:14px}
+.spec dt{color:var(--faint);letter-spacing:.06em;text-transform:uppercase;font-size:10px;font-weight:600;align-self:center}
+.spec dd{margin:0;color:var(--text);font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-variant-numeric:tabular-nums}
+.flag{
+  font-size:12px;line-height:1.5;color:var(--warn);border-left:1px solid var(--warn);padding-left:11px;
+}
+.flag.good{color:var(--ok);border-color:var(--ok)}
+
+/* ---------- signature render ---------- */
+.stage-frame{
+  position:relative;overflow:hidden;border-radius:2px;
+  background:var(--ink);border:1px solid var(--line-soft);
+}
+.stage-frame.on-bone{background:var(--bone)}
+.sig-scaler{transform-origin:0 0;margin:0 auto}
+.sig{position:relative;width:660px;height:186px;background:#0a0b10}
+.sig canvas{position:absolute;inset:0;width:660px;height:186px;pointer-events:none}
+.sig .t{position:absolute;white-space:nowrap;line-height:1}
+.sig .name{font-family:"Newsreader",Georgia,serif;font-weight:300;font-size:25px;color:var(--copper-lit);letter-spacing:.005em}
+.sig .role{font-size:10px;letter-spacing:.19em;text-transform:uppercase;color:#8e857a;font-weight:500}
+.sig .row{font-size:12.5px;color:#a89f92}
+.sig .word{font-family:"Newsreader",Georgia,serif;font-weight:300;font-size:32px;color:var(--copper-lit);letter-spacing:-.005em}
+.sig .tag{font-family:"Newsreader",Georgia,serif;font-weight:300;font-size:13px;color:#a89f92}
+.sig .wording{font-family:"Newsreader",Georgia,serif;font-style:italic;font-weight:300;font-size:13.5px;color:#a08fd6}
+.sig .ico{position:absolute;width:13px;height:13px;opacity:.62}
+.stage-note{
+  display:flex;justify-content:space-between;gap:16px;align-items:baseline;
+  margin-top:14px;font-size:11.5px;color:var(--faint);flex-wrap:wrap;
+}
+.pill{
+  font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;
+  border:1px solid var(--line);border-radius:2px;padding:3px 9px;color:var(--dim);
+}
+.pill.live{border-color:var(--copper);color:var(--copper)}
+.pill.frozen{border-color:var(--line);color:var(--faint)}
+.timeline{height:2px;background:var(--line-soft);margin-top:14px;position:relative;border-radius:2px;overflow:hidden}
+.timeline i{position:absolute;left:0;top:0;bottom:0;background:rgba(184,115,51,.55);width:0}
+
+/* ---------- verdict ---------- */
+.verdict{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-top:30px}
+@media (max-width:820px){.verdict{grid-template-columns:1fr}}
+.vcell{background:var(--ink-panel);padding:22px 20px;display:flex;flex-direction:column;gap:12px}
+.vcell.win{background:var(--ink-raise);box-shadow:inset 3px 0 0 var(--copper)}
+.score{display:flex;flex-direction:column;gap:7px;margin-top:2px}
+.srow{display:grid;grid-template-columns:1fr 84px;gap:10px;align-items:center;font-size:12px;color:var(--dim)}
+.meter{height:3px;background:var(--line);position:relative;border-radius:2px}
+.meter i{position:absolute;inset:0 auto 0 0;background:var(--copper);border-radius:2px}
+.meter.v i{background:var(--violet)}
+.rec{
+  margin-top:34px;border:1px solid var(--copper);border-radius:3px;background:var(--ink-panel);
+  padding:28px 30px;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:32px;
+}
+@media (max-width:820px){.rec{grid-template-columns:1fr;gap:22px}}
+
+/* ---------- tables ---------- */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:3px;margin-top:26px}
+table{border-collapse:collapse;width:100%;min-width:820px;font-size:13px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+thead th{
+  background:var(--ink-raise);color:var(--faint);font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;font-weight:600;position:sticky;top:0;white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:0}
+tbody th{font-weight:500;color:var(--text);white-space:nowrap}
+td.c{text-align:center;font-family:"IBM Plex Mono",monospace;font-size:12px}
+.y{color:var(--ok)}
+.p{color:var(--warn)}
+.n{color:var(--no)}
+.res{color:var(--dim);font-size:12.5px}
+
+/* ---------- ladder ---------- */
+.ladder{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);margin-top:26px}
+.rung{background:var(--ink-panel);padding:16px 20px;display:grid;grid-template-columns:34px minmax(0,1fr) minmax(0,1.15fr);gap:18px;align-items:baseline}
+@media (max-width:760px){.rung{grid-template-columns:26px 1fr;gap:10px}.rung .rung-out{grid-column:2}}
+.rung-n{font-family:"IBM Plex Mono",monospace;color:var(--copper);font-size:12px}
+.rung-in{font-size:13.5px;color:var(--text)}
+.rung-out{font-size:13px;color:var(--dim)}
+
+footer{border-top:1px solid var(--line-soft);padding:34px 0 60px;color:var(--faint);font-size:12.5px}
+.cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:38px;margin-top:26px}
+@media (max-width:760px){.cols{grid-template-columns:1fr;gap:24px}}
+ul.clean{margin:12px 0 0;padding-left:17px;display:flex;flex-direction:column;gap:8px}
+ul.clean li{font-size:13.5px;color:var(--dim)}
+ul.clean li b{color:var(--text);font-weight:500}
+</style>
+
+<style>
+/* Verfijningsronde: aanvullingen op hetzelfde systeem */
+.microgrid{display:flex;flex-direction:column;gap:34px;margin-top:34px}
+.lead{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:46px;align-items:start}
+@media (max-width:900px){.lead{grid-template-columns:1fr;gap:26px}}
+.delta{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:12.5px;margin-top:12px}
+.delta dt{color:var(--faint);font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:600}
+.delta dd{margin:0;color:var(--dim)}
+.phasebar{display:flex;position:relative;height:16px;margin-top:14px;border:1px solid var(--line);border-radius:2px;overflow:hidden;background:var(--ink)}
+.phasebar span{display:block;font-size:0;position:relative}
+.phasebar span[data-k="stil"]{background:repeating-linear-gradient(90deg,#14161f 0 6px,#0f1118 6px 12px)}
+.phasebar span[data-k="op"]{background:rgba(184,115,51,.22)}
+.phasebar span[data-k="nader"]{background:rgba(184,115,51,.46)}
+.phasebar span[data-k="adem"]{background:rgba(230,185,141,.85)}
+.phasebar span[data-k="los"]{background:rgba(184,115,51,.26)}
+.phasebar span[data-k="rust"]{background:repeating-linear-gradient(90deg,#14161f 0 6px,#0f1118 6px 12px)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px;font-size:11px;color:var(--faint)}
+.legend i{display:inline-block;width:10px;height:8px;margin-right:6px;vertical-align:middle;border-radius:1px}
+.mark{display:inline-flex;align-items:center;gap:6px}
+.crit{display:grid;grid-template-columns:1fr repeat(3,66px);gap:0;font-size:12.5px;margin-top:26px;border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.crit>div{padding:10px 14px;border-bottom:1px solid var(--line-soft)}
+.crit>div:nth-child(4n){border-right:0}
+.crit .hd{background:var(--ink-raise);color:var(--faint);font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:600}
+.crit .n{text-align:center;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;color:var(--text)}
+.crit .n.best{color:var(--copper-lit);font-weight:500;background:rgba(184,115,51,.07)}
+.crit .tot{border-bottom:0;font-weight:600;color:var(--bone)}
+.surprise{border:1px solid var(--violet);border-radius:2px;padding:3px 10px;font-size:11px;color:#a08fd6;letter-spacing:.06em}
+</style>
+
+<header class="top">
+  <div class="wrap top-grid">
+    <div>
+      <div class="eyebrow">Maculis · verfijningsronde · alleen Waarneming</div>
+      <h1>Twijfel je of je<br>iets zag</h1>
+      <p class="lede" style="margin-top:22px">
+        Drie microvarianten van dezelfde studie. Geen nieuwe concepten, geen extra elementen, geen reizend
+        violet punt. Er is alleen gedraaid aan timing, onderlinge vertraging, afstand tot het hart, de
+        lichtrespons van de ster, en aan het exacte moment waarop alles volledig stilvalt.
+      </p>
+      <div class="paradox" style="margin-top:26px">
+        Je ziet een gewone, zeer mooie Maculis-handtekening. En dan gebeurt er één keer iets dat je niet
+        helemaal verwachtte.
+      </div>
+    </div>
+    <div class="rulebox">
+      <div class="eyebrow" style="color:var(--dim)">Vast, niet meer ter discussie</div>
+      <ul>
+        <li><b>Eerste frame is gelijk aan het laatste frame en aan de statische fallback.</b> Harde voorwaarde.</li>
+        <li>Ontwerp 1 blijft volledig intact. De magie is uitsluitend een <b>eenmalig moment</b>.</li>
+        <li>Alles keert terug naar <b>exact dezelfde rusttoestand</b>. Geen rest, geen lus.</li>
+        <li>Violet blijft waar het inhoudelijk hoort, bij de regel in wording, en beweegt niet.</li>
+      </ul>
+    </div>
+  </div>
+</header>
+
+<div class="bar">
+  <div class="wrap bar-in">
+    <button class="btn" id="replay">Speel opnieuw</button>
+    <div class="ctl">
+      <span class="ctl-label">Modus</span>
+      <div class="seg" id="seg-mode">
+        <button data-v="direct" aria-pressed="true">Direct</button>
+        <button data-v="onverwacht" aria-pressed="false">Onverwacht</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="ctl-label">Client</span>
+      <div class="seg" id="seg-client">
+        <button data-v="live" aria-pressed="true">Levend</button>
+        <button data-v="gif" aria-pressed="false">GIF</button>
+        <button data-v="static" aria-pressed="false">Rustframe</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="ctl-label">Tempo</span>
+      <div class="seg" id="seg-speed">
+        <button data-v="1" aria-pressed="true">1x</button>
+        <button data-v="0.5" aria-pressed="false">0,5x</button>
+        <button data-v="0.25" aria-pressed="false">0,25x</button>
+      </div>
+    </div>
+    <label class="check"><input type="checkbox" id="reveal"> Toon het veld</label>
+    <label class="check"><input type="checkbox" id="bone"> Lichte achtergrond</label>
+  </div>
+</div>
+
+<main>
+  <section class="wrap">
+    <div class="lead">
+      <div>
+        <div class="section-head"><span class="eyebrow">Wat er is veranderd</span></div>
+        <h2>Vier knoppen, verder niets</h2>
+        <p class="small" style="max-width:66ch;margin-top:14px">
+          De oorspronkelijke Waarneming begon meteen. Daardoor voelde het als iets dat werd afgespeeld:
+          je opende de mail en de animatie liep al. Alle drie de microvarianten beginnen daarom met
+          <b>volledige stilte</b>. Je ziet eerst de handtekening zoals hij is. Pas daarna, als je
+          niet meer op iets wacht, gebeurt het.
+        </p>
+        <p class="small" style="max-width:66ch">
+          Het tweede verschil zit in het einde. De punten doven niet meer tegelijk uit, maar met een
+          onderlinge vertraging van enkele tienden. Een gelijktijdig einde leest als een clip die
+          afloopt. Een ongelijk einde leest als iets dat wegtrekt.
+        </p>
+        <p class="small" style="max-width:66ch">
+          Het derde verschil is de ster. Die flitst niet meer, maar ademt één keer: snel op, trager af.
+          Een flits is een gebeurtenis die naar zichzelf wijst. Een ademtocht is een reactie op iets anders.
+        </p>
+      </div>
+      <div class="rulebox">
+        <div class="eyebrow" style="color:var(--dim)">Onverwacht</div>
+        <p class="small" style="margin-top:10px">
+          Zet de modus op onverwacht. Elke variant kiest dan zelf een moment tussen enkele seconden en een
+          halve minuut, en herhaalt dat met steeds andere tussenpozen. Scrol door de pagina en lees gewoon
+          verder. Dat is de enige eerlijke manier om te toetsen of je twijfelt of je iets zag.
+        </p>
+        <p class="small">
+          In de verzonden e-mail speelt de GIF één keer, bij openen. De onverwachte modus bestaat alleen
+          hier, om te kunnen beoordelen.
+        </p>
+      </div>
+    </div>
+    <div class="microgrid" id="micro"></div>
+  </section>
+
+  <section class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Oordeel</span>
+      <h2>Op de vijf criteria</h2>
+    </div>
+    <p class="small" style="max-width:70ch">
+      Niet beoordeeld op de meeste indruk, maar op de vraag of het voelt alsof er iets werd waargenomen
+      in plaats van afgespeeld, en of de naam van de afzender de aandacht houdt.
+    </p>
+    <div class="crit" id="crit"></div>
+    <div class="rec" id="rec"></div>
+  </section>
+
+  <section class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Fallback</span>
+      <h2>De rusttoestand, onveranderd</h2>
+    </div>
+    <p class="small" style="max-width:70ch">
+      Alle drie de microvarianten beginnen hier, keren hier terug, en blijven hier. Dit beeld is het eerste
+      frame, het laatste frame en de statische PNG. De stille aanloop kost in de GIF bovendien niets:
+      het is één frame met een lange vertraging.
+    </p>
+    <div class="stage-frame" id="fallback-frame" style="margin-top:26px;padding:22px"></div>
+  </section>
+
+  <section class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Gevolgen</span>
+      <h2>Wat dit voor de bouw betekent</h2>
+    </div>
+    <div class="tablewrap"><table id="impact"></table></div>
+    <p class="small" style="margin-top:22px;max-width:70ch">
+      Nog niets geïntegreerd en niets gedeployed. De volgende stap is pas aan de orde als één van deze drie
+      is gekozen.
+    </p>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="eyebrow" style="color:var(--faint)">Maculis</div>
+    <p class="small" style="margin-top:8px">
+      Meer verwondering met minder zichtbare inspanning. Als je moet zoeken naar wat er gebeurde, klopt het.
+    </p>
+  </div>
+</footer>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------------------------------------------------------------------------
+   Geometrie van ontwerp 1 (Minimal Seal). Alles in een vast 660x186 raster,
+   zodat de HTML tekst en het canvas exact op elkaar liggen.
+---------------------------------------------------------------------------- */
+const W = 660, H = 186;
+const SEAL = { x: 75, y: 93, r: 44 };
+const WORDING = { x: 456, y: 140 };
+const BOX = { x: 8, y: 20, w: 134, h: 146 };          // animatiegebied van de zegelcel
+const C = { copper:'#b87333', copperLit:'#e6b98d', violet:'#7c4dff', dim:'#8e857a' };
+
+const ICON = {
+  mail:'<path d="M1 3h11v7H1z"/><path d="M1 3.6 6.5 7 12 3.6"/>',
+  globe:'<circle cx="6.5" cy="6.5" r="5.5"/><path d="M1 6.5h11M6.5 1a9 9 0 0 1 0 11 9 9 0 0 1 0-11"/>',
+  pin:'<path d="M6.5 12S11 8.2 11 5.2A4.5 4.5 0 0 0 2 5.2C2 8.2 6.5 12 6.5 12z"/><circle cx="6.5" cy="5.1" r="1.6"/>'
+};
+const svgIcon = (k, left, top) =>
+  `<svg class="ico" style="left:${left}px;top:${top}px" viewBox="0 0 13 13" fill="none" stroke="#9a9186" stroke-width="1" stroke-linejoin="round">${ICON[k]}</svg>`;
+
+function signatureMarkup(){
+  return `
+  <div class="sig">
+    <div class="t name" style="left:176px;top:44px">Ferry van der Vliet</div>
+    <div class="t role" style="left:177px;top:80px">Founder &amp; Steward</div>
+    ${svgIcon('mail', 177, 100)}<div class="t row" style="left:199px;top:100px">ferry@maculis.com</div>
+    ${svgIcon('globe', 177, 122)}<div class="t row" style="left:199px;top:122px">maculis.com</div>
+    ${svgIcon('pin', 177, 144)}<div class="t row" style="left:199px;top:144px">Voorburg, Nederland</div>
+    <div class="t word" style="left:448px;top:52px">maculis</div>
+    <div class="t tag" style="left:450px;top:100px">Waarnemen. Begrijpen. Verlichten.</div>
+    <div class="t wording" style="left:470px;top:133px">In wording.</div>
+    <canvas width="${W}" height="${H}"></canvas>
+  </div>`;
+}
+
+/* ---------------------------------------------------------------------------
+   Tekenprimitieven
+---------------------------------------------------------------------------- */
+function hexA(hex, a){
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${Math.max(0, Math.min(1, a)).toFixed(4)})`;
+}
+function lerp(a,b,t){ return a + (b-a)*t; }
+function clamp01(v){ return v<0?0:v>1?1:v; }
+function seg(t,a,b){ return clamp01((t-a)/(b-a)); }
+function smooth(t){ t=clamp01(t); return t*t*(3-2*t); }
+function outCubic(t){ t=clamp01(t); return 1-Math.pow(1-t,3); }
+function bell(t){ return Math.sin(Math.PI*clamp01(t)); }
+function breathe(x){ return 0.5 - 0.5*Math.cos(2*Math.PI*x); }
+const rad = d => d*Math.PI/180;
+
+// De open curve van ontwerp 1: cirkel met een opening aan de rechterkant.
+function drawArc(ctx, alpha, sweep){
+  const {x,y,r} = SEAL;
+  ctx.lineWidth = 1.15;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = hexA(C.copper, alpha);
+  ctx.beginPath();
+  ctx.arc(x, y, r, rad(34), rad(326));
+  ctx.stroke();
+  if (sweep && sweep.a > 0.001){
+    // Een kort lichtsegment dat over de bestaande curve loopt. De curve zelf verandert niet.
+    const span = rad(sweep.span || 46), mid = rad(34) + (rad(292)) * sweep.p;
+    const g = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
+    ctx.save();
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = hexA(C.copperLit, sweep.a);
+    ctx.beginPath();
+    ctx.arc(x, y, r, mid - span/2, mid + span/2);
+    ctx.stroke();
+    ctx.restore();
+    void g;
+  }
+}
+
+// Vierpuntige ster met holle flanken, verticaal langer dan horizontaal.
+function starPath(ctx, x, y, s){
+  const ly = s, lx = s*0.60, k = s*0.045;
+  ctx.beginPath();
+  ctx.moveTo(x, y-ly);
+  ctx.quadraticCurveTo(x+k, y-k, x+lx, y);
+  ctx.quadraticCurveTo(x+k, y+k, x, y+ly);
+  ctx.quadraticCurveTo(x-k, y+k, x-lx, y);
+  ctx.quadraticCurveTo(x-k, y-k, x, y-ly);
+  ctx.closePath();
+}
+function drawStar(ctx, x, y, s, color, alpha, glow){
+  if (glow > 0.001){
+    const g = ctx.createRadialGradient(x, y, 0, x, y, s*2.6);
+    g.addColorStop(0, hexA(color, 0.30*glow));
+    g.addColorStop(1, hexA(color, 0));
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, s*2.6, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.fillStyle = hexA(color, alpha);
+  starPath(ctx, x, y, s);
+  ctx.fill();
+}
+function drawPoint(ctx, x, y, r, color, alpha){
+  if (alpha <= 0.002) return;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r*3.4);
+  g.addColorStop(0, hexA(color, alpha));
+  g.addColorStop(0.34, hexA(color, alpha*0.42));
+  g.addColorStop(1, hexA(color, 0));
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, r*3.4, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = hexA(color, Math.min(1, alpha*1.25));
+  ctx.beginPath(); ctx.arc(x, y, r*0.62, 0, Math.PI*2); ctx.fill();
+}
+function drawDividers(ctx){
+  ctx.strokeStyle = hexA(C.copper, 0.34);
+  ctx.lineWidth = 1;
+  [150.5, 424.5].forEach(x => { ctx.beginPath(); ctx.moveTo(x, 38); ctx.lineTo(x, 154); ctx.stroke(); });
+}
+let WM = { x: 540, y: 54 };                                // gemeten zodra het lettertype er is
+function drawWordmarkStar(ctx){
+  drawStar(ctx, WM.x, WM.y, 4.6, C.copperLit, 0.92, 0.30);
+}
+function measureWordmark(sig){
+  const w = sig.querySelector('.word'); if (!w) return;
+  const r = w.getBoundingClientRect(), s = sig.getBoundingClientRect();
+  const k = r.width / (s.width / W);                        // terug naar het 660 raster
+  WM = { x: 448 + k*0.845, y: 55 };
+}
+
+/* ---------------------------------------------------------------------------
+   Drie microvarianten van Waarneming.
+   Dezelfde grammatica, dezelfde punten, hetzelfde rustframe. Alleen timing,
+   onderlinge vertraging, afstand, lichtrespons en het moment van stilte.
+---------------------------------------------------------------------------- */
+
+// Eén ademtocht in plaats van een flits: snel op, trager af.
+function breath(t, t0, up, down){
+  if (t < t0) return 0;
+  if (t < t0 + up) return smooth((t - t0) / up);
+  if (t < t0 + up + down) return 1 - smooth((t - t0 - up) / down);
+  return 0;
+}
+
+function makeVariant(cfg){
+  const pts = cfg.points;
+  return {
+    id: cfg.id, num: cfg.num, key: cfg.key, sub: cfg.sub, dur: cfg.dur, fps: 10, cfg,
+    intent: cfg.intent, spec: cfg.spec, note: cfg.note, tone: cfg.tone,
+    frame(t){
+      const g = cfg.star;
+      const starBreath = breath(t, g.at, g.up, g.down) * g.gain;
+      const P = pts.map((p, i) => {
+        const up   = smooth(seg(t, cfg.appear + i*cfg.stagger, cfg.appear + i*cfg.stagger + cfg.appearDur));
+        const inn  = outCubic(seg(t, cfg.approach, cfg.approachEnd));   // vertraagt, komt nooit aan
+        const off  = seg(t, cfg.release + i*cfg.releaseStagger, cfg.release + i*cfg.releaseStagger + cfg.releaseDur);
+        const back = outCubic(off);
+        const k = inn * (1 - back) * 0.96;                              // 4 procent blijft altijd over
+        const rr = lerp(SEAL.r*p.rf, SEAL.r*cfg.tr, k);
+        const ang = rad(p.a + cfg.swirl*k);
+        const alpha = (cfg.base + (cfg.peak - cfg.base)*k + 0.05*starBreath) * up * (1 - smooth(off));
+        return {
+          x: SEAL.x + Math.cos(ang)*rr, y: SEAL.y + Math.sin(ang)*rr,
+          r: p.r, color: C.copper, a: alpha,
+          home:[SEAL.x + Math.cos(rad(p.a))*SEAL.r*p.rf, SEAL.y + Math.sin(rad(p.a))*SEAL.r*p.rf],
+          near:[SEAL.x + Math.cos(rad(p.a+cfg.swirl))*SEAL.r*cfg.tr, SEAL.y + Math.sin(rad(p.a+cfg.swirl))*SEAL.r*cfg.tr]
+        };
+      });
+      let sweep = null;
+      if (cfg.sweep){
+        const w = cfg.sweep;
+        const prog = smooth(seg(t, w.from, w.to));
+        const a = w.gain * bell(seg(t, w.from, w.to));
+        if (a > 0.001) sweep = { p: lerp(w.p0, w.p1, prog), a, span: 30 };
+      }
+      return {
+        arc: 0.80 + 0.05*starBreath, sweep,
+        starGain: 0.10 + starBreath, starScale: 1 + 0.018*starBreath,
+        pts: P, wordingA: 1, halo: 0
+      };
+    }
+  };
+}
+
+const V1 = makeVariant({
+  id:'v1', num:1, key:'Late adem', sub:'Minimale amplitude, maximale twijfel',
+  intent:'Drie punten, ver uit elkaar in tijd. De ster reageert bijna niet. Het duurt ruim twee seconden voordat er iets begint, en wat er dan gebeurt is nauwelijks meer dan een verschuiving in helderheid.',
+  points:[{a:152, rf:1.30, r:1.15},{a:236, rf:1.44, r:1.00},{a:318, rf:1.34, r:1.10}],
+  appear:2.20, stagger:0.55, appearDur:1.30,
+  approach:4.00, approachEnd:5.40, tr:0.60, swirl:10,
+  base:0.06, peak:0.42,
+  star:{ at:5.00, up:0.22, down:0.42, gain:0.12 },
+  release:5.40, releaseStagger:0.22, releaseDur:1.10, motionEnd:6.94,
+  dur:7.40, sweep:null,
+  spec:{ 'Stille aanloop':'2,2 s', 'Punten':'3', 'Vertraging':'0,55 s', 'Nadering':'26 px', 'Piekhelderheid':'0,42', 'Sterrespons':'0,12', 'Volledig stil':'6,9 s', 'Frames':'74' },
+  tone:'warn',
+  note:'De twijfel is hier het grootst, maar de kans dat je het überhaupt opmerkt is dat ook. Bij 10 fps en op inboxformaat verdwijnt een piek van 0,42 in de omgeving.'
+});
+
+const V2 = makeVariant({
+  id:'v2', num:2, key:'Eén ademtocht', sub:'Stilte, nadering, één reactie, ongelijk einde',
+  intent:'Vier punten komen op met een vertraging van een derde seconde, naderen vertragend tot vierentwintig pixels en komen nooit aan. De ster ademt één keer, snel op en trager af. Het laatste punt verdwijnt zes tienden later dan het eerste.',
+  points:[{a:128, rf:1.45, r:1.15},{a:188, rf:1.38, r:1.00},{a:262, rf:1.50, r:1.20},{a:322, rf:1.42, r:1.05}],
+  appear:1.60, stagger:0.34, appearDur:1.20,
+  approach:3.20, approachEnd:4.60, tr:0.55, swirl:14,
+  base:0.05, peak:0.52,
+  star:{ at:4.40, up:0.18, down:0.32, gain:0.30 },
+  release:4.90, releaseStagger:0.20, releaseDur:1.10, motionEnd:6.60,
+  dur:7.00, sweep:null,
+  spec:{ 'Stille aanloop':'1,6 s', 'Punten':'4', 'Vertraging':'0,34 s', 'Nadering':'24 px', 'Piekhelderheid':'0,52', 'Sterrespons':'0,30', 'Volledig stil':'6,6 s', 'Frames':'70' },
+  tone:'good',
+  note:'De enige variant waarin de ster reageert op iets anders in plaats van naar zichzelf te wijzen. Het ongelijke einde haalt het gevoel van een aflopende clip eruit.'
+});
+
+const V3 = makeVariant({
+  id:'v3', num:3, key:'Grond en licht', sub:'Met de zeer subtiele lichtloop over de curve',
+  intent:'Eerst loopt er licht over de bestaande curve, op een derde van de sterkte uit studie 3, en het dooft voordat het de opening bereikt. Pas daarna komen vijf punten op, in het spoor van dat licht.',
+  points:[{a:112, rf:1.38, r:1.10},{a:160, rf:1.30, r:0.95},{a:214, rf:1.46, r:1.20},{a:268, rf:1.34, r:1.05},{a:322, rf:1.42, r:1.00}],
+  appear:2.60, stagger:0.22, appearDur:1.20,
+  approach:4.20, approachEnd:5.50, tr:0.52, swirl:14,
+  base:0.05, peak:0.50,
+  star:{ at:5.30, up:0.20, down:0.36, gain:0.26 },
+  release:5.90, releaseStagger:0.18, releaseDur:0.98, motionEnd:7.60,
+  dur:8.00,
+  sweep:{ from:1.20, to:3.00, p0:0.82, p1:0.30, gain:0.18 },
+  spec:{ 'Stille aanloop':'1,2 s', 'Punten':'5', 'Vertraging':'0,22 s', 'Nadering':'23 px', 'Piekhelderheid':'0,50', 'Sterrespons':'0,26', 'Lichtloop':'0,18 piek', 'Volledig stil':'7,6 s', 'Frames':'80' },
+  tone:'warn',
+  note:'Het mooiste beeld van de drie en het meest gecomponeerde. Twee gebeurtenissen achter elkaar leest eerder als iets dat wordt afgespeeld dan als iets dat wordt waargenomen.'
+});
+
+const VARIANTS = [V1, V2, V3];
+
+/* ---------------------------------------------------------------------------
+   Renderer
+---------------------------------------------------------------------------- */
+function render(ctx, v, t, reveal){
+  const f = v.frame(t);
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = hexA(C.copper, 0.34); ctx.lineWidth = 1;
+  [150.5, 424.5].forEach(x => { ctx.beginPath(); ctx.moveTo(x, 38); ctx.lineTo(x, 154); ctx.stroke(); });
+  drawArc(ctx, f.arc, f.sweep);
+  drawStar(ctx, SEAL.x, SEAL.y, 25*f.starScale, C.copperLit, 0.88, f.starGain);
+  drawWordmarkStar(ctx);
+  f.pts.forEach(p => drawPoint(ctx, p.x, p.y, p.r, p.color, p.a));
+  drawStar(ctx, WORDING.x, WORDING.y, 6, C.violet, f.wordingA, 0.22);
+  if (reveal){
+    ctx.save();
+    ctx.setLineDash([3,3]); ctx.lineWidth = 1;
+    ctx.strokeStyle = hexA(C.copper, 0.45);
+    ctx.strokeRect(BOX.x, BOX.y, BOX.w, BOX.h);
+    ctx.setLineDash([]);
+    ctx.strokeStyle = hexA('#ffffff', 0.14);
+    ctx.beginPath(); ctx.arc(SEAL.x, SEAL.y, SEAL.r*v.cfg.tr, 0, Math.PI*2); ctx.stroke();
+    f.pts.forEach(p => {
+      ctx.beginPath(); ctx.arc(p.home[0], p.home[1], 2.6, 0, Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p.home[0], p.home[1]); ctx.lineTo(p.near[0], p.near[1]);
+      ctx.strokeStyle = hexA('#ffffff', 0.07); ctx.stroke();
+      ctx.strokeStyle = hexA('#ffffff', 0.14);
+    });
+    ctx.restore();
+  }
+}
+function mountSignature(host){
+  host.innerHTML = signatureMarkup();
+  const sig = host.querySelector('.sig');
+  const cv = sig.querySelector('canvas');
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = W*dpr; cv.height = H*dpr;
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { sig, ctx };
+}
+
+/* ---------------------------------------------------------------------------
+   Faseschema: waar de stilte zit, en waar de ster ademt
+---------------------------------------------------------------------------- */
+function phaseBar(v){
+  const c = v.cfg, d = v.dur;
+  const lastRelease = c.release + (c.points.length-1)*c.releaseStagger + c.releaseDur;
+  const parts = [
+    ['stil',  0, c.appear,        'stille aanloop'],
+    ['op',    c.appear, c.approach, 'punten komen op'],
+    ['nader', c.approach, c.release, 'naderen en vertragen'],
+    ['los',   c.release, lastRelease, 'loslaten, ongelijk'],
+    ['rust',  lastRelease, d,      'rustframe vastgehouden']
+  ];
+  const tick = (c.star.at / d) * 100;
+  return `<div class="phasebar" role="img" aria-label="faseschema">
+    ${parts.map(([k,a,b,t]) => `<span data-k="${k}" style="flex:0 0 ${((b-a)/d*100).toFixed(2)}%" title="${t}"></span>`).join('')}
+    <span style="position:absolute;left:${tick.toFixed(2)}%;top:0;bottom:0;width:1px;background:var(--bone);flex:none"></span>
+  </div>
+  <div class="legend">
+    <span class="mark"><i style="background:repeating-linear-gradient(90deg,#14161f 0 4px,#0f1118 4px 8px)"></i>stil</span>
+    <span class="mark"><i style="background:rgba(184,115,51,.22)"></i>komen op</span>
+    <span class="mark"><i style="background:rgba(184,115,51,.46)"></i>naderen</span>
+    <span class="mark"><i style="background:var(--bone)"></i>de ster ademt</span>
+    <span class="mark"><i style="background:rgba(184,115,51,.26)"></i>loslaten</span>
+  </div>`;
+}
+
+/* ---------------------------------------------------------------------------
+   Besturing
+---------------------------------------------------------------------------- */
+const state = { mode:'direct', client:'live', speed:1, reveal:false, bone:false, start:0 };
+const panels = [];
+const host = document.getElementById('micro');
+
+VARIANTS.forEach(v => {
+  const el = document.createElement('article');
+  el.className = 'panel';
+  el.innerHTML = `
+    <div class="panel-stage">
+      <div class="p-head"><span class="p-num">${v.num}</span><h3>${v.key}</h3></div>
+      <div class="eyebrow" style="color:var(--dim);margin-bottom:10px">${v.sub}</div>
+      <p class="p-intent" style="max-width:74ch;margin:0 0 18px">${v.intent}</p>
+      <div class="stage-frame" style="padding:20px;position:relative"><div class="sig-scaler"></div></div>
+      ${phaseBar(v)}
+      <div class="stage-note">
+        <span class="badge pill live">Speelt</span>
+        <span class="mono clock">0,00 s</span>
+      </div>
+    </div>
+    <div class="panel-meta">
+      <dl class="spec" style="border-top:0;padding-top:0">
+        ${Object.entries(v.spec).map(([k,x]) => `<dt>${k}</dt><dd>${x}</dd>`).join('')}
+      </dl>
+      <div class="flag ${v.tone === 'good' ? 'good' : ''}">${v.note}</div>
+    </div>`;
+  host.appendChild(el);
+  const { sig, ctx } = mountSignature(el.querySelector('.sig-scaler'));
+  panels.push({ v, el, sig, ctx, scaler: el.querySelector('.sig-scaler'),
+    frame: el.querySelector('.stage-frame'), badge: el.querySelector('.badge'),
+    clock: el.querySelector('.clock'), next: 0 });
+});
+
+const fbHost = document.getElementById('fallback-frame');
+const fbInner = document.createElement('div');
+fbInner.className = 'sig-scaler';
+fbHost.appendChild(fbInner);
+const fb = mountSignature(fbInner);
+const fbPanel = { scaler: fbInner, frame: fbHost, ctx: fb.ctx, sig: fb.sig };
+
+function fit(){
+  panels.concat([fbPanel]).forEach(p => {
+    const k = Math.min(1, (p.frame.clientWidth - 40) / W);
+    p.scaler.style.transform = `scale(${k})`;
+    p.scaler.style.width = (W*k) + 'px';
+    p.scaler.style.height = (H*k) + 'px';
+  });
+}
+window.addEventListener('resize', fit);
+
+// Onverwacht: elke variant kiest zelf een moment, met steeds andere tussenpozen.
+function scheduleNext(p, from){ p.next = from + 4 + Math.random()*22; }
+
+function tick(now){
+  const elapsed = ((now - state.start)/1000) * state.speed;
+  panels.forEach(p => {
+    let t, playing = true;
+    if (state.client === 'static'){ t = 0; playing = false; }
+    else if (state.mode === 'onverwacht'){
+      if (elapsed < p.next){ t = 0; playing = false; }
+      else {
+        t = elapsed - p.next;
+        if (t > p.v.dur){ scheduleNext(p, elapsed); t = 0; playing = false; }
+      }
+    } else {
+      t = elapsed;
+      if (t > p.v.dur){ t = p.v.dur; playing = false; }
+    }
+    if (state.client === 'gif') t = Math.floor(t * p.v.fps) / p.v.fps;
+    render(p.ctx, p.v, t, state.reveal);
+    p.clock.textContent = t.toFixed(2).replace('.', ',') + ' s';
+    let label = 'Speelt', cls = 'badge pill live';
+    if (state.client === 'static'){ label = 'Rustframe'; cls = 'badge pill frozen'; }
+    else if (!playing && state.mode === 'onverwacht'){ label = 'Stil, wacht af'; cls = 'badge pill frozen'; }
+    else if (!playing){ label = 'In rust'; cls = 'badge pill frozen'; }
+    else if (t < p.v.cfg.appear){ label = 'Stille aanloop'; cls = 'badge pill frozen'; }
+    else if (state.client === 'gif'){ label = 'Speelt, 10 fps'; }
+    p.badge.textContent = label; p.badge.className = cls;
+  });
+  render(fbPanel.ctx, VARIANTS[1], 0, state.reveal);
+  requestAnimationFrame(tick);
+}
+
+function replay(){
+  state.start = performance.now();
+  panels.forEach((p, i) => { p.next = state.mode === 'onverwacht' ? 3 + Math.random()*14 + i*2 : 0; });
+}
+function segment(id, key, cast){
+  const box = document.getElementById(id);
+  box.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    [...box.querySelectorAll('button')].forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    state[key] = cast ? cast(b.dataset.v) : b.dataset.v;
+    replay();
+  });
+}
+segment('seg-mode', 'mode');
+segment('seg-client', 'client');
+segment('seg-speed', 'speed', Number);
+document.getElementById('replay').addEventListener('click', replay);
+document.getElementById('reveal').addEventListener('change', e => { state.reveal = e.target.checked; });
+document.getElementById('bone').addEventListener('change', e => {
+  state.bone = e.target.checked;
+  document.querySelectorAll('.stage-frame').forEach(f => f.classList.toggle('on-bone', state.bone));
+});
+
+/* ---------------------------------------------------------------------------
+   Oordeel op de vijf criteria
+---------------------------------------------------------------------------- */
+const CRIT = [
+  ['Verwondering', 5, 9, 8],
+  ['Rust', 10, 9, 7],
+  ['Maculis-eigenheid', 8, 9, 9],
+  ['Aandacht bij naam en afzender', 10, 9, 7],
+  ['Waargenomen in plaats van afgespeeld', 7, 9, 6]
+];
+const totals = [0,1,2].map(i => CRIT.reduce((a, r) => a + r[i+1], 0));
+document.getElementById('crit').innerHTML =
+  `<div class="hd">Criterium</div>${VARIANTS.map(v => `<div class="hd n">${v.num}</div>`).join('')}` +
+  CRIT.map(r => `<div>${r[0]}</div>` + [1,2,3].map(i => {
+      const best = r[i] === Math.max(r[1], r[2], r[3]);
+      return `<div class="n${best ? ' best' : ''}">${r[i]}</div>`;
+    }).join('')).join('') +
+  `<div class="tot">Totaal</div>` + totals.map(t =>
+      `<div class="n tot${t === Math.max(...totals) ? ' best' : ''}">${t}</div>`).join('');
+
+document.getElementById('rec').innerHTML = `
+  <div>
+    <div class="eyebrow">Aanbeveling</div>
+    <h2 style="margin-top:8px">Variant 2, Eén ademtocht</h2>
+    <p class="small" style="margin-top:14px">
+      Variant 1 haalt de rust perfect, maar de verwondering blijft uit. Wat je niet opmerkt, kun je ook
+      niet bijna gemist hebben. Variant 3 is het mooiste beeld, maar zet twee gebeurtenissen achter elkaar,
+      en precies dat maakt dat het weer voelt als iets dat wordt afgespeeld. De lichtloop is prachtig en
+      hoort thuis in een groter formaat, niet in een handtekening van honderdvijftig pixels.
+    </p>
+    <p class="small">
+      Variant 2 heeft één gebeurtenis, één reactie en een einde dat niet netjes samenvalt. De stilte vooraf
+      doet daarbij het meeste werk. Omdat er anderhalve seconde niets gebeurt, kijk je al niet meer, en dan
+      beweegt er iets in je ooghoek. Dat is precies de twijfel die het doel was.
+    </p>
+    <p class="small">
+      Ik zou de lichtloop uit variant 3 hier niet alsnog aan toevoegen. Getoetst op het vijfde criterium
+      kost hij meer dan hij oplevert.
+    </p>
+  </div>
+  <div>
+    <div class="eyebrow" style="color:var(--dim)">Wat variant 2 anders doet</div>
+    <ul class="clean">
+      <li><b>Anderhalve seconde niets.</b> Je ziet eerst gewoon de handtekening.</li>
+      <li><b>Vier punten</b> in plaats van zes. Minder tegelijk is meer twijfel.</li>
+      <li><b>De nadering vertraagt</b> en stopt op vier procent van het doel. Naderen is niet aankomen.</li>
+      <li><b>De ster ademt</b> in plaats van te flitsen. Snel op in 0,18 s, trager af in 0,32 s.</li>
+      <li><b>Het einde valt niet samen.</b> Het laatste punt verdwijnt zes tienden na het eerste.</li>
+      <li><b>Het rustframe wordt vastgehouden</b>, zodat het laatste frame aantoonbaar het eerste is.</li>
+    </ul>
+  </div>`;
+
+const IMPACT = [
+  ['Duur', '6,4 s', '7,0 s', 'inclusief 0,4 s waarin het rustframe expliciet wordt vastgehouden'],
+  ['Frames', '64', '70', 'de stille aanloop is in de GIF één frame met een lange vertraging, dus bijna gratis'],
+  ['Punten', '6', '4', 'minder gelijktijdige beweging, meer twijfel'],
+  ['Piekhelderheid', '0,60', '0,52', 'lager dan de vorige ronde, ook na de correctie naar 85 procent'],
+  ['Nadering', '22 px', '24 px', 'iets verder van het hart, zodat de punten de ster nooit lijken te raken'],
+  ['Sterrespons', 'flits 0,40 symmetrisch', 'ademtocht 0,30 asymmetrisch', 'snel op, trager af. Een reactie, geen aankondiging'],
+  ['Einde', 'gelijktijdig', 'gespreid over 0,6 s', 'een gelijk einde leest als een clip die afloopt'],
+  ['Eerste en laatste frame', 'gelijk', 'gelijk en aantoonbaar vastgehouden', 'de harde voorwaarde, nu ook zichtbaar in de tijdlijn'],
+  ['Bestandsgrootte', 'budget 240 kB', 'ruim onder budget', 'minder bewegende pixels en een lange eerste frame vertraging']
+];
+document.getElementById('impact').innerHTML = `
+  <thead><tr><th>Onderdeel</th><th>Vorige ronde</th><th>Variant 2</th><th>Waarom</th></tr></thead>
+  <tbody>${IMPACT.map(r => `<tr><th scope="row">${r[0]}</th>
+    <td class="mono" style="font-size:12px;color:var(--faint);white-space:nowrap">${r[1]}</td>
+    <td class="mono" style="font-size:12px;color:var(--copper-lit);white-space:nowrap">${r[2]}</td>
+    <td class="res">${r[3]}</td></tr>`).join('')}</tbody>`;
+
+fit();
+replay();
+requestAnimationFrame(tick);
+if (document.fonts) document.fonts.ready.then(() => { measureWordmark(panels[0].sig); fit(); });
+measureWordmark(panels[0].sig);
+})();
+</script>

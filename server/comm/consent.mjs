@@ -17,6 +17,13 @@ const DEFAULT_POLICY = {
   WHATSAPP: { service: 'require_opt_in', research: 'require_opt_in', commercial: 'require_opt_in' },
   SMS:      { service: 'require_opt_in', research: 'require_opt_in', commercial: 'require_opt_in' },
   PHONE:    { service: 'allow', research: 'allow', commercial: 'require_opt_in' },
+  // Mijn Maculis is not a channel you reach someone ON. The answer is placed in the customer's own
+  // authenticated environment, in the thread they started themselves, and it leaves the building
+  // nowhere. There is therefore nothing to consent to for service and research: the customer came
+  // to us. Commercial stays opt-in, because "their own environment" is not a licence to sell there.
+  // The separate e-mail ANNOUNCEMENT that an answer is waiting DOES leave the building, and that is
+  // an ordinary EMAIL send that passes this same gate.
+  MIJN_MACULIS: { service: 'allow', research: 'allow', commercial: 'require_opt_in', privacy: 'allow' },
 };
 
 function defaultRule(channel, purpose) {
@@ -49,7 +56,7 @@ export async function channelAllowed(tenantId, contactId, channel, purpose = 'se
 
 // Per-channel consent snapshot for the composer UI (§26): what the user may pick, and why not.
 export async function channelConsentState(tenantId, contactId) {
-  const channels = ['EMAIL', 'WHATSAPP', 'SMS', 'PHONE'];
+  const channels = ['EMAIL', 'WHATSAPP', 'SMS', 'PHONE', 'MIJN_MACULIS'];
   const out = {};
   for (const ch of channels) {
     // eslint-disable-next-line no-await-in-loop

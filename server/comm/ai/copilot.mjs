@@ -17,11 +17,24 @@ import { stripForContext } from '../signature.mjs';
 // Extensible intent vocabulary. Unknown labels from the model fall back to 'information'.
 export const INTENTS = ['question', 'interest', 'meeting', 'commercial_opportunity', 'objection', 'information', 'action_requested', 'no_action'];
 
-// Shared Maculis DNA (the Constitution) + this capability's output contract. No separate tone copy.
-const SYSTEM = [
+// De gedeelde Maculis-DNA (de Constitution) plus het uitvoercontract van deze capability.
+//
+// De Constitution draagt toon, betrouwbaarheid en de grens dat de mens beslist. Die staat hier dus
+// NIET nog eens in eigen woorden: constitution.mjs zegt uitdrukkelijk dat capability-prompts geen
+// eigen kopie van de toon houden, maar hem samenstellen.
+//
+// Eén regel is wel echt van deze capability en mag daarom niet verdwijnen: het automatische concept
+// is voor e-mail, en e-mail krijgt bij verzending de centrale Maculis-handtekening
+// (§MACULIS LIVING EMAIL SIGNATURE). De suggested_reply moet dus eindigen op het bericht zelf en
+// nooit op een tweede afzenderidentiteit. De Constitution spreekt dat nergens tegen; het is een
+// uitvoerregel bovenop de gedeelde DNA.
+export const SYSTEM = [
   constitutionText(),
   '',
   'Je stelt een BEKNOPT concept op voor een medewerker die het antwoord zelf controleert en verstuurt.',
+  'Laat suggested_reply eindigen op een gewone zin uit het bericht zelf. Zet er GEEN groetformule',
+  'met naam, functie of organisatie onder (dus niet "Met vriendelijke groet, Maculis"): de',
+  'Maculis-handtekening wordt bij verzending automatisch toegevoegd.',
   'Antwoord UITSLUITEND met geldige JSON: {"summary": string, "intent": string, "suggested_reply": string, "suggested_actions": array}.',
 ].join('\n');
 

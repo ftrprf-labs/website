@@ -2,43 +2,39 @@
    Warm, dark, restrained — clearly the admin environment behind Maculis, but
    still a fast, scannable, functional tool. Not a copy of the journey. */
 
+/* Aliaslaag op de canonieke tokens. Dit bestand definieert GEEN eigen kleuren meer
+   (canon 13). De grond was hier al conform: Testerbeheer stond al op ink.950 (C-1).
+   --surface-elevated komt rechtstreeks uit het regimeblok en wordt hier niet herhaald. */
 :root {
   color-scheme: dark;
 
-  /* Warm near-black field + slightly lighter warm surfaces (Maculis #080503). */
-  --bg: #080503;
-  --surface: #140e08;          /* cards, topbar, table                     */
-  --surface-2: #1d130b;        /* table header, row hover, inputs          */
-  --surface-elevated: #251a10; /* modals & dropdowns (a touch lighter)     */
+  --bg: var(--surface-ground);          /* werklicht: ink.950, was al goed */
+  --surface: var(--surface-raised);     /* ink.800 */
 
-  /* Amber-tinted warm hairlines (from Maculis --line rgba(200,137,74,.22)). */
-  --border: rgba(200, 137, 74, 0.18);
-  --border-strong: rgba(200, 137, 74, 0.34);
+  --border: var(--border-hairline);
+  --border-strong: var(--border-defined);
 
-  /* Warm ivory text (Maculis #ece2d4) + a muted warm greige. */
-  --text: #ece2d4;
-  --muted: #a89a86;
+  --text: var(--text-primary);
+  --muted: var(--text-secondary);
 
-  /* Maculis amber accent + its own hover value; dark warm text on amber. */
-  --primary: #c8894a;
-  --primary-hover: #e6a866;
-  --primary-text: #241606;
+  --primary: var(--copper-500);
+  --primary-hover: var(--copper-400);
+  --primary-text: #241606;   /* donkere tekst op koper; canon 12 kent hiervoor geen token */
 
-  /* Functional status codes — kept distinct from the brand amber. */
-  --danger: #e5674f;
-  --warn: #cf8a3c;
-  --ok: #4cae86;
+  /* Semantiek uit canon 3.3. Vervangt #4cae86 en #cf8a3c, beide vervallen (canon 3.5). */
+  --danger: var(--semantic-broken);
+  --warn: var(--semantic-uncertain);
+  --ok: var(--semantic-confirmed);
 
-  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.45);
-  --radius: 10px;
+  --serif: var(--type-serif);
+  --radius: var(--radius-sm);
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--type-sans);
   background: var(--bg);
   color: var(--text);
   font-size: 14px;
@@ -89,7 +85,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
   white-space: nowrap;
   transition: background 0.12s, border-color 0.12s, transform 0.05s;
 }
-.btn:hover { background: var(--surface-2); }
+.btn:hover { background: var(--surface-elevated); }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary {
@@ -100,7 +96,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
 }
 .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
 .btn-ghost { background: transparent; border-color: transparent; }
-.btn-ghost:hover { background: var(--surface-2); }
+.btn-ghost:hover { background: var(--surface-elevated); }
 /* Secondary bulk actions read as quiet when disabled (no selection) and pick up
    the Maculis amber outline once they become actionable. */
 #btn-publish:not(:disabled), #btn-email-invite:not(:disabled) {
@@ -122,7 +118,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+ 
   padding: 32px;
   width: 100%; max-width: 360px;
   display: flex; flex-direction: column; gap: 8px;
@@ -131,7 +127,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
 .login-card label { font-size: 13px; margin-top: 12px; }
 .login-card input {
   padding: 10px 12px; border: 1px solid var(--border-strong);
-  border-radius: 8px; background: var(--surface-2);
+  border-radius: 8px; background: var(--surface-elevated);
 }
 .login-card .btn { margin-top: 16px; }
 
@@ -188,7 +184,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
 .tester-table th {
   text-align: left; font-size: 12px; text-transform: uppercase;
   letter-spacing: 0.4px; color: var(--muted);
-  padding: 11px 12px; background: var(--surface-2);
+  padding: 11px 12px; background: var(--surface-elevated);
   border-bottom: 1px solid var(--border);
 }
 .tester-table td {
@@ -196,19 +192,19 @@ input[type="checkbox"] { accent-color: var(--primary); }
   vertical-align: middle;
 }
 .tester-table tbody tr:last-child td { border-bottom: none; }
-.tester-table tbody tr:hover { background: var(--surface-2); }
+.tester-table tbody tr:hover { background: var(--surface-elevated); }
 .col-check { width: 34px; }
 .col-actions { width: 1%; }
 .name-main { font-weight: 600; }
 /* Name/company open the Relationship Workspace (the client is the primary entry point). */
-.link-name { background: none; border: 0; padding: 0; font: inherit; color: var(--ink, #ece2d4); cursor: pointer; text-align: left; }
-.link-name:hover { color: var(--amber, #c8894a); text-decoration: underline; }
-.link-name.link-dim { color: var(--dim, #9aa0ac); font-weight: 400; }
+.link-name { background: none; border: 0; padding: 0; font: inherit; color: var(--text); cursor: pointer; text-align: left; }
+.link-name:hover { color: var(--primary); text-decoration: underline; }
+.link-name.link-dim { color: var(--muted); font-weight: 400; }
 .contact-line { font-size: 12.5px; color: var(--muted); }
 /* Pass the Lens candidate marker: a quiet gold tag with the referrer. */
 .ptl-tag {
   display: inline-block; margin-top: 3px; font-size: 11px; letter-spacing: .02em;
-  color: var(--amber, #c8894a); border: 1px solid rgba(200,137,74,.32);
+  color: var(--primary); border: 1px solid var(--border-defined);
   border-radius: 999px; padding: 1px 8px; white-space: nowrap; max-width: 100%;
   overflow: hidden; text-overflow: ellipsis;
 }
@@ -225,7 +221,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
   color: var(--muted); display: grid; place-items: center;
   transition: background 0.12s, color 0.12s;
 }
-.copy-btn:hover, .copy-btn:focus-visible { background: var(--surface-2); color: var(--text); }
+.copy-btn:hover, .copy-btn:focus-visible { background: var(--surface-elevated); color: var(--text); }
 .row-actions svg, .copy-btn svg { width: 18px; height: 18px; display: block; }
 
 /* status badge / select */
@@ -237,19 +233,23 @@ input[type="checkbox"] { accent-color: var(--primary); }
 .status-badge {
   display: inline-block; padding: 4px 10px; border-radius: 999px;
   font-size: 12px; font-weight: 600; letter-spacing: 0.3px;
+  /* Canon 10 + amendement C-2: transparant vlak, EEN hairline op 35 procent van de
+     statuskleur, semantische tekst. Geen vulling: kleur mag geen drager zijn. */
   border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
-  background: color-mix(in srgb, currentColor 12%, transparent);
+  background: transparent;
 }
 /* consent badges (independent dimension) */
-.consent-UNKNOWN { color: var(--muted); }
-.consent-OPTED_IN { color: var(--ok); }
-.consent-OPTED_OUT { color: var(--danger); }
-.status-DRAFT { color: var(--muted); }
-.status-SENT { color: var(--primary); }
-.status-OPENED { color: #7c3aed; }
-.status-COMPLETED { color: var(--ok); }
-.status-DECLINED { color: var(--danger); }
-.status-ERROR { color: var(--danger); }
+.consent-UNKNOWN { color: var(--semantic-uncertain); }
+.consent-OPTED_IN { color: var(--semantic-confirmed); }
+.consent-OPTED_OUT { color: var(--semantic-broken); }
+.status-DRAFT { color: var(--semantic-uncertain); }
+.status-SENT { color: var(--semantic-signal); }
+/* Geopend is in beweging en nog niet afgerond: emerging. Vervangt #7c3aed, de koude
+   violet die canon 3.5 laat vervallen. */
+.status-OPENED { color: var(--semantic-emerging); }
+.status-COMPLETED { color: var(--semantic-confirmed); }
+.status-DECLINED { color: var(--semantic-broken); }
+.status-ERROR { color: var(--semantic-broken); }
 
 .row-actions { display: flex; gap: 6px; }
 .row-actions button {
@@ -258,11 +258,11 @@ input[type="checkbox"] { accent-color: var(--primary); }
   display: grid; place-items: center; color: var(--muted);
   transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
-.row-actions button:hover, .row-actions button:focus-visible { background: var(--surface-2); color: var(--text); }
+.row-actions button:hover, .row-actions button:focus-visible { background: var(--surface-elevated); color: var(--text); }
 .act-wa:hover, .act-wa:focus-visible { border-color: #25d366; color: #25d366; }
 
 .empty-state { text-align: center; padding: 60px 20px; }
-.empty-state strong { font-family: var(--serif); font-weight: 700; font-size: 18px; }
+.empty-state strong { font-family: var(--serif); font-optical-sizing: auto; font-weight: 300; font-size: 18px; }
 .empty-state .btn { margin-top: 16px; }
 
 /* ---- statusbar ---- */
@@ -282,7 +282,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
 }
 .modal-card {
   background: var(--surface-elevated); border: 1px solid var(--border);
-  border-radius: var(--radius); box-shadow: var(--shadow);
+  border-radius: var(--radius);
   width: 100%; max-width: 480px; max-height: 90vh;
   display: flex; flex-direction: column;
 }
@@ -300,10 +300,10 @@ input[type="checkbox"] { accent-color: var(--primary); }
 .modal-body input, .modal-body textarea, .modal-body select {
   width: 100%; padding: 9px 11px;
   border: 1px solid var(--border-strong); border-radius: 8px;
-  background: var(--surface-2); resize: vertical;
+  background: var(--surface-elevated); resize: vertical;
 }
 .modal-body code {
-  background: var(--surface-2); border: 1px solid var(--border);
+  background: var(--surface-elevated); border: 1px solid var(--border);
   padding: 1px 5px; border-radius: 5px; font-size: 12px;
 }
 .modal-foot {
@@ -327,7 +327,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
 .preview-table th, .preview-table td {
   padding: 7px 9px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap;
 }
-.preview-table thead th { position: sticky; top: 0; background: var(--surface-2); z-index: 1; }
+.preview-table thead th { position: sticky; top: 0; background: var(--surface-elevated); z-index: 1; }
 .preview-table select { padding: 4px 6px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--surface); }
 .pv-error { background: color-mix(in srgb, var(--danger) 8%, transparent); }
 .pv-dup { background: color-mix(in srgb, var(--warn) 8%, transparent); }
@@ -359,7 +359,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
   position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
   background: var(--text); color: var(--bg);
   padding: 10px 18px; border-radius: 8px; font-size: 13px;
-  box-shadow: var(--shadow); z-index: 100; max-width: 90vw;
+  z-index: 100; max-width: 90vw;
 }
 
 /* ---- tabs ---- */
@@ -398,7 +398,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
 /* Level-1 headline — the human question answered. Serif gives it quiet gravity. */
 .cockpit-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 14px; }
 .cockpit-h1 {
-  font-family: var(--serif); font-weight: 600; font-size: 21px; line-height: 1.2;
+  font-family: var(--serif); font-optical-sizing: auto; font-weight: 300; font-size: 21px; line-height: 1.2;
   color: var(--text); margin: 0; letter-spacing: 0.01em;
 }
 .cockpit-h2 { font-size: 14px; color: var(--muted); margin: 0; }
@@ -426,11 +426,13 @@ input[type="checkbox"] { accent-color: var(--primary); }
   padding: 10px 12px; color: var(--text);
   transition: background 0.16s ease, border-color 0.16s ease, transform 0.06s ease;
 }
-.attn-card:hover { background: var(--surface-2); border-color: var(--border); }
-.attn-card:focus-visible { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 30%, transparent); }
+.attn-card:hover { background: var(--surface-elevated); border-color: var(--border); }
+/* Een focusbehandeling in de hele kamer: dezelfde koperen ring als overal elders.
+   Verving een eigen box-shadow-ring, die zichtbaar was maar afweek. */
+.attn-card:focus-visible { outline: 2px solid var(--copper-500); outline-offset: 2px; }
 .attn-card:active { transform: translateY(1px); }
 .attn-card-hero {
-  background: var(--surface-2);
+  background: var(--surface-elevated);
   border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
   padding: 14px 16px;
 }
@@ -483,7 +485,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
   transform: rotate(40deg);
 }
 .zero-text { font-size: 15px; color: var(--muted); }
-.zero-text b { color: var(--text); font-weight: 600; font-family: var(--serif); }
+.zero-text b { color: var(--text); font-weight: 300; font-family: var(--serif); font-optical-sizing: auto; }
 
 /* Row indicator — a small dot in the Naam cell. Colour is never the only signal: it carries an
    accessible label and mirrors the cockpit's text. Keyboard-focusable. */
@@ -493,7 +495,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
   transition: transform 0.12s ease;
 }
 .row-attn:hover { transform: scale(1.3); }
-.row-attn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.row-attn:focus-visible { outline: 2px solid var(--copper-500); outline-offset: 2px; }
 .row-attn.attn-DELIVERY_PROBLEM { background: var(--danger); }
 .row-attn.attn-REPLY_READY { background: var(--primary); }
 .row-attn.attn-NEW, .row-attn.attn-UNREAD { background: var(--primary-hover); }
@@ -502,7 +504,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
 /* Micro-interaction: content APPEARS, it never pops. A soft, brief rise on (re)render — and nothing
    at all for anyone who prefers reduced motion. */
 @media (prefers-reduced-motion: no-preference) {
-  .cockpit .attn-card, .cockpit-zero, .cockpit-head { animation: attn-rise 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .cockpit .attn-card, .cockpit-zero, .cockpit-head { animation: attn-rise var(--motion-enter) var(--motion-ease) both; }
   .cockpit-hero .attn-card { animation-delay: 0.03s; }
   .cockpit-rest .attn-card:nth-child(1) { animation-delay: 0.06s; }
   .cockpit-rest .attn-card:nth-child(2) { animation-delay: 0.10s; }
@@ -540,7 +542,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
 .dist-block h3 { margin: 0 0 8px; font-size: 14px; }
 .dist-row { display: flex; align-items: center; gap: 10px; margin: 5px 0; font-size: 13px; }
 .dist-lbl { flex: 0 0 130px; color: var(--text); }
-.dist-bar { flex: 1; height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.dist-bar { flex: 1; height: 8px; background: var(--surface-elevated); border-radius: 999px; overflow: hidden; }
 .dist-bar > span { display: block; height: 100%; background: var(--primary); }
 .dist-n { flex: 0 0 auto; color: var(--muted); min-width: 64px; text-align: right; }
 
@@ -574,7 +576,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
 
 /* ---- KPI card progress + empty state ---- */
 .kpi-bar {
-  height: 5px; background: var(--surface-2); border-radius: 999px;
+  height: 5px; background: var(--surface-elevated); border-radius: 999px;
   overflow: hidden; margin: 8px 2px 4px;
 }
 .kpi-bar > span { display: block; height: 100%; background: var(--primary); }
@@ -593,7 +595,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
   display: flex; flex-direction: column; gap: 6px;
 }
 .funnel-count { font-size: 24px; font-weight: 700; color: var(--primary); line-height: 1; }
-.funnel-bar { height: 6px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.funnel-bar { height: 6px; background: var(--surface-elevated); border-radius: 999px; overflow: hidden; }
 .funnel-bar > span { display: block; height: 100%; background: var(--primary); }
 .funnel-label { font-size: 12px; color: var(--text); }
 .funnel-drop { font-size: 11px; color: var(--muted); min-height: 14px; }
@@ -609,7 +611,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
 /* ---- per-tester factual progress dots ---- */
 .et-steps { display: inline-flex; gap: 4px; margin-top: 6px; }
 .et-step {
-  width: 22px; height: 4px; border-radius: 999px; background: var(--surface-2);
+  width: 22px; height: 4px; border-radius: 999px; background: var(--surface-elevated);
   border: 1px solid var(--border);
 }
 .et-step.on { background: var(--primary); border-color: var(--primary); }
@@ -692,7 +694,7 @@ input[type="checkbox"] { accent-color: var(--primary); }
   .tester-table tr {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius); margin-bottom: 12px; padding: 8px 12px;
-    box-shadow: var(--shadow);
+   
   }
   .tester-table td {
     border: none; padding: 6px 4px;

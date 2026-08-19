@@ -346,6 +346,281 @@ invitation-bridge blijft comm-specifiek. Bewezen: agent-suite draait en slaagt m
 E2E-tests netjes. Gedocumenteerd in `.env.example`.
 
 **Commit:** branch `claude/maculis-team-agents-arch-cuybdp`. Geen deploy, geen infra/secret-wijziging.
+## 2026-08-19 — Mijn Maculis: de communicatielaag en de affordance van het veld (preview)
+
+**Affordancecorrectie.** Punt is waarneming, verbinding is groeiend verband, patroon is betekenis.
+Een los punt is dus geen onderwerp en suggereert dat nu ook niet meer: de tooltip is weg, de cursor
+verandert alleen boven een patroon, en de klik die vanaf een los punt naar het patroon eronder sprong
+is verdwenen. De animatie is ongewijzigd. `tools/visual/mijn-affordance.mjs` rastert het veld af en
+toont aan dat alleen grote patroongebieden aanwijsbaar zijn.
+
+**Communicatielaag.** Mijn Maculis is een kanaal geworden op de bestaande Communication Layer, geen
+tweede systeem. Dezelfde `conversation`, `message`, hetzelfde attentiemodel, hetzelfde
+`relationship_memory`. Eén additieve migratie, 009. Drie beloftes zitten in de code: praten is niet
+delen, reageren is niet onthouden, en gelezen betekent twee verschillende dingen aan de twee kanten.
+De herkenningsvraag is daarbij duurzaam geworden, want een correctie mag niet hechter zijn vastgelegd
+dan het antwoord waar hij bij hoort. Volledige verantwoording in `docs/MIJN_MACULIS_COMMUNICATIE.md`
+hoofdstuk 12.
+
+**Consent.** Een antwoord in de eigen omgeving van de klant verlaat het pand niet en heeft daarom een
+`allow`-regel voor service. De e-mailmelding dat er een antwoord klaarstaat verlaat het pand wel, en
+gaat door dezelfde poort als elke andere uitgaande mail. Geen geldige toestemming en geen gekoppeld
+contact betekent geen melding. De melding bevat geen inhoud en geen toegangslink.
+
+**Cockpit.** Bewust minimaal aangeraakt: drie opzoektabellen krijgen `MIJN_MACULIS: 'Mijn Maculis'`
+zodat er nergens een enum-naam op het scherm komt. Het kanaal staat niet in `SENDABLE_CHANNELS` en is
+dus antwoord-only; een concept op zo'n gesprek opent al op het juiste kanaal. Bestaande
+Cockpit-schermen veranderen niet, want geen bestaand gesprek heeft dit kanaal.
+
+**Bewijs.** Testsuite met Postgres 88 van 89 (dezelfde pre-existing comm-ai-fout, identiek op de
+basisbranch). `tools/visual/mijn-gesprek-ui.mjs` ALLES GROEN op 1440 en 390. Audit ALLES GROEN op
+alle vier de viewports, nu ook op de schermen `praat` en `gesprekken`. Motion en affordance ALLES
+GROEN. Website, Lens, Testerbeheer en Cockpit niet aangeraakt.
+
+**Openstaand.** Zes echte productbeslissingen, opgesomd in `docs/MIJN_MACULIS_COMMUNICATIE.md` 12.5.
+
+---
+
+## 2026-08-19 — Mijn Maculis wordt Het Veld (kandidaat, wacht op Production GO)
+
+**Wat.** De kamer is het veld geworden. Navigatie, uitspraak, bewijs, vraag en grens komen eruit
+voort in plaats van ernaast te staan. Volledige verantwoording in `docs/MIJN_MACULIS_HET_VELD.md`.
+
+**Canon.** Amendement C-10 in ftrlabs-docs, vastgelegd vóór de bouw: Mijn Maculis gaat van dag naar
+nacht. Reden is een signaal uit de praktijk, precies de voorwaarde die open punt A stelde. Canon 7
+stelt dat `light.core` in het dagregime niet als emissie bestaat, terwijl licht in het veld juist de
+drager van het bewijs is. C-10b maakt `surface.private` een rol op `:root`. Tokens 1.0.4.
+
+**Backend.** Eén additieve migratie, 008: `insight_observation.customer_label`, fail-closed. Zonder
+klantveilige bron per waarneming zou de bewijstelling verzonnen zijn. De grens is niet gewijzigd en
+wordt strenger uitgevoerd; `sharedContextForOrg` is niet aangeraakt.
+
+**Beperking.** De herkenningsvraag geldt voor dit bezoek en wordt niet opgeslagen. Dat vraagt een
+productbeslissing over hoe een menselijk antwoord weegt tegenover nieuw bewijs.
+*Opgeheven op dezelfde dag, zie de entry hierboven: het antwoord wordt nu bewaard, en volgt dezelfde
+grens als het inzicht.*
+
+**Bewijs.** Testsuite met Postgres 90 van 91 (de ene fout is pre-existing en faalt identiek op de
+basisbranch), zonder Postgres 74 geslaagd en 16 overgeslagen. Audit ALLES GROEN op desktop en
+mobiel. Motion ALLES GROEN. Website, Lens, Testerbeheer en Cockpit byte-identiek aan de basisbranch.
+
+---
+
+## 2026-08-18 — Mijn Maculis geharmoniseerd op Visual DNA v1.0 (kandidaat)
+
+**Wat.** Mijn Maculis is integraal op de canon gezet als eigen kamer: dagregime, canonieke tokens,
+Newsreader voor Uitspraak, de vijf semantische rollen, `surface.private` als drager van "alleen voor
+jou", en het signaalveld als bewijs met de levenscyclus uit canon 8.1. De donkere navy zijkant is
+verdwenen, want canon 5 laat maar één regime per kamer toe. Volledige verantwoording in
+`docs/MIJN_MACULIS_HARMONISATIE.md`, nulmeting in `docs/MIJN_MACULIS_NULMETING.md`.
+
+**Onaangeraakt.** Informatiearchitectuur, klantreis, alle API-contracten en de sharing boundary in
+`server/mijn/*`. Website, Lens en Cockpit zijn niet gewijzigd; de Cockpit-oppervlakken zijn
+byte-identiek aan de basisbranch.
+
+**Tokens.** Het gevendorde bestand ging van 1.0.2 naar de gemergede canon 1.0.3 (C-3 `shadow.diffuse`,
+C-5 `scrim.modal`). Geen bestaande waarde wijzigt: alle 56 Cockpit-opnamen zijn byte-identiek
+vastgelegd met 1.0.2 en met 1.0.3.
+
+**Bewijs.** Testsuite 89/0 gefaald, tokencontrole groen, audit ALLES GROEN (was 12 gefaald bij de
+nulmeting), motion-poort groen, 32 opnamen voor en 32 na.
+
+**Open canonpunten** M-1 tot M-5, geregistreerd in het harmonisatiedocument, geen ervan blokkerend.
+Kort: er is geen token voor donkere tekst op koper; `text.quiet` haalt in dag maar 3,9:1 en is dus
+alleen voor grote tekst bruikbaar; `semantic.signal` haalt op `surface.private` 4,41:1 en zakt daar
+net onder AA; de verhouding tussen ademen en "geen oneindig lopende animatie"; en de constellatie als
+datavisualisatie is nog steeds open punt E in canon 16.
+
+---
+
+## Technische schuld (open)
+
+| # | Onderwerp | Waar | Beschrijving | Ingebracht |
+| --- | --- | --- | --- | --- |
+| TD-001 | Tekstkleur van de e-mailbody in donkere modus | `server/comm/signature.mjs`, `wrapEmail()` | Wanneer de composer platte tekst stuurt, bouwt `wrapEmail()` de HTML-body op met een vaste `color:#2b2b2b`. In een donkere leesomgeving kan dat donker op donker uitpakken. Dit zit in het **bericht**, niet in de handtekening, en is bestaand gedrag van vóór de handtekening-integratie. Bewust niet opgelost bij de deploy van 2026-08-18: het raakt de leesbaarheid van elke verzonden e-mail en verdient een eigen ronde. | 2026-08-18, gezien bij de renderproeven van de handtekening |
+| TD-002 | `/reply` verstuurt buiten de centrale handtekening en buiten de consent-gate om | `server/comm/outbound.mjs` (`sendReply`), route `POST /api/comm/conversations/:id/reply` | Deze AI-vrije fallbackroute verstuurt rechtstreeks via `sendThreadedEmail` en roept dus **niet** `wrapEmail()` aan: uitgaande mail langs deze weg draagt geen enkele handtekening, oud noch nieuw. Dezelfde route passeert ook de `channelAllowed()` consent-gate niet die `sendOnChannel` wel toepast. Geen UI-code roept hem aan; alleen een directe API-aanroep bereikt hem. Bewust ongemoeid gelaten: dit vraagt een eigen architectuur- en securityreview, geen contentcorrectie. | 2026-08-18, bij de audit van de handtekeningroutes |
+
+---
+
+## 2026-08-18 — Cockpit-harmonisatie Visual DNA v1.0: visueel akkoord en freeze
+
+**Visueel akkoord vastgelegd.** Lud heeft de live preview beoordeeld op Testerbeheer, Workspace
+en Inbox en de harmonisatielaag akkoord bevonden. Vanaf dit punt geldt een **freeze** op de
+visuele harmonisatie: geen verdere verfijning, geen extra kleurcorrecties, geen spacing-polish
+en geen nieuwe interpretaties binnen deze workstream.
+
+**Beoordeelde commit:** `3e8c740ac159994df631a6b574d7131dc96cc3f1`
+(branch `claude/maculis-visual-harmonization-s0nt5t`). Gelijk aan de branch tip, aan de lokale
+werkboom en aan de live previewdeploy `dep-da21ov61egvs7395v3b0`. Alle drie deploys van de
+previewservice draaiden op deze ene commit, dus er is geen twijfel over wat beoordeeld is.
+
+**Preview:** `maculis-cockpit-harmonisatie-preview` (Render, Frankfurt, Node-runtime, geen disk,
+geen productiegegevens, Communication Layer uit). Tijdelijk, uitsluitend voor deze beoordeling.
+
+### Wat de harmonisatie inhoudt
+
+De Cockpit draait nu op de gegenereerde canon in plaats van op handmatig beheerde kleurwaarden.
+
+- **Canonieke tokenlaag** gevendord als `public/vendor/maculis-tokens.css`, versie 1.0.2,
+  checksum `b95d91b7a0a82c18`, byte-identiek aan `ftrlabs-docs/main`. Bewaakt door
+  `tools/check-tokens.mjs` op checksum, versie en handmatige bewerking.
+- **Lichtregime `worklight`** op alle drie de oppervlakken, via `data-maculis-regime` op `<html>`.
+  Grond is `ink.950` `#080503`, conform canonamendement C-1.
+- **`:root` teruggebracht tot een aliaslaag.** Geen eigen kleurwaarden meer per scherm
+  (canon hoofdstuk 13). In `styles.css` verviel `--surface-2` en verdween `--shadow`
+  (canon hoofdstuk 6: hairline of schaduw, niet beide).
+- **Statuspil als transparant vlak** met een `border.semantic` hairline en de `semantic.*`-kleur
+  als tekst, conform canonamendement C-2. Geen gevulde badge meer.
+- **Newsreader zelf gehost** uit de North Star, geen externe CDN. Server serveert `.woff2` nu als
+  `font/woff2`.
+- **Toegankelijkheid:** twee echte WCAG AA-fouten opgelost (`text.quiet` 3,74 naar 5,00 en
+  consent-ok 4,41 naar 4,92). Klikbare `div`/`span` vervangen door echte `<button type="button">`,
+  waardoor de Inbox van 8 naar 15 Tab-stops ging.
+- **Zichtbare copy** ontdaan van streepjes als stijlmiddel, en labelmaps toegevoegd
+  (`STATUS_LABEL`, `EVAL_LABEL`, `CONSENT_LABEL`, `CHANNEL_LABEL`, `JOURNEY_LABEL`,
+  `DELIVERY_LABEL`) zodat ruwe enumwaarden niet meer in de UI verschijnen.
+
+### Verificatie op het moment van de freeze
+
+Uitsluitend de bestaande controles, zonder nieuwe ontwerpcriteria.
+
+| Controle | Resultaat |
+|---|---|
+| Token en checksum (`tools/check-tokens.mjs`) | 3/3 pass |
+| Testsuite (`npm test`) | 64 tests, 0 fail, 9 overgeslagen (vereisen live Postgres) |
+| Toegankelijkheid, overflow, console, reduced-motion (`tools/visual/audit.mjs`) | alles groen over 3 oppervlakken × 2 viewports |
+| Focusring op elke Tab-stop | Workspace 7, Inbox 15, Testerbeheer 51 desktop en 49 mobiel |
+| Statuspillen AA (`.att`) | Workspace 7/7, Inbox 6/6 |
+| Statusbadges AA (`.status-badge`, handmatig, zie schuld 3) | 12/12 states, laagste 4,92:1 |
+| Horizontale overflow | 0px op 1280 en op 390, alle oppervlakken |
+| Reduced motion | 0 lopende animaties, 0 elementen onzichtbaar door een niet-gestarte animatie |
+| Drift sinds de beoordeling | hercapture van 56 renders, 56/56 byte-identiek |
+| Delta tegenover de pre-harmonisatie baseline | 56/56 gewijzigd, 99,3 tot 100 procent van de pixels. Verwacht: grond en letter veranderen op elk oppervlak |
+
+### Bewust openstaande afwijkingen en technische schuld
+
+1. **Inbox heeft geen weg terug als de Communication Layer uit staat.** `comm.js:14` vervangt de
+   volledige `document.body` door de activatiebanner, waardoor de header en de link naar
+   Testerbeheer verdwijnen. Bestaand gedrag, ongewijzigd door de harmonisatie. Niet gerepareerd,
+   omdat dat buiten de scope van deze workstream valt.
+2. **Workspace heeft geen vast menu-item.** Die wordt contextueel bereikt vanuit een rij in
+   Testerbeheer (`app.js:296`) of een gesprek in de Inbox (`comm.js:100`). Bij een lege store
+   bestaan die ingangen niet. Bestaand gedrag, ongewijzigd.
+3. **`audit.mjs` dekt alleen de `.att`-pil.** De `.status-badge` van Testerbeheer valt buiten de
+   geautomatiseerde contrastcheck, waardoor die als "0 statuspillen" groen meldt. Bij de freeze
+   handmatig gemeten over alle 12 states, alle boven AA. Schuld: de check uitbreiden naar
+   `.status-badge`.
+4. **`--priv: #8a3a63` in `comm.html` blijft een lokale waarde.** Bewust niet gecanoniseerd: de
+   Privacy-inbox is een context, en `surface.private` bestaat in de canon alleen in dagregime.
+5. **De focusring is een implementatiekeuze, geen canon.** 2px `copper-500` met 2px offset,
+   afgesproken als zodanig bij de pilotgate.
+6. **9 tests blijven overgeslagen** zolang er geen `DATABASE_URL` is. Dat zijn de
+   Communication Layer DB-tests, niet de visuele laag.
+7. **Canonchecksum 1.0.0 (`04d6b40907f2bbda`) is niet reproduceerbaar.** Die waarde dateert van
+   vóór de generatorregel in canon hoofdstuk 17. Vanaf 1.0.2 is de checksum wel reproduceerbaar.
+8. **De server bindt standaard op `127.0.0.1`** (`server/config.mjs:40`). Op Render moet `HOST`
+   expliciet op `0.0.0.0` staan, anders zakt de deploy door de poortscan. Kostte twee mislukte
+   deploys bij het opzetten van de preview. Geen visueel punt, wel een deployvalkuil.
+
+### Merge-readiness
+
+- **Inhoudelijk:** de branch is compleet en groen. Geen ongecommitte wijzigingen, branch tip gelijk
+  aan origin.
+- **Eén blokkade:** PR #2 staat op `mergeable_state: dirty`. De basis
+  (`claude/invitation-manager-mvp-d5r5h8`) liep zes commits vooruit met de
+  signature- en motionstudies. De enige echte conflict zit in `.gitignore`, waar beide kanten een
+  regel achteraan toevoegden. `server/index.mjs` merget vanzelf. Oplossing is mechanisch: beide
+  regels behouden.
+- **Tweede punt:** de beschrijving van PR #2 is automatisch gegenereerd en beschrijft een eerdere
+  tussenstand. Die noemt Testerbeheer nog `night`, de grond nog `ink.980`, `index.html` nog "Lens",
+  en `comm.html` nog een byte-identieke controlegroep. Geen van die vier klopt nog.
+- **Niet mergen en niet naar productie deployen** zonder expliciete GO.
+
+### Wat hierna NIET volgt
+
+De volgende ontwerpfase is geen verdere harmonisatie, maar een afzonderlijke
+**Maculis signature- en magic-laag**: sterren, zeer subtiele onverwachte beweging, kleine
+typografische en woordelijke verschuivingen, momenten waarop de interface bijna levend lijkt.
+Die laag komt bovenop deze goedgekeurde canonieke basis, is betekenisgedreven en schaars,
+respecteert `prefers-reduced-motion` volledig, introduceert geen nieuwe canonwaarden zonder
+aparte canongate, en wordt **niet** in deze harmonisatiebranch gebouwd. De bestaande
+signature- en motionstudies (branch `claude/maculis-signature-magic-study-qtjg5z` en de studies
+op de basisbranch) en de Visual DNA dienen daar later als onderzoeksbron.
+---
+
+
+## 2026-08-17 — Mijn Maculis (klantomgeving) V1: inzichten, sharing boundary, Cockpit-brug
+
+**Product.** De eerste verticale slice van **Mijn Maculis**, het klantgerichte perspectief op
+dezelfde werkelijkheid als de interne Cockpit, met een **harde, server-afgedwongen grens** tussen
+PRIVATE (alleen de klant), SHARED (bewust met Maculis gedeeld) en AGGREGATED. Informatiearchitectuur:
+Overzicht / Inzichten (De Spiegel) / Samenwerking. Rustig, reflectief, mobile-first, eigen visuele
+taal (licht canvas, donkere sidebar, violet accent) maar duidelijk familie van Maculis.
+
+**Scope-respect.** Geen Reveal Engine / Reveal Gate / Lens 1-2 gebouwd (die horen bij de
+Lens/First Five-workstream, zie 2026-08-15). Mijn Maculis **consumeert** inzichten als een
+deelbaar, epistemisch object; de inzichtcontent zelf is **preview-only fixture** (er is geen live
+Lens-pijplijn in deze repo). Reveal/non-reveal blijven behouden als `stance`
+(reveal | non_reveal | tension | consistency | unknown); een non_reveal ("we zien géén verschil") is
+een volwaardig inzicht, niet "niets gevonden".
+
+**Architectuur (additief; hergebruikt bestaande primitieven, geen parallelle modellen).**
+- **Migratie `006_mijn_maculis.sql`** (additief, backwards-compatible, veilig op elke boot):
+  `customer_insight` (tenant + org scoped, `stance`, vier mensgerichte velden, `sharing`,
+  internal-only `provenance` jsonb, `is_preview`), `insight_share_event` (append-only sharing-audit,
+  §18), `customer_access` (opaque org-scoped token; **alleen SHA-256 opgeslagen**, nooit de ruwe
+  token), `collaboration_item` (alleen `customer_visible` items = Samenwerking, niet de interne
+  takenlijst, §13).
+- **Sharing boundary als centrale primitive** (`server/mijn/sharing.mjs`): beide kanten gaan hier
+  langs. Klant leest eigen PRIVATE + SHARED; de interne kant (`sharedContextForOrg`) kan **per SQL
+  alleen `sharing='SHARED'`** zien. Een PRIVATE-inzicht kan daardoor **structureel** niet in een
+  interne weergave, modelprompt, log of andere agent belanden. Grens = architectuur, geen
+  promptinstructie, en wordt vóór elke modelcall afgedwongen omdat de Context Engine de data via deze
+  functie ophaalt. Crossing (PRIVATE → SHARED) is uitsluitend een expliciete, menselijke,
+  klant-geïnitieerde actie en wordt geaudit; intrekken (SHARED → PRIVATE) haalt het inzicht direct
+  weer uit de interne context.
+- **Klant-API** `/api/mijn/*` (token-authed via `x-mijn-token`, **niet** de admin-gate; token nooit
+  in de URL/log): session / overview / insights / insight-detail / share / revoke / collaboration.
+  Alles tenant + org scoped uit de resolved access-grant, nooit uit client-input → directe
+  id/URL-manipulatie lekt niets (cross-org read → 404).
+- **Cockpit-brug** (`ai/context.mjs`, `relationship.mjs`): een SHARED-inzicht wordt geautoriseerde
+  interne context in de relatie-aggregatie én de model-context. Nevenfix: contact-only context
+  resolvet nu ook de organisatie (contact.organization_id), zodat de brug werkt zonder conversation.
+- **Frontend** `public/mijn.{html,css,js}`: CSP-safe (externe JS, geen inline handlers), hash-router
+  (Overzicht/De Spiegel/Inzichtdetail/Samenwerking), share-flow met heldere bevestiging (§20), geen
+  dark patterns. Schrijfregel gerespecteerd (geen streepjes als stijlmiddel).
+- **Preview-fixtures** (`server/mijn/seed.mjs`, `scripts/seed-mijn-preview.mjs`): demo-org
+  "De Voorbeeld Groep", volledige epistemische spreiding, `is_preview=true`. **HARD REFUSE bij
+  `NODE_ENV=production`** → geen fictieve klantdata in productie.
+
+**Getest (fictieve data, echte Postgres).** Volledige comm-suite serieel **66/66** (was 65; +1 nieuw
+bestand `mijn-maculis.test.mjs`, 13 assertions in één E2E): Mijn Maculis laadt voor geautoriseerde
+klant; ongeldig/geen token → 401; tenant/org-isolatie (org B ziet alleen eigen, cross-org read →
+404); PRIVATE zichtbaar voor eigen klant, `provenance` nooit in klant-payload; PRIVATE **niet** in
+interne SHARED-context / relatie-aggregatie / modelprompt; expliciet delen → precies dat inzicht
+SHARED; daarna intern beschikbaar; andere PRIVATE blijft PRIVATE; provenance behouden + share
+geaudit (`insight_share_event` + `audit_event`); Samenwerking toont geen interne taak; intrekken
+haalt het weer uit interne context. Zonder DB skippen de DB-tests netjes (build-box-pariteit
+behouden). **Browser (Playwright, desktop 1440 + mobiel 390):** 0 console-errors, geen horizontale
+scroll, share-flow end-to-end geverifieerd; screenshots van Overzicht, inzichtdetail (PRIVATE),
+deel-bevestiging, na delen, De Spiegel, Samenwerking, mobiel.
+
+**Productie onaangeroerd.** Gebouwd/gevalideerd op preview/lokaal; **geen deploy uitgevoerd**, geen
+nieuwe provider/credential/betaalde dienst. Op de designated feature-branch
+`claude/mijn-maculis-customer-v1-d29lib` (niet de deploybranch). De additieve migratie 006 wordt pas
+op productie toegepast bij een bewuste merge/deploy van de deploybranch (menselijke beslissing);
+tot dan blijft productie functioneel inert (lege tabellen, geen `customer_access` → elk token 401).
+
+**Privacy proof.** PRIVATE Lens-inzicht "Jullie positionering wordt intern niet overal hetzelfde
+ervaren": zichtbaar voor de klant, **niet** in `sharedContextForOrg`/Cockpit/modelprompt. Klant deelt
+expliciet → SHARED → vanaf dat moment geautoriseerde interne context. Negatief bewijs: een tweede
+PRIVATE-inzicht ("Tussen jullie belofte en wat klanten ervaren zien we geen kloof", non_reveal) blijft
+intern onzichtbaar. Bewezen in `tests/mijn-maculis.test.mjs`.
+
+**Open punten (klant-GO nodig).** (a) Echte klanttoegang: `customer_access`-grant + eigen
+opaque-tokenuitgifte/e-mail (nu handmatig/preview). (b) Productie-deploy van migratie 006 (bewuste
+merge). (c) Live Lens → `customer_insight`-ingest (aparte Lens-workstream). (d) Echte
+klant-authenticatie (SSO) i.p.v. losse opaque link, bij opschaling.
 
 ---
 

@@ -1,0 +1,982 @@
+<title>Het Veld</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..600;1,6..72,200..600&display=swap">
+<style>
+/* =============================================================================
+   MIJN MACULIS · HET VELD  ·  experience prototype
+   Nachtregime, uitsluitend canonieke waarden uit maculis-tokens.css 1.0.3.
+   Het veld is niet een visualisatie in de interface. Het veld IS de kamer;
+   de interface komt eruit voort.
+   ============================================================================= */
+:root{
+  --ground:#0a0b10;          /* ink.980, de enige koele stap: dit is diepte, geen kleur */
+  --raised:#14120f;          /* ink.800 */
+  --elevated:#251a10;        /* ink.600 */
+  --private:#ece0c9;         /* surface.private, zand: dit is van jou alleen */
+  --txt:#ece2d4;             /* text.primary nacht, 14,60:1 */
+  --txt2:#a89a86;            /* text.secondary nacht, 6,79:1 */
+  --txt3:#8b8377;            /* text.quiet nacht, 5,00:1 */
+  --copper:#c8894a; --copper-400:#e6a866; --copper-700:#8a5f38;
+  --gold:#d7b36a; --gold-300:#f3e387;
+  --violet:#8a79e0;
+  --jade:#1f9470;
+  --line:rgba(200,137,74,.18);
+  --line2:rgba(200,137,74,.34);
+  --serif:'Newsreader',Georgia,'Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --ease:cubic-bezier(.22,.61,.36,1);
+  --enter:340ms; --micro:120ms; --stage:1200ms;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--ground)}
+body{
+  font-family:var(--sans);color:var(--txt);font-size:15px;line-height:1.6;
+  font-optical-sizing:auto;-webkit-font-smoothing:antialiased;
+  overscroll-behavior:none;
+}
+canvas#veld{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:default}
+canvas#veld.aanwijsbaar{cursor:pointer}
+
+/* het vignet houdt de blik in het veld; geen decoratie, wel diepte */
+.vig{position:fixed;inset:0;pointer-events:none;z-index:2;
+  background:radial-gradient(130% 100% at 50% 42%,transparent 42%,rgba(0,0,0,.62) 100%)}
+
+/* ---------- HUD ---------- */
+.hud{position:fixed;inset:0;z-index:3;pointer-events:none}
+.hud > *{pointer-events:auto}
+
+.lab{font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--txt2);margin:0}
+.lab.c{color:var(--copper)}
+.lab.v{color:var(--violet)}
+.stem{font-family:var(--serif);font-style:italic;font-weight:400}
+
+/* identiteit, linksboven; zeer stil */
+.merk{position:absolute;top:clamp(18px,3vw,30px);left:clamp(18px,3vw,34px);
+  display:flex;align-items:center;gap:11px;pointer-events:none}
+.merk i{width:7px;height:7px;border-radius:50%;background:var(--copper);flex:none;
+  box-shadow:0 0 0 4px rgba(200,137,74,.10),0 0 14px 2px rgba(200,137,74,.55)}
+.merk span{font-family:var(--serif);font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:var(--txt2)}
+
+/* groet en toestand, linksonder */
+.onder{position:absolute;left:clamp(18px,3vw,34px);bottom:clamp(18px,3vw,30px);
+  display:flex;flex-direction:column;gap:7px;max-width:min(46ch,72vw);
+  pointer-events:none}
+.groet{font-family:var(--serif);font-weight:300;font-size:clamp(15px,1.5vw,18px);color:var(--txt);margin:0;
+  letter-spacing:-.017em}
+.toestand{font-size:12.5px;color:var(--txt2);margin:0;min-height:1.5em;
+  transition:opacity var(--enter) var(--ease)}
+.tijdlijn{font-size:12.5px;color:var(--copper);margin:0}
+
+/* rechtsboven: de periferie. Ondergeschikt aan het veld. */
+.rand{position:absolute;top:clamp(16px,3vw,28px);right:clamp(16px,3vw,32px);
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;
+  transition:transform var(--stage) var(--ease)}
+.rand.wijkt{transform:translateX(calc(-1 * min(430px, 92vw)))}
+.knop{
+  font:inherit;font-size:12.5px;font-weight:600;color:var(--txt2);
+  background:transparent;border:1px solid var(--line);border-radius:999px;
+  padding:7px 14px;cursor:pointer;white-space:nowrap;
+  transition:border-color var(--micro) var(--ease),color var(--micro) var(--ease);
+}
+.knop:hover{border-color:var(--copper);color:var(--txt)}
+.knop[disabled]{opacity:.4;cursor:default}
+.knop.primair{background:var(--copper);border-color:transparent;color:#241606}
+.knop.primair:hover{background:var(--copper-400);transform:translateY(-1px)}
+.knop.tekst{border-color:transparent;padding-left:6px;padding-right:6px;
+  border-bottom:1px solid var(--line2);border-radius:0}
+.knop.tekst:hover{border-bottom-color:var(--copper)}
+
+/* ---------- de uitspraak, verankerd aan de kern ---------- */
+.zeg{position:absolute;top:0;left:0;width:min(34ch,44vw);
+  opacity:0;transform:translate3d(0,0,0);
+  transition:opacity var(--stage) var(--ease)}
+.zeg.in{opacity:1}
+.zeg .aanhef{margin:0 0 10px}
+.zeg h1{
+  font-family:var(--serif);font-weight:300;letter-spacing:-.017em;
+  font-size:clamp(1.5rem,2.9vw,2.6rem);line-height:1.14;margin:0 0 14px;color:var(--txt);
+  text-wrap:balance}
+.zeg h1 em{font-style:italic;color:var(--gold-300)}
+.zeg .rust{font-size:12.5px;color:var(--txt2);margin:0 0 16px;font-variant-numeric:tabular-nums}
+.zeg .rust b{color:var(--txt);font-weight:600}
+.zeg .acties{display:flex;gap:10px;flex-wrap:wrap}
+
+/* ---------- bewijspaneel ---------- */
+.bewijs{
+  position:absolute;top:0;right:0;height:100%;width:min(430px,92vw);
+  background:linear-gradient(270deg,rgba(20,18,15,.97),rgba(20,18,15,.92));
+  border-left:1px solid var(--line);
+  padding:clamp(20px,2.6vw,34px);
+  display:flex;flex-direction:column;gap:18px;
+  overflow-y:auto;overscroll-behavior:contain;
+  transform:translateX(101%);transition:transform var(--stage) var(--ease);
+}
+.bewijs.in{transform:none}
+.zeg.wijkt{opacity:0;pointer-events:none}
+.bewijs h2{font-family:var(--serif);font-weight:300;letter-spacing:-.017em;
+  font-size:clamp(1.15rem,1.7vw,1.5rem);line-height:1.2;margin:0;color:var(--txt);text-wrap:balance}
+.bewijs .sluit{align-self:flex-start}
+.sterkte{display:flex;flex-direction:column;gap:7px;padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.sterkte .getal{font-family:var(--serif);font-size:2rem;font-weight:300;line-height:1;color:var(--gold-300);
+  font-variant-numeric:tabular-nums}
+.sterkte p{margin:0;font-size:12.5px;color:var(--txt2)}
+.bronnen{display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
+.bron{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:baseline;
+  padding:11px 0;border-top:1px solid rgba(200,137,74,.10);cursor:pointer;
+  transition:color var(--micro) var(--ease)}
+.bron:first-child{border-top:0}
+.bron:hover,.bron:focus-visible{color:var(--gold-300)}
+.bron i{width:5px;height:5px;border-radius:50%;background:var(--gold);flex:none;align-self:center;
+  box-shadow:0 0 8px 1px rgba(215,179,106,.55)}
+.bron .wat{font-size:13.5px;color:inherit;line-height:1.45}
+.bron .wanneer{font-size:11.5px;color:var(--txt3);white-space:nowrap;font-variant-numeric:tabular-nums}
+.bron.nieuw i{background:var(--copper-400);box-shadow:0 0 10px 2px rgba(230,168,102,.6)}
+.bron.nieuw .wanneer{color:var(--copper)}
+
+/* de menselijke vraag */
+.vraag{border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px}
+.vraag p{margin:0}
+.vraag .q{font-family:var(--serif);font-style:italic;font-weight:400;font-size:1.05rem;color:var(--txt)}
+.vraag .keuzes{display:flex;gap:8px;flex-wrap:wrap}
+.vraag .uitkomst{font-size:13px;color:var(--txt2);line-height:1.55}
+.vraag .uitkomst b{color:var(--txt);font-weight:600}
+
+/* privé en gedeeld */
+.grens{display:flex;flex-direction:column;gap:10px;padding-top:16px;border-top:1px solid var(--line)}
+.grens .staat{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--txt2)}
+.grens .staat i{width:9px;height:9px;border-radius:50%;flex:none}
+.grens .staat i.priv{background:var(--private);box-shadow:0 0 0 3px rgba(236,224,201,.10)}
+.grens .staat i.gedeeld{background:var(--violet);box-shadow:0 0 0 3px rgba(138,121,224,.14)}
+.grens p{margin:0;font-size:12.5px;color:var(--txt3);line-height:1.55}
+
+/* ---------- een waarneming die je aanwijst ---------- */
+.tip{position:absolute;top:0;left:0;max-width:30ch;padding:9px 13px;
+  background:var(--elevated);border:1px solid var(--line);border-radius:12px;
+  font-size:12.5px;color:var(--txt);pointer-events:none;opacity:0;
+  transition:opacity var(--micro) var(--ease);z-index:5}
+.tip.in{opacity:1}
+.tip b{display:block;font-weight:600;color:var(--gold-300);font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+.tip span{color:var(--txt2)}
+
+/* ---------- mobiel ---------- */
+@media (max-width:760px){
+  .zeg{position:absolute;left:0;right:0;bottom:0;top:auto;width:auto;
+    padding:20px 18px calc(20px + env(safe-area-inset-bottom));
+    background:linear-gradient(0deg,rgba(10,11,16,.96) 55%,transparent);
+    transform:none!important}
+  .zeg h1{font-size:clamp(1.35rem,6.4vw,1.9rem)}
+  .onder{bottom:auto;top:88px;left:18px;right:18px;gap:5px;max-width:none}
+  .groet{font-size:15px}
+  .bewijs{width:100%;top:auto;bottom:0;height:min(86vh,720px);border-left:0;border-top:1px solid var(--line);
+    border-radius:20px 20px 0 0;transform:translateY(101%)}
+  .bewijs.in{transform:none}
+.zeg.wijkt{opacity:0;pointer-events:none}
+  .rand{gap:6px;right:16px;left:auto;justify-content:flex-end;flex-wrap:nowrap}
+  .rand.wijkt{transform:none}
+  #btn-door{display:none}
+  .merk span{display:none}
+  .onder{top:70px;transition:opacity var(--enter) var(--ease)}
+  /* het onderste vlak draagt op een telefoon het bewijs; de groet wijkt dan */
+  body.bewijs-open .onder{opacity:0}
+  .knop{padding:8px 12px;font-size:12px}
+  .tip{display:none}
+}
+
+@media (prefers-reduced-motion: reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+
+<canvas id="veld" aria-label="Het veld waarin Maculis de waarnemingen over jouw organisatie toont"></canvas>
+<div class="vig"></div>
+
+<div class="hud">
+  <div class="merk"><i></i><span>Mijn Maculis</span></div>
+
+  <div class="rand">
+    <button class="knop" id="btn-blind" type="button">Wat zie ik niet?</button>
+    <button class="knop" id="btn-opnieuw" type="button">Opnieuw</button>
+    <button class="knop" id="btn-door" type="button">Toon het resultaat</button>
+  </div>
+
+  <div class="onder">
+    <p class="groet" id="groet">Goedemorgen, Sanne.</p>
+    <p class="tijdlijn" id="tijdlijn"></p>
+    <p class="toestand" id="toestand">Maculis kijkt.</p>
+  </div>
+
+  <!-- de uitspraak komt uit de kern voort en is eraan verankerd -->
+  <div class="zeg" id="zeg">
+    <p class="lab v aanhef" id="zeg-aanhef">Hier zien we iets</p>
+    <h1 id="zeg-titel"></h1>
+    <p class="rust" id="zeg-rust"></p>
+    <div class="acties">
+      <button class="knop primair" id="btn-waarom" type="button">Waarom ziet Maculis dit?</button>
+    </div>
+  </div>
+
+  <!-- het bewijs komt uit het veld, niet uit een detailpagina -->
+  <aside class="bewijs" id="bewijs" aria-hidden="true">
+    <button class="knop tekst sluit" id="btn-sluit" type="button">Terug naar het veld</button>
+    <p class="lab c" id="bw-eyebrow">Waarop dit rust</p>
+    <h2 id="bw-titel"></h2>
+
+    <div class="sterkte">
+      <span class="getal" id="bw-getal"></span>
+      <p id="bw-sterkte"></p>
+    </div>
+
+    <ul class="bronnen" id="bw-bronnen"></ul>
+
+    <div class="vraag" id="bw-vraag">
+      <p class="q">Herken je dit?</p>
+      <div class="keuzes">
+        <button class="knop" data-antwoord="ja" type="button">Ja</button>
+        <button class="knop" data-antwoord="deels" type="button">Deels</button>
+        <button class="knop" data-antwoord="nee" type="button">Nee</button>
+      </div>
+      <p class="uitkomst" id="bw-uitkomst">Jouw antwoord verandert wat Maculis hiervan weet. Niets wordt vastgelegd zonder dat jij het zegt.</p>
+    </div>
+
+    <div class="grens" id="bw-grens">
+      <div class="staat"><i class="priv" id="bw-staat-dot"></i><span id="bw-staat">Alleen voor jou</span></div>
+      <p id="bw-grens-tekst"></p>
+      <div><button class="knop" id="btn-deel" type="button">Deel met Maculis</button></div>
+    </div>
+  </aside>
+
+  <div class="tip" id="tip"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ============================================================================
+   1. DE INHOUD
+   Echte Mijn-Maculis-inhoud uit de bestaande preview: De Voorbeeld Groep.
+   Elk patroon draagt zijn eigen waarnemingen, met bron en datum. Een patroon
+   zonder genoeg bewijs blijft een patroon zonder inzicht. Dat is geen gebrek.
+   ============================================================================ */
+var ORG = { naam:'De Voorbeeld Groep', gebruiker:'Sanne' };
+
+var PATRONEN = [
+  {
+    id:'positionering', naam:'Positionering', houding:'spanning', delen:'PRIVE',
+    /* wereldcoördinaten, -1..1; het veld is niet symmetrisch */
+    x:-0.38, y:-0.08, straal:0.21, drempel:5, leidend:true,
+    aanhef:'Hier zien we iets',
+    titel:'Jullie positionering wordt intern <em>niet overal</em> hetzelfde ervaren.',
+    grens:'Dit inzicht is van jou. Maculis gebruikt het niet in jullie samenwerking tot je het zelf deelt.',
+    bronnen:[
+      { wat:'De pagina Over ons op jullie website', wanneer:'12 mrt' },
+      { wat:'De klantcase over de gemeente', wanneer:'12 mrt' },
+      { wat:'Vacaturetekst voor accountmanager', wanneer:'3 apr' },
+      { wat:'Vacaturetekst voor projectleider', wanneer:'3 apr' },
+      { wat:'Bericht van een teamlid op LinkedIn', wanneer:'21 apr' },
+      { wat:'Interne nieuwsbrief, editie mei', wanneer:'2 mei', nieuw:true },
+      { wat:'Tweede bericht van een teamlid', wanneer:'6 mei', nieuw:true }
+    ]
+  },
+  {
+    id:'klantgerichtheid', naam:'Klantgerichtheid', houding:'bevestigd', delen:'PRIVE',
+    x:0.54, y:0.40, straal:0.15, drempel:5,
+    aanhef:'Hier zien we consistentie',
+    titel:'Rond de klantbelofte zien we <em>veel consistentie</em>.',
+    grens:'Dit inzicht is van jou. Wat sterk is, hoeft niet gerepareerd te worden.',
+    bronnen:[
+      { wat:'Zes klantverhalen op de site', wanneer:'12 mrt' },
+      { wat:'Reactie op een recensie', wanneer:'28 mrt' },
+      { wat:'Teampagina, hoe jullie het zelf zeggen', wanneer:'12 mrt' },
+      { wat:'Nieuwsbericht over een geslaagd project', wanneer:'19 apr' },
+      { wat:'Antwoord op een klantvraag, publiek', wanneer:'30 apr' },
+      { wat:'De belofte op de homepage', wanneer:'12 mrt' }
+    ]
+  },
+  {
+    id:'externbeeld', naam:'Extern beeld', houding:'waargenomen', delen:'GEDEELD',
+    x:0.24, y:-0.56, straal:0.11, drempel:4,
+    aanhef:'Dit valt op',
+    titel:'Naar buiten toe is het verhaal <em>herkenbaar</em>. Naar binnen nog niet overal.',
+    grens:'Dit heb je met Maculis gedeeld. Het is onderdeel van jullie samenwerking en je kunt het intrekken.',
+    bronnen:[
+      { wat:'Homepage en dienstenpagina', wanneer:'12 mrt' },
+      { wat:'Twee persberichten', wanneer:'4 apr' },
+      { wat:'Profiel op een brancheplatform', wanneer:'17 apr' },
+      { wat:'Presentatie die publiek staat', wanneer:'25 apr' },
+      { wat:'Bericht van een teamlid, intern van toon', wanneer:'21 apr' }
+    ]
+  },
+  {
+    id:'communicatie', naam:'Interne communicatie', houding:'waargenomen', delen:'PRIVE',
+    x:-0.74, y:0.44, straal:0.10, drempel:4,
+    aanhef:'Dit valt op',
+    titel:'Hetzelfde verhaal wordt intern <em>verschillend</em> overgebracht.',
+    grens:'Dit inzicht is van jou tot je het zelf deelt.',
+    bronnen:[
+      { wat:'Interne nieuwsbrief, editie maart', wanneer:'6 mrt' },
+      { wat:'Interne nieuwsbrief, editie mei', wanneer:'2 mei' },
+      { wat:'Twee vacatureteksten naast elkaar', wanneer:'3 apr' },
+      { wat:'Bericht van een teamlid', wanneer:'21 apr' }
+    ]
+  },
+  {
+    id:'belofte', naam:'Belofte en ervaring', houding:'bevestigd', delen:'PRIVE',
+    x:0.86, y:-0.22, straal:0.085, drempel:3,
+    aanhef:'Hier zien we géén verschil',
+    titel:'Tussen jullie belofte en wat klanten ervaren zien we <em>geen kloof</em>.',
+    grens:'Dat we niets vinden is zelf een uitkomst. Dit inzicht is van jou.',
+    bronnen:[
+      { wat:'Elf publieke reacties van klanten', wanneer:'28 mrt' },
+      { wat:'De belofte op de homepage', wanneer:'12 mrt' },
+      { wat:'Drie klantverhalen', wanneer:'12 mrt' }
+    ]
+  },
+  {
+    id:'besluitvorming', naam:'Besluitvorming', houding:'onbekend', delen:'PRIVE',
+    x:-0.06, y:0.50, straal:0.13, drempel:4, blind:true,
+    aanhef:'Dit weten we nog niet',
+    titel:'Over jullie interne besluitvorming hebben we <em>onvoldoende zicht</em>.',
+    grens:'Hier valt nog niets te delen, want er is nog niets vastgesteld.',
+    bronnen:[
+      { wat:'Eén zin in een jaarbericht', wanneer:'9 feb' }
+    ]
+  }
+];
+
+/* Losse waarnemingen die nog nergens bij horen. Ze verbinden zich niet en dat
+   is de regel zichtbaar gemaakt: nabijheid is het gevolg van betekenis. */
+var LOS = [
+  { x:-0.72, y:-0.52, wat:'Een oude blogpost over duurzaamheid', wanneer:'2023' },
+  { x:0.78, y:0.56,  wat:'Vermelding in een lokale krant', wanneer:'11 jan' },
+  { x:-0.66, y:0.72, wat:'Een sponsorlogo bij een evenement', wanneer:'8 feb' },
+  { x:0.86, y:-0.62, wat:'Een oud vacaturebericht', wanneer:'2024' }
+];
+
+var HOUDING_TEKST = {
+  spanning:'vraagt aandacht', bevestigd:'bevestigd',
+  waargenomen:'waargenomen', onbekend:'te weinig bewijs'
+};
+
+/* ============================================================================
+   2. HET VELD
+   De engine uit de Visual North Star, integraal. Elke waarneming heeft een
+   verstrooide thuispositie en een semantisch doel. De drift is een functie van
+   (1 - voortgang): onzekerheid beweegt, begrip vindt rust. Verbindingen bestaan
+   uitsluitend binnen een patroon. Violet ontsteekt pas boven de bewijsdrempel
+   van dat patroon, en de halo volgt het aantal dragende signalen.
+   ============================================================================ */
+var cv = document.getElementById('veld'), ctx = cv.getContext('2d');
+var W=0,H=0,DPR=1,SCALE=1,CXp=0,CYp=0;
+var signalen=[], kernen=[];
+var klok=0, t0=0, p=0;                 /* p: voortgang van de levenscyclus, 0..1 */
+var cam={x:0,y:0,z:1}, camDoel={x:0,y:0,z:1};
+var toestand='openen';                 /* openen · rust · bewijs · blind */
+var focus=null;                        /* het patroon waarvan we het bewijs open hebben */
+var hoverSig=null;
+var bevestiging={};                    /* patroon-id → 'ja' | 'deels' | 'nee' */
+var gedeeld={};                        /* patroon-id → true, na een expliciete handeling */
+
+function rnd(s){ var x=Math.sin(s*127.1)*43758.5453; return x-Math.floor(x); }
+function ease(t){ return t<0?0:t>1?1:1-Math.pow(1-t,3); }
+function cl(v,a,b){ a=a===undefined?0:a; b=b===undefined?1:b; return v<a?a:v>b?b:v; }
+function lerp(a,b,t){ return a+(b-a)*t; }
+var now = function(){ return (window.performance&&performance.now)?performance.now():Date.now(); };
+
+function meet(){
+  var r = cv.getBoundingClientRect();
+  /* DPR begrensd: dit moet vloeiend zijn op normale hardware, niet alleen op een
+     ontwikkelmachine. Er wordt nergens realtime blur of een filter gebruikt. */
+  DPR = Math.min(window.devicePixelRatio||1, 2);
+  if(r.width*r.height > 1600*1000) DPR = Math.min(DPR, 1.5);
+  cv.width = Math.round(r.width*DPR); cv.height = Math.round(r.height*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  W=r.width; H=r.height;
+  /* De wereld loopt van -1.05 tot 1.05. De schaal volgt de ruimte die er is, zodat
+     het veld op een telefoon niet half buiten beeld valt. Niet het bureaublad
+     verkleind, maar dezelfde ruimte anders bemeten. */
+  SCALE = (W<=760) ? Math.min(W/1.95, (H-236)/1.95) : Math.min(W/2.35, H/1.85);
+  CXp = W*0.5;
+  /* Op een telefoon draagt het onderste vlak de uitspraak. Het veld centreert
+     daarom in de ruimte die overblijft, niet achter de tekst. */
+  CYp = (W<=760) ? (H-236)*0.5 : H*0.5;
+}
+
+function bouw(){
+  signalen=[]; kernen=[];
+  var k=0;
+  PATRONEN.forEach(function(pat,pi){
+    var n = pat.bronnen.length;
+    pat.n = n;
+    for(var i=0;i<n;i++){
+      k++;
+      var a = (i/n)*6.2832 + pi*2.1;
+      var rr = pat.straal*(0.72 + (i%3)*0.16);
+      signalen.push({
+        pat:pi, bron:pat.bronnen[i], nieuw:!!pat.bronnen[i].nieuw,
+        /* verstrooid thuis: de waarneming bestond al voordat ze betekenis kreeg */
+        hx:(rnd(k*3.1)*2-1)*1.05, hy:(rnd(k*7.7)*2-1)*0.95,
+        /* semantisch doel: waar ze hoort zodra duidelijk is waar ze over gaat */
+        tx:pat.x+Math.cos(a)*rr, ty:pat.y+Math.sin(a)*rr*0.86,
+        fase:rnd(k*1.7)*6.28, snel:0.26+rnd(k*5.3)*0.26, amp:0.030+rnd(k*2.9)*0.026,
+        vroeg:i/n
+      });
+    }
+    kernen.push({ pat:pi, x:pat.x, y:pat.y, n:n, drempel:pat.drempel, ref:pat });
+  });
+  LOS.forEach(function(l,i){
+    k++;
+    signalen.push({
+      pat:-1, bron:l, nieuw:false,
+      hx:(rnd(k*3.1)*2-1)*1.05, hy:(rnd(k*7.7)*2-1)*0.95,
+      tx:l.x, ty:l.y,
+      fase:rnd(k*1.7)*6.28, snel:0.22+rnd(k*5.3)*0.2, amp:0.034+rnd(k*2.9)*0.03,
+      vroeg:0.5
+    });
+  });
+}
+
+/* wereld → scherm */
+function sx(x){ return CXp + (x-cam.x)*SCALE*cam.z; }
+function sy(y){ return CYp + (y-cam.y)*SCALE*cam.z; }
+
+/* De positie van een waarneming. Alles hangt aan e: hoe verder de betekenis,
+   hoe kleiner de drift. Wat betekenis heeft gekregen, verplaatst zich niet meer. */
+function positie(s){
+  var eigen = cl((p - s.vroeg*0.10)/0.62);      /* elk signaal vindt zijn plek op eigen tempo */
+  var e = ease(eigen);
+  /* een patroon dat de mens heeft afgewezen, wordt weer onzeker en gaat weer bewegen */
+  var los = (s.pat>=0 && bevestiging[PATRONEN[s.pat].id]==='nee') ? 0.55 : 0;
+  var vast = (s.pat>=0 && bevestiging[PATRONEN[s.pat].id]==='ja') ? 1 : 0;
+  var drift = (1 - e*0.9)*(1-vast) + los;
+  var adem = e*(1-los);
+  return {
+    x: s.hx+(s.tx-s.hx)*e + Math.cos(klok*s.snel+s.fase)*s.amp*drift + Math.cos(klok*0.20+s.fase)*0.004*adem,
+    y: s.hy+(s.ty-s.hy)*e + Math.sin(klok*s.snel*0.82+s.fase)*s.amp*drift + Math.sin(klok*0.17+s.fase)*0.004*adem,
+    e: e
+  };
+}
+
+/* Hoeveel bewijs draagt dit patroon op dit moment, uitgedrukt in 0..1.
+   Menselijke bevestiging telt mee: zonder de mens blijft het een vermoeden. */
+function bewijskracht(kern){
+  var id = kern.ref.id;
+  var basis = kern.n / Math.max(kern.drempel,1);
+  if(bevestiging[id]==='ja')    basis *= 1.35;
+  if(bevestiging[id]==='deels') basis *= 0.92;
+  if(bevestiging[id]==='nee')   basis *= 0.42;
+  return basis;
+}
+function ontstoken(kern){ return bewijskracht(kern) >= 1; }
+
+function halo(kern, ign){
+  /* canon 7: de straal is een functie van het aantal onafhankelijke signalen,
+     niet van de opmaak. Menselijke bevestiging verhoogt de kracht, niet de smaak. */
+  var basis = 0.030 + kern.n*0.0092;
+  return basis * Math.min(bewijskracht(kern),1.9) * ign;
+}
+
+function gloed(x,y,r,rgb,a){
+  if(r<=0.4||a<=0.004) return;
+  var g=ctx.createRadialGradient(x,y,0,x,y,r);
+  g.addColorStop(0,'rgba('+rgb+','+a+')');
+  g.addColorStop(.42,'rgba('+rgb+','+(a*.28).toFixed(4)+')');
+  g.addColorStop(1,'rgba('+rgb+',0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.fill();
+}
+
+var GOLD='215,179,106', GOLD3='243,227,135', COP='200,137,74', VIO='138,121,224', ZAND='236,224,201';
+
+function teken(){
+  ctx.clearRect(0,0,W,H);
+
+  /* light.field: een zeer wijde radiale gradient die het oppervlak richting geeft.
+     Hij staat waar op dit moment het meeste bewijs ligt, dus hij betekent iets. */
+  var zwaar = kernen.reduce(function(a,b){ return bewijskracht(b)>bewijskracht(a)?b:a; }, kernen[0]);
+  if(zwaar){
+    var lf = cl((p-0.30)/0.5);
+    gloed(sx(zwaar.x), sy(zwaar.y), Math.min(W,H)*0.95*cam.z, VIO, 0.055*lf);
+  }
+
+  var P = signalen.map(positie);
+
+  /* ---- trap 2 en 3: verband, uitsluitend binnen hetzelfde patroon ---- */
+  var link = cl((p-0.40)/0.24);
+  if(link>0){
+    ctx.lineWidth = 1;
+    for(var i=0;i<signalen.length;i++){
+      if(signalen[i].pat<0) continue;
+      for(var j=i+1;j<signalen.length;j++){
+        if(signalen[j].pat!==signalen[i].pat) continue;
+        var ax=sx(P[i].x), ay=sy(P[i].y), bx=sx(P[j].x), by=sy(P[j].y);
+        var d=Math.hypot(ax-bx,ay-by), reik=118*cam.z;
+        if(d>reik) continue;
+        var eigen = (signalen[i].pat===zegAnker);
+        var dim = dempingVoor(signalen[i].pat)*Math.min(ruimteVoorTekst(ax,ay,eigen),ruimteVoorTekst(bx,by,eigen));
+        var a = link*(1-d/reik)*0.26*dim;
+        if(bevestiging[PATRONEN[signalen[i].pat].id]==='nee') a *= 0.35;
+        ctx.strokeStyle='rgba('+COP+','+a.toFixed(4)+')';
+        ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+      }
+    }
+  }
+
+  /* ---- trap 4: het inzicht ---- */
+  var ign = cl((p-0.66)/0.30);
+  kernen.forEach(function(kern){
+    var dim = dempingVoor(kern.pat);
+    if(dim<=0.02) return;
+    var pat = kern.ref;
+    var kx=sx(kern.x), ky=sy(kern.y);
+    var straal = halo(kern,ign)*SCALE*cam.z;
+    dim *= ruimteVoorTekst(kx,ky, kern.pat===zegAnker);
+
+    /* Een patroon dat van jou alleen is, draagt een zandring. Dat is geen badge:
+       het is het oppervlak zelf (canon 6, surface.private). */
+    if(!gedeeld[pat.id] && pat.delen==='PRIVE' && ign>0 && !pat.blind){
+      var pr = cl(straal*1.15, 13*cam.z, 30*cam.z);
+      ctx.strokeStyle='rgba('+ZAND+','+(0.26*ign*dim).toFixed(4)+')';
+      ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(kx,ky,pr,0,6.2832); ctx.stroke();
+    }
+
+    /* Canon 7: light.core is er maximaal één per scherm. Precies één patroon draagt
+       op dit moment het inzicht; de andere patronen zijn trap 3, een gedeelde
+       richting zonder eigen kern. Ze krijgen daarom een fractie van het licht. */
+    var isKern = (kern.pat === (focus!==null ? focus : leidend()));
+    if(ontstoken(kern) && ign>0){
+      var kracht = isKern ? 1 : 0.16;
+      gloed(kx,ky,straal*(isKern?2.6:1.5),VIO,(0.11+kern.n*0.006)*ign*dim*kracht);
+      if(isKern){
+        gloed(kx,ky,straal*0.66,VIO,0.42*ign*dim);
+        ctx.fillStyle='rgba(200,192,245,'+(0.95*ign*dim).toFixed(3)+')';
+        ctx.beginPath(); ctx.arc(kx,ky,3.0,0,6.2832); ctx.fill();
+      } else {
+        ctx.fillStyle='rgba(169,155,236,'+(0.42*ign*dim).toFixed(3)+')';
+        ctx.beginPath(); ctx.arc(kx,ky,1.8,0,6.2832); ctx.fill();
+      }
+    }
+
+    /* De naam verschijnt pas als het patroon echt is. Wat te weinig bewijs heeft,
+       krijgt geen naam maar wel een eerlijke tekst. */
+    var la = cl((p-0.58)/0.26)*dim;
+    if(la>0){
+      var noem = ontstoken(kern);
+      ctx.font='600 10px '+getComputedStyle(document.body).fontFamily;
+      ctx.textAlign='center';
+      ctx.letterSpacing = '1.6px';
+      ctx.fillStyle = (noem && isKern) ? 'rgba(169,155,236,'+(0.88*la).toFixed(3)+')'
+                     : noem            ? 'rgba(168,154,134,'+(0.62*la).toFixed(3)+')'
+                                       : 'rgba(139,131,119,'+(0.66*la).toFixed(3)+')';
+      /* de naam staat buiten de baan van zijn eigen waarnemingen, nooit erin */
+      var off = Math.max(straal, pat.straal*SCALE*cam.z*0.95, 18) + 26;
+      var tekst = noem ? pat.naam.toUpperCase() : 'TE WEINIG BEWIJS';
+      var halfBreed = ctx.measureText(tekst).width*0.5 + 10;
+      ctx.fillText(tekst, cl(kx, halfBreed, Math.max(halfBreed, W-halfBreed)), ky+off);
+      ctx.letterSpacing = '0px';
+    }
+  });
+
+  /* ---- trap 1: de waarnemingen zelf ---- */
+  for(var q=0;q<signalen.length;q++){
+    var s=signalen[q], pt=P[q];
+    var dim = dempingVoor(s.pat);
+    if(dim<=0.02) continue;
+    var x=sx(pt.x), y=sy(pt.y);
+    if(x<-40||x>W+40||y<-40||y>H+40) continue;
+    dim *= ruimteVoorTekst(x,y, s.pat===zegAnker);
+    if(dim<=0.02) continue;
+    var geboorte = s.nieuw ? cl((p-0.16)/0.16) : cl(p/0.10);
+    if(geboorte<=0) continue;
+    /* helderheid volgt hoe dicht een waarneming bij een inzicht staat */
+    var nabij = s.pat<0 ? 0.34 : lerp(0.42, 1, pt.e);
+    var aan = geboorte*nabij*dim;
+    var hov = (hoverSig===q) ? 1.6 : 1;
+
+    gloed(x,y,13*hov*cam.z,GOLD,0.26*aan);
+    ctx.fillStyle='rgba('+GOLD3+','+(0.90*aan).toFixed(3)+')';
+    ctx.beginPath(); ctx.arc(x,y,(s.pat<0?1.5:1.9)*hov,0,6.2832); ctx.fill();
+
+    /* wat sinds je vorige bezoek is bijgekomen, draagt een koperen ring tot je het hebt gezien */
+    if(s.nieuw && geboorte>0 && toestand!=='bewijs'){
+      ctx.strokeStyle='rgba('+COP+','+(0.5*aan).toFixed(3)+')';
+      ctx.lineWidth=1;
+      ctx.beginPath(); ctx.arc(x,y,7+Math.sin(klok*0.9+s.fase)*1.2,0,6.2832); ctx.stroke();
+    }
+  }
+
+  /* ---- de leider van de uitspraak naar zijn kern ---- */
+  if(zegAnker && zegZichtbaar()){
+    var k2 = kernen[zegAnker];
+    var lx=sx(k2.x), ly=sy(k2.y);
+    ctx.strokeStyle='rgba('+COP+',.22)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(zegPunt.x, zegPunt.y); ctx.lineTo(lx,ly); ctx.stroke();
+  }
+}
+
+/* Wanneer het bewijs van één patroon open staat, treedt de rest terug.
+   Dat is geen dimmen om esthetiek maar focus: dit hoort er wel bij, dat niet. */
+function dempingVoor(patIndex){
+  if(focus===null) return 1;
+  if(patIndex===focus) return 1;
+  if(patIndex<0) return 0.14;
+  return 0.18;
+}
+
+/* ============================================================================
+   3. DE CHOREOGRAFIE
+   Twintig seconden, één keer, met een eindtoestand. Reduced motion toont die
+   eindtoestand direct: nooit een bevroren begin.
+   ============================================================================ */
+var DUUR = 20000;
+var STADIA = [
+  [0.00,'Maculis kijkt.'],
+  [0.10,'Waarnemingen komen binnen. Nog zonder verband.'],
+  [0.30,'Sommige signalen zoeken hun plaats.'],
+  [0.42,'Signalen die over hetzelfde gaan, vinden elkaar.'],
+  [0.58,'Er tekent zich een patroon af.'],
+  [0.70,'Hier komt genoeg bewijs samen.'],
+  [0.88,'Het veld is tot rust gekomen.']
+];
+var elToestand=document.getElementById('toestand');
+var elZeg=document.getElementById('zeg');
+var elTijdlijn=document.getElementById('tijdlijn');
+var zegAnker=null, zegPunt={x:0,y:0}, zegBox=null;
+
+function zegZichtbaar(){ return elZeg.classList.contains('in'); }
+
+function stadium(){
+  var s=STADIA[0][1];
+  for(var i=0;i<STADIA.length;i++) if(p>=STADIA[i][0]) s=STADIA[i][1];
+  if(toestand==='bewijs') s='Je kijkt naar het bewijs onder dit inzicht.';
+  if(toestand==='blind') s='Waar Maculis te weinig heeft gezien, blijft het veld leeg.';
+  if(elToestand.textContent!==s) elToestand.textContent=s;
+}
+
+/* het leidende patroon is niet vast: het is wat op dit moment het meeste draagt */
+function leidend(){
+  var beste=null, score=-1;
+  kernen.forEach(function(k,i){
+    if(k.ref.blind) return;
+    var sc = bewijskracht(k) + (k.ref.leidend?0.25:0) + (k.ref.houding==='spanning'?0.2:0);
+    if(sc>score){ score=sc; beste=i; }
+  });
+  return beste;
+}
+
+function vulUitspraak(){
+  var i = focus!==null ? focus : leidend();
+  if(i===null) return;
+  zegAnker = i;
+  var pat = kernen[i].ref;
+  document.getElementById('zeg-aanhef').textContent = pat.aanhef;
+  document.getElementById('zeg-titel').innerHTML = pat.titel;
+  var nieuw = pat.bronnen.filter(function(b){return b.nieuw;}).length;
+  document.getElementById('zeg-rust').innerHTML =
+    'Rust op <b>'+pat.n+'</b> waarnemingen'+(nieuw?', waarvan <b>'+nieuw+'</b> nieuw sinds je vorige bezoek':'')+'.';
+}
+
+/* De uitspraak hangt aan de kern. Ze staat aan de kant waar ruimte is, nooit
+   op een vaste plek in een template. */
+function plaatsUitspraak(){
+  if(zegAnker===null || window.innerWidth<=760){ zegBox=null; return; }
+  var k=kernen[zegAnker];
+  var kx=sx(k.x), ky=sy(k.y);
+  var breed=elZeg.offsetWidth, hoog=elZeg.offsetHeight;
+  if(!breed||!hoog) return;
+  var marge=Math.min(W,H)*0.055;
+  var straal=Math.max(halo(k,1)*SCALE*cam.z, k.ref.straal*SCALE*cam.z)+56;
+
+  /* Maculis spreekt waar het veld ruimte heeft. De uitspraak staat dus niet op
+     een vaste plek in een template, maar in het leegste gebied naast zijn kern.
+     Daardoor is de compositie iedere keer een gevolg van wat er te zien is. */
+  var kandidaten = [
+    {x:kx+straal,        y:ky-hoog*0.5},
+    {x:kx-straal-breed,  y:ky-hoog*0.5},
+    {x:kx-breed*0.5,     y:ky+straal},
+    {x:kx-breed*0.5,     y:ky-straal-hoog},
+    {x:W-breed-marge,    y:H*0.5-hoog*0.5},
+    {x:marge,            y:H*0.5-hoog*0.5}
+  ];
+  var beste=null, besteScore=-1e9;
+  for(var c=0;c<kandidaten.length;c++){
+    var bx=cl(kandidaten[c].x, marge, Math.max(marge, W-breed-marge));
+    var by=cl(kandidaten[c].y, marge+40, Math.max(marge+40, H-hoog-marge-84));
+    var mx=bx+breed*0.5, my=by+hoog*0.5;
+    var score=0;
+    /* hoe verder van andere patronen, hoe beter; de eigen kern telt niet mee */
+    for(var q=0;q<kernen.length;q++){
+      if(q===zegAnker) continue;
+      var d=Math.hypot(sx(kernen[q].x)-mx, sy(kernen[q].y)-my);
+      score += Math.min(d, 520);
+    }
+    /* dicht bij de eigen kern is juist goed: de uitspraak hoort erbij */
+    score -= Math.hypot(kx-mx, ky-my)*0.55;
+    /* de eigen kern is de hoofdrol: daar gaat de uitspraak nooit overheen */
+    var eigenR = Math.max(k.ref.straal*SCALE*cam.z, 60) + 40;
+    var dx0 = Math.max(bx-kx, 0, kx-(bx+breed));
+    var dy0 = Math.max(by-ky, 0, ky-(by+hoog));
+    if(Math.hypot(dx0,dy0) < eigenR) score -= 100000;
+    /* niet over de bediening rechtsboven of de groet linksonder heen */
+    if(by < 96 && bx+breed > W-360) score -= 900;
+    if(by+hoog > H-120 && bx < 460) score -= 900;
+    if(score>besteScore){ besteScore=score; beste={x:bx,y:by}; }
+  }
+  elZeg.style.transform='translate3d('+Math.round(beste.x)+'px,'+Math.round(beste.y)+'px,0)';
+  zegBox={x:beste.x,y:beste.y,w:breed,h:hoog};
+  /* de leider vertrekt vanaf de zijde die naar de kern wijst */
+  var naarRechts = kx > beste.x+breed*0.5;
+  zegPunt.x = naarRechts ? beste.x+breed+10 : beste.x-10;
+  zegPunt.y = beste.y+hoog*0.42;
+}
+
+/* Waar Maculis spreekt, treedt het veld een stap terug. Dezelfde mechaniek als
+   bij het bewijs: dit hoort er nu wel bij, dat even niet. */
+function ruimteVoorTekst(x,y,ontzie){
+  if(ontzie) return 1;
+  if(!zegBox || !zegZichtbaar()) return 1;
+  var m=26;
+  var dx=Math.max(zegBox.x-m-x, 0, x-(zegBox.x+zegBox.w+m));
+  var dy=Math.max(zegBox.y-m-y, 0, y-(zegBox.y+zegBox.h+m));
+  var d=Math.hypot(dx,dy);
+  return cl(d/58, 0.10, 1);
+}
+
+function lus(){
+  var dt = now()-t0;
+  klok = dt/1000*0.9;
+  if(toestand==='openen'){
+    p = cl(dt/DUUR);
+    if(p>=1){ toestand='rust'; klaar(); }
+  }
+  /* camera volgt zijn doel zacht; dit is de enige beweging die niet semantisch is,
+     maar hij dient de focus en komt altijd tot stilstand */
+  cam.x = lerp(cam.x, camDoel.x, 0.045);
+  cam.y = lerp(cam.y, camDoel.y, 0.045);
+  cam.z = lerp(cam.z, camDoel.z, 0.045);
+  teken(); stadium(); plaatsUitspraak();
+  raf = requestAnimationFrame(lus);
+}
+var raf=null;
+
+function klaar(){
+  vulUitspraak();
+  elZeg.classList.add('in');
+  document.getElementById('btn-door').disabled = true;
+}
+
+function start(){
+  meet(); bouw();
+  focus=null; bevestiging={}; gedeeld={};
+  camDoel={x:0,y:0,z:1}; cam={x:0,y:0,z:1};
+  toestand='openen'; t0=now(); p=0;
+  elZeg.classList.remove('in');
+  sluitBewijs(true);
+  document.getElementById('btn-door').disabled=false;
+  elTijdlijn.textContent='Sinds je vorige bezoek zijn er 2 nieuwe waarnemingen bijgekomen.';
+  if(reduce){ p=1; toestand='rust'; klaar(); teken(); stadium(); plaatsUitspraak(); return; }
+  if(raf) cancelAnimationFrame(raf);
+  t0=now(); lus();
+}
+
+function meteenKlaar(){
+  if(toestand!=='openen') return;
+  t0 = now()-DUUR; p=1; toestand='rust'; klaar();
+}
+
+/* ============================================================================
+   4. HET BEWIJS KOMT UIT HET VELD
+   ============================================================================ */
+var elBewijs=document.getElementById('bewijs');
+
+function openBewijs(i){
+  focus=i;
+  toestand='bewijs';
+  var pat=kernen[i].ref;
+  /* de camera brengt dit patroon naar voren; de rest treedt terug */
+  var naarLinks = window.innerWidth>760;
+  camDoel.x = pat.x + (naarLinks? 0.22 : 0);
+  camDoel.y = pat.y + (naarLinks? 0 : -0.16);
+  camDoel.z = 1.7;
+
+  document.getElementById('bw-titel').innerHTML = pat.titel;
+  document.getElementById('bw-getal').textContent = pat.n;
+  var bronnenUniek = new Set(pat.bronnen.map(function(b){ return b.wanneer; })).size;
+  document.getElementById('bw-sterkte').textContent =
+    pat.n===1
+      ? 'Eén waarneming. Te weinig om iets te zeggen, en dat zeggen we dan ook.'
+      : 'onafhankelijke waarnemingen, over ' + bronnenUniek + ' momenten. De straal van het licht volgt dit aantal.';
+  document.getElementById('bw-eyebrow').textContent = 'Waarop dit rust · ' + HOUDING_TEKST[pat.houding];
+
+  var ul=document.getElementById('bw-bronnen'); ul.innerHTML='';
+  pat.bronnen.forEach(function(b,bi){
+    var li=document.createElement('li');
+    li.className='bron'+(b.nieuw?' nieuw':'');
+    li.tabIndex=0;
+    li.innerHTML='<i></i><span class="wat"></span><span class="wanneer"></span>';
+    li.querySelector('.wat').textContent=b.wat;
+    li.querySelector('.wanneer').textContent=(b.nieuw?'nieuw · ':'')+b.wanneer;
+    /* een bron aanwijzen licht de bijbehorende waarneming op in het veld */
+    var idx = signalen.findIndex(function(s){ return s.pat===i && s.bron===b; });
+    li.addEventListener('mouseenter',function(){ hoverSig=idx; });
+    li.addEventListener('mouseleave',function(){ hoverSig=null; });
+    li.addEventListener('focus',function(){ hoverSig=idx; });
+    li.addEventListener('blur',function(){ hoverSig=null; });
+    ul.appendChild(li);
+  });
+
+  var vraag=document.getElementById('bw-vraag');
+  vraag.style.display = pat.blind ? 'none' : '';
+  document.getElementById('bw-uitkomst').textContent =
+    'Jouw antwoord verandert wat Maculis hiervan weet. Niets wordt vastgelegd zonder dat jij het zegt.';
+  vraag.querySelectorAll('[data-antwoord]').forEach(function(b){ b.classList.remove('primair'); });
+
+  toonGrens(pat);
+  elBewijs.classList.add('in');
+  elBewijs.setAttribute('aria-hidden','false');
+  elZeg.classList.add('wijkt');
+  document.body.classList.add('bewijs-open');
+  document.querySelector('.rand').classList.add('wijkt');
+  vulUitspraak();
+}
+
+function toonGrens(pat){
+  var isGedeeld = gedeeld[pat.id] || pat.delen==='GEDEELD';
+  document.getElementById('bw-staat').textContent = isGedeeld ? 'Gedeeld met Maculis' : 'Alleen voor jou';
+  document.getElementById('bw-staat-dot').className = isGedeeld ? 'gedeeld' : 'priv';
+  document.getElementById('bw-grens-tekst').textContent = isGedeeld
+    ? 'Maculis mag dit inzicht gebruiken in jullie samenwerking. Je kunt dat op elk moment intrekken.'
+    : pat.grens;
+  var knop=document.getElementById('btn-deel');
+  knop.style.display = pat.blind ? 'none' : '';
+  knop.textContent = isGedeeld ? 'Delen intrekken' : 'Deel met Maculis';
+}
+
+function sluitBewijs(stil){
+  focus=null;
+  if(toestand==='bewijs') toestand='rust';
+  camDoel={x:0,y:0,z:1};
+  elBewijs.classList.remove('in');
+  elBewijs.setAttribute('aria-hidden','true');
+  elZeg.classList.remove('wijkt');
+  document.body.classList.remove('bewijs-open');
+  document.querySelector('.rand').classList.remove('wijkt');
+  if(!stil) vulUitspraak();
+}
+
+/* ============================================================================
+   5. DE MENSELIJKE LAAG
+   Maculis verkondigt niet. Waar menselijke betekenis nodig is, vraagt het.
+   Het antwoord verandert het veld, zichtbaar.
+   ============================================================================ */
+document.querySelectorAll('[data-antwoord]').forEach(function(b){
+  b.addEventListener('click',function(){
+    if(focus===null) return;
+    var pat=kernen[focus].ref, a=b.getAttribute('data-antwoord');
+    bevestiging[pat.id]=a;
+    document.querySelectorAll('[data-antwoord]').forEach(function(x){ x.classList.toggle('primair', x===b); });
+    var u=document.getElementById('bw-uitkomst');
+    if(a==='ja'){
+      u.innerHTML='<b>Bevestigd door jou.</b> Het patroon komt tot rust en het licht wordt sterker. Maculis blijft kijken, maar zoekt hier niet langer.';
+    } else if(a==='deels'){
+      u.innerHTML='<b>Deels herkend.</b> Maculis houdt het inzicht aan en opent een onderzoekslijn naar wat er niet klopt. Het licht neemt iets af.';
+    } else {
+      u.innerHTML='<b>Niet herkend.</b> Het patroon wordt weer onzeker: de signalen komen los en gaan opnieuw bewegen. Maculis kijkt hier opnieuw naar.';
+    }
+    vulUitspraak();
+  });
+});
+
+document.getElementById('btn-deel').addEventListener('click',function(){
+  if(focus===null) return;
+  var pat=kernen[focus].ref;
+  if(pat.delen==='GEDEELD'){ pat.delen='PRIVE'; delete gedeeld[pat.id]; }
+  else if(gedeeld[pat.id]) delete gedeeld[pat.id];
+  else gedeeld[pat.id]=true;
+  toonGrens(pat);
+});
+
+/* ============================================================================
+   6. WAT IK NIET ZIE
+   Geen tekstje maar een plek. De camera gaat naar het gebied waar te weinig is.
+   ============================================================================ */
+document.getElementById('btn-blind').addEventListener('click',function(){
+  meteenKlaar();
+  var i = kernen.findIndex(function(k){ return k.ref.blind; });
+  if(i<0) return;
+  if(toestand==='blind'){ sluitBewijs(); toestand='rust'; return; }
+  openBewijs(i);
+  toestand='blind';
+});
+
+/* ============================================================================
+   7. AANWIJZEN IN HET VELD
+   ============================================================================ */
+var elTip=document.getElementById('tip');
+function raak(mx,my){
+  var beste=-1, best=18;
+  var P=signalen.map(positie);
+  for(var i=0;i<signalen.length;i++){
+    if(dempingVoor(signalen[i].pat)<0.2) continue;
+    var d=Math.hypot(sx(P[i].x)-mx, sy(P[i].y)-my);
+    if(d<best){ best=d; beste=i; }
+  }
+  return beste;
+}
+function raakKern(mx,my){
+  var beste=-1, best=44;
+  for(var i=0;i<kernen.length;i++){
+    var d=Math.hypot(sx(kernen[i].x)-mx, sy(kernen[i].y)-my);
+    if(d<best){ best=d; beste=i; }
+  }
+  return beste;
+}
+cv.addEventListener('pointermove',function(e){
+  if(p<0.5){ hoverSig=null; elTip.classList.remove('in'); return; }
+  var i=raak(e.clientX,e.clientY);
+  hoverSig = i>=0 ? i : null;
+  var k = raakKern(e.clientX,e.clientY);
+  cv.classList.toggle('aanwijsbaar', i>=0 || k>=0);
+  if(i>=0){
+    var s=signalen[i];
+    elTip.innerHTML='<b>'+(s.pat<0?'Losse waarneming':kernen[s.pat].ref.naam)+'</b>';
+    var sp=document.createElement('span'); sp.textContent=s.bron.wat+' · '+s.bron.wanneer;
+    elTip.appendChild(sp);
+    elTip.style.transform='translate3d('+Math.round(Math.min(e.clientX+16,W-260))+'px,'+Math.round(e.clientY+16)+'px,0)';
+    elTip.classList.add('in');
+  } else elTip.classList.remove('in');
+});
+cv.addEventListener('pointerleave',function(){ hoverSig=null; elTip.classList.remove('in'); });
+cv.addEventListener('click',function(e){
+  meteenKlaar();
+  var k=raakKern(e.clientX,e.clientY);
+  if(k>=0){ openBewijs(k); return; }
+  var i=raak(e.clientX,e.clientY);
+  if(i>=0 && signalen[i].pat>=0){ openBewijs(signalen[i].pat); return; }
+  if(focus!==null) sluitBewijs();
+});
+
+/* ============================================================================
+   8. BEDIENING
+   ============================================================================ */
+document.getElementById('btn-waarom').addEventListener('click',function(){
+  meteenKlaar();
+  var i = zegAnker!==null ? zegAnker : leidend();
+  if(i!==null) openBewijs(i);
+});
+document.getElementById('btn-sluit').addEventListener('click',function(){ sluitBewijs(); });
+document.getElementById('btn-opnieuw').addEventListener('click',function(){ start(); });
+document.getElementById('btn-door').addEventListener('click',function(){ meteenKlaar(); });
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape' && focus!==null) sluitBewijs();
+});
+window.addEventListener('resize',function(){ meet(); });
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden){ if(raf) cancelAnimationFrame(raf); raf=null; }
+  else if(!raf && !reduce){ t0 = now() - p*DUUR; lus(); }
+});
+
+start();
+})();
+</script>

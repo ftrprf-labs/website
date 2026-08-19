@@ -1,0 +1,430 @@
+/* Mijn Maculis · Het Veld
+   ---------------------------------------------------------------------------
+   Het veld is geen visualisatie in de interface. Het veld IS de kamer; alles
+   wat je hier leest komt eruit voort.
+
+   Nachtregime (canon 5, amendement C-10): de inhoud straalt zelf, diepte komt
+   uit luminantie en gloed. Dat is precies waarom deze kamer niet in het
+   dagregime kan staan: canon 7 zegt dat light.core daar niet als emissie
+   bestaat, terwijl licht hier de drager van het bewijs is.
+
+   Aliaslaag op de canonieke tokens. Dit bestand definieert GEEN eigen kleuren,
+   geen eigen schaduw, geen eigen radii en geen eigen curve; elke waarde wijst
+   naar maculis-tokens.css. Canon 13: nooit een eigen :root per scherm. */
+
+:root {
+  color-scheme: dark;
+
+  --bg: var(--surface-ground);        /* nacht: ink.980, de enige koele stap */
+  --paneel: var(--surface-raised);    /* ink.800 */
+  --hoog: var(--surface-elevated);    /* ink.600 */
+  --prive: var(--surface-private);    /* zand: dit is van jou alleen (canon 6, C-10b) */
+
+  --lijn: var(--border-hairline);
+  --lijn2: var(--border-defined);
+
+  --ink: var(--text-primary);
+  --ink2: var(--text-secondary);
+  --ink3: var(--text-quiet);
+
+  --signaal: var(--semantic-signal);  /* nacht: koper */
+  --wordt: var(--semantic-emerging);  /* violet */
+  --op-koper: #241606;                /* donkere tekst op het koperen vlak; canon 12 kent hier geen token */
+
+  --serif: var(--type-serif);
+  --sans: var(--type-sans);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body.mijn {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--type-fine);
+  line-height: 1.6;
+  font-optical-sizing: auto;   /* canon 4.1, REGEL */
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+.hidden { display: none !important; }
+
+/* Focus is koper. Canon 13: violet nooit op een focusring. */
+:focus-visible {
+  outline: 2px solid var(--signaal);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---- de drie typografische rollen (canon 4.2) ------------------------------
+   Uitspraak: serif 300. Waar serif staat, staat een waarneming, een gedachte
+   of een vraag. Aanwijzing: sans 11px uppercase. Functie: sans regular.
+   Stem van Maculis: serif cursief, op kleine maten gewicht 400 (canon C-9). */
+.zeg-titel, .blad-titel, .merkwoord, .dev-titel, .pt-titel, .confirm-title {
+  font-family: var(--serif);
+  font-weight: 300;
+  letter-spacing: -0.017em;
+  text-wrap: balance;
+  margin: 0;
+}
+.lab {
+  font-family: var(--sans);
+  font-size: var(--type-label);
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink2);
+  margin: 0;
+}
+.lab.c { color: var(--signaal); }
+.lab.v { color: var(--wordt); }
+.stem { font-family: var(--serif); font-style: italic; font-weight: 400; }
+
+/* Het lichtpunt: trap 1 van de signal language. In nacht straalt het zelf. */
+.punt {
+  width: 7px; height: 7px; border-radius: 50%; flex: none;
+  background: var(--copper-500);
+  box-shadow: 0 0 0 4px rgba(200,137,74,.10), 0 0 14px 2px rgba(200,137,74,.55);
+}
+
+/* ---- toegangspoort --------------------------------------------------------- */
+.gate {
+  min-height: 100vh; display: grid; place-items: center;
+  padding: var(--space-5); background: var(--bg);
+}
+.gate-card { display: flex; flex-direction: column; align-items: center; gap: var(--space-3); text-align: center; }
+.merkwoord { font-size: var(--type-insight); }
+.gate-msg { color: var(--ink2); max-width: 38ch; margin: 0; }
+.gate-msg.error { color: var(--semantic-broken); }
+
+/* ---- het veld -------------------------------------------------------------- */
+.app { position: fixed; inset: 0; }
+.veld { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.veld.aanwijsbaar { cursor: pointer; }
+.vig {
+  position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  background: radial-gradient(130% 100% at 50% 42%, transparent 42%, rgba(0,0,0,.62) 100%);
+}
+
+.hud { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.hud > * { pointer-events: auto; }
+
+.merk {
+  position: absolute; top: clamp(16px,3vw,28px); left: clamp(16px,3vw,32px);
+  display: flex; align-items: center; gap: var(--space-3); pointer-events: none;
+}
+.merk-tekst { display: flex; flex-direction: column; line-height: 1.3; }
+.merk-naam { font-family: var(--serif); font-size: 13px; letter-spacing: .22em; text-transform: uppercase; color: var(--ink2); }
+.merk-org { font-size: 12px; color: var(--ink3); }
+
+.rand {
+  position: absolute; top: clamp(14px,3vw,26px); right: clamp(14px,3vw,30px);
+  display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; justify-content: flex-end;
+  transition: transform var(--motion-stage) var(--motion-ease);
+}
+.rand.wijkt { transform: translateX(calc(-1 * min(440px, 94vw))); }
+
+.knop {
+  font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink2);
+  background: transparent; border: 1px solid var(--lijn);
+  border-radius: var(--radius-pill);
+  padding: 8px var(--space-4); cursor: pointer; white-space: nowrap;
+  transition: border-color var(--motion-micro) var(--motion-ease),
+              color var(--motion-micro) var(--motion-ease),
+              transform var(--motion-micro) var(--motion-ease);
+}
+.knop:hover { border-color: var(--copper-500); color: var(--ink); }
+.knop[disabled] { opacity: .45; cursor: default; }
+.knop[aria-pressed="true"] { border-color: var(--copper-500); color: var(--ink); }
+/* Primair: pil, warm verzadigd oppervlak, donkere tekst, hover is een lift (canon 12). */
+.knop.primair { background: var(--copper-500); border-color: transparent; color: var(--op-koper); }
+.knop.primair:hover { background: var(--copper-400); transform: translateY(-1px); }
+/* Tertiair: alleen tekst met een onderlijn. */
+.knop.tekst {
+  border-color: transparent; border-bottom: 1px solid var(--lijn2);
+  border-radius: 0; padding: 2px 0; color: var(--signaal);
+}
+.knop.tekst:hover { border-bottom-color: var(--copper-500); transform: none; }
+
+.onder {
+  position: absolute; left: clamp(16px,3vw,32px); bottom: clamp(16px,3vw,28px);
+  display: flex; flex-direction: column; gap: var(--space-2);
+  max-width: min(46ch, 74vw); pointer-events: none;
+}
+.groet { font-family: var(--serif); font-weight: 300; font-size: clamp(15px,1.5vw,18px); letter-spacing: -.017em; margin: 0; }
+.sinds { font-size: 12.5px; color: var(--signaal); margin: 0; }
+.toestand { font-size: 12.5px; color: var(--ink2); margin: 0; min-height: 1.5em; }
+
+/* ---- de uitspraak ---------------------------------------------------------- */
+.zeg {
+  position: absolute; top: 0; left: 0; width: min(34ch, 44vw);
+  opacity: 0; transform: translate3d(0,0,0);
+  transition: opacity var(--motion-stage) var(--motion-ease);
+}
+.zeg.in { opacity: 1; }
+/* Terwijl een blad open staat, is de uitspraak niet alleen onzichtbaar maar ook
+   werkelijk weg: anders blijft haar knop bereikbaar met de tab-toets. */
+.zeg.wijkt { opacity: 0; visibility: hidden; pointer-events: none; }
+.zeg-titel { font-size: clamp(1.5rem, 2.9vw, 2.6rem); line-height: 1.14; margin: var(--space-3) 0 var(--space-4); }
+.zeg-titel em { font-style: italic; color: var(--gold-300); }
+.zeg-rust { font-size: 12.5px; color: var(--ink2); margin: 0 0 var(--space-4); font-variant-numeric: tabular-nums; }
+.zeg-rust b { color: var(--ink); font-weight: 600; }
+.zeg-acties { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+
+/* ---- de bladen: sheets over het veld, nooit een dashboardkolom -------------- */
+.blad {
+  position: absolute; top: 0; right: 0; height: 100%; width: min(440px, 94vw); z-index: 4;
+  background: var(--paneel);
+  border-left: 1px solid var(--lijn);
+  display: flex; flex-direction: column;
+  transform: translateX(101%);
+  transition: transform var(--motion-stage) var(--motion-ease);
+}
+.blad.in { transform: none; }
+.blad-kop { padding: clamp(16px,2.4vw,26px) clamp(18px,2.6vw,32px) 0; }
+.blad-body {
+  padding: var(--space-4) clamp(18px,2.6vw,32px) clamp(24px,3vw,40px);
+  display: flex; flex-direction: column; gap: var(--space-4);
+  overflow-y: auto; overscroll-behavior: contain; flex: 1;
+}
+.blad-titel { font-size: clamp(1.15rem, 1.7vw, 1.5rem); line-height: 1.2; }
+.blad-titel em { font-style: italic; color: var(--gold-300); }
+.blad-lead { margin: 0; font-size: 13.5px; color: var(--ink2); line-height: 1.6; }
+
+/* de bewijssterkte, en de zin die de gloed eerlijk maakt */
+.sterkte {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  padding: var(--space-4) 0; border-top: 1px solid var(--lijn); border-bottom: 1px solid var(--lijn);
+}
+.sterkte-getal {
+  font-family: var(--serif); font-weight: 300; font-size: 2rem; line-height: 1;
+  color: var(--gold-300); font-variant-numeric: tabular-nums;
+}
+.sterkte p { margin: 0; font-size: 12.5px; color: var(--ink2); }
+
+.bronnen { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.bron {
+  display: grid; grid-template-columns: auto 1fr auto; gap: var(--space-3); align-items: baseline;
+  padding: var(--space-3) 0; border-top: 1px solid rgba(200,137,74,.10);
+  width: 100%; text-align: left; background: none; border-left: 0; border-right: 0; border-bottom: 0;
+  color: var(--ink); font: inherit; font-size: 13.5px; cursor: pointer;
+  transition: color var(--motion-micro) var(--motion-ease);
+}
+.bronnen li:first-child .bron { border-top: 0; }
+.bron:hover { color: var(--gold-300); }
+.bron-punt { width: 5px; height: 5px; border-radius: 50%; background: var(--gold-500); align-self: center;
+  box-shadow: 0 0 8px 1px rgba(215,179,106,.55); }
+.bron.nieuw .bron-punt { background: var(--copper-400); box-shadow: 0 0 10px 2px rgba(230,168,102,.6); }
+.bron-wanneer { font-size: 11.5px; color: var(--ink3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bron.nieuw .bron-wanneer { color: var(--signaal); }
+
+/* de vier vragen onder een inzicht, achter een rail van 1px (canon 12) */
+.qa { border-left: 1px solid var(--lijn); padding-left: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); }
+.qa-blok h3 { margin: 0 0 var(--space-2); }
+.qa-blok p { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--ink); }
+.qa-blok.onbekend p { color: var(--ink2); }
+
+/* ontwikkeling door de tijd */
+.dev { border: 1px solid var(--lijn); border-radius: var(--radius-md); overflow: hidden; }
+.dev > summary { list-style: none; cursor: pointer; padding: var(--space-3) var(--space-4); display: flex; align-items: center; gap: var(--space-3); }
+.dev > summary::-webkit-details-marker { display: none; }
+.dev-titel { font-size: 13.5px; }
+.dev-hint { font-size: 12px; color: var(--ink3); margin-left: auto; }
+.dev-lijst { list-style: none; margin: 0; padding: 0 var(--space-4) var(--space-3); }
+.dev-item { position: relative; padding: var(--space-3) 0 var(--space-3) var(--space-4); border-left: 1px solid var(--lijn); }
+.dev-item::before { content: ""; position: absolute; left: -3px; top: 20px; width: 5px; height: 5px; border-radius: 50%; background: var(--copper-700); }
+.dev-item.nu::before { background: var(--wordt); box-shadow: 0 0 8px 1px rgba(138,121,224,.5); }
+.dev-wanneer { font-size: 12px; color: var(--ink3); }
+.dev-houding { font-weight: 600; font-size: 12.5px; color: var(--ink); margin-right: var(--space-2); }
+.dev-noot { font-size: 13px; color: var(--ink2); }
+
+/* de menselijke vraag */
+.vraag { border: 1px solid var(--lijn); border-radius: var(--radius-md); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+.vraag-q { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: 1.05rem; color: var(--ink); margin: 0; }
+.vraag-keuzes { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.vraag-uit { margin: 0; font-size: 12.5px; color: var(--ink2); line-height: 1.6; }
+.vraag-uit b { color: var(--ink); font-weight: 600; }
+
+/* de grens tussen wat van jou is en wat gedeeld is */
+.grens { display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-4); border-top: 1px solid var(--lijn); }
+.grens-staat { display: flex; align-items: center; gap: var(--space-3); font-size: 13px; color: var(--ink); margin: 0; }
+.grens-punt { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--prive); box-shadow: 0 0 0 3px rgba(236,224,201,.10); }
+.grens-punt.gedeeld { background: var(--wordt); box-shadow: 0 0 0 3px rgba(138,121,224,.16); }
+.grens-tekst { margin: 0; font-size: 12.5px; color: var(--ink2); line-height: 1.6; }
+.grens-acties { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+
+/* toelichting bij Deels en Nee: het veld staat meteen open en mag leeg blijven */
+.vraag-toel { display: flex; flex-direction: column; gap: var(--space-2); }
+.vraag-toel-vraag { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: .98rem; color: var(--ink2); }
+.vraag-toel-acties { display: flex; }
+
+/* Eén invoerveld, overal hetzelfde. Eén hairline, geen schaduw (canon 12). */
+.veldtekst {
+  font: inherit; font-size: 13.5px; line-height: 1.6; color: var(--ink);
+  background: var(--paneel); border: 1px solid var(--lijn); border-radius: var(--radius-sm);
+  padding: var(--space-3); width: 100%; resize: vertical; min-height: 4.4em;
+  transition: border-color var(--motion-micro) var(--motion-ease);
+}
+.veldtekst:hover { border-color: var(--lijn2); }
+.veldtekst::placeholder { color: var(--ink3); }
+
+/* ---- het gesprek ----------------------------------------------------------
+   Geen chat en geen supportkanaal: een uitnodiging, en daaronder wat er al
+   staat. De ingang is tertiair, want het veld en het bewijs gaan voor. */
+.praat { display: flex; flex-direction: column; gap: var(--space-4);
+  padding-top: var(--space-4); border-top: 1px solid var(--lijn); }
+.praat-vorm { display: flex; flex-direction: column; gap: var(--space-3); }
+.praat-openers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.praat-opener {
+  font: inherit; font-size: 13px; color: var(--ink2); text-align: left; width: 100%;
+  background: none; border: 0; border-left: 1px solid var(--lijn); border-radius: 0;
+  padding: 2px 0 2px var(--space-3); cursor: pointer;
+  transition: color var(--motion-micro) var(--motion-ease), border-color var(--motion-micro) var(--motion-ease);
+}
+.praat-opener:hover { color: var(--ink); border-left-color: var(--copper-500); }
+.praat-label { font-family: var(--sans); font-size: var(--type-label); font-weight: 600;
+  letter-spacing: .16em; text-transform: uppercase; color: var(--ink3); }
+.praat-context { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--ink2); }
+.praat-grens { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+.praat-weeg { display: flex; align-items: flex-start; gap: var(--space-3); font-size: 13px; color: var(--ink); cursor: pointer; }
+.praat-weeg input { margin: 3px 0 0; accent-color: var(--copper-500); flex: none; }
+.praat-weeg-uit { margin: 0; font-size: 12px; line-height: 1.6; color: var(--ink3); }
+.praat-acties { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+
+/* de draad zelf: wie het zei, wat er staat, wanneer */
+.draad { display: flex; flex-direction: column; gap: var(--space-3); }
+.draad-lijst { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.draad-item { display: flex; flex-direction: column; gap: 3px; border-left: 1px solid var(--lijn); padding-left: var(--space-4); }
+.draad-item.van-maculis { border-left-color: var(--copper-500); }
+.draad-wie { font-size: var(--type-label); font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ink3); }
+.draad-item.van-maculis .draad-wie { color: var(--signaal); }
+.draad-tekst { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--ink); white-space: pre-wrap; }
+.draad-wanneer { font-size: 11.5px; color: var(--ink3); }
+.draad-wacht { margin: 0; font-family: var(--serif); font-style: italic; font-weight: 400; font-size: .98rem; color: var(--ink2); }
+
+/* ---- het blad Gesprekken -------------------------------------------------- */
+.gs-nieuw { display: flex; flex-direction: column; gap: var(--space-4); }
+.gs-lijst { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.gs-item {
+  display: flex; flex-direction: column; gap: 3px; align-items: flex-start;
+  width: 100%; text-align: left; cursor: pointer; font: inherit; color: var(--ink);
+  background: none; border: 0; border-top: 1px solid var(--lijn);
+  padding: var(--space-4) 0 var(--space-4) var(--space-3);
+  border-left: 2px solid transparent;
+  transition: border-color var(--motion-micro) var(--motion-ease);
+}
+.gs-lijst li:first-child .gs-item { border-top: 0; }
+.gs-item:hover { border-left-color: var(--copper-500); }
+.gs-item.nieuw { border-left-color: var(--signaal); }
+.gs-titel { font-family: var(--serif); font-weight: 300; font-size: 1rem; line-height: 1.3; }
+.gs-meta { font-size: 12px; color: var(--ink3); }
+.gs-item.nieuw .gs-meta { color: var(--signaal); }
+.gs-draad { display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* een stille stip: er staat iets voor je klaar */
+.stip-nieuw { display: inline-block; width: 5px; height: 5px; border-radius: 50%; margin-left: 6px;
+  background: var(--copper-400); box-shadow: 0 0 8px 1px rgba(230,168,102,.6); vertical-align: middle; }
+
+/* ---- alle patronen: de niet-ruimtelijke weg naar dezelfde inhoud ----------- */
+.pt-lijst, .sm-lijst { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pt-item {
+  display: flex; flex-direction: column; gap: var(--space-2); align-items: flex-start;
+  width: 100%; text-align: left; cursor: pointer; font: inherit; color: var(--ink);
+  background: none; border: 0; border-top: 1px solid var(--lijn);
+  border-left: 2px solid var(--border-semantic-uncertain);
+  padding: var(--space-4) var(--space-4);
+  transition: border-color var(--motion-micro) var(--motion-ease);
+}
+.pt-item:hover { border-top-color: var(--lijn2); }
+.pt-item.op-signal { border-left-color: var(--semantic-signal); }
+.pt-item.op-emerging { border-left-color: var(--semantic-emerging); }
+.pt-item.op-confirmed { border-left-color: var(--semantic-confirmed); }
+.pt-item.op-uncertain { border-left-color: var(--semantic-uncertain); }
+.pt-item.is-prive { background: rgba(236,224,201,.045); }
+.pt-kop { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.pt-titel { font-size: 14.5px; line-height: 1.3; }
+.pt-meta { font-size: 12px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+
+/* statuspil: transparant vlak, één semantische hairline, semantische tekst (canon 10) */
+.pil {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  font-size: 11.5px; font-weight: 600; padding: 3px var(--space-3);
+  border-radius: var(--radius-pill); background: transparent;
+  border: 1px solid var(--border-semantic-uncertain); color: var(--semantic-uncertain);
+  white-space: nowrap;
+}
+.pil .stip { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex: none; }
+.pil.op-signal { border-color: var(--border-semantic-signal); color: var(--semantic-signal); }
+.pil.op-emerging { border-color: var(--border-semantic-emerging); color: var(--semantic-emerging); }
+.pil.op-confirmed { border-color: var(--border-semantic-confirmed); color: var(--semantic-confirmed); }
+.pil.op-uncertain { border-color: var(--border-semantic-uncertain); color: var(--semantic-uncertain); }
+.merkje { font-size: 12px; color: var(--ink2); display: inline-flex; align-items: center; gap: 6px; }
+.merkje .stip { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--prive); }
+.merkje.gedeeld .stip { background: var(--wordt); }
+
+/* samenwerking */
+.sm-item { display: flex; flex-direction: column; gap: 3px; padding: var(--space-4) 0; border-top: 1px solid var(--lijn); }
+.sm-lijst li:first-child .sm-item { border-top: 0; }
+.sm-titel { font-size: 14px; font-weight: 600; color: var(--ink); }
+.sm-meta { font-size: 12.5px; color: var(--ink2); }
+
+/* ---- bevestiging ------------------------------------------------------------ */
+.confirm {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
+  padding: var(--space-5); background: var(--scrim-modal);   /* canon 12, nooit puur zwart */
+}
+/* surface.elevated draagt de schaduw en dus géén hairline (canon 6). */
+.confirm-card {
+  background: var(--hoog); border-radius: var(--radius-lg); box-shadow: var(--shadow-diffuse);
+  padding: var(--space-6); width: 100%; max-width: 460px;
+  display: flex; flex-direction: column; gap: var(--space-4);
+}
+.confirm-title { font-size: 1.25rem; }
+.confirm-body { margin: 0; color: var(--ink2); font-size: 13.5px; line-height: 1.6; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: var(--space-3); }
+
+/* ---- toast ------------------------------------------------------------------ */
+.toast {
+  position: fixed; left: 50%; bottom: var(--space-6); transform: translateX(-50%); z-index: 70;
+  background: var(--hoog); color: var(--ink);
+  padding: var(--space-3) var(--space-5); border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-diffuse); font-size: 13.5px;
+  display: flex; align-items: center; gap: var(--space-2);
+}
+.toast .stip { width: 7px; height: 7px; border-radius: 50%; background: var(--semantic-confirmed); flex: none; }
+
+/* ---- lege staat: ontworpen, niet leeg (canon 12) ---------------------------- */
+.leeg { color: var(--ink); font-size: 13.5px; }
+.leeg p { margin: 0 0 var(--space-3); max-width: 44ch; }
+
+/* ---- mobiel ------------------------------------------------------------------ */
+@media (max-width: 760px) {
+  .zeg {
+    position: absolute; left: 0; right: 0; bottom: 0; top: auto; width: auto;
+    padding: var(--space-5) var(--space-4) calc(var(--space-5) + env(safe-area-inset-bottom));
+    background: linear-gradient(0deg, var(--bg) 58%, transparent);
+    transform: none !important;
+  }
+  .zeg-titel { font-size: clamp(1.35rem, 6.4vw, 1.9rem); }
+  .merk { top: 14px; }
+  .merk-naam { font-size: 11.5px; }
+  .rand { top: auto; bottom: auto; left: 16px; right: 16px; top: 58px; justify-content: flex-start; }
+  .rand.wijkt { transform: none; }
+  /* de bediening wikkelt op een telefoon naar twee rijen; de groet begint daaronder */
+  .onder { top: 146px; bottom: auto; left: 16px; right: 16px; max-width: none; gap: 4px; }
+  body.blad-open .onder { opacity: 0; }
+  .blad { width: 100%; top: auto; bottom: 0; height: min(88vh, 760px);
+    border-left: 0; border-top: 1px solid var(--lijn);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0; transform: translateY(101%); }
+  .blad.in { transform: none; }
+  .confirm-actions { flex-direction: column-reverse; }
+  .confirm-actions .knop { width: 100%; }
+}
+
+/* REGEL, niet onderhandelbaar (canon 8.5). Reduced motion toont de eindtoestand,
+   nooit een bevroren begin. De basisstijl is die eindtoestand; het veld springt
+   in JS direct naar t=1 en tekent één keer. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
