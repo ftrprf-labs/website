@@ -283,6 +283,16 @@ body {
 .item .line { color: var(--muted); margin-top: 6px; font-size: var(--t-body); }
 .item .tags { margin-top: var(--s3); display: flex; gap: var(--s2); flex-wrap: wrap; }
 
+/* Een nevenreden die een eigen gesprek draagt, is te openen. Ze blijft een nevenreden en wordt
+   dus geen tweede knop naast de hoofdreden: dezelfde regel, dezelfde toon, alleen aanwijsbaar.
+   De onderlijn verschijnt pas bij aanwijzen, zodat de rust van de kaart niet wordt gebroken. */
+.echo-open {
+  display: block; width: 100%; text-align: left;
+  background: none; border: 0; padding: 0; margin: 0;
+  font: inherit; color: inherit; cursor: pointer;
+}
+.echo-open:hover, .echo-open:focus-visible { text-decoration: underline; color: var(--text); }
+
 /* Canon 10 en amendement C-2: een transparant vlak, een border.semantic als
    hairline en de semantische kleur als tekst. Geen gevulde badge, want dan zou
    kleur de drager worden en dat sluit canon 10 juist uit. */

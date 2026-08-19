@@ -183,18 +183,32 @@ export function aggregateSignals(signals) {
   for (const [gkey, group] of groups) {
     const sorted = group.slice().sort(cmpSignals);
     const primary = sorted[0];
-    const seenTypes = new Set([primary.type]);
+    // Ontdubbelen gebeurt per TYPE EN PER GESPREK, niet per type alleen. Eén relatie kan namelijk
+    // in twee draden tegelijk op antwoord wachten, bijvoorbeeld een vraag bij een patroon in Mijn
+    // Maculis en daarnaast een los bericht. Die twee leveren allebei hetzelfde signaaltype op.
+    // Ontdubbelen op alleen het type gooide de tweede draad dan volledig weg: het nieuwste
+    // klantbericht was in de Cockpit nergens meer te zien, en de kaart wees naar de andere draad.
+    // De kaart blijft één kaart per relatie (zie de kop hierboven); wat verandert is dat een tweede
+    // wachtende draad zichtbaar blijft als nevenreden, mét zijn eigen gespreks-id zodat hij ook te
+    // openen is.
+    const dedupeKey = (s) => `${s.type}|${s.conversationId || s.followUpId || ''}`;
+    const seenTypes = new Set([dedupeKey(primary)]);
     const secondary = [];
     for (const s of sorted.slice(1)) {
-      if (seenTypes.has(s.type)) continue;
-      seenTypes.add(s.type);
-      secondary.push({ type: s.type, reason: s.reason, bucket: s.bucket });
+      if (seenTypes.has(dedupeKey(s))) continue;
+      seenTypes.add(dedupeKey(s));
+      secondary.push({ type: s.type, reason: s.reason, bucket: s.bucket, conversationId: s.conversationId || null });
     }
     const followUps = sorted.filter((s) => s.followUpId && !s.work)
       .map((s) => ({ id: s.followUpId, reason: s.reason, type: s.type, overdue: s.type === 'FOLLOWUP_OVERDUE', upcoming: s.type === 'FOLLOWUP_UPCOMING' }));
     // Authored colleague work touching this relation, in full (origin, evidence, proposal, actions).
     const work = sorted.filter((s) => s.work).map((s) => s.work);
-    const conv = sorted.find((s) => s.conversationId);
+    // Het gesprek van de kaart is het gesprek van de PRIMAIRE reden. Anders kan de knop naar een
+    // andere draad wijzen dan de reden die eronder staat, en dan opent een mens iets anders dan
+    // waar hij op klikte. Alleen wanneer de primaire reden zelf geen gesprek heeft (werk van een
+    // collega, een follow-up zonder draad) valt de kaart terug op het eerste signaal dat er wel een
+    // heeft, want een knop naar niets helpt niemand.
+    const conv = primary.conversationId ? primary : sorted.find((s) => s.conversationId);
     cards.push({
       key: gkey,
       kind: primary.kind === 'work' ? 'work' : 'relation',

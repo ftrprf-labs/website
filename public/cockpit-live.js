@@ -369,12 +369,30 @@ function normalizeDomain(v) {
 const COLLEAGUE_VERB = { approval: 'vraagt jouw akkoord', review: 'heeft iets voorbereid', awareness: 'ziet iets' };
 const WORK_ACTION_LABEL = { approve: 'Goedkeuren', edit: 'Aanpassen', take_over: 'Overnemen', reject: 'Afwijzen', complete: 'Afronden' };
 
+// Een nevenreden die een eigen draad draagt, opent die draad. stopPropagation omdat de kaart er
+// zelf ook een klik op heeft: zonder dat opent hij eerst het dossier en verdwijnt de keuze.
+function bindEchoOpeners(root) {
+  root.querySelectorAll('.echo-open').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      activeConvId = btn.getAttribute('data-conv');
+      scn = 'gesprek';
+      render();
+    });
+  });
+}
+
 function radarCard(c) {
   const b = el('article', 'item openable'); b.tabIndex = 0; b.setAttribute('role', 'button');
   const chips = [];
   if (c.hasPrepared) chips.push('<span class="chip ready"><span class="k"></span>concept klaar</span>');
   if (c.org) chips.push(`<span class="chip">${esc(c.org)}</span>`);
-  const secondary = (c.secondary || []).map(s => `<div class="echo">${esc(s.reason)}</div>`).join('');
+  // Een nevenreden met een eigen draad is een tweede gesprek dat óók op antwoord wacht. Die hoort
+  // niet alleen leesbaar te zijn maar ook te openen, anders is het nieuwste klantbericht wel
+  // zichtbaar en toch onbereikbaar. Alleen de regels die een eigen draad hebben worden een knop.
+  const secondary = (c.secondary || []).map(s => s.conversationId && s.conversationId !== c.conversationId
+    ? `<button type="button" class="echo echo-open" data-conv="${esc(s.conversationId)}">${esc(s.reason)}</button>`
+    : `<div class="echo">${esc(s.reason)}</div>`).join('');
   // When a digital colleague produced this, name them above the reason ("Growth vraagt jouw akkoord.").
   // Canon 9 trap 1: het lichtpunt staat er alleen als Maculis zelf iets heeft waargenomen.
   // Een bericht dat binnenkomt is geen waarneming van Maculis en krijgt dus geen punt.
@@ -418,6 +436,7 @@ function radarCard(c) {
     });
     b.appendChild(bar);
   }
+  bindEchoOpeners(b);
   const open = () => {
     if (c.contactId) { activeContactId = c.contactId; scn = 'dossier'; render(); }
     else if (c.conversationId) { activeConvId = c.conversationId; scn = 'gesprek'; render(); }
@@ -619,10 +638,13 @@ async function renderDossier(contactId) {
   if (att) {
     const bucketCls = att.bucket === 'NU' ? 'now' : 'ready';
     const item = el('div', 'dos-now-item ' + bucketCls);
-    const secondary = (att.secondary || []).map(s => `<div class="echo">${esc(s.reason)}</div>`).join('');
+    const secondary = (att.secondary || []).map(s => s.conversationId && s.conversationId !== att.conversationId
+      ? `<button type="button" class="echo echo-open" data-conv="${esc(s.conversationId)}">${esc(s.reason)}</button>`
+      : `<div class="echo">${esc(s.reason)}</div>`).join('');
     const canOpen = att.conversationId || data.primaryConversationId;
     item.innerHTML = `<div class="dni-top"><span class="chip ${bucketCls}"><span class="k"></span>${esc(att.reason)}</span></div>${secondary}`;
     if (canOpen) { const btn = el('button', 'btn btn-primary', 'Open het gesprek'); btn.addEventListener('click', () => { activeConvId = canOpen; scn = 'gesprek'; render(); }); item.appendChild(btn); }
+    bindEchoOpeners(item);
     now.appendChild(item);
   } else if (data.now) {
     const item = el('div', 'dos-now-item now');

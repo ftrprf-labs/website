@@ -322,7 +322,7 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
     const remembered = (rel.memory || []).filter((m) => m.confidence !== 'proposed');
     // The conversation to open: prefer one with an actionable/ai-ready state.
     const convs = rel.conversations || [];
-    const primaryConv = convs.find((cv) => cv.ai_ready) || convs.find((cv) => cv.unread > 0) || convs[0] || null;
+    const fallbackConv = convs.find((cv) => cv.ai_ready) || convs.find((cv) => cv.unread > 0) || convs[0] || null;
     // Slice 5 — the SAME radar, scoped to this relation, so the dossier tells exactly the story
     // Vandaag tells (§ 20, één werkelijkheid). The primary attention reason drives "wat speelt er nu".
     const relRadar = await buildRadar(tenantId, { contactId: c.id });
@@ -354,7 +354,12 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
         id: cv.id, subject: cv.subject, channel: cv.channel, status: cv.status,
         lastMessageAt: cv.last_message_at, unread: cv.unread, aiReady: cv.ai_ready,
       })),
-      primaryConversationId: primaryConv ? primaryConv.id : null,
+      // Eén vraag, één antwoord. Dit veld en `attention.conversationId` beantwoorden allebei "welk
+      // gesprek open ik hier", maar leidden dat elk op een eigen manier af: de radar koos de
+      // langst wachtende draad, deze regel de nieuwste ongelezen. Bij een relatie met twee open
+      // draden gaf één en dezelfde respons daardoor twee verschillende gesprekken terug. De radar
+      // is leidend, want die levert ook de reden die de mens leest.
+      primaryConversationId: (attentionNow && attentionNow.conversationId) || (fallbackConv ? fallbackConv.id : null),
       observed,        // AI observations awaiting human confirm/reject
       remembered,      // durable, human-confirmed memory
       followups: rel.followUps || [],
