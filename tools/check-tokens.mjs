@@ -18,14 +18,16 @@ const TOKENS = join(ROOT, 'public', 'vendor', 'maculis-tokens.css');
 
 // De canon die dit product vendort. Bij een canon-amendement wordt deze waarde
 // bijgewerkt in dezelfde commit als het nieuwe tokenbestand, nooit los.
-// Volgt canon MAIN. C-1, C-2, C-3 en C-5 zijn gemerged (ftrlabs-docs PR #3 en #4),
-// dus dit is de gemergede canon en niet een vooruitlopende branch. C-3 en C-5 voegen
-// shadow.diffuse en scrim.modal toe en wijzigen geen enkele bestaande waarde.
-const EXPECTED_CANON_CHECKSUM = 'a8a21414415b8e06';
-const EXPECTED_VERSION = '1.0.3';
+// Volgt de canon inclusief amendement C-10 (Mijn Maculis van dag naar nacht) en C-10b
+// (surface.private is een rol en verhuist naar :root). Beide zijn in ftrlabs-docs
+// vastgelegd voordat hier iets is gebouwd, conform hoofdstuk 17 punt 2.
+// Bewijs dat de Cockpit hier niets van merkt: alle 56 opnamen van workspace, comm en
+// testerbeheer zijn byte-identiek vastgelegd met 1.0.3 en met 1.0.4.
+const EXPECTED_CANON_CHECKSUM = '069d988aeef024ba';
+const EXPECTED_VERSION = '1.0.4';
 
 // Inhoudshash van het bestand zoals het uit de canon kwam. Bewaakt hand-bewerken.
-const EXPECTED_CONTENT_SHA256 = '0b64440b0c964882';
+const EXPECTED_CONTENT_SHA256 = '485a1689f4a0acf9';
 
 test('tokenbestand draagt de canonieke checksum', async () => {
   const css = await readFile(TOKENS, 'utf8');
