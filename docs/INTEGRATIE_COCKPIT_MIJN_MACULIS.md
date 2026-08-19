@@ -46,9 +46,38 @@ Privacy-inbox. Bewijs: een sleutelvergelijking in `tests/comm-uitgaande-grens.te
 - Volledige databasesuite: 245 tests, 245 geslaagd, 0 gefaald, 0 overgeslagen.
 - Tokengate: 4/4 op canon 1.0.4. Canon-scan: 0 afwijkende kleuren.
 - Visuele audit Cockpit: 90 controles, 0 afwijkingen.
-- Visuele regressie Cockpit tegen `c96856a`: 104/104 byte-identiek.
+- Visuele regressie Cockpit tegen `c96856a`: geen visuele wijziging. Zie de kanttekening hieronder
+  over hoe die meting moet worden gedaan.
 - Audit Mijn Maculis: alles groen. De pixelharness van die lijn is niet-deterministisch
   (fixtures gebruiken `new Date()`), dus pixelregressie kan daar geen uitspraak doen.
+
+### Kanttekening bij de pixelmeting van de Cockpit
+
+Twee dingen kwamen pas bij de nacontrole boven en ze zijn allebei relevant voor wie deze meting
+herhaalt.
+
+**De baseline in de repo is niet in deze omgeving gemaakt.** De goedgekeurde baseline van
+`c96856a` opnieuw renderen in de sessieomgeving levert 104 van de 104 keer een ander bestand op,
+met afwijkende hoogtes (bijvoorbeeld 1367 tegen 1424 pixels). Dat is geen wijziging in het
+product maar een andere Chromium-build en een ander lettertypebestand. Een render uit deze
+omgeving mag dus nooit rechtstreeks tegen de baseline in de repo worden gelegd, en al helemaal
+niet als nieuwe baseline worden weggeschreven. De geldige meting is: de goedgekeurde boom hier
+renderen, de integratieboom hier renderen, en die twee tegen elkaar leggen. Zo gemeten is de
+uitkomst 103 identiek en 1 gewijzigd.
+
+In commit `3d9eb19` was dat aanvankelijk misgegaan: alle 104 baselinebestanden waren met
+sessierenders overschreven. Dat is teruggedraaid; de baseline is nu weer byte-identiek aan
+`c96856a`.
+
+**Het ene verschil is harnasruis, geen wijziging.** Het betreft `prototype.beheer.mobile`. Twee
+renders van dezelfde, ongewijzigde boom leveren daar hetzelfde verschil op, en bij een derde run
+komt `prototype.beheer.tablet` er ook bij (ongeveer 1,1 procent en 0,5 procent van de pixels). De
+Beheer-ruimte opent met de `mac-sharpen`-beweging en die wordt door de harness niet volledig
+bevroren. Het gaat om een tekortkoming in het meetgereedschap, niet in de Cockpit. Genoteerd als
+technische schuld, niet opgelost, want harnasonderhoud valt buiten de afgesproken scope.
+
+Conclusie: de integratie en de drie correcties veranderen niets aan de Cockpit-prototypes,
+behalve op het Beheer-scherm, waar de harness geen uitspraak kan doen.
 
 ## Ketenproef lokaal
 
