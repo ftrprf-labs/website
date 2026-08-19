@@ -10,6 +10,7 @@ import { commEnabled } from '../comm/db.mjs';
 import { resolveAccess } from './access.mjs';
 import { customerOverview, customerInsights, customerInsightDetail, collaboration } from './insights.mjs';
 import { shareInsight, revokeInsight } from './sharing.mjs';
+import { stuurBericht, draden, draadVoorKlant, ongelezen, zetHerkenning } from './gesprek.mjs';
 
 const UUID = '([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})';
 
@@ -100,6 +101,57 @@ export async function handleMijn(req, res, { pathname, method }) {
     if (!result.ok) { json(res, result.error === 'not_found' ? 404 : 400, result); return true; }
     const detail = await customerInsightDetail(tenantId, organizationId, revokeMatch[1]);
     json(res, 200, { ok: true, sharing: 'PRIVATE', ...detail });
+    return true;
+  }
+
+  // ---- het gesprek -----------------------------------------------------------------------------
+  // Eén kanaal op de bestaande Communication Layer. Elke route is gebonden aan de { tenant,
+  // organization } uit het toegangstoken, dus een klant kan nooit in andermans draad kijken of
+  // schrijven, ook niet met een geldig id uit een andere organisatie.
+
+  // De rustige lijst met gesprekken. Geen postvak: alleen draden en hun onderwerp.
+  if (pathname === '/api/mijn/conversations' && method === 'GET') {
+    json(res, 200, { items: await draden(tenantId, organizationId), unread: await ongelezen(tenantId, organizationId) });
+    return true;
+  }
+
+  // Iets zeggen. Met of zonder patroon, en alleen met `weegMee` komt er daarnaast een voorstel
+  // voor het organisatiebeeld binnen. Zonder dat vinkje is dit uitsluitend een gesprek.
+  if (pathname === '/api/mijn/conversations' && method === 'POST') {
+    const body = await readJson(req);
+    if (!body) { json(res, 400, { error: 'Ongeldig verzoek.' }); return true; }
+    const result = await stuurBericht(tenantId, organizationId, {
+      accessId: access.accessId,
+      contactId: access.contactId || null,
+      insightId: body.insightId || null,
+      conversationId: body.conversationId || null,
+      text: body.text,
+      weegMee: body.weegMee === true,
+    });
+    if (!result.ok) { json(res, result.error === 'not_found' ? 404 : 400, result); return true; }
+    json(res, 200, result);
+    return true;
+  }
+
+  // Eén draad openen. Dit verzet alleen het klantwatermerk, nooit dat van Maculis.
+  const draadMatch = pathname.match(new RegExp(`^/api/mijn/conversations/${UUID}$`));
+  if (draadMatch && method === 'GET') {
+    const draad = await draadVoorKlant(tenantId, organizationId, draadMatch[1]);
+    if (!draad) { json(res, 404, { error: 'Gesprek niet gevonden.' }); return true; }
+    json(res, 200, { conversation: draad });
+    return true;
+  }
+
+  // "Herken je dit?" duurzaam maken. Het antwoord blijft bij de klant zolang het inzicht privé is.
+  const herkenMatch = pathname.match(new RegExp(`^/api/mijn/insights/${UUID}/recognition$`));
+  if (herkenMatch && method === 'POST') {
+    const body = await readJson(req);
+    if (!body) { json(res, 400, { error: 'Ongeldig verzoek.' }); return true; }
+    const result = await zetHerkenning(tenantId, organizationId, herkenMatch[1], {
+      answer: body.answer || null, note: body.note || null, accessId: access.accessId,
+    });
+    if (!result.ok) { json(res, 404, result); return true; }
+    json(res, 200, result);
     return true;
   }
 

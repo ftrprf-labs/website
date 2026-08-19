@@ -87,6 +87,11 @@ export const config = {
   // Five flow is unaffected until we deliberately switch it on. No secrets in code.
   commLayerEnabled: /^(1|true|yes|on)$/i.test(process.env.COMM_LAYER_ENABLED || ''),
   databaseUrl: process.env.DATABASE_URL || '',
+  // Where Mijn Maculis lives, for the sober "there is an answer waiting" e-mail. Render sets
+  // RENDER_EXTERNAL_URL itself, so a preview needs no configuration. The announcement carries no
+  // access token: the link only reaches the door, and the customer opens it with their own link.
+  // Empty means no link at all in the e-mail, never a guessed one.
+  mijnMaculisUrl: (process.env.MIJN_MACULIS_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, ''),
   // Resend inbound (Receiving). MAIL_API_KEY (already used for outbound) doubles as the
   // Receiving-API key; the webhook signing secret is set AFTER the webhook is created in Resend.
   resendWebhookSecret: process.env.RESEND_WEBHOOK_SECRET || '',

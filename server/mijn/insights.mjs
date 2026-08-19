@@ -6,6 +6,7 @@
 
 import { query } from '../comm/db.mjs';
 import { visibleInsights, insightForCustomer, sharedInsightCount } from './sharing.mjs';
+import { draadOverInzicht } from './gesprek.mjs';
 
 // Customer-visible collaboration: confirmed agreements, next steps, ongoing research. NOT the
 // internal task list — only items explicitly marked customer_visible (§13).
@@ -112,12 +113,18 @@ export async function insightEvidence(tenantId, organizationId, insightId) {
 // One insight detail, strictly own-org scoped (returns null for any other org's id), with its human
 // development timeline. The customer sees the CURRENT reading as the main body (insight.*) and the
 // progression in `development`; nothing technical about the versioning is exposed.
+//
+// `conversation` is the thread about THIS pattern, when there is one. It comes along here so the
+// customer never has to look elsewhere for what they said about this insight. Opening the insight
+// does not mark the thread as read: that happens only when the customer actually opens the
+// conversation, so an answer cannot silently be counted as seen.
 export async function customerInsightDetail(tenantId, organizationId, insightId) {
   const insight = await insightForCustomer(tenantId, organizationId, insightId);
   if (!insight) return null;
-  const [development, evidence] = await Promise.all([
+  const [development, evidence, conversation] = await Promise.all([
     insightDevelopment(tenantId, organizationId, insightId),
     insightEvidence(tenantId, organizationId, insightId),
+    draadOverInzicht(tenantId, organizationId, insightId),
   ]);
-  return { insight, development, evidence };
+  return { insight, development, evidence, conversation };
 }

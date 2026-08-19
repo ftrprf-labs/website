@@ -19,15 +19,15 @@ export function hashToken(token) {
 
 // Create (or reuse) an access grant for an organization and return the RAW token once. The raw token
 // is returned to the caller (to hand to the customer) but only its hash is persisted.
-export async function createAccess(tenantId, organizationId, { label = null, role = 'Klantadmin', isPreview = false, token = null } = {}) {
+export async function createAccess(tenantId, organizationId, { label = null, role = 'Klantadmin', isPreview = false, token = null, contactId = null } = {}) {
   const raw = token || generateAccessToken();
   const hash = hashToken(raw);
   const r = await query(
-    `insert into customer_access(tenant_id, organization_id, token_hash, label, role, is_preview)
-     values ($1,$2,$3,$4,$5,$6)
-     on conflict (token_hash) do update set label=excluded.label, role=excluded.role
+    `insert into customer_access(tenant_id, organization_id, token_hash, label, role, is_preview, contact_id)
+     values ($1,$2,$3,$4,$5,$6,$7)
+     on conflict (token_hash) do update set label=excluded.label, role=excluded.role, contact_id=excluded.contact_id
      returning id`,
-    [tenantId, organizationId, hash, label, role, isPreview]);
+    [tenantId, organizationId, hash, label, role, isPreview, contactId]);
   return { id: r.rows[0].id, token: raw };
 }
 
@@ -37,7 +37,7 @@ export async function resolveAccess(token) {
   if (!token || typeof token !== 'string' || token.length < 20) return null;
   const hash = hashToken(token);
   const r = await query(
-    `select ca.id, ca.tenant_id, ca.organization_id, ca.label, ca.role, ca.is_preview,
+    `select ca.id, ca.tenant_id, ca.organization_id, ca.label, ca.role, ca.is_preview, ca.contact_id,
             o.name as organization_name
        from customer_access ca
        join organization o on o.id = ca.organization_id
@@ -51,6 +51,10 @@ export async function resolveAccess(token) {
     tenantId: row.tenant_id,
     organizationId: row.organization_id,
     organizationName: row.organization_name,
+    // De contactpersoon achter deze toegang, wanneer die er is. Dat is wat Mijn Maculis aan de ene
+    // relationele werkelijkheid knoopt: zonder contact geen ontvanger voor een melding en geen
+    // consentsubject, en dus geen melding. Fail-closed, nooit geraden.
+    contactId: row.contact_id || null,
     label: row.label,
     role: row.role,
     isPreview: row.is_preview,

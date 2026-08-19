@@ -29,9 +29,13 @@ import { recordAudit } from '../comm/audit.mjs';
 //   developed             = this insight has more than one reading (it has developed over time).
 //   unshared_development  = it is SHARED but the current reading is newer than the shared one, so
 //                           there is a new development the customer has not shared with Maculis yet.
+//   recognition           = the customer's own durable answer to "Herken je dit?" plus their optional
+//                           explanation. It is theirs, so it follows the SAME boundary as the
+//                           insight: sharedContextForOrg only carries it once the insight is SHARED.
 const CUSTOMER_SELECT =
   `ci.id, ci.title, ci.stance, ci.observation, ci.meaning, ci.basis, ci.not_yet_known, ci.sharing,
    ci.source, ci.status, ci.attention, ci.created_at, ci.updated_at, ci.shared_at,
+   ci.recognition, ci.recognition_note, ci.recognition_at,
    (select count(*) from insight_version v where v.insight_id = ci.id) > 1 as developed,
    (ci.sharing='SHARED' and ci.shared_version_id is distinct from ci.current_version_id) as unshared_development,
    (select count(*)::int from insight_observation o
@@ -67,10 +71,15 @@ export async function insightForCustomer(tenantId, organizationId, insightId) {
 // past the shared version, the newer (private) reading can never reach Maculis through this path.
 // Imported by the AI context engine, so authorized model context can, by construction, never contain
 // PRIVATE data nor an unshared newer version.
+//
+// The customer's recognition answer travels with the insight and not beside it. On a SHARED insight
+// that answer is exactly what Maculis asked for, so it belongs here. On a PRIVATE insight this query
+// returns nothing at all, so the answer cannot leak either.
 export async function sharedContextForOrg(tenantId, organizationId) {
   if (!organizationId) return [];
   const r = await query(
-    `select ci.id, iv.title, iv.stance, iv.observation, iv.meaning, ci.status, ci.sharing, ci.shared_at
+    `select ci.id, iv.title, iv.stance, iv.observation, iv.meaning, ci.status, ci.sharing, ci.shared_at,
+            ci.recognition, ci.recognition_note, ci.recognition_at
        from customer_insight ci
        join insight_version iv on iv.id = ci.shared_version_id
       where ci.tenant_id=$1 and ci.organization_id=$2

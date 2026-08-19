@@ -21,6 +21,7 @@ import { whatsappProvider } from './whatsapp.mjs';
 import { smsProvider } from './sms.mjs';
 import { phoneProvider } from './phone.mjs';
 import { socialProvider } from './social.mjs';
+import { mijnMaculisProvider } from './mijn-maculis.mjs';
 
 const REGISTRY = {
   EMAIL: emailProvider,
@@ -30,11 +31,14 @@ const REGISTRY = {
   INSTAGRAM: socialProvider,
   FACEBOOK_MESSENGER: socialProvider,
   LINKEDIN: socialProvider,
+  MIJN_MACULIS: mijnMaculisProvider,
 };
 
 // Channels that can carry an outbound message from the composer today (INTERNAL_NOTE is handled
 // separately; JOURNEY/WEB are inbound/system only).
-export const SENDABLE_CHANNELS = ['EMAIL', 'WHATSAPP', 'SMS'];
+// MIJN_MACULIS is sendable because a customer who asked something inside their own environment
+// must be able to be answered there. It is the only channel whose "delivery" is a database write.
+export const SENDABLE_CHANNELS = ['EMAIL', 'WHATSAPP', 'SMS', 'MIJN_MACULIS'];
 
 export function getChannelProvider(channel) {
   const factory = REGISTRY[channel];

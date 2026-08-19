@@ -15,6 +15,10 @@ import { createInsightWithInitialVersion, appendVersion, addObservation } from '
 
 export const PREVIEW_ORG_NAME = 'De Voorbeeld Groep';
 export const PREVIEW_USER = { label: 'Sanne de Vries', role: 'Klantadmin' };
+// De contactpersoon achter de previewtoegang. Het adres staat bewust op ons eigen domein: mocht er
+// ooit werkelijk een melding uitgaan vanaf de preview, dan komt die bij ons terecht en nooit bij
+// een buitenstaander.
+export const PREVIEW_CONTACT = { email: 'mijn-maculis-preview@maculis.nl', firstName: 'Sanne', lastName: 'de Vries (preview)' };
 
 // A stable, non-secret preview token so the preview link is reproducible. Only ever used for a
 // preview grant (is_preview=true). Overridable via MIJN_PREVIEW_TOKEN.
@@ -256,6 +260,23 @@ async function ensurePreviewOrg(_client, tenantId) {
   return ins.id;
 }
 
+// De contactpersoon achter de previewtoegang. Zonder contact is er geen ontvanger voor de melding
+// dat er een antwoord klaarstaat en geen subject voor de consentpoort, dus dan gebeurt er niets.
+// Idempotent op identity_key, precies zoals elk ander contact in de laag.
+async function ensurePreviewContact(tenantId, organizationId) {
+  const key = `email:${PREVIEW_CONTACT.email}`;
+  const bestaand = (await query('select id from contact where identity_key=$1', [key])).rows[0];
+  if (bestaand) {
+    await query('update contact set organization_id=$2, updated_at=now() where id=$1', [bestaand.id, organizationId]);
+    return bestaand.id;
+  }
+  const ins = (await query(
+    `insert into contact(tenant_id, organization_id, first_name, last_name, email, identity_key, role)
+     values ($1,$2,$3,$4,$5,$6,'Klantadmin') returning id`,
+    [tenantId, organizationId, PREVIEW_CONTACT.firstName, PREVIEW_CONTACT.lastName, PREVIEW_CONTACT.email, key])).rows[0];
+  return ins.id;
+}
+
 // Safety gate for seeding on a running (possibly production-mode) preview service: refuse if the
 // tenant already has ANY real (non-preview) customer access grant. Preview fixtures may therefore
 // only ever be created on a tenant that has no real customers — they can never mix with real data.
@@ -286,6 +307,10 @@ export async function seedPreviewCore({ tenantId = null } = {}) {
   // insight cascades to its append-only versions/observations (insight_id ON DELETE CASCADE).
   await query('delete from customer_insight where organization_id=$1 and is_preview=true', [orgId]);
   await query('delete from collaboration_item where organization_id=$1 and is_preview=true', [orgId]);
+  // Gesprekken uit een vorige previewronde horen niet bij de nieuwe inzichten: hun onderwerp verwijst
+  // naar patronen die zo meteen niet meer bestaan. Alleen het Mijn Maculis-kanaal van deze preview-
+  // organisatie, dus e-mail en de rest van de laag blijven onaangeroerd.
+  await query("delete from conversation where organization_id=$1 and channel='MIJN_MACULIS'", [orgId]);
 
   // Create each insight through the durable-insight primitive so it gets exactly one v1 reading +
   // one observation, and (for a pre-shared fixture) a version-bound share pointer.
@@ -352,13 +377,15 @@ export async function seedPreviewCore({ tenantId = null } = {}) {
       [tid, orgId, c.kind, c.title, c.detail, c.status, c.due_at, c.customer_visible, JSON.stringify(c.source_ref || {})]);
   }
 
-  // Grant preview access (idempotent on the token hash).
-  const access = await createAccess(tid, orgId, { ...PREVIEW_USER, isPreview: true, token: previewToken() });
+  // Grant preview access (idempotent on the token hash), tied to the contact it belongs to.
+  const contactId = await ensurePreviewContact(tid, orgId);
+  const access = await createAccess(tid, orgId, { ...PREVIEW_USER, isPreview: true, token: previewToken(), contactId });
 
   return {
     tenantId: tid,
     organizationId: orgId,
     organizationName: PREVIEW_ORG_NAME,
+    contactId,
     token: access.token,
     link: `/mijn.html?t=${encodeURIComponent(access.token)}`,
   };
