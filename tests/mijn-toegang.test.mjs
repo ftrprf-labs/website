@@ -301,3 +301,74 @@ test('fase 1: gedeelde werkelijkheid, persoonlijke aandacht, en gesprekscontext 
     await closePool();
   }
 });
+
+// ================================================================================================
+// DE TWEE PRIVACYVRAGEN IN DE ZICHTBARE TEKST
+//
+// De scheiding tussen dimensie A en dimensie B is in fase 0 en 1 in het datamodel en in de
+// autorisatie vastgelegd. Ze kan daarna nog steeds stilletjes teruggedraaid worden op de enige
+// plek waar de klant hem werkelijk leest: de copy. "Alleen voor jou" was precies dat. Het stond
+// voor `sharing != SHARED`, dus voor dimensie B, maar het beloofde iets over dimensie A, en zodra
+// er een tweede mens in dezelfde organisatie zit is die belofte onwaar.
+//
+// Deze test legt de uitkomst van die correctie vast. Hij heeft geen database nodig: het gaat om
+// wat er op het scherm staat.
+//
+// Wat hier bewaakt wordt:
+//   * de staat van een inzicht noemt uitsluitend Maculis, in een paar dat elkaars spiegel is;
+//   * geen zichtbare tekst over die staat suggereert wie binnen de klantorganisatie meekijkt;
+//   * de persoonlijke laag houdt zijn eigen belofte, en die gaat wél over jou.
+
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const PUBLIEK = join(import.meta.dirname, '..', 'public');
+const MIJN_JS = readFileSync(join(PUBLIEK, 'mijn.js'), 'utf8');
+const MIJN_HTML = readFileSync(join(PUBLIEK, 'mijn.html'), 'utf8');
+
+test('dimensie B heet overal hetzelfde en gaat uitsluitend over Maculis', () => {
+  // Het paar staat op twee plekken: de staat in het bewijsblad en het merkje in Alle patronen.
+  // Beide keren voluit, en beide keren als spiegelbeeld van elkaar, want een half ingekort paar
+  // leest als een betekenisverschil dat er niet is. Gemeten op 393, 390 en 430 breed met
+  // tools/visual/mijn-copy-mobiel.mjs: het volledige paar breekt nergens af, overlapt niets en
+  // valt nergens buiten het scherm.
+  assert.match(MIJN_JS, /isGedeeld \? 'Gedeeld met Maculis' : 'Niet gedeeld met Maculis'/,
+    'de staat in het bewijsblad draagt het volledige paar');
+  assert.match(MIJN_JS, /\$\{isGedeeld \? 'Gedeeld met Maculis' : 'Niet gedeeld met Maculis'\}/,
+    'het merkje in Alle patronen draagt hetzelfde volledige paar');
+
+  // De uitleg eronder zegt wat er met het inzicht gebeurt, niet wie het kan zien.
+  assert.ok(MIJN_JS.includes('Maculis gebruikt dit inzicht niet zolang het niet gedeeld is.'),
+    'de uitleg bij niet gedeeld gaat over gebruik door Maculis');
+  assert.ok(MIJN_JS.includes('Het blijft in Mijn Maculis gewoon zichtbaar.'),
+    'intrekken belooft niets over personen, alleen dat het inzicht blijft staan');
+  assert.ok(MIJN_HTML.includes('Maculis gebruikt alleen inzichten die je hebt gedeeld.'),
+    'het blok in Samenwerking gaat over Maculis');
+});
+
+test('geen zichtbare tekst over de deelstaat suggereert iets over dimensie A', () => {
+  // Deze formuleringen stonden voor `sharing != SHARED` en beloofden tegelijk exclusiviteit
+  // binnen de klantorganisatie. Dat is precies de verwarring die A en B weer op één hoop gooit.
+  const verboden = [
+    'Alleen voor jou',
+    'blijft van jou tot',
+    'Inzichten zijn van jou',
+    'voor jou zichtbaar',
+  ];
+  for (const zin of verboden) {
+    assert.ok(!MIJN_JS.includes(zin), `mijn.js mag "${zin}" niet meer tonen bij de deelstaat`);
+    assert.ok(!MIJN_HTML.includes(zin), `mijn.html mag "${zin}" niet meer tonen bij de deelstaat`);
+  }
+  // En de klant leest nooit de interne waarden zelf.
+  for (const term of ['PRIVATE', 'AGGREGATED', 'ORGANISATIE']) {
+    assert.ok(!MIJN_HTML.includes(term), `${term} is een interne waarde en hoort niet in de tekst`);
+  }
+});
+
+test('de persoonlijke laag houdt zijn eigen belofte, en die gaat wél over jou', () => {
+  // "Bij jou" is hier waar sinds fase 1: herkenning staat per (inzicht, persoon) en komt niet in
+  // sharedContextForOrg. Deze zin hoort dus te blijven staan, juist omdat hij iets anders belooft
+  // dan de deelstaat erboven.
+  assert.ok(MIJN_JS.includes('Je antwoord blijft bij jou.'),
+    'de belofte bij de herkenningsvraag blijft ongewijzigd');
+});

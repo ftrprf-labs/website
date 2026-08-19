@@ -765,12 +765,12 @@
     const isGedeeld = i.sharing === 'SHARED';
     const blind = drempel(i) === Infinity;
     $('bw-grens-punt').className = 'grens-punt' + (isGedeeld ? ' gedeeld' : '');
-    $('bw-staat').textContent = isGedeeld ? 'Gedeeld met Maculis' : 'Alleen voor jou';
+    $('bw-staat').textContent = isGedeeld ? 'Gedeeld met Maculis' : 'Niet gedeeld met Maculis';
     $('bw-grens-tekst').textContent = blind
       ? 'Hier valt nog niets te delen, want er is nog niets vastgesteld.'
       : isGedeeld
         ? 'Maculis mag dit inzicht gebruiken in jullie samenwerking en in relevante gesprekken. Je kunt dat op elk moment intrekken.'
-        : 'Dit inzicht blijft van jou tot je het zelf deelt. Maculis gebruikt het tot dan niet.';
+        : 'Maculis gebruikt dit inzicht niet zolang het niet gedeeld is. Delen is een aparte keuze, en je kunt hem later weer intrekken.';
     const acties = $('bw-grens-acties');
     acties.innerHTML = '';
     if (blind) return;
@@ -809,7 +809,7 @@
       confirmOk.textContent = 'Nieuwe ontwikkeling delen';
     } else {
       $('confirm-title').textContent = 'Delen intrekken';
-      $('confirm-body').textContent = 'Maculis gebruikt dit inzicht daarna niet langer in jullie samenwerking. Het blijft wel voor jou zichtbaar.';
+      $('confirm-body').textContent = 'Maculis gebruikt dit inzicht daarna niet langer in jullie samenwerking. Het blijft in Mijn Maculis gewoon zichtbaar.';
       confirmOk.textContent = 'Intrekken';
     }
     confirmEl.classList.remove('hidden');
@@ -871,7 +871,7 @@
       b.innerHTML = `
         <span class="pt-kop">
           <span class="pil op-${rol(i)}"><span class="stip" aria-hidden="true"></span>${esc(houdingLabel(i.stance))}</span>
-          <span class="merkje${isGedeeld ? ' gedeeld' : ''}"><span class="stip" aria-hidden="true"></span>${isGedeeld ? 'Gedeeld' : 'Alleen voor jou'}</span>
+          <span class="merkje${isGedeeld ? ' gedeeld' : ''}"><span class="stip" aria-hidden="true"></span>${isGedeeld ? 'Gedeeld met Maculis' : 'Niet gedeeld met Maculis'}</span>
         </span>
         <span class="pt-titel"></span>
         <span class="pt-meta"></span>`;
