@@ -36,9 +36,11 @@ const REGISTRY = {
 
 // Channels that can carry an outbound message from the composer today (INTERNAL_NOTE is handled
 // separately; JOURNEY/WEB are inbound/system only).
-// MIJN_MACULIS is sendable because a customer who asked something inside their own environment
-// must be able to be answered there. It is the only channel whose "delivery" is a database write.
-export const SENDABLE_CHANNELS = ['EMAIL', 'WHATSAPP', 'SMS', 'MIJN_MACULIS'];
+// MIJN_MACULIS is deliberately NOT in this list. It is reply-only: you answer someone there because
+// they wrote to you there, and a draft on such a conversation already opens on that channel by
+// itself (drafts.mjs takes the conversation's channel). Offering it as a channel you can SWITCH TO
+// would let a mail thread be pushed into a customer environment that person may not even have.
+export const SENDABLE_CHANNELS = ['EMAIL', 'WHATSAPP', 'SMS'];
 
 export function getChannelProvider(channel) {
   const factory = REGISTRY[channel];

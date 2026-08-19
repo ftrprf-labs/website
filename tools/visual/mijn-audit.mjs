@@ -38,17 +38,9 @@ const CR = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); re
 let fails = 0;
 const chk = (l, c, d = '') => { if (!c) fails++; console.log(`  [${c ? 'OK ' : 'FOUT'}] ${l}${d ? ' · ' + d : ''}`); };
 
-const route = (page) => page.route('**/api/mijn/**', async (r) => {
-  const p = new URL(r.request().url()).pathname;
-  const j = (b, s = 200) => r.fulfill({ status: s, contentType: 'application/json', body: JSON.stringify(b) });
-  if (p === '/api/mijn/session') return j(F.session);
-  if (p === '/api/mijn/overview') return j(F.overview);
-  if (p === '/api/mijn/insights') return j({ insights: F.insights });
-  if (p === '/api/mijn/collaboration') return j({ items: F.collaborationItems });
-  const m = p.match(/^\/api\/mijn\/insights\/([^/]+)$/);
-  if (m) { const d = F.detail(m[1]); return d ? j(d) : j({ error: 'nope' }, 404); }
-  return j({});
-});
+// Eén routetabel voor de hele harness, met een gesprek dat er al is, zodat ook de draad en het
+// invoerveld werkelijk worden gemeten en niet alleen een lege plek.
+const route = (page) => F.routeMijn(page, F.maakStore(F.startDraden));
 
 // Het vorige bezoek vastzetten. Mijn Maculis leest dat uit localStorage onder een sleutel die
 // van de organisatie is afgeleid; welke sleutel dat is, hoeft de harness niet te weten.
@@ -66,7 +58,11 @@ const VASTE_OPSLAG = `(() => {
 const SCREENS = [
   { name: 'veld', wait: '.zeg.in', doe: null },
   { name: 'bewijs', wait: '.bewijs.in', doe: '#btn-waarom' },
+  // Het gesprek bij een patroon dat nog van jou alleen is: de invoer staat open, met de
+  // grens erboven en de aparte deelknop ernaast.
+  { name: 'praat', wait: '.praat-vorm', doe: ['#btn-waarom', '.praat-ingang'] },
   { name: 'patronen', wait: '.patronen.in', doe: '#btn-patronen' },
+  { name: 'gesprekken', wait: '.gesprekken.in', doe: '#btn-gesprekken' },
   { name: 'samen', wait: '.samen.in', doe: '#btn-samen' },
 ];
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -78,7 +74,7 @@ async function naar(p, s, breedte, hoogte) {
   await p.goto(url(), { waitUntil: 'networkidle' });
   await p.mouse.click(4, Math.round(hoogte / 2));
   await p.waitForTimeout(500);
-  if (s.doe) await p.click(s.doe);
+  for (const stap of [].concat(s.doe || [])) await p.click(stap);
   await p.waitForSelector(s.wait, { timeout: 8000 }).catch(() => {});
   await p.waitForTimeout(700);
 }

@@ -1,6 +1,6 @@
 # Mijn Maculis · de communicatielaag — productvoorstel
 
-**Datum** 2026-08-19 · **Status** voorstel, niet gebouwd · **Scope** alleen Mijn Maculis
+**Datum** 2026-08-19 · **Status** gebouwd op de previewbranch, zie hoofdstuk 12 · **Scope** alleen Mijn Maculis
 Raakt niet: productie, Cockpit, Website, Lens, Testerbeheer.
 
 ---
@@ -299,3 +299,108 @@ vastgelegd dan het antwoord waar hij bij hoort.
 3. **De knopteksten** uit hoofdstuk 7, en dan vooral of "Zeg hier iets over" de juiste toon heeft.
 4. **Of meldingen per e-mail** onderdeel van stap 1 zijn. Zo ja, dan komt de consentpoort er meteen
    bij; zo nee, dan ziet de klant een antwoord pas bij zijn volgende bezoek.
+
+
+---
+
+## 12. Wat er werkelijk is gebouwd
+
+Dit hoofdstuk is geschreven ná de bouw. Hoofdstuk 1 tot en met 11 blijven staan zoals ze waren,
+zodat zichtbaar blijft wat er is voorgesteld en waar de uitvoering daarvan afwijkt.
+
+### 12.1 De vier beslissingen, zoals ze zijn uitgevoerd
+
+| # | De beslissing | Hoe het is gebouwd |
+|---|---|---|
+| 1 | "Laat dit meewegen" komt binnen als voorstel | `relationship_memory` met `source='customer'` en `confidence='proposed'`, en zonder `confirmed_at`. Precies dezelfde stroom waarin AI-voorstellen al landen |
+| 1b | Geen interne bestuurstaal voor de klant | De klant leest "We nemen dit mee. Je ziet het terug zodra we het samen hebben vastgelegd." De harness controleert het hele zichtbare oppervlak op woorden als `proposed` en `confidence` |
+| 2 | Praten over een privépatroon zonder het te delen | Het gesprek wijst naar het inzicht, maar het interne leespad filtert nog steeds op `sharing='SHARED'` en volgt die verwijzing niet. Wat Maculis meekrijgt staat vóór het versturen op het scherm |
+| 2b | Delen is een aparte handeling | "Deel dit inzicht met Maculis" staat naast de invoer, met de bestaande bevestiging erachter. Versturen deelt nooit |
+| 3 | "Praat hierover met Maculis" als gespreksingang | Zo heet de ingang. De deelknop heet nu "Deel dit met Maculis" en doet ook alleen dat |
+| 4 | E-mailmelding hoort bij stap 1 | Eén vaste tekst, zonder enige inhoud en zonder toegangslink, door de gewone consentpoort |
+
+### 12.2 Migraties
+
+Eén migratie, `009_mijn_maculis_gesprek.sql`, volledig additief.
+
+| Wat | Waarom |
+|---|---|
+| `channel_kind` krijgt `MIJN_MACULIS` | Een eigen kanaalwaarde, niet `WEB`: andere herkomst, andere toon, andere consentgevolgen |
+| `conversation.insight_id` | Waar gaat dit gesprek over |
+| `conversation.customer_access_id`, `message.customer_access_id` | Wie aan klantzijde schreef dit. Herkomst hoort een kolom te zijn |
+| `conversation.customer_read_at` | Het klantwatermerk, gescheiden van `last_read_at` dat strikt een Maculis-mens betekent |
+| `message.notified_at` | Eén melding per antwoord, en achteraf controleerbaar |
+| `customer_access.contact_id` | Zonder contact geen ontvanger en geen consentsubject. Dit knoopt de portaalidentiteit aan dezelfde relationele werkelijkheid als de Cockpit |
+| `customer_insight.recognition`, `recognition_note`, `recognition_at`, `recognition_by` | De herkenningsvraag duurzaam, met de toelichting erbij |
+| `insight_recognition_event` | Append-only spoor: van gedachten veranderen overschrijft niets stil |
+
+Wat er níét is gekomen: geen tweede berichtenopslag, geen klantpostvak, geen eigen AI-route, geen
+websockets, en geen tweede relationeel model.
+
+### 12.3 Beoordelingen die ik zelf heb gemaakt
+
+Drie plekken waar de uitvoering een keuze vroeg die niet in de opdracht stond.
+
+**De herkenningsvraag is duurzaam gemaakt.** Dat stond in het voorstel als A-6, "los van dit
+voorstel te besluiten". Ik heb het toch gedaan, om de reden die in hoofdstuk 10 al stond: anders is
+een correctie hechter vastgelegd dan het antwoord waar hij bij hoort. Het antwoord volgt dezelfde
+grens als het inzicht: bij een privé-inzicht blijft het bij de klant, en dat staat er ook.
+
+**"Iets vertellen" is geen apart item in de periferie geworden.** Zes knoppen naast elkaar wikkelen
+op een telefoon naar drie rijen en duwen de begroeting weg. De periferie heeft er daarom één item
+bij, "Gesprekken", en "Iets vertellen" staat bovenaan in dat blad. Beide functies uit het voorstel
+zijn er, op één plek in plaats van twee.
+
+**Het kanaal is antwoord-only, en de Cockpit is met drie regels aangeraakt.** Een mens bij Maculis
+moet kunnen antwoorden, anders is de laag half. Dat werkt vanzelf: een concept op een Mijn
+Maculis-gesprek opent al op dat kanaal, want `drafts.mjs` neemt het kanaal van het gesprek over. Ik
+heb Mijn Maculis daarom bewust NIET aan `SENDABLE_CHANNELS` toegevoegd. Dat zou het een kanaal maken
+waar je naartoe kunt WISSELEN, en dan kan een mailgesprek in een klantomgeving worden geduwd die die
+persoon misschien niet eens heeft. De enige Cockpit-wijziging is daardoor de naam: drie
+opzoektabellen krijgen `MIJN_MACULIS: 'Mijn Maculis'`, zodat er nergens een enum-naam op het scherm
+verschijnt. Aan bestaande Cockpit-schermen verandert niets, want geen enkel bestaand gesprek heeft
+dit kanaal.
+
+**De ingang is een tekstknop en geen kop.** "Praat hierover met Maculis" is 26 tekens. Als knoptekst
+past dat op 390px, en de harness controleert dat ook: geen enkele knop loopt buiten haar plek. De
+verzendknop heet gewoon "Versturen".
+
+### 12.4 Wat er is getest
+
+Twee harnassen, allebei groen, allebei op desktop én mobiel.
+
+`tests/mijn-gesprek.test.mjs` loopt door de echte HTTP-routes op een echte Postgres: een gesprek
+vanuit een patroon, praten over een privépatroon zonder te delen, daarna wél delen, Ja/Deels/Nee met
+toelichting en het spoor daarvan, het vinkje dat standaard uit staat, een gesprek zonder patroon, het
+antwoord van Maculis door hetzelfde ene verzendpad, de melding zonder inhoud, de melding die
+uitblijft zonder toestemming en zonder contact, en het terugvinden van een gesprek. Plus de grens
+zelf, na afloop van dat alles: nog steeds precies één gedeeld inzicht.
+
+`tools/visual/mijn-gesprek-ui.mjs` meet hetzelfde op het scherm, twee keer: 1440 en 390. Wat de klant
+leest, wat er werkelijk wordt verstuurd, dat het vinkje uit staat, dat er nergens interne
+bestuurstaal staat, en dat geen enkele knoptekst buiten haar plek loopt.
+
+Daarnaast onveranderd groen: `tools/visual/mijn-audit.mjs` (regime, contrast, focus, overflow,
+reduced motion, nu ook op de schermen `praat` en `gesprekken`), `tools/visual/mijn-motion.mjs` en
+`tools/visual/mijn-affordance.mjs`.
+
+### 12.5 Wat werkelijk nog openstaat
+
+Dit zijn geen restpunten maar productbeslissingen die niemand nog heeft genomen.
+
+1. **De route terug in de melding.** De e-mail bevat geen toegangslink, want alleen de hash van een
+   token wordt bewaard en we verzinnen er geen. De klant opent Mijn Maculis dus met zijn eigen link.
+   Het alternatief is een kortlevende link per melding aanmaken. Dat is te bouwen, maar het is een
+   nieuwe soort geheim en dus jouw beslissing.
+2. **Wat een antwoord doet met het patroon.** Nee zeggen maakt het patroon in het veld weer onzeker.
+   Wat een Nee intern zou moeten betekenen voor de status van het inzicht, is nog niet bepaald.
+   Nu gebeurt er intern niets automatisch, en dat is de veilige stand.
+3. **Bijlagen.** Bewust niet gebouwd. Een bijlage is een eigen privacyvraag.
+4. **Bewaartermijn van geheugenitems.** Gespreksinhoud valt onder het bestaande retentiebeleid.
+   Voorstellen in het relatiegeheugen zijn bedoeld om te blijven en vragen een eigen termijn.
+5. **Waar een bevestigd voorstel terugkomt voor de klant.** De klant leest nu "je ziet het terug
+   zodra we het samen hebben vastgelegd". De plek waar dat gebeurt is Samenwerking, maar de promotie
+   daarheen is nog handwerk in de Cockpit.
+6. **De melding threadt in de gewone e-mailconversatie van het contact.** Dat is eerlijk, want het
+   is een echte e-mail die wij stuurden. Of jij die meldingen liever in een eigen draad ziet, is een
+   keuze die ik niet voor je heb gemaakt.

@@ -41,17 +41,8 @@ const VASTE_OPSLAG = `(() => {
   };
 })();`;
 
-const route = (page) => page.route('**/api/mijn/**', async (r) => {
-  const p = new URL(r.request().url()).pathname;
-  const j = (b, s = 200) => r.fulfill({ status: s, contentType: 'application/json', body: JSON.stringify(b) });
-  if (p === '/api/mijn/session') return j(F.session);
-  if (p === '/api/mijn/overview') return j(F.overview);
-  if (p === '/api/mijn/insights') return j({ insights: F.insights });
-  if (p === '/api/mijn/collaboration') return j({ items: F.collaborationItems });
-  const m = p.match(/^\/api\/mijn\/insights\/([^/]+)$/);
-  if (m) { const d = F.detail(m[1]); return d ? j(d) : j({}, 404); }
-  return j({});
-});
+// Eén routetabel voor de hele harness (tools/visual/mijn-fixtures.mjs), inclusief het gesprek.
+const route = (page) => F.routeMijn(page, F.maakStore());
 
 let fails = 0;
 const chk = (l, c, d = '') => { if (!c) fails++; console.log(`  [${c ? 'OK ' : 'FOUT'}] ${l}${d ? ' · ' + d : ''}`); };

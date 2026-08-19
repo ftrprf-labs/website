@@ -40,6 +40,7 @@
         <button class="knop" id="btn-patronen" type="button">Alle patronen</button>
         <button class="knop" id="btn-blind" type="button">Wat zie ik niet?</button>
         <button class="knop" id="btn-samen" type="button">Samenwerking</button>
+        <button class="knop" id="btn-gesprekken" type="button">Gesprekken<span class="stip-nieuw hidden" id="gs-stip" aria-hidden="true"></span></button>
         <button class="knop" id="btn-opnieuw" type="button">Opnieuw</button>
       </nav>
 
@@ -94,6 +95,14 @@
             <button class="knop" data-antwoord="nee" type="button">Nee</button>
           </div>
           <p class="vraag-uit" id="bw-uitkomst"></p>
+          <!-- Deels en Nee zijn zonder toelichting arm, en dat weet je zelf ook. -->
+          <div class="vraag-toel hidden" id="bw-toel">
+            <label class="vraag-toel-vraag" id="bw-toel-vraag" for="bw-toel-tekst"></label>
+            <textarea class="veldtekst" id="bw-toel-tekst" rows="2"></textarea>
+            <div class="vraag-toel-acties">
+              <button class="knop" id="bw-toel-bewaar" type="button">Bewaren</button>
+            </div>
+          </div>
         </div>
 
         <!-- De grens tussen wat van jou is en wat gedeeld is. -->
@@ -102,6 +111,10 @@
           <p class="grens-tekst" id="bw-grens-tekst"></p>
           <div class="grens-acties" id="bw-grens-acties"></div>
         </div>
+
+        <!-- Doorpraten over wat Maculis ziet, in de ruimte waar je het ziet. Geen supportkanaal
+             en geen chat: één ingang, en het gesprek dat er al is. -->
+        <div class="praat" id="bw-praat"></div>
       </div>
     </aside>
 
@@ -116,6 +129,22 @@
         <h2 class="blad-titel" id="pt-titel">Alle patronen</h2>
         <p class="blad-lead">Dezelfde inhoud als in het veld, op een rij. Kies een patroon om het bewijs eronder te openen.</p>
         <ul class="pt-lijst" id="pt-lijst"></ul>
+      </div>
+    </aside>
+
+    <!-- Terugkijken. Geen postvak: een rustige lijst met draden, elk met het patroon waar hij
+         over ging als context. En de ingang voor wat bij geen enkel patroon hoort. -->
+    <aside class="blad gesprekken" id="gesprekken" aria-labelledby="gs-titel" aria-hidden="true">
+      <div class="blad-kop">
+        <button class="knop tekst" id="btn-gesprekken-sluit" type="button">Terug naar het veld</button>
+      </div>
+      <div class="blad-body">
+        <p class="lab c">Wat we tegen elkaar hebben gezegd</p>
+        <h2 class="blad-titel" id="gs-titel">Gesprekken</h2>
+        <p class="blad-lead" id="gs-lead">Wat je hier hebt gezegd en wat wij hebben teruggezegd. Nieuwste boven.</p>
+        <div class="gs-nieuw" id="gs-nieuw"></div>
+        <ul class="gs-lijst" id="gs-lijst"></ul>
+        <div class="gs-draad" id="gs-draad"></div>
       </div>
     </aside>
 
@@ -144,7 +173,7 @@
       <p id="confirm-body" class="confirm-body"></p>
       <div class="confirm-actions">
         <button id="confirm-cancel" class="knop" type="button">Annuleren</button>
-        <button id="confirm-ok" class="knop primair" type="button">Delen met Maculis</button>
+        <button id="confirm-ok" class="knop primair" type="button">Deel dit met Maculis</button>
       </div>
     </div>
   </div>

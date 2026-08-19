@@ -171,8 +171,137 @@ const MOMENT = [T.f, T.e, T.d, T.c, T.b, T.a, T.a];
 
 export const evidence = (id) => (BRON[id] || []).map((label, k) => ({ label, at: MOMENT[k % MOMENT.length] }));
 
-export const detail = (id) => {
+export const detail = (id, store = null) => {
   const insight = insights.find((i) => i.id === id);
   if (!insight) return null;
-  return { insight, development: DEV[id] || [], evidence: evidence(id) };
+  return {
+    insight: store ? store.metStand(insight) : insight,
+    development: DEV[id] || [],
+    evidence: evidence(id),
+    conversation: store ? store.overInzicht(id) : null,
+  };
 };
+
+// ---- de communicatielaag ----------------------------------------------------------------------
+// Het gesprek is toestand: wat je zegt moet je daarna terugzien. Een vaste JSON-stub kan dat niet,
+// dus de harness krijgt een klein geheugen dat zich precies zo gedraagt als server/mijn/gesprek.mjs:
+// één draad per patroon, een eigen leeswatermerk, en de herkenning die het bezoek overleeft.
+// Nog steeds volledig deterministisch: elke tijdstempel komt uit T, nooit uit de klok.
+export function maakStore(startDraden = []) {
+  let n = 0;
+  const draden = startDraden.map((d) => ({ ...d, messages: d.messages.map((m) => ({ ...m })) }));
+  const titel = (insightId) => {
+    const i = insights.find((x) => x.id === insightId);
+    return i ? i.title : 'Iets vertellen vanuit Mijn Maculis';
+  };
+  const uit = (d) => ({
+    id: d.id, subject: d.subject, insight_id: d.insight_id,
+    insight_title: d.insight_id ? titel(d.insight_id) : null,
+    insight_sharing: d.insight_id ? (insights.find((x) => x.id === d.insight_id) || {}).sharing : null,
+    last_message_at: d.last_message_at, unread: d.unread || 0,
+    awaiting: !d.messages.some((m) => m.van === 'maculis'),
+    messages: d.messages,
+  });
+  return {
+    // wat de klant heeft gezegd, zodat een test kan controleren wat er werkelijk is verstuurd
+    verstuurd: [],
+    herkenningen: [],
+    lijst() {
+      return {
+        items: draden.slice().reverse().map(uit),
+        unread: draden.reduce((a, d) => a + (d.unread || 0), 0),
+      };
+    },
+    open(id) {
+      const d = draden.find((x) => x.id === id);
+      if (!d) return null;
+      d.unread = 0;
+      return uit(d);
+    },
+    overInzicht(insightId) {
+      const d = draden.find((x) => x.insight_id === insightId);
+      return d ? uit(d) : null;
+    },
+    // Maculis antwoordt. Voor de test die moet aantonen dat een antwoord in dezelfde draad landt.
+    antwoord(insightId, tekst) {
+      const d = draden.find((x) => x.insight_id === insightId);
+      if (!d) return null;
+      d.messages.push({ id: 'a' + (++n), van: 'maculis', naam: 'Maculis', tekst, at: T.a });
+      d.unread = (d.unread || 0) + 1;
+      return uit(d);
+    },
+    stuur({ insightId = null, text, weegMee = false }) {
+      this.verstuurd.push({ insightId, text, weegMee });
+      let d = draden.find((x) => (x.insight_id || null) === (insightId || null));
+      if (!d) {
+        d = { id: 'draad-' + (++n), subject: titel(insightId), insight_id: insightId || null,
+          last_message_at: T.a, unread: 0, messages: [] };
+        draden.push(d);
+      }
+      d.messages.push({ id: 'm' + (++n), van: 'jij', naam: 'Sanne de Vries', tekst: text, at: T.a });
+      return { ok: true, conversationId: d.id, weegtMee: Boolean(weegMee), conversation: uit(d) };
+    },
+    // De herkenning hoort bij dit geheugen en niet bij de gedeelde fixture. Anders zou de ene
+    // meting de volgende beïnvloeden, en dan meet je je eigen vorige run.
+    stand: {},
+    metStand(i) {
+      const h = this.stand[i.id];
+      return { ...i, recognition: (h && h.answer) || null, recognition_note: (h && h.note) || null };
+    },
+    herkenning(insightId, { answer = null, note = null } = {}) {
+      this.herkenningen.push({ insightId, answer, note });
+      this.stand[insightId] = answer ? { answer, note: note || null } : null;
+      return { ok: true, recognition: answer, recognition_note: answer ? note : null };
+    },
+  };
+}
+
+// Een gesprek dat er al is. Zo tonen de opnames en de audit niet alleen een leeg formulier maar
+// ook een echte draad, met een antwoord van Maculis erin.
+export const startDraden = [
+  {
+    id: 'draad-bestaand', subject: insights[1].title, insight_id: insights[1].id,
+    last_message_at: T.b, unread: 1,
+    messages: [
+      { id: 'm1', van: 'jij', naam: 'Sanne de Vries', at: T.c,
+        tekst: 'Waar baseren jullie dit precies op? Ik herken het wel, maar niet overal even sterk.' },
+      { id: 'm2', van: 'maculis', naam: 'Maculis', at: T.b,
+        tekst: 'Op vijf plekken in de eerste Lens, waarvan drie extern en twee intern. Ik loop ze in de volgende sessie met je door.' },
+    ],
+  },
+];
+
+// Eén routetabel voor de hele harness, zodat capture, audit, motion en de gesprekstest niet elk
+// hun eigen versie van de werkelijkheid onderhouden.
+export function routeMijn(page, store = null) {
+  return page.route('**/api/mijn/**', async (r) => {
+    const url = new URL(r.request().url());
+    const p = url.pathname;
+    const j = (b, st = 200) => r.fulfill({ status: st, contentType: 'application/json', body: JSON.stringify(b) });
+    const body = () => { try { return JSON.parse(r.request().postData() || '{}'); } catch { return {}; } };
+    const method = r.request().method();
+
+    if (p === '/api/mijn/session') return j(session);
+    if (p === '/api/mijn/overview') return j(overview);
+    if (p === '/api/mijn/insights') return j({ insights: store ? insights.map((i) => store.metStand(i)) : insights });
+    if (p === '/api/mijn/collaboration') return j({ items: collaborationItems });
+
+    if (p === '/api/mijn/conversations' && method === 'GET') return j(store ? store.lijst() : { items: [], unread: 0 });
+    if (p === '/api/mijn/conversations' && method === 'POST') {
+      if (!store) return j({ ok: false }, 400);
+      return j(store.stuur(body()));
+    }
+    const draad = p.match(/^\/api\/mijn\/conversations\/([^/]+)$/);
+    if (draad && method === 'GET') {
+      const d = store && store.open(draad[1]);
+      return d ? j({ conversation: d }) : j({}, 404);
+    }
+    const herken = p.match(/^\/api\/mijn\/insights\/([^/]+)\/recognition$/);
+    if (herken && method === 'POST') {
+      return store ? j(store.herkenning(herken[1], body())) : j({ ok: true });
+    }
+    const m = p.match(/^\/api\/mijn\/insights\/([^/]+)$/);
+    if (m) { const d = detail(m[1], store); return d ? j(d) : j({}, 404); }
+    return j({});
+  });
+}

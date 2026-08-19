@@ -516,7 +516,7 @@
   // ============================================================================================
   // 4. HET BEWIJS KOMT UIT HET VELD
   // ============================================================================================
-  const bladen = ['bewijs', 'patronen', 'samen'];
+  const bladen = ['bewijs', 'patronen', 'samen', 'gesprekken'];
   function sluitBladen(behalve) {
     bladen.forEach((id) => {
       const el = $(id);
@@ -565,6 +565,7 @@
     $('bw-dev').classList.add('hidden');
     toonVraag(pat);
     toonGrens(pat);
+    $('bw-praat').innerHTML = '';
 
     const { status, data } = await api('/api/mijn/insights/' + encodeURIComponent(i.id));
     if (status !== 200 || !data.insight) {
@@ -572,7 +573,12 @@
       return;
     }
     pat.ins = data.insight;
+    herkenning[data.insight.id] = data.insight.recognition || undefined;
     vulBewijs(pat, data.evidence || [], data.development || []);
+    toonVraag(pat);
+    // Het gesprek over dit patroon staat hier ook, zodat je nooit ergens anders hoeft te zoeken
+    // naar wat je hier hebt gezegd.
+    toonPraat(pat, data.conversation);
   }
 
   function vulBewijs(pat, evidence, development) {
@@ -629,28 +635,64 @@
   // Maculis verkondigt niet. Waar menselijke betekenis nodig is, vraagt het, en het antwoord
   // verandert zichtbaar wat het veld toont.
   //
-  // BEPERKING, bewust en zichtbaar: dit antwoord geldt voor dit bezoek. Het vastleggen ervan
-  // vraagt een productbeslissing die nog niet genomen is, namelijk hoe een menselijk antwoord
-  // weegt tegenover nieuw bewijs. Zolang die er niet is, wordt hier niets opgeslagen en belooft
-  // de tekst dat ook niet.
+  // Het antwoord is nu duurzaam. Dat is geen detail: een correctie op een patroon mag niet
+  // steviger worden vastgelegd dan het antwoord waar hij bij hoort. Het volgt dezelfde grens als
+  // het inzicht zelf, en de tekst zegt precies waar het blijft.
   // ============================================================================================
+  const TOEL_VRAAG = { deels: 'Wat klopt er wel en wat niet?', nee: 'Wat zien wij verkeerd?' };
+
   function toonVraag(pat) {
     const el = $('bw-vraag');
-    const blind = drempel(pat.ins) === Infinity;
+    const i = pat.ins;
+    const blind = drempel(i) === Infinity;
     el.classList.toggle('hidden', blind);
-    const gekozen = herkenning[pat.ins.id];
+    const gekozen = herkenning[i.id];
     el.querySelectorAll('[data-antwoord]').forEach((b) => {
       const aan = b.getAttribute('data-antwoord') === gekozen;
       b.classList.toggle('primair', aan);
       b.setAttribute('aria-pressed', aan ? 'true' : 'false');
     });
-    $('bw-uitkomst').innerHTML = uitkomstTekst(gekozen);
+    $('bw-uitkomst').innerHTML = uitkomstTekst(gekozen, i);
+
+    // Deels en Nee zijn zonder toelichting arm. Het veld staat er dan meteen open, en blijft leeg
+    // mogen blijven: deels antwoorden en verder niets zeggen is een eerlijke uitkomst.
+    const toel = $('bw-toel');
+    const wil = gekozen === 'deels' || gekozen === 'nee';
+    toel.classList.toggle('hidden', !wil);
+    if (wil) {
+      $('bw-toel-vraag').textContent = TOEL_VRAAG[gekozen];
+      $('bw-toel-tekst').value = i.recognition_note || '';
+    }
   }
-  function uitkomstTekst(a) {
-    if (a === 'ja') return '<b>Bevestigd door jou.</b> Het patroon komt tot rust en het licht wordt sterker. Je antwoord geldt voor dit bezoek.';
-    if (a === 'deels') return '<b>Deels herkend.</b> Maculis houdt het inzicht aan en het licht neemt iets af. Je antwoord geldt voor dit bezoek.';
-    if (a === 'nee') return '<b>Niet herkend.</b> Het patroon wordt weer onzeker: de waarnemingen komen los en gaan opnieuw bewegen. Je antwoord geldt voor dit bezoek.';
-    return 'Jouw antwoord verandert wat het veld laat zien. Er wordt niets vastgelegd zonder dat jij het deelt.';
+
+  // Waar het antwoord blijft is onderdeel van het antwoord. Bij een gedeeld inzicht ziet Maculis
+  // het; bij een inzicht dat nog van jou alleen is, niet. Dat staat er, elke keer.
+  function bestemming(i) {
+    return i && i.sharing === 'SHARED'
+      ? ' Maculis ziet je antwoord bij dit gedeelde inzicht.'
+      : ' Zolang dit inzicht van jou alleen is, blijft je antwoord ook bij jou.';
+  }
+  function uitkomstTekst(a, i) {
+    if (a === 'ja') return '<b>Bevestigd door jou.</b> Het patroon komt tot rust en het licht wordt sterker.' + esc(bestemming(i));
+    if (a === 'deels') return '<b>Deels herkend.</b> Maculis houdt het inzicht aan en het licht neemt iets af.' + esc(bestemming(i));
+    if (a === 'nee') return '<b>Niet herkend.</b> Het patroon wordt weer onzeker: de waarnemingen komen los en gaan opnieuw bewegen.' + esc(bestemming(i));
+    return 'Jouw antwoord verandert wat het veld laat zien. Er wordt niets gedeeld zonder dat jij het deelt.';
+  }
+
+  // Het antwoord bewaren. Het inzicht in het geheugen wordt meteen bijgewerkt, zodat het veld en
+  // de teksten hetzelfde zeggen als de server.
+  async function bewaarHerkenning(pat, antwoord, toelichting) {
+    const i = pat.ins;
+    herkenning[i.id] = antwoord || undefined;
+    i.recognition = antwoord || null;
+    i.recognition_note = antwoord ? (toelichting || null) : null;
+    toonVraag(pat);
+    toonUitspraak();
+    vulPatronen();
+    const { status } = await api(`/api/mijn/insights/${encodeURIComponent(i.id)}/recognition`, {
+      method: 'POST', body: { answer: antwoord || null, note: toelichting || null },
+    });
+    if (status !== 200) toast('Je antwoord kon niet worden bewaard.');
   }
 
   document.querySelectorAll('[data-antwoord]').forEach((b) => {
@@ -658,11 +700,15 @@
       if (focus === null) return;
       const pat = patronen[focus];
       const a = b.getAttribute('data-antwoord');
-      herkenning[pat.ins.id] = herkenning[pat.ins.id] === a ? undefined : a;
-      toonVraag(pat);
-      toonUitspraak();
-      vulPatronen();
+      const nieuw = herkenning[pat.ins.id] === a ? null : a;
+      bewaarHerkenning(pat, nieuw, nieuw ? pat.ins.recognition_note : null);
     });
+  });
+  $('bw-toel-bewaar').addEventListener('click', () => {
+    if (focus === null) return;
+    const pat = patronen[focus];
+    bewaarHerkenning(pat, herkenning[pat.ins.id] || null, $('bw-toel-tekst').value.trim());
+    toast('Bewaard');
   });
 
   // ============================================================================================
@@ -688,7 +734,7 @@
     } else if (isGedeeld) {
       acties.appendChild(maakKnop('Delen intrekken', '', () => bevestig(i, 'revoke')));
     } else {
-      acties.appendChild(maakKnop('Bespreek met Maculis', 'primair', () => bevestig(i, 'share')));
+      acties.appendChild(maakKnop('Deel dit met Maculis', 'primair', () => bevestig(i, 'share')));
     }
   }
   function maakKnop(tekst, extra, fn) {
@@ -705,7 +751,7 @@
     if (actie === 'share') {
       $('confirm-title').textContent = 'Delen met Maculis';
       $('confirm-body').textContent = 'Als je dit deelt, kan Maculis dit inzicht gebruiken in jullie samenwerking en in relevante gesprekken. Je kunt het later weer intrekken.';
-      confirmOk.textContent = 'Delen met Maculis';
+      confirmOk.textContent = 'Deel dit met Maculis';
     } else if (actie === 'share-update') {
       $('confirm-title').textContent = 'Nieuwe ontwikkeling delen';
       $('confirm-body').textContent = 'Je werkt de eerder gedeelde lezing bij met de huidige ontwikkeling. Vanaf dat moment gebruikt Maculis de nieuwe lezing. Er wordt niets automatisch gedeeld.';
@@ -879,7 +925,229 @@
   }
 
   // ============================================================================================
-  // 9. BOOT
+  // 9. HET GESPREK
+  // Doorpraten over wat Maculis ziet, in de ruimte waar je het ziet. Geen postvak en geen chat.
+  //
+  // Drie dingen worden hier zichtbaar gehouden, omdat ze anders alleen in de architectuur zouden
+  // bestaan en de klant er niets aan zou hebben:
+  //
+  //   1. Wat je meestuurt staat er vóórdat je verstuurt. Context die je niet ziet is context die
+  //      je niet hebt gegeven.
+  //   2. Praten en delen zijn twee handelingen. Bij een inzicht dat nog van jou alleen is, staat
+  //      dat er letterlijk, met een aparte knop ernaast voor wie het er wél bij wil doen.
+  //   3. Het vinkje staat uit. Wie niets aanvinkt, praat gewoon.
+  // ============================================================================================
+  const OPENERS_PATROON = [
+    'Dit herken ik deels, maar bij ons speelt nog iets anders',
+    'Waar baseren jullie dit precies op?',
+    'Wat zouden jullie hiermee doen?',
+  ];
+  const OPENERS_LOS = [
+    'Er is bij ons iets veranderd',
+    'Ik heb een vraag over wat jullie zien',
+    'Jullie missen iets',
+  ];
+
+  let gesprekOngelezen = 0;
+
+  function el(tag, klasse, tekst) {
+    const e = document.createElement(tag);
+    if (klasse) e.className = klasse;
+    if (tekst != null) e.textContent = tekst;
+    return e;
+  }
+
+  // De draad zelf: wat er is gezegd, in volgorde. Zonder tijdstempels per regel schreeuwen; de
+  // datum staat erbij omdat een gesprek over maanden kan lopen.
+  function maakDraad(draad) {
+    const wrap = el('div', 'draad');
+    if (!draad || !draad.messages.length) return wrap;
+    wrap.appendChild(el('p', 'lab', 'Ons gesprek hierover'));
+    const lijst = el('ol', 'draad-lijst');
+    draad.messages.forEach((m) => {
+      const li = el('li', 'draad-item van-' + m.van);
+      li.appendChild(el('span', 'draad-wie', m.naam));
+      li.appendChild(el('p', 'draad-tekst', m.tekst));
+      li.appendChild(el('span', 'draad-wanneer', fmtDatum(m.at)));
+      lijst.appendChild(li);
+    });
+    wrap.appendChild(lijst);
+    if (draad.awaiting) wrap.appendChild(el('p', 'draad-wacht', 'Nog geen antwoord. We laten het hier weten.'));
+    return wrap;
+  }
+
+  // Wat Maculis met dit bericht meekrijgt. Bij een gedeeld patroon is dat eenvoudig. Bij een
+  // patroon dat nog van jou alleen is, is het een grens, en die wordt hier benoemd en niet
+  // weggeschreven.
+  function contextTekst(insight) {
+    if (!insight) return 'Je stuurt dit mee: je bericht en wie je bent. Er hoort geen patroon bij, dus we lezen het als iets nieuws.';
+    if (insight.sharing === 'SHARED') {
+      return 'Je stuurt dit mee: dit patroon, het bewijs eronder en wie je bent. Dit inzicht is al gedeeld, dus Maculis kan er volledig op ingaan.';
+    }
+    return 'Dit inzicht is nog van jou alleen. Maculis ziet je bericht en waar het over gaat, maar niet de lezing eronder, niet het bewijs en niet je antwoord op onze vraag. Wil je dat er wel bij, deel het inzicht dan.';
+  }
+
+  // De invoer. Eén tekstveld dat meegroeit, drie openingen die het veld vullen in plaats van iets
+  // te versturen, één vinkje dat uit staat, en de verzendknop eronder.
+  function maakComposer(insight, klaar) {
+    const wrap = el('div', 'praat-vorm');
+    const prive = Boolean(insight) && insight.sharing !== 'SHARED' && insight.sharing !== 'AGGREGATED';
+
+    wrap.appendChild(el('p', 'lab', insight ? 'Praat hierover met Maculis' : 'Iets vertellen'));
+
+    const openers = el('ul', 'praat-openers');
+    (insight ? OPENERS_PATROON : OPENERS_LOS).forEach((o) => {
+      const li = document.createElement('li');
+      const b = el('button', 'praat-opener', o);
+      b.type = 'button';
+      b.addEventListener('click', () => { tekst.value = o; tekst.focus(); groei(); });
+      li.appendChild(b); openers.appendChild(li);
+    });
+    wrap.appendChild(openers);
+
+    const label = el('label', 'praat-label', 'Je eigen woorden');
+    const tekst = document.createElement('textarea');
+    tekst.className = 'veldtekst'; tekst.rows = 3;
+    tekst.id = 'praat-tekst-' + (insight ? insight.id : 'los');
+    label.setAttribute('for', tekst.id);
+    const groei = () => { tekst.style.height = 'auto'; tekst.style.height = Math.min(tekst.scrollHeight, 260) + 'px'; };
+    tekst.addEventListener('input', groei);
+    wrap.appendChild(label);
+    wrap.appendChild(tekst);
+
+    wrap.appendChild(el('p', 'praat-context', contextTekst(insight)));
+    if (prive) {
+      const acties = el('div', 'praat-grens');
+      acties.appendChild(maakKnop('Deel dit inzicht met Maculis', '', () => bevestig(insight, 'share')));
+      wrap.appendChild(acties);
+    }
+
+    // Niveau 2. Uit, altijd. Wie niets aanvinkt, praat gewoon.
+    const weegLabel = el('label', 'praat-weeg');
+    const weeg = document.createElement('input');
+    weeg.type = 'checkbox'; weeg.checked = false;
+    weegLabel.appendChild(weeg);
+    weegLabel.appendChild(el('span', null, 'Laat dit meewegen in wat Maculis van ons weet'));
+    wrap.appendChild(weegLabel);
+    wrap.appendChild(el('p', 'praat-weeg-uit', 'Wij nemen dit dan mee in hoe we naar jullie organisatie kijken. Je kunt dat later weer intrekken.'));
+
+    const rij = el('div', 'praat-acties');
+    const stuur = el('button', 'knop primair', 'Versturen');
+    stuur.type = 'button';
+    rij.appendChild(stuur);
+    wrap.appendChild(rij);
+
+    stuur.addEventListener('click', async () => {
+      const inhoud = tekst.value.trim();
+      if (!inhoud) { tekst.focus(); return; }
+      stuur.disabled = true;
+      const { status, data } = await api('/api/mijn/conversations', {
+        method: 'POST',
+        body: { insightId: insight ? insight.id : null, text: inhoud, weegMee: weeg.checked },
+      });
+      stuur.disabled = false;
+      if (status !== 200 || !data.ok) { toast('Je bericht kon niet worden verstuurd.'); return; }
+      tekst.value = ''; weeg.checked = false; groei();
+      toast(data.weegtMee
+        ? 'Verstuurd. We nemen dit mee. Je ziet het terug zodra we het samen hebben vastgelegd.'
+        : 'Verstuurd. Iemand van ons leest dit en reageert hier.');
+      if (klaar) klaar(data.conversation);
+      vernieuwGesprekken();
+    });
+
+    return wrap;
+  }
+
+  // Het gesprek in het bewijsblad: één ingang, en daaronder wat er al staat.
+  function toonPraat(pat, draad) {
+    const houder = $('bw-praat');
+    houder.innerHTML = '';
+    const i = pat.ins;
+    let open = false;
+
+    const ingang = maakKnop('Praat hierover met Maculis', 'tekst praat-ingang', () => {
+      open = !open;
+      teken2();
+    });
+    function teken2() {
+      houder.innerHTML = '';
+      houder.appendChild(ingang);
+      if (open) {
+        houder.appendChild(maakComposer(i, (nieuw) => { open = false; teken2(); toonPraat(pat, nieuw); }));
+      }
+      houder.appendChild(maakDraad(draad));
+    }
+    teken2();
+  }
+
+  // ---- het blad Gesprekken ---------------------------------------------------------------------
+  async function vernieuwGesprekken() {
+    const { status, data } = await api('/api/mijn/conversations');
+    if (status !== 200) return null;
+    gesprekOngelezen = data.unread || 0;
+    $('gs-stip').classList.toggle('hidden', gesprekOngelezen === 0);
+    return data.items || [];
+  }
+
+  function vulGesprekken(items) {
+    const nieuwHouder = $('gs-nieuw');
+    const ul = $('gs-lijst');
+    const draadHouder = $('gs-draad');
+    draadHouder.innerHTML = '';
+    nieuwHouder.innerHTML = '';
+    ul.innerHTML = '';
+
+    let open = false;
+    const ingang = maakKnop('Iets vertellen', 'tekst gs-ingang', () => { open = !open; tekenNieuw(); });
+    function tekenNieuw() {
+      nieuwHouder.innerHTML = '';
+      nieuwHouder.appendChild(ingang);
+      if (open) nieuwHouder.appendChild(maakComposer(null, () => { open = false; tekenNieuw(); openGesprekken(); }));
+    }
+    tekenNieuw();
+
+    if (!items || !items.length) {
+      ul.innerHTML = '<li class="leeg"><p class="stem">Er is hier nog niets gezegd. Zeg iets bij een patroon, of vertel ons iets nieuws.</p></li>';
+      return;
+    }
+    items.forEach((it) => {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'gs-item' + (it.unread ? ' nieuw' : '');
+      b.appendChild(el('span', 'gs-titel', it.insight_title || 'Iets vertellen'));
+      b.appendChild(el('span', 'gs-meta',
+        (it.unread ? 'Nieuw antwoord, ' : '') + fmtDatum(it.last_message_at)));
+      b.addEventListener('click', async () => {
+        const { status, data } = await api('/api/mijn/conversations/' + encodeURIComponent(it.id));
+        if (status !== 200) { toast('Dit gesprek kon niet worden geopend.'); return; }
+        draadHouder.innerHTML = '';
+        draadHouder.appendChild(maakDraad(data.conversation));
+        if (data.conversation.insight_id) {
+          const pat = patronen.find((q) => q.ins.id === data.conversation.insight_id);
+          if (pat) draadHouder.appendChild(maakKnop('Terug naar dit patroon in het veld', 'tekst', () => openBewijs(pat.index)));
+        }
+        draadHouder.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+        vernieuwGesprekken().then((v) => { if (v) vulLijstStippen(v); });
+      });
+      li.appendChild(b); ul.appendChild(li);
+    });
+  }
+  function vulLijstStippen(items) {
+    const knoppen = $('gs-lijst').querySelectorAll('.gs-item');
+    items.forEach((it, k) => { if (knoppen[k]) knoppen[k].classList.toggle('nieuw', Boolean(it.unread)); });
+  }
+
+  async function openGesprekken() {
+    meteenKlaar();
+    openBlad('gesprekken');
+    vulGesprekken(await vernieuwGesprekken());
+  }
+  $('btn-gesprekken').addEventListener('click', openGesprekken);
+  $('btn-gesprekken-sluit').addEventListener('click', terug);
+
+  // ============================================================================================
+  // 10. BOOT
   // ============================================================================================
   async function boot() {
     if (!token) {
@@ -918,6 +1186,8 @@
       api('/api/mijn/insights'), api('/api/mijn/overview'), api('/api/mijn/collaboration'),
     ]);
     inzichten = (lijst.data && lijst.data.insights) || [];
+    // Het antwoord op "Herken je dit?" is duurzaam, dus het veld begint er meteen mee.
+    inzichten.forEach((i) => { if (i.recognition) herkenning[i.id] = i.recognition; });
     samenwerking = (samen.data && samen.data.items) || [];
     vulSamenwerking(samenwerking);
 
@@ -951,6 +1221,9 @@
 
     // De cyclus loopt één keer en blijft daarna staan. Reduced motion toont die eindtoestand
     // direct, dus zonder cyclus en zonder lopende animatie.
+    // Staat er iets voor je klaar? Een stille stip in de periferie, meer niet.
+    vernieuwGesprekken();
+
     t0 = nu(); p = 0; modus = 'openen';
     if (reduce) { p = 1; modus = 'rust'; toonUitspraak(); teken(); stadium(); plaatsUitspraak(); }
     else lus();

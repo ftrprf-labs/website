@@ -5,6 +5,41 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-19 — Mijn Maculis: de communicatielaag en de affordance van het veld (preview)
+
+**Affordancecorrectie.** Punt is waarneming, verbinding is groeiend verband, patroon is betekenis.
+Een los punt is dus geen onderwerp en suggereert dat nu ook niet meer: de tooltip is weg, de cursor
+verandert alleen boven een patroon, en de klik die vanaf een los punt naar het patroon eronder sprong
+is verdwenen. De animatie is ongewijzigd. `tools/visual/mijn-affordance.mjs` rastert het veld af en
+toont aan dat alleen grote patroongebieden aanwijsbaar zijn.
+
+**Communicatielaag.** Mijn Maculis is een kanaal geworden op de bestaande Communication Layer, geen
+tweede systeem. Dezelfde `conversation`, `message`, hetzelfde attentiemodel, hetzelfde
+`relationship_memory`. Eén additieve migratie, 009. Drie beloftes zitten in de code: praten is niet
+delen, reageren is niet onthouden, en gelezen betekent twee verschillende dingen aan de twee kanten.
+De herkenningsvraag is daarbij duurzaam geworden, want een correctie mag niet hechter zijn vastgelegd
+dan het antwoord waar hij bij hoort. Volledige verantwoording in `docs/MIJN_MACULIS_COMMUNICATIE.md`
+hoofdstuk 12.
+
+**Consent.** Een antwoord in de eigen omgeving van de klant verlaat het pand niet en heeft daarom een
+`allow`-regel voor service. De e-mailmelding dat er een antwoord klaarstaat verlaat het pand wel, en
+gaat door dezelfde poort als elke andere uitgaande mail. Geen geldige toestemming en geen gekoppeld
+contact betekent geen melding. De melding bevat geen inhoud en geen toegangslink.
+
+**Cockpit.** Bewust minimaal aangeraakt: drie opzoektabellen krijgen `MIJN_MACULIS: 'Mijn Maculis'`
+zodat er nergens een enum-naam op het scherm komt. Het kanaal staat niet in `SENDABLE_CHANNELS` en is
+dus antwoord-only; een concept op zo'n gesprek opent al op het juiste kanaal. Bestaande
+Cockpit-schermen veranderen niet, want geen bestaand gesprek heeft dit kanaal.
+
+**Bewijs.** Testsuite met Postgres 88 van 89 (dezelfde pre-existing comm-ai-fout, identiek op de
+basisbranch). `tools/visual/mijn-gesprek-ui.mjs` ALLES GROEN op 1440 en 390. Audit ALLES GROEN op
+alle vier de viewports, nu ook op de schermen `praat` en `gesprekken`. Motion en affordance ALLES
+GROEN. Website, Lens, Testerbeheer en Cockpit niet aangeraakt.
+
+**Openstaand.** Zes echte productbeslissingen, opgesomd in `docs/MIJN_MACULIS_COMMUNICATIE.md` 12.5.
+
+---
+
 ## 2026-08-19 — Mijn Maculis wordt Het Veld (kandidaat, wacht op Production GO)
 
 **Wat.** De kamer is het veld geworden. Navigatie, uitspraak, bewijs, vraag en grens komen eruit
@@ -21,6 +56,8 @@ wordt strenger uitgevoerd; `sharedContextForOrg` is niet aangeraakt.
 
 **Beperking.** De herkenningsvraag geldt voor dit bezoek en wordt niet opgeslagen. Dat vraagt een
 productbeslissing over hoe een menselijk antwoord weegt tegenover nieuw bewijs.
+*Opgeheven op dezelfde dag, zie de entry hierboven: het antwoord wordt nu bewaard, en volgt dezelfde
+grens als het inzicht.*
 
 **Bewijs.** Testsuite met Postgres 90 van 91 (de ene fout is pre-existing en faalt identiek op de
 basisbranch), zonder Postgres 74 geslaagd en 16 overgeslagen. Audit ALLES GROEN op desktop en

@@ -23,7 +23,7 @@ async function boot() {
 }
 // Canon 10: statuslabels zijn Nederlands en menselijk. De attentielabels waren dat al;
 // alleen de kanaalnamen kwamen nog rauw uit de data. Uitsluitend weergave.
-const CHANNEL_LABEL = { EMAIL: 'E-mail', WHATSAPP: 'WhatsApp', SMS: 'Sms', PHONE: 'Telefoon', SOCIAL: 'Social' };
+const CHANNEL_LABEL = { EMAIL: 'E-mail', WHATSAPP: 'WhatsApp', SMS: 'Sms', PHONE: 'Telefoon', SOCIAL: 'Social', MIJN_MACULIS: 'Mijn Maculis' };
 const chan = (c) => CHANNEL_LABEL[c] || (c ? c.charAt(0) + c.slice(1).toLowerCase() : '');
 
 const FILTERS = [['all', 'Alles'], ['new', 'Nieuw'], ['waiting_on_us', 'Wacht op mij'], ['ai_ready', 'AI-voorstel'], ['unknown_contact', 'Onbekend'], ['delivery_problem', 'Leveringsprobleem']];

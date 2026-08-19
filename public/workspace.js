@@ -8,7 +8,7 @@ const fmt = (d) => (d ? new Date(d).toLocaleString('nl-NL', { day: 'numeric', mo
 const fmtd = (d) => (d ? new Date(d).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 // Canon 10: statuslabels zijn Nederlands en menselijk. Geen Engelse hoofdletterbadges.
 // Uitsluitend weergave: de opgeslagen waarden en alle logica blijven ongewijzigd.
-const CHANNEL_LABEL = { EMAIL: 'E-mail', WHATSAPP: 'WhatsApp', SMS: 'Sms', PHONE: 'Telefoon', SOCIAL: 'Social' };
+const CHANNEL_LABEL = { EMAIL: 'E-mail', WHATSAPP: 'WhatsApp', SMS: 'Sms', PHONE: 'Telefoon', SOCIAL: 'Social', MIJN_MACULIS: 'Mijn Maculis' };
 const chan = (c) => CHANNEL_LABEL[c] || (c ? c.charAt(0) + c.slice(1).toLowerCase() : '');
 const JOURNEY_LABEL = { DRAFT: 'Concept', SENT: 'Verstuurd', OPENED: 'Geopend', COMPLETED: 'Afgerond' };
 const DELIVERY_LABEL = { queued: 'in wachtrij', sent: 'verstuurd', delivered: 'afgeleverd', opened: 'geopend', bounced: 'niet aangekomen', failed: 'mislukt', complained: 'als spam gemarkeerd' };

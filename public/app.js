@@ -83,7 +83,7 @@ const ATTN_PRESENT = {
   WAITING_FOR_CUSTOMER: 'Wacht op klant',
   RESOLVED: 'Afgehandeld',
 };
-const ATTN_CHANNEL = { EMAIL: 'E-mail', WHATSAPP: 'WhatsApp', SMS: 'SMS', PHONE: 'Telefoon', SOCIAL: 'Social' };
+const ATTN_CHANNEL = { EMAIL: 'E-mail', WHATSAPP: 'WhatsApp', SMS: 'SMS', PHONE: 'Telefoon', SOCIAL: 'Social', MIJN_MACULIS: 'Mijn Maculis' };
 const attnLabel = (s) => ATTN_PRESENT[s] || 'Vraagt aandacht';
 
 // ---- tiny API layer ------------------------------------------------------

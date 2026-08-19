@@ -70,19 +70,10 @@ const FREEZE = `
   ::-webkit-scrollbar { width: 0 !important; height: 0 !important; }
 `;
 
+// De routetabel leeft in de fixtures, want het gesprek is toestand en die hoort op één plek.
+// Elke pagina krijgt haar eigen geheugen, zodat opnames elkaar niet beïnvloeden.
 export function routeMijn(page) {
-  return page.route('**/api/mijn/**', async (r) => {
-    const p = new URL(r.request().url()).pathname;
-    const json = (body, status = 200) =>
-      r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
-    if (p === '/api/mijn/session') return json(F.session);
-    if (p === '/api/mijn/overview') return json(F.overview);
-    if (p === '/api/mijn/insights') return json({ insights: F.insights });
-    if (p === '/api/mijn/collaboration') return json({ items: F.collaborationItems });
-    const m = p.match(/^\/api\/mijn\/insights\/([^/]+)$/);
-    if (m) { const d = F.detail(m[1]); return d ? json(d) : json({ error: 'nope' }, 404); }
-    return json({});
-  });
+  return F.routeMijn(page, F.maakStore(F.startDraden));
 }
 
 // De vier momenten van de kamer. Het veld is er één, de andere drie zijn de bladen die
@@ -90,7 +81,11 @@ export function routeMijn(page) {
 export const SCREENS = [
   { name: 'veld', wait: '.zeg.in', doe: null },
   { name: 'bewijs', wait: '.bewijs.in', doe: '#btn-waarom' },
+  // Het gesprek bij een patroon dat nog van jou alleen is: de invoer staat open, met de
+  // grens erboven en de aparte deelknop ernaast.
+  { name: 'praat', wait: '.praat-vorm', doe: ['#btn-waarom', '.praat-ingang'] },
   { name: 'patronen', wait: '.patronen.in', doe: '#btn-patronen' },
+  { name: 'gesprekken', wait: '.gesprekken.in', doe: '#btn-gesprekken' },
   { name: 'samen', wait: '.samen.in', doe: '#btn-samen' },
 ];
 
@@ -117,7 +112,7 @@ async function capture(browser, base, { reduce }) {
       // de cyclus overslaan: een klik op het lege veld brengt hem meteen in de eindtoestand
       await page.mouse.click(4, Math.round(vp.height / 2));
       await page.waitForTimeout(600);
-      if (s.doe) await page.click(s.doe);
+      for (const stap of [].concat(s.doe || [])) await page.click(stap);
       await page.waitForSelector(s.wait, { timeout: 8000 }).catch(() => {});
       await page.addStyleTag({ content: FREEZE });
       await page.waitForTimeout(900);
