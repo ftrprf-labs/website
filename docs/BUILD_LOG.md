@@ -5,6 +5,29 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-19 — Mijn Maculis wordt Het Veld (kandidaat, wacht op Production GO)
+
+**Wat.** De kamer is het veld geworden. Navigatie, uitspraak, bewijs, vraag en grens komen eruit
+voort in plaats van ernaast te staan. Volledige verantwoording in `docs/MIJN_MACULIS_HET_VELD.md`.
+
+**Canon.** Amendement C-10 in ftrlabs-docs, vastgelegd vóór de bouw: Mijn Maculis gaat van dag naar
+nacht. Reden is een signaal uit de praktijk, precies de voorwaarde die open punt A stelde. Canon 7
+stelt dat `light.core` in het dagregime niet als emissie bestaat, terwijl licht in het veld juist de
+drager van het bewijs is. C-10b maakt `surface.private` een rol op `:root`. Tokens 1.0.4.
+
+**Backend.** Eén additieve migratie, 008: `insight_observation.customer_label`, fail-closed. Zonder
+klantveilige bron per waarneming zou de bewijstelling verzonnen zijn. De grens is niet gewijzigd en
+wordt strenger uitgevoerd; `sharedContextForOrg` is niet aangeraakt.
+
+**Beperking.** De herkenningsvraag geldt voor dit bezoek en wordt niet opgeslagen. Dat vraagt een
+productbeslissing over hoe een menselijk antwoord weegt tegenover nieuw bewijs.
+
+**Bewijs.** Testsuite met Postgres 90 van 91 (de ene fout is pre-existing en faalt identiek op de
+basisbranch), zonder Postgres 74 geslaagd en 16 overgeslagen. Audit ALLES GROEN op desktop en
+mobiel. Motion ALLES GROEN. Website, Lens, Testerbeheer en Cockpit byte-identiek aan de basisbranch.
+
+---
+
 ## 2026-08-18 — Mijn Maculis geharmoniseerd op Visual DNA v1.0 (kandidaat)
 
 **Wat.** Mijn Maculis is integraal op de canon gezet als eigen kamer: dagregime, canonieke tokens,
