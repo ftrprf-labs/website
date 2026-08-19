@@ -297,20 +297,6 @@ body.mijn {
 .sm-titel { font-size: 14px; font-weight: 600; color: var(--ink); }
 .sm-meta { font-size: 12.5px; color: var(--ink2); }
 
-/* ---- een waarneming aanwijzen ---------------------------------------------- */
-.tip {
-  position: absolute; top: 0; left: 0; max-width: 32ch; z-index: 5;
-  padding: var(--space-3) var(--space-4);
-  background: var(--hoog); border: 1px solid var(--lijn); border-radius: var(--radius-sm);
-  font-size: 12.5px; color: var(--ink); pointer-events: none;
-  /* Een lege tip hoort niet in de opmaak te staan: hij bestaat pas zodra je iets aanwijst. */
-  display: none;
-}
-.tip.in { display: block; }
-.tip b { display: block; font-size: var(--type-label); font-weight: 600; letter-spacing: .12em;
-  text-transform: uppercase; color: var(--gold-300); margin-bottom: 3px; }
-.tip span { color: var(--ink2); }
-
 /* ---- bevestiging ------------------------------------------------------------ */
 .confirm {
   position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
@@ -360,7 +346,6 @@ body.mijn {
     border-left: 0; border-top: 1px solid var(--lijn);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0; transform: translateY(101%); }
   .blad.in { transform: none; }
-  .tip { display: none; }
   .confirm-actions { flex-direction: column-reverse; }
   .confirm-actions .knop { width: 100%; }
 }

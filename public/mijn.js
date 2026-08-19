@@ -808,17 +808,9 @@
   // ============================================================================================
   // 8. AANWIJZEN IN HET VELD
   // ============================================================================================
-  const tip = $('tip');
-  function raakSignaal(mx, my) {
-    let beste = -1, best = 18;
-    const P = signalen.map(positie);
-    for (let i = 0; i < signalen.length; i++) {
-      if (demping(signalen[i].pat) < 0.2) continue;
-      const d = Math.hypot(sx(P[i].x) - mx, sy(P[i].y) - my);
-      if (d < best) { best = d; beste = i; }
-    }
-    return beste;
-  }
+  // Een los punt is een waarneming, geen onderwerp. Het is voor de klant niet afzonderlijk
+  // ontcijferbaar en mag dat dus ook niet suggereren: geen tooltip, geen cursor, geen klik.
+  // Betekenis ontstaat pas in het patroon, en alleen het patroon is aanwijsbaar.
   function raakKern(mx, my) {
     let beste = -1, best = 46;
     patronen.forEach((q, i) => {
@@ -829,27 +821,14 @@
   }
   if (cv) {
     cv.addEventListener('pointermove', (e) => {
-      if (p < 0.5 || modus === 'bewijs') { hoverSig = null; tip.classList.remove('in'); return; }
-      const i = raakSignaal(e.clientX, e.clientY);
-      const k = raakKern(e.clientX, e.clientY);
-      hoverSig = i >= 0 ? i : null;
-      cv.classList.toggle('aanwijsbaar', i >= 0 || k >= 0);
-      if (i >= 0) {
-        const pat = patronen[signalen[i].pat];
-        tip.innerHTML = '<b></b><span></span>';
-        tip.querySelector('b').textContent = ontstoken(pat) ? kort(pat.ins.title) : 'Te weinig bewijs';
-        tip.querySelector('span').textContent = 'Kies dit patroon om te zien waarop het rust.';
-        tip.style.transform = `translate3d(${Math.round(Math.min(e.clientX + 16, W - 280))}px,${Math.round(e.clientY + 16)}px,0)`;
-        tip.classList.add('in');
-      } else tip.classList.remove('in');
+      if (p < 0.5 || modus === 'bewijs') { cv.classList.remove('aanwijsbaar'); return; }
+      cv.classList.toggle('aanwijsbaar', raakKern(e.clientX, e.clientY) >= 0);
     });
-    cv.addEventListener('pointerleave', () => { hoverSig = null; tip.classList.remove('in'); });
+    cv.addEventListener('pointerleave', () => { cv.classList.remove('aanwijsbaar'); });
     cv.addEventListener('click', (e) => {
       meteenKlaar();
       const k = raakKern(e.clientX, e.clientY);
       if (k >= 0) return openBewijs(k);
-      const i = raakSignaal(e.clientX, e.clientY);
-      if (i >= 0) return openBewijs(signalen[i].pat);
       if (focus !== null) terug();
     });
   }
