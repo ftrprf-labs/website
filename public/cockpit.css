@@ -243,7 +243,7 @@ body {
   background: var(--reveal-glow); pointer-events: none; z-index: 0;
 }
 .greet > * { position: relative; z-index: 1; }
-.greet .eyebrow { font-size: var(--t-eyebrow); letter-spacing: .18em; text-transform: uppercase; color: var(--faint); }
+.greet .eyebrow { font-size: var(--t-eyebrow); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
 .greet h1 {
   font-family: var(--serif); font-weight: 300; font-size: var(--t-insight);
   font-optical-sizing: auto;
@@ -262,9 +262,10 @@ body {
 .attn-head .tier.now .pip { background: var(--primary); box-shadow: 0 0 0 4px color-mix(in srgb, var(--semantic-signal) 22%, transparent); }
 .attn-head .tier.notice .pip { background: var(--warn); }
 .attn-head .tier.ready .pip { background: var(--ok); }
-.attn-head .tier.quiet .pip { background: var(--faint); }
+.attn-head .tier.quiet .pip { background: var(--text-quiet); }
+.attn-head .tier.beweging .pip { background: var(--emerging); }
 .attn-head .tier b { color: var(--text); font-weight: 600; letter-spacing: .18em; }
-.attn-head .hint { font-size: 12px; color: var(--faint); }
+.attn-head .hint { font-size: var(--t-fine); color: var(--muted); }
 
 /* attention item card — calm, generous, one meaning each */
 .item {
@@ -277,8 +278,8 @@ body {
 .item:hover { border-color: var(--border-strong); transform: translateY(-1px); }
 .item .row1 { display: flex; align-items: center; gap: var(--s3); }
 .item .who { font-size: var(--t-lead); color: var(--text); font-weight: 600; }
-.item .chan { font-size: 11px; color: var(--faint); letter-spacing: .04em; text-transform: uppercase; }
-.item .when { margin-left: auto; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.item .chan { font-size: var(--t-label); color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+.item .when { margin-left: auto; font-size: var(--t-fine); color: var(--muted); font-variant-numeric: tabular-nums; }
 .item .line { color: var(--muted); margin-top: 6px; font-size: var(--t-body); }
 .item .tags { margin-top: var(--s3); display: flex; gap: var(--s2); flex-wrap: wrap; }
 
@@ -309,7 +310,7 @@ body {
   content: ""; position: absolute; inset: 0; background: var(--reveal-glow); pointer-events: none;
 }
 .reveal > * { position: relative; }
-.reveal .noticed { font-size: var(--t-eyebrow); letter-spacing: .18em; text-transform: uppercase; color: var(--primary); }
+.reveal .noticed { display: flex; align-items: center; gap: var(--s2); font-size: var(--t-eyebrow); letter-spacing: .18em; text-transform: uppercase; color: var(--primary); }
 .reveal h2 {
   font-family: var(--serif); font-weight: 300; font-size: var(--t-insight);
   font-optical-sizing: auto;
@@ -401,11 +402,12 @@ body {
 .rel:first-child { border-top: 0; }
 .rel:hover, .rel:focus-within { background: var(--surface-2); }
 .rel .av {
-  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
-  font-size: 12px; font-weight: 600; color: var(--primary-text); background: var(--primary);
+  width: 30px; height: 30px; border-radius: var(--radius-pill); display: grid; place-items: center;
+  font-size: var(--t-fine); font-weight: 600; color: var(--text-secondary);
+  background: transparent; border: 1px solid var(--border);
 }
 .rel .nm { color: var(--text); }
-.rel .nm small { display: none; color: var(--faint); font-size: 12px; }
+.rel .nm small { display: none; color: var(--muted); font-size: var(--t-fine); }
 .rel .org { color: var(--muted); font-size: 13px; }
 .rel .state { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
 .rel .state .k { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
@@ -423,7 +425,7 @@ body {
 .rel.surfaced .movement { background: var(--primary); }
 
 .scale-note {
-  margin-top: var(--s4); color: var(--faint); font-size: 12px; text-align: center;
+  margin-top: var(--s4); color: var(--muted); font-size: var(--t-fine); text-align: center;
 }
 
 /* ---------------------------- Deep work (light space) ---------------------------- */
@@ -440,7 +442,7 @@ body {
 .msg.in .b { background: var(--surface-elevated); border-top-left-radius: 0; }
 .msg.out { margin-left: auto; }
 .msg.out .b { background: transparent; border: 1px solid var(--border); border-top-right-radius: 0; }
-.msg .who { font-size: 11px; color: var(--faint); margin-bottom: 3px; }
+.msg .who { font-size: var(--t-label); color: var(--muted); margin-bottom: var(--s1); }
 .composer { border-top: 1px solid var(--border); padding: var(--s4) var(--s5); }
 .composer textarea {
   width: 100%; min-height: 90px; resize: vertical; border: 1px solid var(--border);
@@ -448,14 +450,14 @@ body {
   font-family: var(--sans); font-size: 13px; line-height: 1.5;
 }
 .composer .bar { display: flex; align-items: center; gap: var(--s3); margin-top: var(--s3); }
-.composer .draftby { font-size: 11px; color: var(--faint); margin-right: auto; }
+.composer .draftby { font-size: var(--t-label); color: var(--muted); margin-right: auto; }
 
 .side-panel { display: flex; flex-direction: column; gap: var(--s4); }
 .panel { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: var(--s4) var(--s5); }
 .panel h3 { margin: 0 0 var(--s3); font-size: var(--t-eyebrow); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
 .panel .fact { display: flex; gap: var(--s3); padding: 6px 0; border-top: 1px solid var(--hair); font-size: 13px; }
 .panel .fact:first-of-type { border-top: 0; }
-.panel .fact .k { color: var(--faint); min-width: 92px; }
+.panel .fact .k { color: var(--muted); min-width: 92px; }
 .panel .fact .v { color: var(--text); }
 .memory { font-size: 13px; color: var(--muted); border-left: 2px solid var(--primary); padding-left: var(--s3); }
 
@@ -485,7 +487,7 @@ body {
 
 /* section intro used across views */
 .lead-note { color: var(--muted); font-size: var(--t-lead); max-width: 52ch; margin: 0 0 var(--s5); }
-.eyebrow-line { font-size: var(--t-eyebrow); letter-spacing: .18em; text-transform: uppercase; color: var(--faint); margin-bottom: var(--s2); }
+.eyebrow-line { font-size: var(--t-eyebrow); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-bottom: var(--s2); }
 
 /* ---------------------------- responsive / mobile intent ---------------------------- */
 @media (max-width: 860px) {
@@ -536,7 +538,7 @@ body {
 .itemfoot { margin-top: var(--s3); display: flex; align-items: center; gap: var(--s4); }
 .why-btn, .settle-btn {
   border: 0; background: transparent; cursor: pointer; padding: 0;
-  font-size: 12px; color: var(--faint); letter-spacing: .01em;
+  font-size: var(--t-fine); color: var(--muted); letter-spacing: .01em;
 }
 .why-btn:hover, .settle-btn:hover { color: var(--primary); }
 .settle { margin-left: auto; position: relative; }
@@ -557,7 +559,7 @@ body {
 .why-btn.ghost:hover { border-color: var(--primary); color: var(--primary); }
 .item .why {
   margin-top: var(--s3); padding: var(--s3) var(--s4); border-radius: var(--radius-sm);
-  background: var(--field); border: 1px solid var(--hair); color: var(--muted); font-size: 13px;
+  background: transparent; border: 1px solid var(--hair); color: var(--muted); font-size: var(--t-body);
 }
 .item .why .prov { margin-right: 8px; }
 
@@ -572,7 +574,7 @@ body {
   display: flex; align-items: center; gap: var(--s2); font-size: 13px; color: var(--muted);
   padding: 8px var(--s4); border: 1px solid var(--hair); border-radius: var(--radius-sm); background: var(--field);
 }
-.rest-item .rk { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.rest-item .rk { width: 7px; height: 7px; border-radius: var(--radius-pill); background: var(--text-quiet); }
 .rest-item.landing { animation: land .5s var(--ease) both; }
 @keyframes land { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 
@@ -601,22 +603,26 @@ body {
 .grouped-head .gopen { font-size: 12px; color: var(--primary); letter-spacing: .04em; }
 .grouped-body { padding: 0 var(--s5) var(--s4) calc(var(--s5) + 20px); display: flex; flex-direction: column; gap: 6px; }
 .grouped-body[hidden] { display: none; }
-.gline { font-size: 13px; color: var(--muted); }
+.gline { font-size: var(--t-body); color: var(--muted); }
 
 /* reveal teaser card in the Beweging tier */
 .reveal-teaser {
   display: block; width: 100%; text-align: left; cursor: pointer; color: inherit;
   border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface);
-  padding: var(--s4) var(--s5); margin-bottom: var(--s3); position: relative; overflow: hidden;
-  transition: transform .18s var(--ease), border-color .18s var(--ease);
+  padding: var(--s5); margin-bottom: var(--s3); position: relative; overflow: hidden;
+  transition: transform var(--motion-micro) var(--ease), border-color var(--motion-micro) var(--ease);
 }
 .reveal-teaser::before { content: ""; position: absolute; inset: 0; background: var(--reveal-glow); pointer-events: none; }
 .reveal-teaser:hover { transform: translateY(-1px); border-color: var(--primary); }
 .reveal-teaser > * { position: relative; }
-.reveal-teaser .rt-noticed { font-size: var(--t-eyebrow); letter-spacing: .16em; text-transform: uppercase; color: var(--primary); display: block; }
-.reveal-teaser .rt-head { font-family: var(--serif); font-weight: 300; font-size: var(--t-lead); color: var(--text); display: block; margin: 6px 0 2px; }
-.reveal-teaser .rt-rel { color: var(--muted); font-size: 13px; display: block; }
-.reveal-teaser .rt-go { display: inline-flex; align-items: center; gap: 6px; margin-top: var(--s3); color: var(--primary); font-family: var(--serif); font-style: italic; font-size: 14px; }
+.reveal-teaser .rt-noticed { display: flex; align-items: center; gap: var(--s2); font-size: var(--t-eyebrow); letter-spacing: .16em; text-transform: uppercase; color: var(--primary); }
+.reveal-teaser .rt-head {
+  font-family: var(--serif); font-weight: 300; font-optical-sizing: auto;
+  font-size: var(--t-insight); letter-spacing: -.017em; line-height: 1.2;
+  color: var(--text); display: block; margin: var(--s3) 0 var(--s2);
+}
+.reveal-teaser .rt-rel { color: var(--muted); font-size: var(--t-body); display: block; }
+.reveal-teaser .rt-go { display: inline-flex; align-items: center; gap: 6px; margin-top: var(--s4); color: var(--primary); font-family: var(--serif); font-style: italic; font-weight: 400; font-size: var(--t-lead); }
 .reveal-teaser .rt-go .arw { transition: transform .3s var(--ease); }
 .reveal-teaser:hover .rt-go .arw { transform: translateX(3px); }
 
@@ -642,14 +648,22 @@ body {
 .segment:hover { border-color: var(--border-strong); }
 .segment[aria-pressed="true"] { border-color: var(--primary); background: transparent; }
 .segment .seg-l { font-size: var(--t-body); color: var(--text); }
-.segment .seg-d { font-size: 11px; color: var(--faint); }
+.segment .seg-d { font-size: var(--t-label); color: var(--muted); }
 .segment .seg-c { font-size: 12px; color: var(--primary); font-variant-numeric: tabular-nums; margin-top: 2px; }
 
 /* relationship row: sub-hint visible, reveal badge */
-.rel .nm small { display: block; color: var(--faint); font-size: 12px; }
+.rel .nm small { display: block; color: var(--muted); font-size: var(--t-fine); }
 .rel .state { flex-wrap: wrap; gap: 6px; }
 .rev-badge { font-size: var(--t-label); letter-spacing: .16em; text-transform: uppercase; color: var(--primary); border: 1px solid var(--bs-signal); border-radius: var(--radius-pill); padding: 1px 8px; }
 .rel .state.reveal .k { background: var(--primary); }
+
+/* Een rustig gesprek draagt geen eigen vlak: een hairline en ruimte zijn genoeg. Zo weegt de
+   lijst naar betekenis in plaats van naar aantal. */
+.conv.is-quiet {
+  background: transparent; border: 0; border-top: 1px solid var(--hair);
+  border-radius: 0; padding: var(--s4) 0; margin-bottom: 0;
+}
+.conv.is-quiet:hover, .conv.is-quiet:focus-within { transform: none; border-top-color: var(--border-strong); }
 
 /* conversations (omnichannel) */
 .conv {
@@ -659,15 +673,15 @@ body {
   transition: transform .16s var(--ease), border-color .16s var(--ease);
 }
 .conv:hover, .conv:focus-within { transform: translateY(-1px); border-color: var(--border-strong); }
-.conv .av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 600; color: var(--primary-text); background: var(--primary); }
+.conv .av { width: 40px; height: 40px; border-radius: var(--radius-pill); display: grid; place-items: center; font-size: var(--t-body); font-weight: 600; color: var(--text-secondary); background: transparent; border: 1px solid var(--border); }
 .conv-top { display: flex; align-items: center; gap: var(--s3); }
 .conv-who { font-size: var(--t-lead); color: var(--text); font-weight: 600; }
-.conv-chan { font-size: 11px; color: var(--faint); letter-spacing: .03em; }
-.conv-when { margin-left: auto; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.conv-chan { font-size: var(--t-label); color: var(--muted); letter-spacing: .03em; }
+.conv-when { margin-left: auto; font-size: var(--t-fine); color: var(--muted); font-variant-numeric: tabular-nums; }
 .conv-org { color: var(--muted); font-size: 12px; margin-top: 1px; }
 .conv-snip { color: var(--muted); font-size: 13px; margin-top: 6px; }
 .conv-tags { margin-top: var(--s3); display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
-.alt-chans { font-size: 11px; color: var(--faint); }
+.alt-chans { font-size: var(--t-label); color: var(--muted); }
 
 .work-h1 { font-weight: 600; font-size: var(--t-insight); margin: 8px 0 4px; letter-spacing: -.01em; }
 .silence.soft { padding: var(--s6) var(--s4); }
@@ -797,7 +811,7 @@ body {
 .sighting { padding: var(--s3) 0; border-top: 1px solid var(--hair); }
 .sighting:first-of-type { border-top: 0; padding-top: 0; }
 .sight-top { display: flex; align-items: baseline; gap: var(--s3); margin-bottom: 4px; }
-.sight-when { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.sight-when { font-size: var(--t-label); color: var(--muted); font-variant-numeric: tabular-nums; }
 .sight-src { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--primary); }
 .sight-reveal { color: var(--text); font-size: 13px; }
 .sight-after { color: var(--muted); font-size: 12px; margin-top: 3px; padding-left: var(--s3); border-left: 2px solid var(--hair); }
@@ -848,11 +862,11 @@ body {
   transition: transform .16s var(--ease), border-color .16s var(--ease);
 }
 .mover:hover, .mover:focus-visible { transform: translateY(-1px); border-color: var(--border-strong); }
-.mover .av { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 600; color: var(--primary-text); background: var(--primary); }
+.mover .av { width: 40px; height: 40px; border-radius: var(--radius-pill); display: grid; place-items: center; font-size: var(--t-body); font-weight: 600; color: var(--text-secondary); background: transparent; border: 1px solid var(--border); }
 .mover-main { min-width: 0; }
 .mover-top { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
 .mover-name { font-size: var(--t-lead); color: var(--text); font-weight: 600; }
-.mover-touch { margin-left: auto; font-size: 12px; color: var(--faint); }
+.mover-touch { margin-left: auto; font-size: var(--t-fine); color: var(--muted); }
 .mover-org { color: var(--muted); font-size: 12px; margin-top: 1px; }
 .mover-reason { color: var(--text); font-size: 13px; margin-top: 6px; }
 .mover .go-chevron { color: var(--faint); font-size: 20px; transition: transform .2s var(--ease), color .2s var(--ease); }
@@ -860,7 +874,7 @@ body {
 
 /* the full list, deliberately de-emphasized */
 .rel-all { margin-top: var(--s6); border-top: 1px solid var(--hair); padding-top: var(--s5); }
-.rel-all-note { color: var(--faint); font-size: 13px; max-width: 62ch; margin: 0 0 var(--s3); }
+.rel-all-note { color: var(--muted); font-size: var(--t-body); max-width: 62ch; margin: 0 0 var(--s3); }
 .rel-all-toggle {
   border: 1px solid var(--border); background: var(--field); color: var(--muted);
   border-radius: var(--radius-pill); padding: 8px 16px; font-size: 13px; cursor: pointer;
@@ -1000,11 +1014,11 @@ body {
 .wt-check { display: flex; align-items: center; }
 .wt-check input { width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer; }
 .wt-rel b { color: var(--text); font-weight: 600; }
-.wt-rel small { display: block; color: var(--faint); font-size: 12px; }
+.wt-rel small { display: block; color: var(--muted); font-size: var(--t-fine); }
 .wt-owner, .wt-ff, .wt-last { color: var(--muted); }
 .wt-status { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .dot-open { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); display: inline-block; }
-.work-more { padding: var(--s3) var(--s4); color: var(--faint); font-size: 12px; }
+.work-more { padding: var(--s3) var(--s4); color: var(--muted); font-size: var(--t-fine); }
 .linkbtn { border: 0; background: transparent; color: var(--primary); cursor: pointer; font-size: 12px; padding: 0; text-decoration: underline; }
 
 @media (max-width: 860px) {
@@ -1043,6 +1057,42 @@ body {
 .cs-UNKNOWN { color: var(--uncertain); border-color: var(--bs-uncertain); }
 .cs-OPTED_OUT { color: var(--danger); border-color: var(--bs-broken); }
 .ptl-tag { display: inline-block; margin-left: var(--s2); font-size: var(--t-label); letter-spacing: .04em; color: var(--primary); border: 1px solid var(--bs-signal); border-radius: var(--radius-pill); padding: 1px 8px; }
+
+.beheer-lead {
+  font-family: var(--serif); font-weight: 300; font-optical-sizing: auto;
+  font-size: var(--t-insight); letter-spacing: -.017em; line-height: 1.25;
+  color: var(--text); margin: 0 0 var(--s3); max-width: 24ch;
+}
+
+/* Beheer als ruimte, niet als kaartenrooster.
+   Een echte ingang die zich als ingang gedraagt, en daaronder een eerlijke zin over wat
+   elders woont. Geen uitgegrijsde kaarten die functionaliteit suggereren. */
+.beheer-entry {
+  display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: var(--s4);
+  width: 100%; text-align: left; cursor: pointer; color: inherit;
+  border: 1px solid var(--border-strong); border-radius: var(--radius);
+  background: var(--surface); padding: var(--s5); margin: var(--s5) 0 0;
+  transition: border-color var(--motion-micro) var(--ease), transform var(--motion-micro) var(--ease);
+}
+.beheer-entry:hover { border-color: var(--primary); transform: translateY(-1px); }
+.beheer-entry .be-main { display: flex; flex-direction: column; gap: var(--s1); min-width: 0; }
+.beheer-entry .be-title { font-size: var(--t-lead); font-weight: 600; color: var(--text); }
+.beheer-entry .be-sub { font-size: var(--t-body); color: var(--muted); }
+.beheer-entry .be-n { color: var(--primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.beheer-entry .arw { color: var(--primary); font-size: 20px; transition: transform var(--motion-micro) var(--ease); }
+.beheer-entry:hover .arw { transform: translateX(4px); }
+
+.beheer-elsewhere { margin-top: var(--s6); border-top: 1px solid var(--hair); padding-top: var(--s4); }
+.beheer-elsewhere .be-eyebrow {
+  font-size: var(--t-label); letter-spacing: .16em; text-transform: uppercase;
+  color: var(--text-quiet); margin-bottom: var(--s2);
+}
+.beheer-elsewhere .be-line { margin: 0; color: var(--muted); font-size: var(--t-body); max-width: 62ch; }
+
+@media (max-width: 860px) {
+  .beheer-entry { grid-template-columns: 1fr auto; }
+  .beheer-entry .arw { display: none; }
+}
 
 /* Beheer index */
 .beheer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: var(--s3); margin-top: var(--s5); }
@@ -1088,13 +1138,13 @@ body {
 
 /* Dossier: identity strip */
 .dos-id { display: flex; align-items: center; gap: var(--s4); margin-bottom: var(--s5); flex-wrap: wrap; }
-.dos-av { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 18px; font-weight: 600; color: var(--primary-text); background: var(--primary); }
+.dos-av { width: 52px; height: 52px; border-radius: var(--radius-pill); display: grid; place-items: center; font-size: var(--t-lead); font-weight: 600; color: var(--text-secondary); background: transparent; border: 1px solid var(--border-strong); }
 .dos-idmain { min-width: 0; }
 .dos-name { font-size: var(--t-insight); color: var(--text); font-weight: 600; letter-spacing: -.01em; }
 .dos-sub { color: var(--muted); font-size: 13px; }
 .dos-meta { margin-left: auto; text-align: right; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
 .dos-stage { font-size: var(--t-label); letter-spacing: .16em; text-transform: uppercase; color: var(--primary); border: 1px solid var(--bs-signal); border-radius: var(--radius-pill); padding: 3px 10px; background: transparent; }
-.dos-owner { font-size: 12px; color: var(--faint); display: inline-flex; gap: 6px; align-items: center; }
+.dos-owner { font-size: var(--t-fine); color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
 
 /* Dossier: identity + reachability zone, directly under the header */
 .dos-reach {
@@ -1114,7 +1164,7 @@ body {
 
 /* Dossier: NU hero (meaning first) */
 .dos-now { border: 1px solid var(--border-strong); border-radius: var(--radius-lg); padding: var(--s5); margin-bottom: var(--s5); background: var(--surface); }
-.dos-now-h { font-size: var(--t-eyebrow); letter-spacing: .16em; text-transform: uppercase; color: var(--faint); margin-bottom: var(--s3); }
+.dos-now-h { font-size: var(--t-eyebrow); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-bottom: var(--s3); }
 .dos-now-item .dni-line { margin: var(--s2) 0 var(--s3); color: var(--text); }
 .dos-now-item .dni-top .chip {
   border: 0; border-left: 2px solid currentColor; border-radius: 0;
@@ -1123,6 +1173,34 @@ body {
 .dos-now-item .dni-top .chip .k { display: none; }
 .dos-now .aperture { margin-top: var(--s2); }
 .dos-now .aperture .ap-text { font-family: var(--serif); font-size: var(--t-lead); }
+
+/* Twee rollen in het dossier, canon 6 en canon 12.
+
+   Het dossier bestond uit tien vrijwel identieke donkere rechthoeken, waardoor
+   alles even zwaar woog: wat Maculis zag stond naast de metadata van een
+   toestemmingsversie. De informatiearchitectuur blijft ongewijzigd, maar de
+   oppervlakken vertellen nu wie er spreekt.
+
+   is-voice   Maculis spreekt. Een verhoogd vlak met een hairline en light.edge,
+              want hier wordt iets onthuld (canon 7).
+   is-record  Het archief. Geen vlak, alleen een hairline en een stille kop.
+              Bereikbaar wanneer je ernaar zoekt, verder uit de weg.
+*/
+.dos-sec.is-record {
+  background: transparent; border: 0; border-top: 1px solid var(--hair);
+  border-radius: 0; overflow: visible;
+}
+.dos-sec.is-record .dos-sec-head { padding: var(--s3) 0; color: var(--muted); }
+.dos-sec.is-record .dos-sec-head:hover { color: var(--text); }
+.dos-sec.is-record .dss-title { font-size: var(--t-fine); }
+.dos-sec.is-record .dos-sec-body { padding: 0 0 var(--s4); }
+
+/* Het archief staat als groep onderaan, achter een stille aanwijzing. */
+.dos-records { margin-top: var(--s6); }
+.dos-records-h {
+  font-size: var(--t-label); letter-spacing: .16em; text-transform: uppercase;
+  color: var(--text-quiet); margin-bottom: var(--s2);
+}
 
 /* Dossier: detail-on-demand sections */
 .dos-sections { display: flex; flex-direction: column; gap: var(--s2); }
@@ -1134,22 +1212,22 @@ body {
 .dos-sec-body.hidden { display: none; }
 .dos-facts .fact { display: flex; gap: var(--s3); padding: 6px 0; border-top: 1px solid var(--hair); font-size: 13px; }
 .dos-facts .fact:first-child { border-top: 0; }
-.dos-facts .fact .k { color: var(--faint); min-width: 120px; }
+.dos-facts .fact .k { color: var(--muted); min-width: 120px; }
 .dos-facts .fact .v { color: var(--text); }
 .dos-note { font-size: 12px; color: var(--muted); margin-top: var(--s3); }
 .dos-note.dos-c { border-left: 2px dashed var(--bs-uncertain); padding-left: var(--s3); }
 .dos-timeline { display: flex; flex-direction: column; gap: var(--s3); }
 .tl-ev { border-left: 2px solid var(--hair); padding-left: var(--s4); position: relative; }
 .tl-ev.out { border-color: var(--primary); }
-.tl-ev .tl-when { font-size: 11px; color: var(--faint); margin-right: var(--s2); }
+.tl-ev .tl-when { font-size: var(--t-label); color: var(--muted); margin-right: var(--s2); }
 .tl-ev .tl-ch { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--primary); }
 .tl-ev p { margin: 4px 0 0; font-size: 13px; color: var(--text); }
 .dos-memory .mem { padding: var(--s3) 0; border-top: 1px solid var(--hair); }
 .dos-memory .mem:first-child { border-top: 0; padding-top: 0; }
-.mem-top { display: flex; align-items: center; gap: var(--s2); margin-bottom: 4px; }
+.mem-top { display: flex; align-items: center; gap: var(--s2); margin-bottom: var(--s1); }
 .mem-ai { font-size: var(--t-label); text-transform: uppercase; letter-spacing: .08em; color: var(--emerging); border: 1px solid var(--bs-emerging); border-radius: var(--radius-pill); padding: 1px 8px; }
 .mem-conf { font-size: var(--t-label); text-transform: uppercase; letter-spacing: .08em; color: var(--ok); border: 1px solid var(--bs-confirmed); border-radius: var(--radius-pill); padding: 1px 8px; }
-.mem-when { font-size: 11px; color: var(--faint); }
+.mem-when { font-size: var(--t-label); color: var(--muted); }
 .mem p { margin: 0; font-size: 13px; color: var(--text); }
 .mem-acts { font-size: 12px; color: var(--faint); }
 .dos-foot { margin-top: var(--s5); display: flex; align-items: flex-start; gap: var(--s3); flex-wrap: wrap; }
@@ -1175,9 +1253,11 @@ body {
 /* Slice 5 — collaborative cockpit: a digital colleague's work on a card, kept calm and legible. */
 .colleague { display: flex; align-items: center; gap: .5rem; font-size: .82rem; color: var(--muted); margin: .1rem 0 .35rem; letter-spacing: .01em; }
 .colleague b { color: var(--text); font-weight: 600; }
-.colleague-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent); flex: 0 0 auto; }
+.colleague-dot { width: 7px; height: 7px; border-radius: var(--radius-pill); background: var(--primary); flex: 0 0 auto; }
 .work-block { margin: var(--s2) 0 var(--s1); padding: var(--s3); border: 1px solid var(--line); border-radius: var(--radius-sm); background: transparent; }
-.work-proposal { color: var(--text); font-size: .9rem; margin-bottom: .35rem; }
+.work-proposal { display: flex; align-items: flex-start; gap: var(--s3); color: var(--text); font-size: var(--t-body); margin-bottom: var(--s2); }
+.work-proposal .mac-signal { margin-top: .42em; }
+.work-proposal-t { flex: 1; }
 .work-ev { margin: .1rem 0 .45rem; padding-left: 1.1rem; color: var(--muted); font-size: .82rem; }
 .work-ev li { margin: .12rem 0; }
 .dos-work .colleague { margin-top: .6rem; }
@@ -1199,6 +1279,85 @@ body {
 .assess { margin: var(--s2) 0 var(--s1); padding: var(--s2) var(--s3); border-left: 2px solid var(--primary); background: transparent; font-size: var(--t-body); color: var(--muted); }
 .assess b { color: var(--text); font-weight: 600; }
 .assess-k { color: var(--primary); margin-right: .35rem; }
+
+/* =====================================================================
+   SIGNAALTAAL — canon 9 trap 1, en niets daarboven
+
+   Canon 14 geeft de Cockpit uitsluitend trap 1: het lichtpunt. Trap 2 (een
+   verbinding) en trap 3 (een patroon) horen bij de Website, de Lens en Mijn
+   Maculis, niet hier. Er wordt dus geen lijn getrokken en geen constellatie
+   gebouwd; wat meerdere waarnemingen samen betekenen, wordt uitgedrukt in de
+   straal van het licht, precies zoals canon 7 dat voorschrijft.
+
+   Vier regels, en alle vier zijn hard:
+     1. Een lichtpunt verschijnt alleen waar Maculis zelf iets heeft waargenomen.
+        Een bericht dat binnenkomt is geen waarneming van Maculis.
+     2. De halo is een functie van het aantal onafhankelijke, gegronde signalen
+        (feit en waarneming). Een afleiding of hypothese telt niet mee, want dat
+        is redenering en geen bewijs.
+     3. Hoogstens een light.core per scherm (canon 7).
+     4. Beweging is onzekerheid. Wat begrepen of afgehandeld is, dooft en staat stil.
+   ===================================================================== */
+
+/* Trap 1: het lichtpunt. Koper, want koper is wat Maculis heeft gezien. */
+.mac-signal {
+  --sig-n: 0;
+  width: 7px; height: 7px; border-radius: var(--radius-pill);
+  background: var(--semantic-signal); flex: 0 0 auto; display: inline-block;
+}
+
+/* light.core (canon 7): de straal volgt het bewijs, nooit de opmaak. Zonder
+   gegronde signalen geen halo, hoe belangrijk het item verder ook is. */
+.mac-signal.is-core {
+  width: 8px; height: 8px;
+  /* Canon 7: de kern is 0 0 9px 2px, met een halo van drie tot vier keer de diameter.
+     Bij een punt van 8px is dat 24 tot 32px, en dat bereik wordt gevuld naarmate er meer
+     gegronde signalen onder de uitspraak liggen. */
+  box-shadow:
+    0 0 9px 2px color-mix(in srgb, var(--semantic-signal) 55%, transparent),
+    0 0 calc(12px + var(--sig-n) * 5px) calc(2px + var(--sig-n) * 2px)
+      color-mix(in srgb, var(--semantic-signal) 22%, transparent);
+}
+
+/* Land (canon 8.3): een nieuw binnengekomen waarneming schaalt van .15 naar 1.
+   Een keer, en dan staat het stil. */
+@keyframes mac-land { from { transform: scale(.15); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.mac-signal.is-landing { animation: mac-land var(--motion-enter) var(--ease) both; }
+
+/* Stilte is bevestigd inzicht (canon 2 en 8.1): een afgehandeld of begrepen
+   signaal verliest zijn kleur en zijn licht. */
+.mac-signal.is-rest, .item.settling .mac-signal {
+  background: var(--text-quiet); box-shadow: none;
+}
+
+/* light.edge (canon 7): een 1px verloop bovenop een paneel markeert dat hier
+   iets onthuld wordt. Uitsluitend op vlakken waar Maculis zelf spreekt, nooit
+   op archief of administratie. */
+.mac-edge { position: relative; }
+.mac-edge::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+  pointer-events: none; border-radius: inherit;
+  background: linear-gradient(90deg, transparent,
+    color-mix(in srgb, var(--semantic-signal) 70%, transparent) 50%, transparent);
+}
+
+/* Scherpstellen (canon 15, signature 3): het enige onthullingsgebaar, en het is
+   voorbehouden aan iets wat Maculis heeft gezien. Een keer, naar een eindtoestand. */
+@keyframes mac-sharpen { from { filter: blur(7px); opacity: 0; } to { filter: blur(0); opacity: 1; } }
+.mac-sharpen { animation: mac-sharpen var(--motion-reveal) var(--ease) both; }
+
+/* Rise (canon 8.3): een kaart die zojuist is binnengekomen komt een keer op.
+   Geen herhaling, geen lus. */
+@keyframes mac-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.mac-arrive { animation: mac-rise var(--motion-enter) var(--ease) both; }
+
+/* Canon 8.5, niet onderhandelbaar: onder reduced motion staat de eindtoestand er
+   meteen. Niet een bevroren begin, en niets blijft onzichtbaar. */
+@media (prefers-reduced-motion: reduce) {
+  .mac-sharpen, .mac-arrive, .mac-signal.is-landing {
+    animation: none; filter: none; opacity: 1; transform: none;
+  }
+}
 
 /* =====================================================================
    SMAL SCHERM — twee overgebleven regels uit een eerdere ronde rechtzetten

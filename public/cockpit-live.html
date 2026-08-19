@@ -27,12 +27,12 @@
     .lens .lens-body{font-family:var(--serif);font-weight:300;font-optical-sizing:auto;font-size:var(--t-lead);line-height:1.45;letter-spacing:-.017em;color:var(--text)}
     .lens .lens-intent{margin-top:.55rem}
     .moves{margin-top:1.1rem;display:flex;flex-direction:column;gap:.5rem}
-    .moves-h{font-size:var(--t-label);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);
-      font-weight:600;margin-bottom:.15rem}
+    .moves-h{font-size:var(--t-label);letter-spacing:.16em;text-transform:uppercase;color:var(--text-secondary);
+      font-weight:600;margin-bottom:var(--s1)}
     .move{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.6rem .8rem;
       border:1px solid var(--line);border-radius:var(--radius-sm)}
     .move .move-lbl{font-size:var(--t-body)}
-    .move .move-prepared{font-size:var(--t-fine);color:var(--ink-2);opacity:.8}
+    .move .move-prepared{font-size:var(--t-fine);color:var(--text-secondary)}
     .move .move-done{font-size:var(--t-fine);color:var(--ok);font-weight:600}
     /* Slice 3 — real Relaties/Gesprekken overviews reuse the .conv row; this just spaces the list. */
     .ck-list{display:flex;flex-direction:column;gap:10px;margin-top:14px}
@@ -94,7 +94,7 @@
     /* Clear primary hierarchy: "Laat Scout kijken" leads; Annuleren stays quiet and secondary. */
     .scout-actions{display:flex;align-items:center;gap:.6rem;margin-top:.3rem}
     .scout-actions .btn-primary{flex:1;justify-content:center;font-weight:700;padding-top:.6rem;padding-bottom:.6rem}
-    .scout-actions .btn-ghost{flex:none;opacity:.8;font-size:var(--t-body)}
+    .scout-actions .btn-ghost{flex:none;font-size:var(--t-body)}
     .scout-status{margin:.1rem 0 0;font-size:var(--t-body);color:var(--muted);min-height:1em}
     /* Calm post-run confirmation. It never moves the page; "Bekijk" jumps to the item on request. */
     .scout-toast{position:fixed;left:50%;bottom:1.4rem;transform:translateX(-50%);z-index:55;display:flex;align-items:center;gap:.8rem;
@@ -104,16 +104,14 @@
     .scout-toast .toast-look{border:1px solid var(--bs-signal);border-radius:var(--radius-sm);
       background:transparent;color:var(--ink);font:inherit;font-weight:600;padding:.3rem .7rem;cursor:pointer}
     .scout-toast .toast-x{margin-left:.1rem;border:0;background:none;color:var(--ink-2);font-size:var(--t-lead);line-height:1;cursor:pointer}
-    .item.just-landed{outline:2px solid var(--primary);outline-offset:3px;
-      transition:outline-color 1.2s var(--ease);border-radius:var(--radius-md)}
     /* Evidence, honestly labelled: real external observations must be distinguishable from Scout's
        own inference and from a demonstration fixture. */
     .work-demo{display:inline-block;margin:.2rem 0 .3rem;padding:.12em .55em;border-radius:var(--radius-pill);font-size:var(--t-label);
       font-weight:600;color:var(--uncertain);border:1px dashed var(--bs-uncertain)}
     .work-ev .ev-item{list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:.45rem;margin:.3rem 0;
       padding:0;font-size:var(--t-body);line-height:1.45}
-    .ev-k{flex:none;font-size:var(--t-label);letter-spacing:.06em;text-transform:uppercase;font-weight:700;
-      padding:.12em .5em;border-radius:var(--radius-pill);border:1px solid var(--line);color:var(--ink-2)}
+    .ev-k{flex:none;font-size:var(--t-label);letter-spacing:.16em;text-transform:uppercase;font-weight:700;
+      padding:.12em .6em;border-radius:var(--radius-pill);border:1px solid var(--bs-uncertain);color:var(--text-secondary)}
     .ev-k.fact{color:var(--ok);border-color:var(--bs-confirmed)}
     .ev-k.obs{color:var(--primary);border-color:var(--bs-signal)}
     .ev-k.inf{color:var(--uncertain);border-color:var(--bs-uncertain)}
@@ -121,8 +119,8 @@
     .ev-t{flex:1 1 60%}
     .ev-src{white-space:nowrap;font-size:var(--t-fine);color:var(--gold)}
     a.ev-src{text-decoration:underline}
-    .ev-unc{flex-basis:100%;margin-left:.2rem;font-size:var(--t-fine);font-style:italic;opacity:.7}
-    .ev-foot{margin-top:.5rem;font-size:var(--t-fine);letter-spacing:.02em;color:var(--ink-2);opacity:.85}
+    .ev-unc{flex-basis:100%;margin-left:.2rem;font-size:var(--t-fine);font-family:var(--serif);font-style:italic;font-weight:400;color:var(--text-secondary)}
+    .ev-foot{margin-top:var(--s2);font-size:var(--t-fine);letter-spacing:.02em;color:var(--text-secondary)}
     /* Fit vs identity, made legible: "interessant" is not the same as "we weten zeker wie dit is". */
     .work-assess{display:flex;flex-direction:column;gap:.3rem;margin:.5rem 0 .2rem;padding:.55rem .7rem;
       border:1px solid var(--line);border-radius:var(--radius-sm);background:transparent}
@@ -138,7 +136,7 @@
     .assess-id-main.id-ok{color:var(--ok)}
     .assess-id-main.id-maybe{color:var(--emerging)}
     .assess-id-main.id-no{color:var(--uncertain)}
-    .assess-id-sub{font-size:var(--t-fine);color:var(--ink-2)}
+    .assess-id-sub{font-size:var(--t-fine);color:var(--text-secondary)}
   </style>
 </head>
 <body>

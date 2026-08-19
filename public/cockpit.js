@@ -42,6 +42,25 @@ function el(tag, cls, html) {
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
+// ---- signaaltaal (canon 9 trap 1, canon 7) ---------------------------------------------
+// Alleen een feit en een observatie zijn onafhankelijke, gegronde signalen: die bestaan buiten
+// Maculis. Een gevolgtrekking en een suggestie zijn Maculis' eigen redenering en dragen dus geen
+// extra licht. Canon 7 maakt de straal van light.core een functie van precies dit getal.
+function groundedLayers(data) {
+  return (data && Array.isArray(data.layers) ? data.layers : [])
+    .filter((L) => L && (L.prov === 'fact' || L.prov === 'observation')).length;
+}
+
+// Hoogstens een light.core per scherm (canon 7). De teller loopt per render opnieuw.
+let coreClaimed = false;
+function signalMarkup(n, core) {
+  if (core && !coreClaimed && n > 0) {
+    coreClaimed = true;
+    return `<span class="mac-signal is-core" style="--sig-n:${Math.min(n, 5)}" aria-hidden="true"></span>`;
+  }
+  return '<span class="mac-signal" aria-hidden="true"></span>';
+}
+
 // Canon 11: een getal mag een getal blijven, maar Maculis toont geen score. Zekerheid
 // krijgt daarom een woord in plaats van een percentage of een meter.
 function confWord(v) {
@@ -378,7 +397,7 @@ function greetBlock(sub) {
   const g = el('div', 'greet');
   g.innerHTML =
     `<div class="eyebrow">Vandaag · vrijdag 15 augustus</div>
-     <h1>${greeting()}, Ludwig.</h1>
+     <h1 class="mac-sharpen">${greeting()}, Ludwig.</h1>
      <p class="sub">${esc(sub)}</p>`;
   return g;
 }
@@ -618,11 +637,11 @@ function eyeSvg() {
 
 /* A compact teaser for a reveal, sitting in the Beweging tier on Vandaag. */
 function revealTeaser(data) {
-  const t = el('button', 'reveal-teaser');
+  const t = el('button', 'reveal-teaser mac-edge');
   const recur = data.recurred ? `<span class="rt-recur">Kwam terug</span>` : '';
   t.innerHTML =
-    `<span class="rt-noticed">${esc(data.noticed)}${recur}</span>
-     <span class="rt-head">${esc(data.headline)}</span>
+    `<span class="rt-noticed">${signalMarkup(groundedLayers(data), true)}${esc(data.noticed)}${recur}</span>
+     <span class="rt-head mac-sharpen">${esc(data.headline)}</span>
      <span class="rt-rel">${esc(data.relto)}</span>
      <span class="rt-go">Kijk <span class="arw" aria-hidden="true">→</span></span>`;
   t.addEventListener('click', () => { scn = 'reveal'; revealWhich = data.id; render(); });
@@ -632,9 +651,9 @@ function revealTeaser(data) {
 /* A pattern teaser surfaces Groei, but only because a real cross-relationship
    pattern exists. It routes into Groei; it is never a permanent destination. */
 function patternTeaser(data) {
-  const t = el('button', 'reveal-teaser pattern-teaser');
+  const t = el('button', 'reveal-teaser pattern-teaser mac-edge');
   t.innerHTML =
-    `<span class="rt-noticed">${esc(data.noticed)}<span class="rt-recur groei">Groei</span></span>
+    `<span class="rt-noticed">${signalMarkup(0, false)}${esc(data.noticed)}<span class="rt-recur groei">Groei</span></span>
      <span class="rt-head">${esc(data.headline)}</span>
      <span class="rt-rel">${esc(data.relto)}</span>
      <span class="rt-go">Bekijk het patroon <span class="arw" aria-hidden="true">→</span></span>`;
@@ -650,11 +669,14 @@ function hasPattern() { return day === 'busy'; }
    ===================================================================== */
 
 function revealBlock(data, opts = {}) {
-  const r = el('section', 'reveal' + (opts.inset ? ' inset' : ''));
+  // light.edge (canon 7) markeert dat op dit vlak iets onthuld wordt, en de halo van het
+  // lichtpunt volgt het aantal gegronde signalen onder de uitspraak. De uitspraak zelf stelt
+  // zich een keer scherp: canon 15, signature 3, het enige onthullingsgebaar.
+  const r = el('section', 'reveal mac-edge' + (opts.inset ? ' inset' : ''));
   r.setAttribute('aria-label', 'Reveal');
   r.innerHTML =
-    `<div class="noticed">${esc(data.noticed)}</div>
-     <h2>${esc(data.headline)}</h2>
+    `<div class="noticed">${signalMarkup(groundedLayers(data), true)}${esc(data.noticed)}</div>
+     <h2 class="mac-sharpen">${esc(data.headline)}</h2>
      <div class="relto">${esc(data.relto)}</div>`;
   if (data.recurred) {
     const rc = el('div', 'reveal-recur');
@@ -1048,14 +1070,17 @@ function viewGesprekken() {
     if (!group.length) return;
     const g = el('div', 'attn-group');
     g.appendChild(tierHead(tk === 'nu' ? 'now' : tk === 'klaar' ? 'ready' : 'quiet', tl, th));
-    group.forEach(c => g.appendChild(convRow(c)));
+    // Canon 10: een pil in een dichte context, een linkerrand in een rustige. Wat rustig is,
+    // hoeft geen eigen vlak: dan wordt de hele lijst een muur van gelijke rechthoeken en weegt
+    // een stil gesprek even zwaar als een gesprek dat nu iets van je vraagt.
+    group.forEach(c => g.appendChild(convRow(c, tk === 'rust')));
     wrap.appendChild(g);
   });
   return wrap;
 }
 
-function convRow(c) {
-  const row = el('article', 'conv');
+function convRow(c, quiet) {
+  const row = el('article', 'conv' + (quiet ? ' is-quiet' : ''));
   row.tabIndex = 0;
   const alt = c.altChans.length
     ? `<span class="alt-chans">ook via ${c.altChans.map(x => `${CHAN_ICO[x] || ''} ${x}`).join(', ')}</span>` : '';
@@ -1197,22 +1222,32 @@ function viewBeheer() {
   wrap.appendChild(spaceBadge('work'));
   wrap.appendChild(el('div', 'eyebrow-line', 'Beheer'));
   wrap.appendChild(el('h1', 'work-h1', 'Beheer'));
-  wrap.appendChild(el('p', 'lead-note', 'Operationele controls, buiten de dagelijkse aandacht gehouden. Hier wanneer je ze nodig hebt.'));
+  // Canon 12, empty state: ontworpen, niet leeg. Een serif-regel plus een actie. Beheer is een
+  // stille ruimte omdat er weinig te beheren valt, en dat is een uitspraak en geen tekort.
+  wrap.appendChild(el('p', 'beheer-lead mac-sharpen', 'Hier valt weinig te doen, en dat hoort zo.'));
+  wrap.appendChild(el('p', 'lead-note', 'Operationele controls staan buiten je dagelijkse aandacht. Ze zijn er wanneer je ze nodig hebt.'));
 
-  const areas = [
-    { key: 'testerbeheer', title: 'Testerbeheer', sub: 'Beheer wie Maculis gebruikt: nodig testers uit, volg hun status, leg toestemming vast.', n: `${TESTERS.length} testers`, primary: true },
-    { key: null, title: 'Berichtsjablonen', sub: 'De e-mail- en WhatsApp-uitnodiging met variabelen.', n: '' },
-    { key: null, title: 'Imports', sub: 'Testers importeren uit CSV of Excel.', n: '' },
-    { key: null, title: 'Instellingen', sub: 'Campagne, domeinen en technische controls.', n: '' },
-  ];
-  const grid = el('div', 'beheer-grid');
-  areas.forEach(a => {
-    const c = el(a.key ? 'button' : 'div', 'beheer-card' + (a.primary ? ' primary' : '') + (a.key ? ' clickable' : ' muted'));
-    c.innerHTML = `<div class="bc-title">${esc(a.title)}</div><div class="bc-sub">${esc(a.sub)}</div>${a.n ? `<div class="bc-n">${esc(a.n)}</div>` : '<div class="bc-soon">binnenkort in de cockpit</div>'}`;
-    if (a.key) c.addEventListener('click', () => { scn = a.key; render(); });
-    grid.appendChild(c);
-  });
-  wrap.appendChild(grid);
+  // Beheer bestond uit vier gelijkwaardige kaarten, waarvan er drie "binnenkort in de cockpit"
+  // beloofden. Drie beloftes naast een werkend onderdeel maken de ruimte onaf en suggereren
+  // functionaliteit die er niet is. Wat er werkelijk is, staat nu als volwaardige ingang; wat er
+  // niet is, staat als een eerlijke zin en niet als een uitgegrijsde kaart.
+  const entry = el('button', 'beheer-entry mac-edge');
+  entry.innerHTML =
+    `<span class="be-main">
+       <span class="be-title">Testerbeheer</span>
+       <span class="be-sub">Nodig testers uit, volg hun status en leg toestemming vast.</span>
+     </span>
+     <span class="be-n">${esc(String(TESTERS.length))} testers</span>
+     <span class="arw" aria-hidden="true">→</span>`;
+  entry.addEventListener('click', () => { scn = 'testerbeheer'; render(); });
+  wrap.appendChild(entry);
+
+  const elsewhere = el('div', 'beheer-elsewhere');
+  elsewhere.innerHTML =
+    `<div class="be-eyebrow">Elders</div>
+     <p class="be-line">Berichtsjablonen, imports en technische instellingen wonen in de volledige
+       uitnodigingstool. Ze staan hier niet als lege kaart, want ze bestaan wel, alleen niet hier.</p>`;
+  wrap.appendChild(elsewhere);
   return wrap;
 }
 
@@ -1538,12 +1573,12 @@ function viewDossier() {
 
   // detail-on-demand sections, each with a provenance chip
   const sections = [
-    { key: 'contact', title: 'Contact en identiteiten', prov: 'A', open: false, body: () => {
+    { key: 'contact', title: 'Contact en identiteiten', prov: 'A', open: false, role: 'record', body: () => {
         const b = el('div', 'dos-facts');
         d.identities.forEach(id => { b.innerHTML += `<div class="fact"><span class="k">${esc(id.channel)}</span><span class="v">${esc(id.value)} ${id.cls === 'C' ? provChip('C') : ''}</span></div>`; });
         return b;
       } },
-    { key: 'history', title: 'Gesprekshistorie', prov: 'A', open: true, body: () => {
+    { key: 'history', title: 'Gesprekshistorie', prov: 'A', open: true, role: 'work', body: () => {
         const b = el('div', 'dos-timeline');
         b.innerHTML =
           `<div class="tl-ev"><span class="tl-when">vandaag</span><span class="tl-ch">e-mail</span><p>Laatste bericht van ${esc(d.name.split(' ')[0])}, nog niet beantwoord.</p></div>
@@ -1552,7 +1587,7 @@ function viewDossier() {
            <p class="dos-note">E-mail is volledig aanwezig. WhatsApp, SMS en telefonie ${provChip('C')} lopen door hetzelfde model zodra de kanalen gekoppeld zijn.</p>`;
         return b;
       } },
-    { key: 'journey', title: 'First Five en journey', prov: 'A', open: false, body: () => {
+    { key: 'journey', title: 'First Five en journey', prov: 'A', open: false, role: 'record', body: () => {
         const b = el('div', '');
         b.innerHTML = `<div class="memory" style="border-color:var(--ok)">${esc(d.journey)}</div><p class="dos-note">De status (concept, uitgenodigd, gestart, afgerond) is in Maculis. Detail per sessie en per stap ${provChip('C')} bestaat nog niet.</p>`;
         return b;
@@ -1561,26 +1596,26 @@ function viewDossier() {
     // bevestigen/verwerpen → pas dan duurzaam onthouden). "Wat Maculis zag" holds the
     // observations/proposals (can change, be rejected); "Geheugen" holds only what is
     // durably confirmed. An old AI-inference must never silently become a fact.
-    { key: 'zag', title: 'Wat Maculis zag', prov: 'B', open: true, body: () => {
+    { key: 'zag', title: 'Wat Maculis zag', prov: 'B', open: true, role: 'voice', body: () => {
         const b = el('div', 'dos-memory');
         const obs = d.memory.filter(m => m.confidence === 'proposed');
         if (!obs.length) b.innerHTML = '<p class="muted">Geen open observaties. Wat bevestigd is, staat onder Geheugen.</p>';
         obs.forEach(m => {
-          b.innerHTML += `<div class="mem"><div class="mem-top"><span class="mem-ai">AI-voorstel</span><span class="mem-when">${esc(m.when || '')}</span></div><p>${esc(m.text)}</p><span class="mem-acts"><button class="linkbtn">Bevestigen</button> · <button class="linkbtn">Verwerpen</button></span></div>`;
+          b.innerHTML += `<div class="mem"><div class="mem-top"><span class="mac-signal" aria-hidden="true"></span><span class="mem-ai">AI-voorstel</span><span class="mem-when">${esc(m.when || '')}</span></div><p class="mac-sharpen">${esc(m.text)}</p><span class="mem-acts"><button class="linkbtn">Bevestigen</button> · <button class="linkbtn">Verwerpen</button></span></div>`;
         });
         b.innerHTML += `<p class="dos-note">Een observatie is nog geen geheugen. Pas na bevestigen wordt iets duurzaam onthouden.</p>`;
         return b;
       } },
-    { key: 'geheugen', title: 'Geheugen', prov: 'A', open: false, body: () => {
+    { key: 'geheugen', title: 'Geheugen', prov: 'A', open: false, role: 'voice', body: () => {
         const b = el('div', 'dos-memory');
         const conf = d.memory.filter(m => m.confidence !== 'proposed');
         if (!conf.length) b.innerHTML = '<p class="muted">Nog niets duurzaam onthouden.</p>';
         conf.forEach(m => {
-          b.innerHTML += `<div class="mem"><div class="mem-top"><span class="mem-conf">Bevestigd</span><span class="mem-when">${esc(m.when || '')}</span></div><p>${esc(m.text)}</p></div>`;
+          b.innerHTML += `<div class="mem"><div class="mem-top"><span class="mac-signal is-rest" aria-hidden="true"></span><span class="mem-conf">Bevestigd</span><span class="mem-when">${esc(m.when || '')}</span></div><p>${esc(m.text)}</p></div>`;
         });
         return b;
       } },
-    { key: 'reveals', title: 'Reveals eerder getoond', prov: 'C', open: false, body: () => {
+    { key: 'reveals', title: 'Reveals eerder getoond', prov: 'C', open: false, role: 'voice', body: () => {
         const b = el('div', '');
         b.innerHTML =
           `<p class="dos-note dos-c">Een duurzame historie van welke reveal wanneer en waarom is getoond, bestaat nog niet in Maculis ${provChip('C')}. Dit is hoe het eruit zou zien, geen echte data.</p>` +
@@ -1589,18 +1624,18 @@ function viewDossier() {
             : `<p class="muted">Nog geen reveal bij deze relatie getoond.</p>`);
         return b;
       } },
-    { key: 'acties', title: 'Open acties en follow-ups', prov: 'A', open: false, body: () => {
+    { key: 'acties', title: 'Open acties en follow-ups', prov: 'A', open: false, role: 'work', body: () => {
         const b = el('div', '');
         if (!d.followups.length) b.innerHTML = '<p class="muted">Geen open acties.</p>';
         d.followups.forEach(f => { b.innerHTML += `<div class="fact"><span class="k">${f.overdue ? '<span class="dot-open"></span> verlopen' : 'open'}</span><span class="v">${esc(f.title)} · ${esc(f.due)}</span></div>`; });
         return b;
       } },
-    { key: 'notities', title: 'Notities', prov: 'C', open: false, body: () => {
+    { key: 'notities', title: 'Notities', prov: 'C', open: false, role: 'record', body: () => {
         const b = el('div', '');
         b.innerHTML = `<p class="dos-note dos-c">Vrije notities op relatieniveau bestaan nog niet ${provChip('C')}. Interne notities per gesprek bestaan wel ${provChip('A')} en worden nooit extern verzonden.</p>`;
         return b;
       } },
-    { key: 'consent', title: 'Toestemming en metadata', prov: 'A', open: false, body: () => {
+    { key: 'consent', title: 'Toestemming en metadata', prov: 'A', open: false, role: 'record', body: () => {
         const b = el('div', 'dos-facts');
         b.innerHTML =
           `<div class="fact"><span class="k">Toestemming</span><span class="v"><span class="badge cs-${d.consentStatus}">${esc(CONSENT_LBL[d.consentStatus])}</span></span></div>
@@ -1613,25 +1648,30 @@ function viewDossier() {
   // organization + its contacts (organization/contact tables, orgContacts), so this
   // is A, not future. Shown for real organizations, not for "zelfstandig".
   const isOrg = d.org && !/zelfstandig/i.test(d.org);
-  if (isOrg) sections.push({ key: 'org', title: 'Organisatie en andere contacten', prov: 'A', open: false, body: () => {
+  if (isOrg) sections.push({ key: 'org', title: 'Organisatie en andere contacten', prov: 'A', open: false, role: 'record', body: () => {
       const b = el('div', '');
       b.innerHTML =
         `<p class="dos-note">Een relatie kan een persoon of een organisatie zijn. Bij ${esc(d.org)} kan Maculis communicatie, follow-ups en signalen ook op organisatieniveau samenbrengen, naast de persoon. Het model draagt meerdere contactpersonen per organisatie ${provChip('A')}, en een persoon kan van organisatie wisselen.</p>
          <p class="dos-note">In dit voorbeeld is er één bekende contactpersoon binnen deze organisatie.</p>`;
       return b;
     } });
-  if (d.pattern) sections.push({ key: 'patroon', title: 'Onderdeel van een patroon', prov: 'B', open: false, body: () => {
+  if (d.pattern) sections.push({ key: 'patroon', title: 'Onderdeel van een patroon', prov: 'B', open: false, role: 'voice', body: () => {
       const b = el('div', '');
       b.innerHTML =
         `<p class="dos-note">${esc(d.pattern)}</p>
          <p class="dos-note">Dit patroon leeft in Groei zolang Maculis het over meerdere relaties ziet. Ook wanneer het van Vandaag verdwijnt, blijft het hier bij de relatie zichtbaar. Zo raakt betekenis die eerder verscheen niet zoek.</p>`;
       return b;
     } });
-  if (d.provenance) sections.push({ key: 'herkomst', title: 'Herkomst', prov: 'A', open: false, body: () => { const b = el('div', ''); b.innerHTML = `<div class="memory">${esc(d.provenance)}</div>`; return b; } });
+  if (d.provenance) sections.push({ key: 'herkomst', title: 'Herkomst', prov: 'A', open: false, role: 'record', body: () => { const b = el('div', ''); b.innerHTML = `<div class="memory">${esc(d.provenance)}</div>`; return b; } });
 
-  const secWrap = el('div', 'dos-sections');
-  sections.forEach(s => {
-    const sec = el('div', 'dos-sec');
+  // Volgorde naar betekenis: eerst wat Maculis ziet, dan het lopende werk, en pas daarna
+  // het archief. Dezelfde secties, dezelfde inhoud, een andere rangorde en een ander gewicht.
+  const ROLE_ORDER = { voice: 0, work: 1, record: 2 };
+  const ordered = sections.slice().sort((a, b) => (ROLE_ORDER[a.role || 'work'] - ROLE_ORDER[b.role || 'work']));
+
+  function sectionNode(s) {
+    const role = s.role || 'work';
+    const sec = el('div', 'dos-sec is-' + role + (role === 'voice' ? ' mac-edge' : ''));
     const head = el('button', 'dos-sec-head');
     head.setAttribute('aria-expanded', String(s.open));
     head.innerHTML = `<span class="dss-title">${esc(s.title)}</span>${provChip(s.prov)}<span class="dss-arw" aria-hidden="true">${s.open ? '▾' : '▸'}</span>`;
@@ -1643,9 +1683,22 @@ function viewDossier() {
       head.querySelector('.dss-arw').textContent = open ? '▾' : '▸';
     });
     sec.appendChild(head); sec.appendChild(body);
-    secWrap.appendChild(sec);
-  });
+    return sec;
+  }
+
+  const secWrap = el('div', 'dos-sections');
+  ordered.filter(s => (s.role || 'work') !== 'record').forEach(s => secWrap.appendChild(sectionNode(s)));
   wrap.appendChild(secWrap);
+
+  const records = ordered.filter(s => (s.role || 'work') === 'record');
+  if (records.length) {
+    const rec = el('div', 'dos-records');
+    rec.appendChild(el('div', 'dos-records-h', 'Dossier'));
+    const recWrap = el('div', '');
+    records.forEach(s => recWrap.appendChild(sectionNode(s)));
+    rec.appendChild(recWrap);
+    wrap.appendChild(rec);
+  }
 
   // The contextual "Neem contact op" now lives in the reachability zone at the top,
   // where the reachability question is answered. The foot keeps the way onward.
@@ -1682,6 +1735,7 @@ const SPACE = { vandaag: 'reveal', reveal: 'reveal', journeys: 'reveal', groei: 
 function openDossier(rel) { activeRel = rel; scn = 'dossier'; render(); }
 
 function render() {
+  coreClaimed = false;   // canon 7: hoogstens een light.core per scherm
   shell.setAttribute('data-space', SPACE[scn] || 'reveal');
   view.innerHTML = '';
   let node;

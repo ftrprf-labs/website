@@ -178,6 +178,16 @@ async function main() {
     try { await scene.go(page); } catch { /* unreachable */ }
     await page.waitForTimeout(700);
     const m = await page.evaluate(() => {
+      // Canon 8.5: onder reduced motion staat de EINDtoestand er, niet een bevroren begin.
+      // De onthullingsgebaren moeten dus scherp, zichtbaar en op hun plaats staan.
+      let gestureBad = 0;
+      document.querySelectorAll('.mac-sharpen, .mac-arrive, .mac-signal.is-landing').forEach((n) => {
+        const s = getComputedStyle(n);
+        const blurred = s.filter !== 'none' && /blur\((?!0)/.test(s.filter);
+        const hidden = parseFloat(s.opacity) < 1;
+        const moved = s.transform !== 'none' && s.transform !== 'matrix(1, 0, 0, 1, 0, 0)';
+        if (blurred || hidden || moved) gestureBad++;
+      });
       let running = 0, invisible = 0, infinite = 0;
       document.querySelectorAll('*').forEach((n) => {
         const s = getComputedStyle(n);
@@ -186,12 +196,15 @@ async function main() {
         const r = n.getBoundingClientRect();
         if (r.width > 0 && r.height > 0 && parseFloat(s.opacity) === 0 && s.animationName !== 'none') invisible++;
       });
-      return { running, invisible, infinite };
+      const gestures = document.querySelectorAll('.mac-sharpen, .mac-arrive, .mac-signal.is-landing').length;
+      return { running, invisible, infinite, gestures, gestureBad };
     });
     const tag = `${scene.name}/reduce`;
     if (m.running === 0) pass(`${tag}: 0 lopende animaties`); else fail(`${tag}: ${m.running} lopende animaties`);
     if (m.infinite === 0) pass(`${tag}: 0 oneindige lussen`); else fail(`${tag}: ${m.infinite} oneindige lussen`);
     if (m.invisible === 0) pass(`${tag}: niets onzichtbaar door een niet-gestarte animatie`); else fail(`${tag}: ${m.invisible} elementen op opacity 0`);
+    if (m.gestureBad === 0) pass(`${tag}: ${m.gestures} onthullingsgebaren staan op hun eindtoestand`);
+    else fail(`${tag}: ${m.gestureBad} van ${m.gestures} gebaren staan niet op de eindtoestand`);
     await page.close();
   }
   await rctx.close();

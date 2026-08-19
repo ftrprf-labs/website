@@ -45,6 +45,28 @@ function humanLabel(map, v) {
 const NL_MONTHS = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
 function lensDate(iso) { try { const d = new Date(iso); if (isNaN(d)) return null; return `${d.getDate()} ${NL_MONTHS[d.getMonth()]}`; } catch { return null; } }
 
+// ---- signaaltaal (canon 9 trap 1, canon 7) ------------------------------------------------
+// Het aantal ONAFHANKELIJKE, GEGRONDE signalen onder een uitspraak. Alleen een feit en een
+// waarneming tellen: dat zijn dingen die buiten Maculis bestaan. Een afleiding of hypothese is
+// Maculis' eigen redenering en draagt dus geen extra licht. Canon 7 maakt de straal van
+// light.core een functie van precies dit getal.
+function groundedSignals(ev) {
+  if (!ev) return 0;
+  const items = evidenceItems(ev);
+  return items.filter((o) => o && typeof o === 'object' && (o.kind === 'FACT' || o.kind === 'OBSERVATION')).length;
+}
+
+// Een lichtpunt. `core` geeft het de halo, en dat gebeurt hoogstens een keer per scherm
+// (canon 7: maximaal een light.core per scherm).
+let coreClaimed = false;
+function signalPoint(n, { core = false, landing = false } = {}) {
+  const dot = el('span', 'mac-signal');
+  dot.setAttribute('aria-hidden', 'true');
+  if (core && !coreClaimed && n > 0) { coreClaimed = true; dot.classList.add('is-core'); dot.style.setProperty('--sig-n', String(Math.min(n, 5))); }
+  if (landing) dot.classList.add('is-landing');
+  return dot;
+}
+
 async function api(path, opts) {
   const r = await fetch(path, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, ...opts });
   let data = null; try { data = await r.json(); } catch { /* no body */ }
@@ -121,6 +143,7 @@ function lightNav(key) {
 
 /* ---------- router ---------- */
 async function render() {
+  coreClaimed = false;   // canon 7: hoogstens een light.core per scherm
   view.innerHTML = '';
   if (scn === 'vandaag') { shell.setAttribute('data-space', 'reveal'); lightNav('vandaag'); return renderVandaag(); }
   if (scn === 'dossier') { shell.setAttribute('data-space', 'work'); lightNav('relaties'); return renderDossier(activeContactId); }
@@ -158,7 +181,9 @@ async function renderVandaag() {
   }
 
   const greet = el('div', 'greet');
-  greet.innerHTML = `<div class="eyebrow">Vandaag</div><h1>${esc(h.primary)}</h1>${h.secondary ? `<p class="sub">${esc(h.secondary)}</p>` : ''}`;
+  // Canon 15, signature 3: scherpstellen is het enige onthullingsgebaar en is voorbehouden
+  // aan iets wat Maculis heeft gezien. De radarzin is precies dat.
+  greet.innerHTML = `<div class="eyebrow">Vandaag</div><h1 class="mac-sharpen">${esc(h.primary)}</h1>${h.secondary ? `<p class="sub">${esc(h.secondary)}</p>` : ''}`;
   wrap.appendChild(greet);
 
   // Three meaningful buckets: what needs you now, what Maculis prepared, and what is on the radar.
@@ -279,8 +304,11 @@ async function revealWorkItem(id) {
   if (!node) return;
   const card = node.closest('.item') || node;
   card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  card.classList.add('just-landed');
-  setTimeout(() => card.classList.remove('just-landed'), 2600);
+  // Canon 8.3, Land: de waarneming komt een keer binnen en staat daarna stil. Geen randflits
+  // die om aandacht roept zonder betekenis te dragen.
+  card.classList.add('mac-arrive');
+  const dot = card.querySelector('.mac-signal');
+  if (dot) dot.classList.add('is-landing');
 }
 function cssEsc(s) { return String(s).replace(/["\\]/g, '\\$&'); }
 
@@ -306,10 +334,20 @@ function radarCard(c) {
   if (c.org) chips.push(`<span class="chip">${esc(c.org)}</span>`);
   const secondary = (c.secondary || []).map(s => `<div class="echo">${esc(s.reason)}</div>`).join('');
   // When a digital colleague produced this, name them above the reason ("Growth vraagt jouw akkoord.").
+  // Canon 9 trap 1: het lichtpunt staat er alleen als Maculis zelf iets heeft waargenomen.
+  // Een bericht dat binnenkomt is geen waarneming van Maculis en krijgt dus geen punt.
   const attribution = c.primary.origin && c.primary.origin.kind === 'AGENT'
-    ? `<div class="colleague"><span class="colleague-dot" aria-hidden="true"></span>${esc(c.primary.origin.label)} ${esc(COLLEAGUE_VERB[c.primary.needs] || 'heeft iets voor je')}.</div>` : '';
+    ? `<div class="colleague"><span class="mac-signal" aria-hidden="true"></span>${esc(c.primary.origin.label)} ${esc(COLLEAGUE_VERB[c.primary.needs] || 'heeft iets voor je')}.</div>` : '';
+  // Canon 9 trap 1. Het lichtpunt hoort bij een waarneming van Maculis zelf: iets wat een
+  // digitale collega zag, of iets wat Maculis opmerkte zonder dat iemand erom vroeg (de radar).
+  // Een binnengekomen bericht is geen waarneming van Maculis en krijgt dus geen punt.
+  // Een digitale collega heeft al een eigen regel met lichtpunt eronder; dan hoeft de naam er
+  // geen tweede te dragen. Een kaart die alleen op de radar staat, draagt hem hier.
+  const byAgent = Boolean(c.primary.origin && c.primary.origin.kind === 'AGENT');
+  const observed = !byAgent && c.primary.needs === 'awareness';
   b.innerHTML =
     `<div class="row1">
+       ${observed ? '<span class="mac-signal" aria-hidden="true"></span>' : ''}
        <span class="who">${esc(c.who)}</span>
        ${c.channel ? `<span class="chan">${esc(CHAN_ICO[c.channel] || '')} ${esc(humanLabel(CHANNEL_LABEL, c.channel))}</span>` : ''}
        <span class="go-chevron" aria-hidden="true">›</span>
@@ -432,10 +470,17 @@ function workActions(w, onResolve) {
 // identity, the evidence (honestly labelled), and the human-in-the-loop actions.
 // onResolve defaults to a full re-render of Vandaag; the dossier passes its own refresh.
 function workBlock(w, onResolve) {
-  const wrap = el('div', 'work-block');
+  // Hier spreekt Maculis zelf: light.edge markeert dat op dit vlak iets onthuld wordt (canon 7).
+  const wrap = el('div', 'work-block mac-edge');
   if (w.id) wrap.dataset.attnId = w.id;   // scroll target for the "Bekijk" jump after a Scout run
   const ev = w.evidence || {};
-  if (w.proposal && w.proposal.summary) wrap.appendChild(el('div', 'work-proposal', esc(w.proposal.summary)));
+  if (w.proposal && w.proposal.summary) {
+    const head = el('div', 'work-proposal');
+    // De straal van het licht volgt het aantal gegronde signalen onder dit voorstel (canon 7).
+    head.appendChild(signalPoint(groundedSignals(ev), { core: true }));
+    head.appendChild(el('span', 'work-proposal-t mac-sharpen', esc(w.proposal.summary)));
+    wrap.appendChild(head);
+  }
   // A demonstration/fixture is marked unmistakably so it can never read as a real find.
   if (ev.demo) wrap.appendChild(el('div', 'work-demo', 'Demonstratie. Geen echte waarneming.'));
 
@@ -545,32 +590,33 @@ async function renderDossier(contactId) {
 
   // sections
   const secWrap = el('div', 'dos-sections');
+  const recWrap = el('div', '');
   secWrap.appendChild(dosSection('Gesprekshistorie', 'A', true, () => {
     const b = el('div', 'dos-timeline');
     if (!data.conversations.length) b.innerHTML = '<p class="muted">Nog geen gesprekken.</p>';
     data.conversations.forEach(cv => { b.innerHTML += `<div class="tl-ev"><span class="tl-when">${esc(humanLabel(CHANNEL_LABEL, cv.channel))}</span><p>${esc(cv.subject || 'Gesprek')} · ${esc(humanLabel(CONV_STATUS_LABEL, cv.status))}${cv.aiReady ? ' · concept klaar' : ''}</p></div>`; });
     return b;
-  }));
+  }, 'work'));
   // Observation vs durable memory, kept explicit.
   secWrap.appendChild(dosSection('Wat Maculis zag', 'B', true, () => {
     const b = el('div', 'dos-memory');
     if (!data.observed.length) b.innerHTML = '<p class="muted">Geen open observaties. Wat bevestigd is, staat onder Geheugen.</p>';
     data.observed.forEach(m => b.appendChild(memoryCard(m, true)));
     return b;
-  }));
+  }, 'voice'));
   secWrap.appendChild(dosSection('Geheugen', 'A', false, () => {
     const b = el('div', 'dos-memory');
     if (!data.remembered.length) b.innerHTML = '<p class="muted">Nog niets duurzaam onthouden.</p>';
     data.remembered.forEach(m => b.appendChild(memoryCard(m, false)));
     return b;
-  }));
+  }, 'voice'));
   secWrap.appendChild(dosSection('Open acties en follow-ups', 'A', false, () => {
     const b = el('div', 'dos-followups');
     const open = (data.followups || []).filter((f) => f.status !== 'done');
     if (!open.length) { b.innerHTML = '<p class="muted">Geen open acties.</p>'; return b; }
     open.forEach((f) => b.appendChild(followUpRow(f)));
     return b;
-  }));
+  }, 'work'));
   // Slice 5 — what colleagues (human or digital) prepared or proposed for this relation.
   const relWork = data.work || [];
   if (relWork.length) {
@@ -583,13 +629,13 @@ async function renderDossier(contactId) {
         b.appendChild(workBlock(w, () => renderDossier(activeContactId)));
       });
       return b;
-    }));
+    }, 'voice'));
   }
   // Lens — a content-free relational hoofdlijn (Niveau C). Only the fact that this relation went
   // through the Lens; never reveal content, answers or personal reflections. Designed so a client-shared
   // insight ("1 inzicht door klant gedeeld") can appear later, once an explicit sharing consent exists.
   if (data.lens && data.lens.participated) {
-    secWrap.appendChild(dosSection('Lens', 'A', true, () => {
+    recWrap.appendChild(dosSection('Lens', 'A', false, () => {
       const b = el('div', 'dos-lens');
       const at = data.lens.completedAt || data.lens.startedAt;
       const when = at ? lensDate(at) : null;
@@ -599,21 +645,35 @@ async function renderDossier(contactId) {
       }
       b.innerHTML += `<p class="dos-note">De Lens is van de klant. Alleen deze hoofdlijn is gedeeld. Antwoorden en persoonlijke reflectie blijven privé.</p>`;
       return b;
-    }));
+    }, 'record'));
   }
-  secWrap.appendChild(dosSection('Contact en identiteiten', 'A', false, () => {
+  recWrap.appendChild(dosSection('Contact en identiteiten', 'A', false, () => {
     const b = el('div', 'dos-facts');
     if (rc.email) b.innerHTML += `<div class="fact"><span class="k">e-mail</span><span class="v">${esc(rc.email.value)}</span></div>`;
     if (rc.phone) b.innerHTML += `<div class="fact"><span class="k">telefoon</span><span class="v">${esc(rc.phone.value)}</span></div>`;
     b.innerHTML += `<p class="dos-note">E-mail is het enige digitaal verzendbare kanaal in deze fase. Bellen is een menselijke actie. WhatsApp/SMS ${provChip('C')} volgen later.</p>`;
     return b;
-  }));
+  }, 'record'));
+  // Volgorde naar betekenis: eerst wat Maculis ziet, dan het lopende werk. Dezelfde secties en
+  // dezelfde inhoud, een andere rangorde. sort() is stabiel, dus binnen een rol blijft de volgorde.
+  [...secWrap.children]
+    .sort((a, b) => (a.classList.contains('is-voice') ? 0 : 1) - (b.classList.contains('is-voice') ? 0 : 1))
+    .forEach((n) => secWrap.appendChild(n));
   wrap.appendChild(secWrap);
+  // Het archief staat als groep onderaan: bereikbaar wanneer je ernaar zoekt, verder uit de weg.
+  if (recWrap.children.length) {
+    const rec = el('div', 'dos-records');
+    rec.appendChild(el('div', 'dos-records-h', 'Dossier'));
+    rec.appendChild(recWrap);
+    wrap.appendChild(rec);
+  }
   view.appendChild(wrap);
 }
 
-function dosSection(title, prov, open, bodyFn) {
-  const sec = el('div', 'dos-sec');
+// De rol bepaalt het oppervlak, niet de inhoud. is-voice is waar Maculis zelf spreekt en
+// draagt light.edge (canon 7); is-record is het archief en draagt alleen een hairline.
+function dosSection(title, prov, open, bodyFn, role = 'work') {
+  const sec = el('div', 'dos-sec is-' + role + (role === 'voice' ? ' mac-edge' : ''));
   const head = el('button', 'dos-sec-head');
   head.setAttribute('aria-expanded', String(open));
   head.innerHTML = `<span class="dss-title">${esc(title)}</span>${provChip(prov)}<span class="dss-arw">${open ? '▾' : '▸'}</span>`;
@@ -627,7 +687,10 @@ function dosSection(title, prov, open, bodyFn) {
 function memoryCard(m, isObservation) {
   const c = el('div', 'mem');
   const tag = isObservation ? '<span class="mem-ai">AI-voorstel</span>' : '<span class="mem-conf">Bevestigd</span>';
-  c.innerHTML = `<div class="mem-top">${tag}<span class="mem-when">${esc(m.kind || '')}</span></div><p>${esc(m.content)}</p>`;
+  // Een open observatie is een waarneming van Maculis en draagt het lichtpunt. Wat bevestigd is,
+  // is tot rust gekomen: hetzelfde punt, gedoofd (canon 2, beweging is onzekerheid).
+  const dot = `<span class="mac-signal${isObservation ? '' : ' is-rest'}" aria-hidden="true"></span>`;
+  c.innerHTML = `<div class="mem-top">${dot}${tag}<span class="mem-when">${esc(m.kind || '')}</span></div><p${isObservation ? ' class="mac-sharpen"' : ''}>${esc(m.content)}</p>`;
   if (isObservation) {
     const acts = el('span', 'mem-acts');
     const conf = el('button', 'linkbtn', 'Bevestigen');
@@ -830,11 +893,15 @@ async function renderGesprekken() {
 }
 
 function gespRow(c) {
-  const row = el('article', 'conv'); row.tabIndex = 0; row.setAttribute('role', 'button');
+  // Canon 10: een pil in een dichte context, een linkerrand in een rustige. Een gesprek dat niets
+  // van je vraagt en waarvoor niets klaarstaat, draagt geen eigen vlak. Zo weegt de lijst naar
+  // betekenis in plaats van naar aantal.
+  const quiet = !c.waitingOnUs && !c.hasPrepared;
+  const row = el('article', 'conv' + (quiet ? ' is-quiet' : '')); row.tabIndex = 0; row.setAttribute('role', 'button');
   const chips = [];
   if (c.hasPrepared) chips.push('<span class="chip ready"><span class="k"></span>concept klaar</span>');
   if (c.waitingOnUs) chips.push('<span class="chip now"><span class="k"></span>wacht op jou</span>');
-  chips.push(`<span class="chip">${esc(humanLabel(CONV_STATUS_LABEL, c.status))}</span>`);
+  if (!c.waitingOnUs && !c.hasPrepared) chips.push(`<span class="chip">${esc(humanLabel(CONV_STATUS_LABEL, c.status))}</span>`);
   const snip = c.subject
     ? `<b>${esc(c.subject)}</b>${c.preview ? ' · ' + esc(c.preview) : ''}`
     : (c.preview ? esc(c.preview) : '');
@@ -843,7 +910,7 @@ function gespRow(c) {
      <div class="conv-main">
        <div class="conv-top">
          <span class="conv-who">${esc(c.who)}</span>
-         <span class="conv-chan">${esc(CHAN_ICO[c.channel] || '')} ${esc((c.channel || '').toLowerCase())}</span>
+         <span class="conv-chan">${esc(CHAN_ICO[c.channel] || '')} ${esc(humanLabel(CHANNEL_LABEL, c.channel))}</span>
        </div>
        ${c.org ? `<div class="conv-org">${esc(c.org)}</div>` : ''}
        ${snip ? `<div class="conv-snip">${snip}</div>` : ''}
@@ -871,6 +938,8 @@ async function renderBeheer() {
   const wrap = el('div', 'view-enter wide');
   wrap.appendChild(el('div', 'eyebrow-line', 'Beheer'));
   wrap.appendChild(el('h1', 'work-h1', 'Testerbeheer'));
+  // Canon 12, empty state: ontworpen, niet leeg. Een serif-regel plus een actie.
+  wrap.appendChild(el('p', 'beheer-lead mac-sharpen', 'Wie Maculis mag proberen, staat hier.'));
   wrap.appendChild(el('p', 'lead-note', 'Administratief. Testers en uitnodigingen voor de campagne. Dit staat los van je relaties: een tester wordt hier geen Maculis-relatie.'));
 
   // Add a tester (reuses POST /api/invitations; creates a record + link, sends niets).

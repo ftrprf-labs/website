@@ -88,6 +88,17 @@ const SCENES = [
   { name: 'gesprek', go: async (page) => { await page.click('.item.openable'); await page.click('.dos-now-item .btn-primary'); } },
 ];
 
+// De schermen van het ontwerpprototype, bereikt via de deeplinks die het zelf kent.
+const PROTO_SCENES = [
+  { name: 'vandaag', query: '' },
+  { name: 'relaties', query: '?scn=relaties' },
+  { name: 'gesprekken', query: '?scn=gesprekken' },
+  { name: 'gesprek', query: '?scn=work' },
+  { name: 'dossier', query: '?scn=dossier' },
+  { name: 'beheer', query: '?scn=beheer' },
+  { name: 'reveal', query: '?scn=reveal&rev=r-kim' },
+];
+
 async function settle(page) {
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(220);
@@ -131,15 +142,17 @@ const browser = await chromium.launch(existsSync(LOCAL_CHROME) ? { executablePat
         n++;
         await page.close();
       }
-      // De bevroren ontwerp-prototype-pagina deelt dezelfde stylesheet en hoort in de meting.
-      if (!ONLY || ONLY === 'prototype') {
+      // De ontwerp-prototypepagina deelt dezelfde stylesheet en dezelfde vormtaal, en is
+      // zonder database te beoordelen. Zij wordt via haar eigen deeplinks bevraagd.
+      for (const proto of PROTO_SCENES) {
+        if (ONLY && `proto:${proto.name}` !== ONLY) continue;
         const page = await ctx.newPage();
         await routeApi(page);
-        await page.goto(`${base}/cockpit.html`, { waitUntil: 'domcontentloaded' });
+        await page.goto(`${base}/cockpit.html${proto.query}`, { waitUntil: 'domcontentloaded' });
         await page.addStyleTag({ content: FREEZE });
         await settle(page);
         const suffix = reduce ? '.reduce' : '';
-        await page.screenshot({ path: join(OUT, `prototype.vandaag.${vp.name}${suffix}.png`), fullPage: true });
+        await page.screenshot({ path: join(OUT, `prototype.${proto.name}.${vp.name}${suffix}.png`), fullPage: true });
         n++;
         await page.close();
       }
