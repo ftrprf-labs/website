@@ -19,6 +19,10 @@
 //   * Gesprekken en Samenwerking openen en sluiten;
 //   * draaien en terugdraaien laat het patroon in de strook staan;
 //   * de veilige zone onderaan het toestel wordt gerespecteerd;
+//   * de periferie leest als bediening: vier bestemmingen in twee kolommen met een eigen vlak en
+//     44px hoogte, Opnieuw als losse handeling op een eigen rij eronder, en het blok blijft een
+//     hoekje in plaats van een balk van rand tot rand. Het overlapt de groet niet en duwt het veld
+//     niet te ver omlaag;
 //   * en, hard afgedwongen: Het Veld loopt niet door de leesbare HUD-tekst. Op een telefoon is de
 //     HUD een band dwars over de bovenkant, geen hoekversiering. `vrijVoorTekst` houdt alleen de
 //     LABELS uit die zone; de punten en verbindingen zelf worden nooit onderdrukt. Ze horen er dus
@@ -108,6 +112,40 @@ for (const vp of [
   ok('in rust valt er geen veldlicht op de leesbare HUD-tekst', rust.max <= BOTSING_GRENS,
     `helderste pixel ${rust.max} van 255, HUD tot ${rust.hudOnder}px`);
 
+  // ---- de periferie: vier bestemmingen in twee kolommen, Opnieuw eronder --------------------
+  const nav = await p.evaluate(() => {
+    const knoppen = [...document.querySelectorAll('.rand .knop')].map((b) => {
+      const r = b.getBoundingClientRect();
+      const st = getComputedStyle(b);
+      return { id: b.id, tekst: b.textContent.trim(), x: Math.round(r.left), y: Math.round(r.top),
+        w: Math.round(r.width), h: Math.round(r.height), rechts: Math.round(r.right),
+        vlak: st.backgroundColor, rand: st.borderColor };
+    });
+    const rand = document.querySelector('.rand').getBoundingClientRect();
+    const onder = document.querySelector('.onder').getBoundingClientRect();
+    return { knoppen, randOnder: Math.round(rand.bottom), onderTop: Math.round(onder.top),
+      breedte: window.innerWidth };
+  });
+  const rijen = [...new Set(nav.knoppen.map((k) => k.y))].sort((a, b) => a - b);
+  const kolommen = [...new Set(nav.knoppen.filter((k) => k.id !== 'btn-opnieuw').map((k) => k.x))];
+  const opnieuw = nav.knoppen.find((k) => k.id === 'btn-opnieuw');
+
+  ok('elke control in de periferie haalt 44px', nav.knoppen.every((k) => k.h >= 44),
+    nav.knoppen.map((k) => `${k.tekst} ${k.h}px`).join(', '));
+  ok('elke control heeft een eigen vlak, dus geen zwevend bijschrift',
+    nav.knoppen.every((k) => k.vlak !== 'rgba(0, 0, 0, 0)'), nav.knoppen[0].vlak);
+  ok('de vier bestemmingen staan in twee kolommen op twee rijen',
+    kolommen.length === 2 && rijen.length === 3, `${kolommen.length} kolommen, ${rijen.length} rijen`);
+  ok('Opnieuw staat op een eigen rij, links op dezelfde kolom',
+    opnieuw && opnieuw.y === rijen[2] && opnieuw.x === Math.min(...kolommen)
+      && nav.knoppen.filter((k) => k.y === opnieuw.y).length === 1,
+    opnieuw ? `x=${opnieuw.x}, y=${opnieuw.y}` : 'niet gevonden');
+  ok('het blok blijft een hoekje en wordt geen balk van rand tot rand',
+    Math.max(...nav.knoppen.map((k) => k.rechts)) < nav.breedte - 40,
+    `tot ${Math.max(...nav.knoppen.map((k) => k.rechts))} van ${nav.breedte}`);
+  ok('de periferie overlapt de groet eronder niet', nav.randOnder <= nav.onderTop,
+    `periferie tot ${nav.randOnder}, groet vanaf ${nav.onderTop}`);
+
   const kernen = await p.evaluate(KERNEN);
   const ys = kernen.map((k) => k[1]);
   const midden = Math.round(ys.reduce((a, b) => a + b, 0) / (ys.length || 1));
@@ -116,6 +154,10 @@ for (const vp of [
     `${kernen.length} van ${F.insights.length}, midden y=${midden}, halve hoogte ${halve}`);
   ok('en alle patronen staan onder de leesbare tekst', Math.min(...ys) > rust.hudOnder,
     `hoogste kern op y=${Math.min(...ys)}, HUD tot ${rust.hudOnder}`);
+  // De periferie kost verticale ruimte. Dit is de ondergrens waaronder het veld te ver omlaag
+  // geduwd zou zijn: er moet lucht blijven tussen de leesbare tekst en het eerste patroon.
+  ok('en het veld is niet te ver omlaag geduwd', Math.min(...ys) - rust.hudOnder >= 40,
+    `${Math.min(...ys) - rust.hudOnder}px lucht onder de HUD`);
 
   // Tijdens de opbouw staat de uitspraak er nog niet en is er dus meer ruimte. Ook dan mag er geen
   // licht op de tekst vallen: dat is precies het moment waarop het eerder misging.

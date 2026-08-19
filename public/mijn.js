@@ -567,6 +567,22 @@
   // 4. HET BEWIJS KOMT UIT HET VELD
   // ============================================================================================
   const bladen = ['bewijs', 'patronen', 'samen', 'gesprekken'];
+
+  // Welke bestemming in de periferie heeft dit blad geopend. De knop draagt zolang
+  // aria-pressed="true", wat in de basisstijl al een koperen rand betekent. Vier van de vijf
+  // controls zijn een bestemming; Opnieuw is een handeling en wordt daarom nooit actief.
+  //
+  // Op een telefoon wijkt de periferie zodra een blad opent, dus deze staat is er op het moment
+  // van kiezen en bij de terugkeer, en niet permanent. Dat is de afgesproken compositie: de strook
+  // boven het blad is veld en geen menu, en terug gaat via "Terug naar het veld".
+  const BESTEMMINGEN = ['btn-patronen', 'btn-blind', 'btn-samen', 'btn-gesprekken'];
+  function zetActief(knopId) {
+    BESTEMMINGEN.forEach((id) => {
+      const b = $(id);
+      if (b) b.setAttribute('aria-pressed', id === knopId ? 'true' : 'false');
+    });
+  }
+
   function sluitBladen(behalve) {
     bladen.forEach((id) => {
       const el = $(id);
@@ -579,6 +595,7 @@
       document.body.classList.remove('blad-open');
       $('zeg').classList.remove('wijkt');
       document.querySelector('.rand').classList.remove('wijkt');
+      zetActief(null);
     }
   }
   function openBlad(id) {
@@ -1030,15 +1047,15 @@
   $('btn-sluit').addEventListener('click', terug);
   $('btn-patronen-sluit').addEventListener('click', terug);
   $('btn-samen-sluit').addEventListener('click', terug);
-  $('btn-patronen').addEventListener('click', () => { meteenKlaar(); vulPatronen(); openBlad('patronen'); });
-  $('btn-samen').addEventListener('click', () => { meteenKlaar(); openBlad('samen'); });
+  $('btn-patronen').addEventListener('click', () => { meteenKlaar(); vulPatronen(); openBlad('patronen'); zetActief('btn-patronen'); });
+  $('btn-samen').addEventListener('click', () => { meteenKlaar(); openBlad('samen'); zetActief('btn-samen'); });
   $('btn-opnieuw').addEventListener('click', () => { herstart(); });
   // Wat zie ik niet: geen tekstje maar een plek. De camera gaat naar het patroon met het minste bewijs.
   $('btn-blind').addEventListener('click', () => {
     meteenKlaar();
     let zwak = -1, laagst = Infinity;
     patronen.forEach((q, i) => { const k = kracht(q); if (k < laagst) { laagst = k; zwak = i; } });
-    if (zwak >= 0) openBewijs(zwak);
+    if (zwak >= 0) { openBewijs(zwak); zetActief('btn-blind'); }
   });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
@@ -1284,7 +1301,7 @@
     openBlad('gesprekken');
     vulGesprekken(await vernieuwGesprekken());
   }
-  $('btn-gesprekken').addEventListener('click', openGesprekken);
+  $('btn-gesprekken').addEventListener('click', () => { openGesprekken(); zetActief('btn-gesprekken'); });
   $('btn-gesprekken-sluit').addEventListener('click', terug);
 
   // ============================================================================================
