@@ -1246,8 +1246,13 @@ body {
 .tl-ev p { margin: 4px 0 0; font-size: 13px; color: var(--text); }
 .dos-memory .mem { padding: var(--s3) 0; border-top: 1px solid var(--hair); }
 .dos-memory .mem:first-child { border-top: 0; padding-top: 0; }
-.mem-top { display: flex; align-items: center; gap: var(--s2); margin-bottom: var(--s1); }
-.mem-ai { font-size: var(--t-label); text-transform: uppercase; letter-spacing: .08em; color: var(--emerging); border: 1px solid var(--bs-emerging); border-radius: var(--radius-pill); padding: 1px 8px; }
+.mem-top { display: flex; align-items: center; gap: var(--s2); margin-bottom: var(--s1); flex-wrap: wrap; }
+/* De status van een regel: nog te bevestigen, of bevestigd. Dit is `confidence` en niets anders.
+   Heette eerder .mem-ai, maar dat beweerde een herkomst die het niet kent. */
+.mem-open { font-size: var(--t-label); text-transform: uppercase; letter-spacing: .08em; color: var(--emerging); border: 1px solid var(--bs-emerging); border-radius: var(--radius-pill); padding: 1px 8px; }
+/* De herkomst van een regel. Bewust neutraal: herkomst is geen status, dus geen semantische kleur.
+   Canon 2 houdt het koper schaars, en canon 6 laat een hairline en een schaduw nooit samengaan. */
+.mem-herkomst { font-size: var(--t-label); color: var(--muted); border: 1px solid var(--hair); border-radius: var(--radius-pill); padding: 1px 8px; }
 .mem-conf { font-size: var(--t-label); text-transform: uppercase; letter-spacing: .08em; color: var(--ok); border: 1px solid var(--bs-confirmed); border-radius: var(--radius-pill); padding: 1px 8px; }
 .mem-when { font-size: var(--t-label); color: var(--muted); }
 .mem p { margin: 0; font-size: 13px; color: var(--text); }

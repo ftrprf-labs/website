@@ -7,6 +7,8 @@
    ===================================================================== */
 'use strict';
 
+import { herkomstVan } from './herkomst.js';
+
 const shell = document.getElementById('shell');
 const view = document.getElementById('view');
 
@@ -753,11 +755,19 @@ function dosSection(title, prov, open, bodyFn, role = 'work') {
 
 function memoryCard(m, isObservation) {
   const c = el('div', 'mem');
-  const tag = isObservation ? '<span class="mem-ai">AI-voorstel</span>' : '<span class="mem-conf">Bevestigd</span>';
-  // Een open observatie is een waarneming van Maculis en draagt het lichtpunt. Wat bevestigd is,
-  // is tot rust gekomen: hetzelfde punt, gedoofd (canon 2, beweging is onzekerheid).
-  const dot = `<span class="mac-signal${isObservation ? '' : ' is-rest'}" aria-hidden="true"></span>`;
-  c.innerHTML = `<div class="mem-top">${dot}${tag}<span class="mem-when">${esc(m.kind || '')}</span></div><p${isObservation ? ' class="mac-sharpen"' : ''}>${esc(m.content)}</p>`;
+  // Twee losse vragen, twee losse antwoorden. Waar komt dit vandaan, en wat telt het? Ze werden
+  // eerder samengeperst tot één etiket, waardoor boven een uitspraak van de klant "AI-voorstel"
+  // stond. Wie het las kon niet zien wie iets beweerde.
+  const h = herkomstVan(m);
+  const herkomst = `<span class="mem-herkomst">${esc(h.herkomst)}</span>`;
+  const status = `<span class="${h.teBevestigen ? 'mem-open' : 'mem-conf'}">${esc(h.status)}</span>`;
+  // Het lichtpunt staat voor een waarneming van Maculis zelf (canon 9, val 1). Wat de klant, een
+  // collega of de Lens ons vertelde, is dat niet, en draagt het punt dus niet. Wat Maculis zelf zag
+  // en al bevestigd is, is tot rust gekomen: hetzelfde punt, gedoofd (canon 2).
+  const dot = h.vanMaculis
+    ? `<span class="mac-signal${h.teBevestigen ? '' : ' is-rest'}" aria-hidden="true"></span>`
+    : '';
+  c.innerHTML = `<div class="mem-top">${dot}${herkomst}${status}<span class="mem-when">${esc(m.kind || '')}</span></div><p${isObservation ? ' class="mac-sharpen"' : ''}>${esc(m.content)}</p>`;
   if (isObservation) {
     const acts = el('span', 'mem-acts');
     const conf = el('button', 'linkbtn', 'Bevestigen');

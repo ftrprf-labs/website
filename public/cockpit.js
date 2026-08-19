@@ -19,6 +19,8 @@
 
 'use strict';
 
+import { herkomstVan } from './herkomst.js';
+
 const shell = document.getElementById('shell');
 const view = document.getElementById('view');
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1601,7 +1603,10 @@ function viewDossier() {
         const obs = d.memory.filter(m => m.confidence === 'proposed');
         if (!obs.length) b.innerHTML = '<p class="muted">Geen open observaties. Wat bevestigd is, staat onder Geheugen.</p>';
         obs.forEach(m => {
-          b.innerHTML += `<div class="mem"><div class="mem-top"><span class="mac-signal" aria-hidden="true"></span><span class="mem-ai">AI-voorstel</span><span class="mem-when">${esc(m.when || '')}</span></div><p class="mac-sharpen">${esc(m.text)}</p><span class="mem-acts"><button class="linkbtn">Bevestigen</button> · <button class="linkbtn">Verwerpen</button></span></div>`;
+          // Herkomst en status apart, volgens dezelfde regel als de operationele Cockpit.
+          const h = herkomstVan(m);
+          const dot = h.vanMaculis ? '<span class="mac-signal" aria-hidden="true"></span>' : '';
+          b.innerHTML += `<div class="mem"><div class="mem-top">${dot}<span class="mem-herkomst">${esc(h.herkomst)}</span><span class="mem-open">${esc(h.status)}</span><span class="mem-when">${esc(m.when || '')}</span></div><p class="mac-sharpen">${esc(m.text)}</p><span class="mem-acts"><button class="linkbtn">Bevestigen</button> · <button class="linkbtn">Verwerpen</button></span></div>`;
         });
         b.innerHTML += `<p class="dos-note">Een observatie is nog geen geheugen. Pas na bevestigen wordt iets duurzaam onthouden.</p>`;
         return b;
@@ -1611,7 +1616,9 @@ function viewDossier() {
         const conf = d.memory.filter(m => m.confidence !== 'proposed');
         if (!conf.length) b.innerHTML = '<p class="muted">Nog niets duurzaam onthouden.</p>';
         conf.forEach(m => {
-          b.innerHTML += `<div class="mem"><div class="mem-top"><span class="mac-signal is-rest" aria-hidden="true"></span><span class="mem-conf">Bevestigd</span><span class="mem-when">${esc(m.when || '')}</span></div><p>${esc(m.text)}</p></div>`;
+          const h = herkomstVan(m);
+          const dot = h.vanMaculis ? '<span class="mac-signal is-rest" aria-hidden="true"></span>' : '';
+          b.innerHTML += `<div class="mem"><div class="mem-top">${dot}<span class="mem-herkomst">${esc(h.herkomst)}</span><span class="mem-conf">${esc(h.status)}</span><span class="mem-when">${esc(m.when || '')}</span></div><p>${esc(m.text)}</p></div>`;
         });
         return b;
       } },

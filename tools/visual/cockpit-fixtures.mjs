@@ -142,10 +142,10 @@ export const relation = {
     { id: ID(12), channel: 'EMAIL', subject: 'Kennismaking', status: 'CLOSED', aiReady: false, unread: 0 },
   ],
   observed: [
-    { id: ID(21), kind: 'wens', content: 'Wil in het najaar een tweede ronde doen met een kleinere groep.', confidence: 'proposed' },
+    { id: ID(21), kind: 'wens', content: 'Wil in het najaar een tweede ronde doen met een kleinere groep.', source: 'ai', confidence: 'proposed' },
   ],
   remembered: [
-    { id: ID(22), kind: 'context', content: 'Werkt sinds dit voorjaar met een nieuw bestuur.', confidence: 'confirmed' },
+    { id: ID(22), kind: 'context', content: 'Werkt sinds dit voorjaar met een nieuw bestuur.', source: 'customer', confidence: 'confirmed' },
   ],
   followups: [
     { id: ID(41), title: 'Terugkoppeling planning', status: 'open', dueAt: T, overdue: false },
