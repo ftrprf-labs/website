@@ -253,6 +253,10 @@
     hudZones = ['.merk', '.rand', '.onder'].map((sel) => {
       const el = document.querySelector(sel);
       if (!el || el.offsetParent === null) return null;
+      // Wat is weggeweken blokkeert niets meer. Zonder dit zou de naam van het patroon op een
+      // telefoon worden onderdrukt door een balk die er niet meer staat.
+      const st = getComputedStyle(el);
+      if (st.visibility === 'hidden' || Number(st.opacity) === 0) return null;
       const r = el.getBoundingClientRect();
       return { x: r.left - 12, y: r.top - 10, w: r.width + 24, h: r.height + 20 };
     }).filter(Boolean);
@@ -331,18 +335,21 @@
         }
       }
 
-      // De naam verschijnt pas als het patroon echt is. Wat te weinig bewijs heeft krijgt geen
-      // naam maar wel een eerlijke tekst: Maculis kleurt niet wat het niet weet.
+      // De naam verschijnt pas als het patroon echt is, en anders helemaal niet. Een label dat de
+      // staat benoemt in plaats van het onderwerp ("te weinig bewijs") is geen naam: het is twee
+      // keer hetzelfde woord op verschillende plekken, en het leest als een storing terwijl het
+      // eerlijkheid is. Onder de drempel blijft de constellatie dus naamloos staan. Wie er toch
+      // heen wil komt er via "Wat zie ik niet?" of via Alle patronen, en daar staat de echte
+      // titel wél, met de eerlijke tekst in het bewijsblad eronder.
       const la = cl((p - 0.58) / 0.26) * dim;
-      if (la > 0) {
-        const noem = ontstoken(pat);
+      if (la > 0 && ontstoken(pat)) {
+        const noem = true;
         ctx.font = `600 10px ${getComputedStyle(document.body).fontFamily}`;
         ctx.textAlign = 'center';
         ctx.letterSpacing = '1.6px';
-        ctx.fillStyle = (noem && isKern) ? `rgba(169,155,236,${(0.88 * la).toFixed(3)})`
-          : noem ? `rgba(168,154,134,${(0.62 * la).toFixed(3)})`
-            : `rgba(139,131,119,${(0.66 * la).toFixed(3)})`;
-        const tekst = noem ? kort(pat.ins.title).toUpperCase() : 'TE WEINIG BEWIJS';
+        ctx.fillStyle = isKern ? `rgba(169,155,236,${(0.88 * la).toFixed(3)})`
+          : `rgba(168,154,134,${(0.62 * la).toFixed(3)})`;
+        const tekst = kort(pat.ins.title).toUpperCase();
         const half = ctx.measureText(tekst).width * 0.5 + 10;
         const off = Math.max(straal, pat.straal * SCHAAL * cam.z * 0.95, 18) + 26;
         const lx = cl(kx, half, Math.max(half, W - half));
@@ -534,6 +541,10 @@
   function openBlad(id) {
     sluitBladen(id);
     const el = $(id);
+    // Elk blad begint bovenaan. Zonder dit erft een nieuw patroon de scrollpositie van het vorige
+    // en land je midden in de bronnenlijst van iets wat je nog niet hebt gezien.
+    const body = el.querySelector('.blad-body');
+    if (body) body.scrollTop = 0;
     el.inert = false;
     el.setAttribute('aria-hidden', 'false');
     el.classList.add('in');
@@ -550,10 +561,8 @@
     modus = 'bewijs';
     zegAnker = patIndex;
     // de camera brengt dit patroon naar voren; de rest treedt terug
-    camDoel.x = pat.x + (window.innerWidth > 760 ? 0.22 : 0);
-    camDoel.y = pat.y + (window.innerWidth > 760 ? 0 : -0.16);
-    camDoel.z = 1.7;
     openBlad('bewijs');
+    richtCamera(pat);
 
     const i = pat.ins;
     $('bw-aanhef').textContent = houdingLabel(i.stance);
@@ -728,13 +737,18 @@
     const acties = $('bw-grens-acties');
     acties.innerHTML = '';
     if (blind) return;
+    // Delen is beschikbaar en volledig ongewijzigd van betekenis, maar het is niet langer de
+    // luidste handeling in dit blad. Op het moment dat je een inzicht net begrijpt is de
+    // natuurlijke volgende stap reageren, niet iets weggeven. De primaire plek gaat daarom naar
+    // "Praat hierover met Maculis". Praten is en blijft iets anders dan delen: de grens, de
+    // bevestiging en wat Maculis meekrijgt veranderen hier niet.
     if (i.unshared_development) {
-      acties.appendChild(maakKnop('Deel de nieuwe ontwikkeling', 'primair', () => bevestig(i, 'share-update')));
+      acties.appendChild(maakKnop('Deel de nieuwe ontwikkeling', '', () => bevestig(i, 'share-update')));
       acties.appendChild(maakKnop('Delen intrekken', '', () => bevestig(i, 'revoke')));
     } else if (isGedeeld) {
       acties.appendChild(maakKnop('Delen intrekken', '', () => bevestig(i, 'revoke')));
     } else {
-      acties.appendChild(maakKnop('Deel dit met Maculis', 'primair', () => bevestig(i, 'share')));
+      acties.appendChild(maakKnop('Deel dit met Maculis', '', () => bevestig(i, 'share')));
     }
   }
   function maakKnop(tekst, extra, fn) {
@@ -879,10 +893,49 @@
     });
   }
 
+  // Waar de camera heen gaat als één patroon naar voren treedt.
+  //
+  // Op een breed scherm staat het blad rechts, dus het patroon schuift naar links en verder is er
+  // niets aan de hand. Op een telefoon ligt het blad ONDER het patroon en dekt het het grootste
+  // deel van het scherm af. Alleen ruimte overlaten is daar niet genoeg: als het patroon dat je
+  // zojuist aantikte achter het blad verdwijnt, is de band tussen aanraking en toelichting stuk,
+  // en dan lees je een document in plaats van dat je naar iets kijkt. Daarom rekent hij op mobiel
+  // met de werkelijke hoogte van het blad, zodat de kern in de strook staat die overblijft, en
+  // zoomt hij niet verder in dan die strook kan dragen.
+  function richtCamera(pat) {
+    if (window.innerWidth > 760) {
+      camDoel.x = pat.x + 0.22;
+      camDoel.y = pat.y;
+      camDoel.z = 1.7;
+      return;
+    }
+    const blad = $('bewijs').getBoundingClientRect().height || H * 0.72;
+    const strook = Math.max(120, H - blad);
+    const straal = Math.max(pat.straal, 0.05);
+    camDoel.z = cl((strook * 0.66) / (2 * straal * SCHAAL), 1, 1.7);
+    camDoel.x = pat.x;
+    // sy(pat.y) moet uitkomen op het midden van de strook: CY + (pat.y - camY) * SCHAAL * z = doel
+    camDoel.y = pat.y - (strook * 0.5 - CY) / (SCHAAL * camDoel.z);
+    zetCamera();
+  }
+
+  // Onder prefers-reduced-motion draait er geen lus, dus de camera zou nooit aankomen. Canon 8.5
+  // vraagt daar de EINDTOESTAND, niet stilstand: dus springt hij er ineens heen en tekent één keer.
+  // Alleen op een telefoon, want daar dekt het blad het veld af en gaat de band tussen aanraking en
+  // toelichting anders verloren. Op een breed scherm staat het veld gewoon naast het blad en is er
+  // niets te herstellen, dus daar blijft alles precies zoals het was.
+  function zetCamera() {
+    if (!reduce || window.innerWidth > 760) return;
+    cam = { x: camDoel.x, y: camDoel.y, z: camDoel.z };
+    teken();
+    plaatsUitspraak();
+  }
+
   function terug() {
     focus = null;
     if (modus === 'bewijs') modus = 'rust';
     camDoel = { x: 0, y: 0, z: 1 };
+    zetCamera();
     sluitBladen(null);
     zegAnker = patronen.findIndex((q) => q.leidend);
     if (zegAnker < 0) zegAnker = 0;
@@ -909,7 +962,12 @@
     if (!confirmEl.classList.contains('hidden')) sluitConfirm();
     else if (document.body.classList.contains('blad-open')) terug();
   });
-  window.addEventListener('resize', () => { meet(); });
+  window.addEventListener('resize', () => {
+    meet();
+    // Draaien of een adresbalk die inklapt verandert de strook. Het geopende patroon moet er
+    // daarna nog steeds in staan.
+    if (modus === 'bewijs' && focus !== null && patronen[focus]) richtCamera(patronen[focus]);
+  });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { if (raf) cancelAnimationFrame(raf); raf = null; }
     else if (!raf && !reduce) { t0 = nu() - p * DUUR; lus(); }
@@ -1065,11 +1123,14 @@
     const i = pat.ins;
     let open = false;
 
-    const ingang = maakKnop('Praat hierover met Maculis', 'tekst praat-ingang', () => {
+    const ingang = maakKnop('Praat hierover met Maculis', 'primair praat-ingang', () => {
       open = !open;
       teken2();
     });
     function teken2() {
+      // Zolang de invoer dicht is, is de uitnodiging de primaire handeling. Zodra je aan het
+      // schrijven bent, is Versturen dat, en treedt de ingang terug: nooit twee tegelijk.
+      ingang.className = 'knop praat-ingang' + (open ? ' tekst' : ' primair');
       houder.innerHTML = '';
       houder.appendChild(ingang);
       if (open) {

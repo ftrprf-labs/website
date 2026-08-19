@@ -5,6 +5,44 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-19 — Mijn Maculis: de mobiele presentatie van een inzicht (preview)
+
+**Wat.** Op een telefoon dekte het bewijsblad het hele veld af: het blad was 88vh en de 101px die
+overbleef werd bezet door de navigatie, die er zelfs overheen liep. Het patroon dat je zojuist
+aantikte was daardoor onzichtbaar, en daarmee viel de belofte weg dat dit inzicht uit dit patroon
+komt. Vier ingrepen, allemaal in de mobiele media query op één na.
+
+- De periferie wijkt nu ook op mobiel zodra een blad opent. De strook boven het blad is veld en
+  geen menu. Terug kan via "Terug naar het veld" of door lege veldruimte aan te tikken.
+- Het blad is `min(72dvh, 700px)` in plaats van `min(88vh, 760px)`, met de vh-regel als terugval.
+  `dvh` en niet `vh`, want de adresbalk van Safari verandert van hoogte en `vh` rekent met de
+  grootste stand. Gemeten: 28 procent van het scherm blijft veld, op beide iPhone-formaten.
+- De camera mikt het geopende patroon in die strook in plaats van in het midden van het canvas,
+  met een zoom die zich naar de hoogte van de strook voegt. Onder `prefers-reduced-motion` draait
+  er geen lus, dus daar springt de camera er ineens heen en tekent één keer: canon 8.5 vraagt de
+  eindtoestand, niet stilstand. Dat laatste alleen op mobiel, want op een breed scherm staat het
+  veld gewoon naast het blad en valt er niets te herstellen.
+- Elk blad begint bovenaan. Zonder dat erfde een nieuw patroon de scrollpositie van het vorige:
+  gemeten stond de titel dan 311px boven de rand van het scherm.
+- De onderrand van het blad rekent met `env(safe-area-inset-bottom)`.
+
+**Twee correcties uit de UX-doorloop, in dezelfde ronde.** "Praat hierover met Maculis" is de
+primaire handeling in het bewijsblad geworden en "Deel dit met Maculis" is secundair. De betekenis
+en de privacygrenzen van beide veranderen niet: praten is nog steeds iets anders dan delen, met
+dezelfde bevestiging en dezelfde grens. Zodra de invoer open staat treedt de uitnodiging terug,
+zodat er nooit twee primaire knoppen tegelijk staan. Daarnaast verdwijnt het label
+`TE WEINIG BEWIJS` uit het veld: onder de drempel krijgt een constellatie geen naam meer, precies
+zoals canon 8 zegt dat een naam pas verschijnt als het patroon echt is. De eerlijke behandeling in
+het bewijsblad blijft volledig staan, inclusief "Te weinig om iets te zeggen, en dat zeggen we dan
+ook."
+
+**Bewijs.** `tools/visual/mijn-mobiel.mjs` is nieuw en meet dit op 390x844 en 430x932: ALLES GROEN,
+inclusief draaien en terugdraaien. Audit, motion, affordance en de gesprekstest onveranderd ALLES
+GROEN. Alleen `public/mijn.css` en `public/mijn.js` zijn aangeraakt; Cockpit, Website, Lens en
+Testerbeheer zijn niet aangeraakt. Op desktop veranderen alleen de twee bewust gevraagde dingen.
+
+---
+
 ## 2026-08-19 — Mijn Maculis: de communicatielaag en de affordance van het veld (preview)
 
 **Affordancecorrectie.** Punt is waarneming, verbinding is groeiend verband, patroon is betekenis.
