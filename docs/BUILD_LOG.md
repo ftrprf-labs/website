@@ -5,6 +5,103 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-19 — Cockpit-harmonisatie Visual DNA v1.0: klaar voor visuele beoordeling
+
+**Status: nog geen akkoord.** Dit is de staat die ter beoordeling voorligt, niet een freeze.
+
+**Branch:** `claude/maculis-cockpit-visual-dna-5zqhjd`, afgetakt van
+`claude/maculis-future-cockpit-z9naou` (de branch waar de Cockpit zelf op staat).
+**Preview:** `maculis-cockpit-visual-dna-preview` (`srv-da2jsmn40ujc73aggn1g`), Frankfurt,
+Node-runtime, geen schijf, geen productiegegevens. Productie is niet aangeraakt:
+`ftrlabs-testerbeheer` staat op autoDeploy uit en volgt een andere branch.
+
+### Waarom niet gemerged met de geharmoniseerde basis
+
+De Cockpit staat op een eigen branch die vóór de Testerbeheer-harmonisatie is afgetakt.
+Een merge daarvan gaf drie conflicten, waarvan twee in `server/comm/ai/copilot.mjs` en
+`server/comm/ai/service.mjs`. Dat zijn inhoudelijke conflicten tussen het
+handtekeningbeleid en de Context Layer, en dus een productbeslissing en geen visuele.
+Die is hier bewust niet genomen. Het gevolg is dat de runtime van de Cockpit
+byte-identiek blijft aan de branch die de preview al draaide, en dat het verschil van
+deze branch precies de visuele laag plus de meetgereedschappen is.
+
+### Nulmeting, vóór er iets veranderde
+
+| Meting | Uitkomst |
+|---|---|
+| Afwijkende hexkleuren | 60 uniek, 111 voorkomens, tegenover 3 canonieke |
+| `var()` naar niet-bestaande tokens | 46 in het operationele scherm, alle terugvallend op een hardgecodeerde kleur |
+| Transities op de browserstandaard | 48 |
+| Audit (regime, grond, overflow, focus, contrast, console, reduced motion) | 113 controles, 66 afwijkingen |
+| Echte WCAG AA-fouten | contrast 2,67 tot 4,35 op chips, eyebrows, afzenderregels en geheugenlabels |
+
+### Wat er is gewijzigd
+
+1. **Een lichtregime.** De Cockpit had drie eigen paletten (A, B en C) plus een tweede,
+   licht regime voor `[data-space="work"]`: dossier en gesprek stonden in dagkleuren
+   terwijl de rail donker bleef. Canon 5 laat per kamer precies een regime toe en canon
+   14 wijst de Cockpit werklicht toe. Alles staat nu op grond `ink.950` `#080503`.
+   Het onderscheid tussen tonen en werken wordt gedragen door `light.field` op het
+   toonmoment, niet meer door een tweede palet.
+2. **Aliaslaag in plaats van eigen kleuren.** Tokens 1.0.3, checksum `a8a21414415b8e06`,
+   statisch ingelinkt conform canon 17 en byte-identiek aan `ftrlabs-docs/main`.
+   `cockpit.css` bezit geen enkele eigen kleurwaarde meer.
+3. **Statuspil als transparant vlak** met een `border.semantic` hairline en semantische
+   tekst, conform canon 10 en amendement C-2.
+4. **Navigatie actief als koperen markering aan een zijde**, nooit een gevuld blok (canon 12).
+5. **Knoppen als pil**, primair een warm verzadigd vlak met donkere tekst, secundair
+   transparant met een hairline waarvan bij hover alleen de randkleur verandert.
+6. **Drie tonale niveaus in plaats van vijf**, en nooit een hairline en een schaduw op
+   hetzelfde element (canon 6).
+7. **Ruimte, radius en typeschaal op de canonieke stappen.** `hero`, `statement` en de drie
+   oude kopmaten vallen samen op `insight`, de enige kopstap die de Cockpit kent (canon 4.3).
+8. **Newsreader zelf gehost**, gewicht 300 voor de Uitspraak en cursief 400 voor de Stem
+   van Maculis (amendement C-9). Namen staan niet langer in de serif: sans wijst, serif spreekt.
+9. **Een curve voor alle beweging**, en de oneindige ademhaling in de lege staat vervalt
+   (canon 8.4: geen constante achtergrondbeweging in een werkomgeving).
+10. **Geen percentages en geen meters** meer (canon 11). Zekerheid en onderbouwing lezen
+    als woord.
+11. **Statuslabels Nederlands en menselijk** via labelkaarten voor gespreksstatus,
+    aflevering, relatiefase en kanaal, zodat ruwe enumwaarden niet in beeld komen (canon 10).
+12. **Onzekerheid is kleurloos.** Demonstratie, afleiding en hypothese dragen geen koper meer.
+    Rood is voorbehouden aan wat gebroken is; wat nu aandacht vraagt is koper.
+13. **De richtingschakelaar in de prototypelade vervalt**, want met een regime valt er
+    niets meer te kiezen.
+
+### Verificatie
+
+| Controle | Uitkomst |
+|---|---|
+| Tokenpoort (`tools/check-tokens.mjs`) | 4 van 4 |
+| Testsuite (`npm test`) | 175 tests, 0 fail, 27 overgeslagen (vereisen live Postgres) |
+| Canonscan | 0 afwijkende kleuren, 0 neutrale hairlines, 0 oneindige beweging, 0 streepjes in copy |
+| Audit | 85 controles, 0 afwijkingen, 5 schermen x 2 viewports |
+| Focusring per Tab-stop | Vandaag 15, Relaties 12, Gesprekken 9, Dossier 19, Gesprek 8, alle voorzien |
+| Horizontale overflow | 0px op 1280 en op 390 |
+| Reduced motion | 0 lopende animaties, 0 oneindige lussen, niets onzichtbaar |
+| Determinisme | twee volledige runs, 56 van 56 byte-identiek |
+| Delta tegenover de nulmeting | 56 van 56 gewijzigd. Verwacht: grond en letter veranderen op elk oppervlak |
+
+### Bewust openstaand
+
+1. **De preview toont het operationele scherm pas met een database.** `cockpit-live.html`
+   is fail-closed: zonder `DATABASE_URL` en `COMM_LAYER_ENABLED` toont hij "nog niet
+   geconfigureerd" in plaats van verzonnen data. De database
+   `maculis-cockpit-visual-dna-db` staat klaar, maar de koppeling vraagt een handeling in
+   het Render-dashboard. Zolang die er niet is, is `/cockpit.html` het beoordeelbare scherm.
+2. **De preview is vanuit de sessie niet op te vragen.** De egressproxy blokkeert
+   `onrender.com`. Het bewijs in deze entry komt uit lokale renders en de deploystatus.
+3. **De monospace letter in de prototypelade blijft staan.** Die lade is uitdrukkelijk
+   geen product; de letter markeert dat.
+4. **De organisatienaam staat in een statuspil.** Dat is informatieontwerp, geen
+   tokenkwestie, en valt buiten deze workstream.
+5. **De MIME-tabel van de server kent nog geen `.png` en `.gif`.** Alleen `.woff2` is
+   toegevoegd, omdat de canonieke serif dat nodig heeft. De brand-assets van de
+   e-mailhandtekening worden nog als `application/octet-stream` geserveerd. Bestaand
+   gedrag, buiten scope, hier vastgelegd zodat het niet ongezien blijft.
+
+---
+
 ## 2026-08-17 — Scout externe bronnen: Website Signals + TED live-ready, KVK/KBO verificatie-seams
 
 **Van DEMO naar echte externe waarneming (bronnen live-ready, standaard uit).** Twee credential-free
