@@ -1,5 +1,7 @@
 // Communication Layer — AI Relationship Copilot. Mock-provider parse always runs; the DB-backed
 // draft/privacy checks SKIP without DATABASE_URL.
+// Eerst de testopzet: dit zet RESEND_WEBHOOK_SECRET voordat een import hieronder config laadt.
+import './helpers/webhook-secret.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { getProvider } from '../server/comm/ai/provider.mjs';
@@ -16,7 +18,6 @@ test('mock provider returns parseable draft JSON with a known intent', async () 
 const HAS_DB = Boolean(process.env.DATABASE_URL) && /^(1|true|yes|on)$/i.test(process.env.COMM_LAYER_ENABLED || '');
 test('copilot: draft for COMMUNICATION, excluded for privacy@, never auto-sends',
   { skip: HAS_DB ? false : 'no DATABASE_URL — copilot DB test skipped' }, async () => {
-    process.env.RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET || ('whsec_' + Buffer.from('ai-test-secret').toString('base64'));
     const { runMigrations } = await import('../server/comm/migrate.mjs');
     const { processInbound } = await import('../server/comm/inbound.mjs');
     const { runCopilot } = await import('../server/comm/ai/copilot.mjs');
