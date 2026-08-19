@@ -21,6 +21,9 @@
   // ---- toegang -------------------------------------------------------------------------------
   const url = new URL(location.href);
   let token = url.searchParams.get('t') || sessionStorage.getItem('mijn_token') || '';
+  // De naam van de klantorganisatie. Dimensie A wordt in het bewijsblad uitgesproken, dus die
+  // naam moet daar bereikbaar zijn en niet alleen bij het inloggen.
+  let orgNaam = '';
   if (url.searchParams.get('t')) {
     sessionStorage.setItem('mijn_token', token);
     url.searchParams.delete('t');
@@ -99,6 +102,9 @@
   const DREMPEL = { tension: 2, reveal: 4, consistency: 5, non_reveal: 5, unknown: Infinity };
   const drempel = (i) => DREMPEL[i && i.stance] ?? 4;
   const bewijs = (i) => Math.max(1, Number(i && i.evidence_count) || 0);
+  // Dimensie B, op één plek gedefinieerd. Stond eerder op drie plekken net iets anders, wat de
+  // enige manier is waarop een deelstaat stilletjes uiteen kan lopen.
+  const vrijgegeven = (i) => Boolean(i) && (i.sharing === 'SHARED' || i.sharing === 'AGGREGATED');
 
   // ============================================================================================
   // 1. HET VELD
@@ -352,7 +358,7 @@
       const isKern = kern.pat === hoofdrol;
 
       // Van jou alleen: een zandmerkteken op de kern. Het oppervlak draagt het, niet een badge.
-      if (pat.ins.sharing !== 'SHARED' && pat.ins.sharing !== 'AGGREGATED' && ign > 0 && ontstoken(pat)) {
+      if (!vrijgegeven(pat.ins) && ign > 0 && ontstoken(pat)) {
         const pr = cl(straal * 1.15, 13 * cam.z, 30 * cam.z);
         ctx.strokeStyle = `rgba(${ZAND},${(0.26 * ign * dim).toFixed(4)})`;
         ctx.lineWidth = 1;
@@ -611,7 +617,9 @@
     $('bw-dev').classList.add('hidden');
     toonVraag(pat);
     toonGrens(pat);
-    $('bw-praat').innerHTML = '';
+    // De gespreksingang is geen gevolg van de detailaanroep, dus hij wacht er ook niet op.
+    praatOpen = false;
+    toonPraat(pat, null);
 
     const { status, data } = await api('/api/mijn/insights/' + encodeURIComponent(i.id));
     if (status !== 200 || !data.insight) {
@@ -713,16 +721,17 @@
 
   // Waar het antwoord blijft is onderdeel van het antwoord, en het antwoord is van jou. Het reist
   // nooit mee met het delen van een inzicht en het wordt niet zichtbaar doordat een collega iets
-  // deelt. Wie wil dat Maculis het weet, zegt het hier in een gesprek. Dat geldt altijd, dus staat
-  // er ook altijd hetzelfde.
-  function bestemming() {
-    return ' Je antwoord blijft bij jou. Wil je dat Maculis het weet, zeg het dan hier.';
-  }
+  // deelt. Dat geldt altijd, dus staat er ook altijd hetzelfde.
+  //
+  // Wat hier NIET meer staat: een verwijzing naar het gesprek. Die maakte van deze zin een vierde
+  // route naar dezelfde vraag als het grensblok eronder, en vroeg de lezer te herhalen wat ze net
+  // hadden ingevuld. De deelbeslissing woont op precies één plek.
+  const BLIJFT = ' Je antwoord blijft bij jou.';
   function uitkomstTekst(a, i) {
-    if (a === 'ja') return '<b>Bevestigd door jou.</b> Het patroon komt tot rust en het licht wordt sterker.' + esc(bestemming());
-    if (a === 'deels') return '<b>Deels herkend.</b> Maculis houdt het inzicht aan en het licht neemt iets af.' + esc(bestemming());
-    if (a === 'nee') return '<b>Niet herkend.</b> Het patroon wordt weer onzeker: de waarnemingen komen los en gaan opnieuw bewegen.' + esc(bestemming());
-    return 'Jouw antwoord verandert wat het veld laat zien. Er wordt niets gedeeld zonder dat jij het deelt.';
+    if (a === 'ja') return '<b>Bevestigd door jou.</b> Het patroon komt tot rust en het licht wordt sterker.' + esc(BLIJFT);
+    if (a === 'deels') return '<b>Deels herkend.</b> Maculis houdt het inzicht aan en het licht neemt iets af.' + esc(BLIJFT);
+    if (a === 'nee') return '<b>Niet herkend.</b> Het patroon wordt weer onzeker: de waarnemingen komen los en gaan opnieuw bewegen.' + esc(BLIJFT);
+    return 'Jouw antwoord verandert wat het veld laat zien. Het blijft bij jou.';
   }
 
   // Het antwoord bewaren. Het inzicht in het geheugen wordt meteen bijgewerkt, zodat het veld en
@@ -750,27 +759,49 @@
       bewaarHerkenning(pat, nieuw, nieuw ? pat.ins.recognition_note : null);
     });
   });
-  $('bw-toel-bewaar').addEventListener('click', () => {
+  // De toelichting bewaart zichzelf zodra je het veld verlaat, net zoals Ja, Deels en Nee dat al
+  // deden. Een aparte Bewaren-knop was de enige handmatige opslag in een kamer die verder alles
+  // meteen vasthoudt, en dus de enige plek waar je je kon afvragen of het er wel in stond.
+  // Alleen schrijven wanneer er werkelijk iets veranderd is; anders zou elke blik op het veld een
+  // schrijfactie en een bevestiging opleveren.
+  function bewaarToelichting() {
     if (focus === null) return;
     const pat = patronen[focus];
-    bewaarHerkenning(pat, herkenning[pat.ins.id] || null, $('bw-toel-tekst').value.trim());
+    const antwoord = herkenning[pat.ins.id] || null;
+    if (!antwoord) return;
+    const nieuwe = $('bw-toel-tekst').value.trim();
+    if (nieuwe === (pat.ins.recognition_note || '')) return;
+    bewaarHerkenning(pat, antwoord, nieuwe);
     toast('Bewaard');
-  });
+  }
+  $('bw-toel-tekst').addEventListener('blur', bewaarToelichting);
 
   // ============================================================================================
   // 6. DE GRENS: PRIVÉ EN GEDEELD
   // ============================================================================================
   function toonGrens(pat) {
     const i = pat.ins;
-    const isGedeeld = i.sharing === 'SHARED';
+    const isGedeeld = vrijgegeven(i);
     const blind = drempel(i) === Infinity;
+    const nieuweLezing = isGedeeld && Boolean(i.unshared_development);
     $('bw-grens-punt').className = 'grens-punt' + (isGedeeld ? ' gedeeld' : '');
     $('bw-staat').textContent = isGedeeld ? 'Gedeeld met Maculis' : 'Niet gedeeld met Maculis';
     $('bw-grens-tekst').textContent = blind
       ? 'Hier valt nog niets te delen, want er is nog niets vastgesteld.'
-      : isGedeeld
-        ? 'Maculis mag dit inzicht gebruiken in jullie samenwerking en in relevante gesprekken. Je kunt dat op elk moment intrekken.'
-        : 'Maculis gebruikt dit inzicht niet zolang het niet gedeeld is. Delen is een aparte keuze, en je kunt hem later weer intrekken.';
+      : nieuweLezing
+        ? 'Er is een nieuwere lezing die je nog niet hebt gedeeld. Maculis werkt zolang met de lezing die je eerder deelde. Je kunt het delen op elk moment intrekken.'
+        : isGedeeld
+          ? 'Maculis mag dit inzicht gebruiken in jullie samenwerking en in relevante gesprekken. Je kunt dat op elk moment intrekken.'
+          : 'Maculis gebruikt dit inzicht niet zolang het niet gedeeld is. Delen is een aparte keuze, en je kunt hem later weer intrekken.';
+
+    // Dimensie A, en niets anders. Dit gaat over wie binnen de klantorganisatie het inzicht ziet,
+    // niet over wat Maculis mag. Het staat er altijd, ook wanneer er nog niets te delen valt, want
+    // de vraag "kan mijn collega dit zien" hangt niet aan de deelstaat.
+    $('bw-grens-wie').textContent = (orgNaam
+      ? `Iedereen binnen ${orgNaam} met toegang tot Mijn Maculis ziet dit inzicht.`
+      : 'Iedereen bij jullie met toegang tot Mijn Maculis ziet dit inzicht.')
+      + ' Je antwoord en je gesprek zijn van jou.';
+
     const acties = $('bw-grens-acties');
     acties.innerHTML = '';
     if (blind) return;
@@ -779,11 +810,18 @@
     // natuurlijke volgende stap reageren, niet iets weggeven. De primaire plek gaat daarom naar
     // "Praat hierover met Maculis". Praten is en blijft iets anders dan delen: de grens, de
     // bevestiging en wat Maculis meekrijgt veranderen hier niet.
-    if (i.unshared_development) {
-      acties.appendChild(maakKnop('Deel de nieuwe ontwikkeling', '', () => bevestig(i, 'share-update')));
-      acties.appendChild(maakKnop('Delen intrekken', '', () => bevestig(i, 'revoke')));
+    // Ten hoogste één control die de deelstaat verruimt, en ten hoogste één die hem beperkt. Beide
+    // staan uitsluitend hier. De gespreksinvoer draagt er nooit een.
+    //
+    // Geen van deze knoppen is primair. Canon 12 laat één koperen knop per blad toe, en die plek
+    // is eerder bewust naar "Praat hierover met Maculis" gegaan: op het moment dat je een inzicht
+    // net begrijpt is de natuurlijke volgende stap reageren, niet iets weggeven. Delen is volledig
+    // beschikbaar en volledig ongewijzigd van betekenis, alleen niet de luidste handeling.
+    if (nieuweLezing) {
+      acties.appendChild(maakKnop('Deel de nieuwe lezing', '', () => bevestig(i, 'share-update')));
+      acties.appendChild(maakKnop('Delen intrekken', 'tekst', () => bevestig(i, 'revoke')));
     } else if (isGedeeld) {
-      acties.appendChild(maakKnop('Delen intrekken', '', () => bevestig(i, 'revoke')));
+      acties.appendChild(maakKnop('Delen intrekken', 'tekst', () => bevestig(i, 'revoke')));
     } else {
       acties.appendChild(maakKnop('Deel dit met Maculis', '', () => bevestig(i, 'share')));
     }
@@ -804,9 +842,9 @@
       $('confirm-body').textContent = 'Als je dit deelt, kan Maculis dit inzicht gebruiken in jullie samenwerking en in relevante gesprekken. Je kunt het later weer intrekken.';
       confirmOk.textContent = 'Deel dit met Maculis';
     } else if (actie === 'share-update') {
-      $('confirm-title').textContent = 'Nieuwe ontwikkeling delen';
-      $('confirm-body').textContent = 'Je werkt de eerder gedeelde lezing bij met de huidige ontwikkeling. Vanaf dat moment gebruikt Maculis de nieuwe lezing. Er wordt niets automatisch gedeeld.';
-      confirmOk.textContent = 'Nieuwe ontwikkeling delen';
+      $('confirm-title').textContent = 'Nieuwe lezing delen';
+      $('confirm-body').textContent = 'Je werkt de eerder gedeelde lezing bij met de huidige. Vanaf dat moment gebruikt Maculis de nieuwe lezing. Er wordt niets automatisch gedeeld.';
+      confirmOk.textContent = 'Deel de nieuwe lezing';
     } else {
       $('confirm-title').textContent = 'Delen intrekken';
       $('confirm-body').textContent = 'Maculis gebruikt dit inzicht daarna niet langer in jullie samenwerking. Het blijft in Mijn Maculis gewoon zichtbaar.';
@@ -827,7 +865,7 @@
     confirmOk.disabled = false;
     sluitConfirm();
     if (status !== 200) { toast('Er ging iets mis. Probeer het opnieuw.'); return; }
-    toast(actie === 'revoke' ? 'Delen ingetrokken' : actie === 'share-update' ? 'Nieuwe ontwikkeling gedeeld' : 'Gedeeld met Maculis');
+    toast(actie === 'revoke' ? 'Delen ingetrokken' : actie === 'share-update' ? 'Nieuwe lezing gedeeld' : 'Gedeeld met Maculis');
     const pat = patronen.find((q) => q.ins.id === insight.id);
     if (pat && data.insight) {
       pat.ins = data.insight;
@@ -862,7 +900,7 @@
     }
     patronen.forEach((pat, k) => {
       const i = pat.ins;
-      const isGedeeld = i.sharing === 'SHARED' || i.sharing === 'AGGREGATED';
+      const isGedeeld = vrijgegeven(i);
       const n = bewijs(i);
       const li = document.createElement('li');
       const b = document.createElement('button');
@@ -1079,24 +1117,28 @@
     return wrap;
   }
 
-  // Wat Maculis met dit bericht meekrijgt. Bij een gedeeld patroon is dat eenvoudig. Bij een
-  // patroon dat nog van jou alleen is, is het een grens, en die wordt hier benoemd en niet
-  // weggeschreven.
+  // Wat Maculis met dit bericht meekrijgt. Eén regel, in alle drie de varianten, en in alle drie
+  // met dezelfde belofte over de persoonlijke laag, want die geldt altijd. Dat de lezer weet wat er
+  // meegaat vóórdat hij verstuurt, is de reden dat deze regel bestaat.
   function contextTekst(insight) {
-    if (!insight) return 'Je stuurt dit mee: je bericht en wie je bent. Er hoort geen patroon bij, dus we lezen het als iets nieuws.';
-    if (insight.sharing === 'SHARED') {
-      return 'Je stuurt dit mee: dit patroon, het bewijs eronder en wie je bent. Dit inzicht is al gedeeld, dus Maculis kan er volledig op ingaan.';
+    if (!insight) return 'Er hoort geen patroon bij, dus we lezen dit als iets nieuws.';
+    if (vrijgegeven(insight)) {
+      return 'We sturen dit patroon mee. Het is gedeeld, dus we kunnen er volledig op ingaan. Je antwoord op onze vraag en je toelichting blijven bij jou.';
     }
-    return 'Dit inzicht is nog niet gedeeld met Maculis. Door te versturen laat je zien over welk inzicht je vraag gaat, met de uitspraak zoals wij die schreven. De lezing eronder, het bewijs en jouw antwoord op onze vraag blijven bij jou, en het inzicht blijft ongedeeld. Wil je het inzicht er wel bij, deel het dan apart.';
+    return 'We sturen de uitspraak van dit patroon mee, zodat we weten waar je vraag over gaat. Je antwoord op onze vraag en je toelichting blijven bij jou, en het inzicht blijft ongedeeld.';
   }
 
   // De invoer. Eén tekstveld dat meegroeit, drie openingen die het veld vullen in plaats van iets
-  // te versturen, één vinkje dat uit staat, en de verzendknop eronder.
-  function maakComposer(insight, klaar) {
+  // te versturen, één regel die zegt wat er meegaat, en de verzendknop eronder.
+  //
+  // Hier staat GEEN toestemmingskeuze. Geen vinkje, geen deelknop. Praten en delen zijn twee
+  // dingen, en de deelbeslissing woont in het grensblok erboven. Dat was niet altijd zo: de
+  // deelknop stond hier ook, met net andere woorden, en daarnaast een vinkje dat een derde vraag
+  // leek te stellen. Voor de lezer waren dat drie keer dezelfde vraag.
+  function maakComposer(insight, klaar, { kop = true } = {}) {
     const wrap = el('div', 'praat-vorm');
-    const prive = Boolean(insight) && insight.sharing !== 'SHARED' && insight.sharing !== 'AGGREGATED';
 
-    wrap.appendChild(el('p', 'lab', insight ? 'Praat hierover met Maculis' : 'Iets vertellen'));
+    if (kop) wrap.appendChild(el('p', 'lab', insight ? 'Praat hierover met Maculis' : 'Iets vertellen'));
 
     const openers = el('ul', 'praat-openers');
     (insight ? OPENERS_PATROON : OPENERS_LOS).forEach((o) => {
@@ -1119,20 +1161,6 @@
     wrap.appendChild(tekst);
 
     wrap.appendChild(el('p', 'praat-context', contextTekst(insight)));
-    if (prive) {
-      const acties = el('div', 'praat-grens');
-      acties.appendChild(maakKnop('Deel dit inzicht met Maculis', '', () => bevestig(insight, 'share')));
-      wrap.appendChild(acties);
-    }
-
-    // Niveau 2. Uit, altijd. Wie niets aanvinkt, praat gewoon.
-    const weegLabel = el('label', 'praat-weeg');
-    const weeg = document.createElement('input');
-    weeg.type = 'checkbox'; weeg.checked = false;
-    weegLabel.appendChild(weeg);
-    weegLabel.appendChild(el('span', null, 'Laat dit meewegen in wat Maculis van ons weet'));
-    wrap.appendChild(weegLabel);
-    wrap.appendChild(el('p', 'praat-weeg-uit', 'Wij nemen dit dan mee in hoe we naar jullie organisatie kijken. Je kunt dat later weer intrekken.'));
 
     const rij = el('div', 'praat-acties');
     const stuur = el('button', 'knop primair', 'Versturen');
@@ -1146,14 +1174,12 @@
       stuur.disabled = true;
       const { status, data } = await api('/api/mijn/conversations', {
         method: 'POST',
-        body: { insightId: insight ? insight.id : null, text: inhoud, weegMee: weeg.checked },
+        body: { insightId: insight ? insight.id : null, text: inhoud },
       });
       stuur.disabled = false;
       if (status !== 200 || !data.ok) { toast('Je bericht kon niet worden verstuurd.'); return; }
-      tekst.value = ''; weeg.checked = false; groei();
-      toast(data.weegtMee
-        ? 'Verstuurd. We nemen dit mee. Je ziet het terug zodra we het samen hebben vastgelegd.'
-        : 'Verstuurd. Iemand van ons leest dit en reageert hier.');
+      tekst.value = ''; groei();
+      toast('Verstuurd. Iemand van ons leest dit en reageert hier.');
       if (klaar) klaar(data.conversation);
       vernieuwGesprekken();
     });
@@ -1161,25 +1187,34 @@
     return wrap;
   }
 
-  // Het gesprek in het bewijsblad: één ingang, en daaronder wat er al staat.
+  // Het gesprek in het bewijsblad: een uitnodiging, één ingang, en daaronder wat er al staat.
+  //
+  // Deze ingang hoort er ALTIJD te staan, bij een gedeeld inzicht net zo goed als bij een niet
+  // gedeeld inzicht. Hij hing eerder aan de detailaanroep: `openBewijs` maakte dit blok eerst leeg
+  // en vulde het pas na het antwoord van de server. Op een warme verbinding valt dat niet op, maar
+  // op een koude instantie stond het bewijsblad seconden lang zonder gespreksingang, en mislukte
+  // die aanroep, dan verscheen hij helemaal niet. Vanaf nu wordt hij meteen getekend, met de draad
+  // als enige dat later invalt.
+  let praatOpen = false;
   function toonPraat(pat, draad) {
     const houder = $('bw-praat');
-    houder.innerHTML = '';
     const i = pat.ins;
-    let open = false;
 
     const ingang = maakKnop('Praat hierover met Maculis', 'primair praat-ingang', () => {
-      open = !open;
+      praatOpen = !praatOpen;
       teken2();
     });
     function teken2() {
       // Zolang de invoer dicht is, is de uitnodiging de primaire handeling. Zodra je aan het
       // schrijven bent, is Versturen dat, en treedt de ingang terug: nooit twee tegelijk.
-      ingang.className = 'knop praat-ingang' + (open ? ' tekst' : ' primair');
+      ingang.className = 'knop praat-ingang' + (praatOpen ? ' tekst' : ' primair');
       houder.innerHTML = '';
+      houder.appendChild(el('p', 'lab', 'Praat hierover met Maculis'));
+      houder.appendChild(el('p', 'praat-lead', 'Wil je iets vragen, aanvullen of bespreken over wat je hier ziet?'));
       houder.appendChild(ingang);
-      if (open) {
-        houder.appendChild(maakComposer(i, (nieuw) => { open = false; teken2(); toonPraat(pat, nieuw); }));
+      if (praatOpen) {
+        // De kop staat hierboven al; de invoer herhaalt hem niet.
+        houder.appendChild(maakComposer(i, (nieuw) => { praatOpen = false; toonPraat(pat, nieuw); }, { kop: false }));
       }
       houder.appendChild(maakDraad(draad));
     }
@@ -1271,6 +1306,7 @@
       return;
     }
     const org = sessie.data.organization || '';
+    orgNaam = org;
     const naam = ((sessie.data.user && sessie.data.user.label) || '').split(/\s+/)[0] || '';
     $('org-naam').textContent = org;
     $('groet').textContent = naam ? `Goedendag, ${naam}.` : 'Goedendag.';

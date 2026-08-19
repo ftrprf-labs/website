@@ -118,8 +118,9 @@ export async function handleMijn(req, res, { pathname, method }) {
     return true;
   }
 
-  // Iets zeggen. Met of zonder patroon, en alleen met `weegMee` komt er daarnaast een voorstel
-  // voor het organisatiebeeld binnen. Zonder dat vinkje is dit uitsluitend een gesprek.
+  // Iets zeggen. Met of zonder patroon. Dit is uitsluitend een gesprek: er is aan klantzijde geen
+  // enkele route meer naar het relatiegeheugen, en `weegMee` in een body wordt genegeerd omdat de
+  // parameter niet meer bestaat.
   if (pathname === '/api/mijn/conversations' && method === 'POST') {
     const body = await readJson(req);
     if (!body) { json(res, 400, { error: 'Ongeldig verzoek.' }); return true; }
@@ -129,7 +130,6 @@ export async function handleMijn(req, res, { pathname, method }) {
       insightId: body.insightId || null,
       conversationId: body.conversationId || null,
       text: body.text,
-      weegMee: body.weegMee === true,
     });
     if (!result.ok) { json(res, result.error === 'not_found' ? 404 : 400, result); return true; }
     json(res, 200, result);

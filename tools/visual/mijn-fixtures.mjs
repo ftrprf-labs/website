@@ -212,6 +212,7 @@ export function maakStore(startDraden = []) {
     // wat de klant heeft gezegd, zodat een test kan controleren wat er werkelijk is verstuurd
     verstuurd: [],
     herkenningen: [],
+    gedeeld: [],
     lijst() {
       return {
         items: draden.slice().reverse().map(uit),
@@ -236,8 +237,10 @@ export function maakStore(startDraden = []) {
       d.unread = (d.unread || 0) + 1;
       return uit(d);
     },
-    stuur({ insightId = null, text, weegMee = false }) {
-      this.verstuurd.push({ insightId, text, weegMee });
+    stuur({ insightId = null, text, ...rest }) {
+      // `rest` wordt bewust bewaard: zo kan een harness aantonen dat de klantzijde geen enkel
+      // toestemmingsveld meer meestuurt, en niet alleen dat het vinkje van het scherm is.
+      this.verstuurd.push({ insightId, text, extra: rest });
       let d = draden.find((x) => (x.insight_id || null) === (insightId || null));
       if (!d) {
         d = { id: 'draad-' + (++n), subject: titel(insightId), insight_id: insightId || null,
@@ -245,14 +248,34 @@ export function maakStore(startDraden = []) {
         draden.push(d);
       }
       d.messages.push({ id: 'm' + (++n), van: 'jij', naam: 'Sanne de Vries', tekst: text, at: T.a });
-      return { ok: true, conversationId: d.id, weegtMee: Boolean(weegMee), conversation: uit(d) };
+      return { ok: true, conversationId: d.id, conversation: uit(d) };
     },
     // De herkenning hoort bij dit geheugen en niet bij de gedeelde fixture. Anders zou de ene
     // meting de volgende beïnvloeden, en dan meet je je eigen vorige run.
     stand: {},
     metStand(i) {
       const h = this.stand[i.id];
-      return { ...i, recognition: (h && h.answer) || null, recognition_note: (h && h.note) || null };
+      const d = this.deelstand[i.id];
+      return {
+        ...i,
+        recognition: (h && h.answer) || null,
+        recognition_note: (h && h.note) || null,
+        ...(d || {}),
+      };
+    },
+    // De deelstaat, per store en niet in de gedeelde fixture, om dezelfde reden als de herkenning.
+    // Hiermee zijn alle vier de toestanden van het grensblok in één ronde te bereiken: niet
+    // gedeeld, gedeeld, gedeeld met een nieuwere lezing, en niets vastgesteld.
+    deelstand: {},
+    deel(insightId, { update = false } = {}) {
+      this.gedeeld.push({ insightId, update });
+      this.deelstand[insightId] = { sharing: 'SHARED', unshared_development: false, shared_at: T.a };
+      return { ok: true, sharing: 'SHARED', updated: update };
+    },
+    trekIn(insightId) {
+      this.gedeeld.push({ insightId, revoke: true });
+      this.deelstand[insightId] = { sharing: 'PRIVATE', unshared_development: false, shared_at: null };
+      return { ok: true, sharing: 'PRIVATE' };
     },
     herkenning(insightId, { answer = null, note = null } = {}) {
       this.herkenningen.push({ insightId, answer, note });
@@ -305,6 +328,15 @@ export function routeMijn(page, store = null) {
     const herken = p.match(/^\/api\/mijn\/insights\/([^/]+)\/recognition$/);
     if (herken && method === 'POST') {
       return store ? j(store.herkenning(herken[1], body())) : j({ ok: true });
+    }
+    const deel = p.match(/^\/api\/mijn\/insights\/([^/]+)\/(share|revoke)$/);
+    if (deel && method === 'POST') {
+      if (!store) return j({ ok: true });
+      const was = store.metStand(insights.find((x) => x.id === deel[1]) || {});
+      const res = deel[2] === 'share'
+        ? store.deel(deel[1], { update: Boolean(was.unshared_development) })
+        : store.trekIn(deel[1]);
+      return j({ ...res, ...detail(deel[1], store) });
     }
     const m = p.match(/^\/api\/mijn\/insights\/([^/]+)$/);
     if (m) { const d = detail(m[1], store); return d ? j(d) : j({}, 404); }

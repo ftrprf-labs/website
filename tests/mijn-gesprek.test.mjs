@@ -179,27 +179,39 @@ test('Mijn Maculis: de communicatielaag, van patroon tot antwoord', opts, async 
     assert.ok(!alleTekst.includes('Dit gaat over iets wat wij niet zo ervaren'),
       'de toelichting bij een privé-inzicht bereikt de interne kant nooit');
 
-    // ---- 5. "Laat dit meewegen" staat standaard uit ---------------------------------------------
+    // ---- 5. de klantzijde heeft GEEN route naar het relatiegeheugen -----------------------------
+    //
+    // Er was er een: een vinkje "Laat dit meewegen in wat Maculis van ons weet" schreef bij het
+    // versturen een voorstel weg met source='customer'. Dat is teruggenomen. Voor de lezer was het
+    // een derde toestemmingsvraag naast delen en versturen, terwijl het in hun hoofd één vraag is.
+    // En het beloofde meer dan het deed: het geheugen wordt per contact gelezen, dus het bereikte
+    // een gesprek van een collega nooit, terwijl er "van ons" stond, en de klant kon het nergens
+    // terugzien of intrekken.
+    //
+    // Deze assertie is strenger dan de oude. Ze stuurt het oude veld gewoon mee, zoals een client
+    // die nog niet is bijgewerkt zou doen, en eist dat er dan nog steeds niets wordt weggeschreven.
+    // Zo is bewezen dat de capaciteit werkelijk weg is en niet alleen onzichtbaar.
     let geheugen = (await query('select * from relationship_memory where organization_id=$1', [org])).rows;
-    assert.equal(geheugen.length, 0, 'drie berichten zonder vinkje hebben niets in het geheugen gezet');
+    assert.equal(geheugen.length, 0, 'berichten vanuit Mijn Maculis zetten niets in het geheugen');
 
     r = await mijnCall(handleMijn, 'POST', '/api/mijn/conversations', {
       token: access.token,
       body: { insightId: gedeeldInzicht, text: 'Wij hebben sinds januari een nieuw klantteam.', weegMee: true },
     });
-    assert.equal(r.status, 200);
-    assert.equal(r.json.weegtMee, true);
+    assert.equal(r.status, 200, 'het bericht komt gewoon aan');
+    assert.equal(r.json.weegtMee, undefined, 'er is geen uitkomst meer die over het geheugen gaat');
     geheugen = (await query('select * from relationship_memory where organization_id=$1', [org])).rows;
-    assert.equal(geheugen.length, 1, 'met vinkje komt er precies één voorstel binnen');
-    assert.equal(geheugen[0].source, 'customer', 'de herkomst is de klant, niet een mens bij Maculis en niet de AI');
-    assert.equal(geheugen[0].confidence, 'proposed', 'het komt binnen als voorstel, niet als vastgesteld feit');
-    assert.equal(geheugen[0].confirmed_at, null, 'niets is stilzwijgend bevestigd');
-    assert.equal(geheugen[0].source_ref.type, 'mijn_maculis_message', 'het voorstel is herleidbaar tot het bericht');
+    assert.equal(geheugen.length, 0,
+      'ook met het oude veld in de body schrijft de klantzijde niets naar het relatiegeheugen');
 
-    // En het is één relationeel model: hetzelfde geheugen als de Cockpit, geen tweede tabel.
-    const { listMemory } = await import('../server/comm/memory.mjs');
+    // Het geheugen zelf blijft bestaan en blijft van de andere kant bereikbaar: de AI-copilot op de
+    // overige kanalen, Pass the Lens, en de handmatige route voor een mens bij Maculis. Alleen de
+    // klantzijdige schrijfroute is weg.
+    const { addMemory, listMemory } = await import('../server/comm/memory.mjs');
+    await addMemory(tid, { organizationId: org, kind: 'fact', content: 'Vastgelegd door een mens bij Maculis.', source: 'human' });
     const viaCockpit = await listMemory(tid, { organizationId: org });
-    assert.equal(viaCockpit.length, 1, 'de Cockpit ziet dit voorstel via het bestaande geheugenpad');
+    assert.equal(viaCockpit.length, 1, 'het geheugenpad van de Cockpit werkt onveranderd');
+    assert.equal(viaCockpit[0].source, 'human');
 
     // ---- 6. een nieuw gesprek zonder patroon ----------------------------------------------------
     r = await mijnCall(handleMijn, 'POST', '/api/mijn/conversations', {

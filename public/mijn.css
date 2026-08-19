@@ -253,11 +253,11 @@ body.mijn {
 .grens-punt.gedeeld { background: var(--wordt); box-shadow: 0 0 0 3px rgba(138,121,224,.16); }
 .grens-tekst { margin: 0; font-size: 12.5px; color: var(--ink2); line-height: 1.6; }
 .grens-acties { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+.grens-wie { margin: 0; padding-top: var(--space-3); font-size: 12px; line-height: 1.6; color: var(--ink3); }
 
 /* toelichting bij Deels en Nee: het veld staat meteen open en mag leeg blijven */
 .vraag-toel { display: flex; flex-direction: column; gap: var(--space-2); }
 .vraag-toel-vraag { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: .98rem; color: var(--ink2); }
-.vraag-toel-acties { display: flex; }
 
 /* Eén invoerveld, overal hetzelfde. Eén hairline, geen schaduw (canon 12). */
 .veldtekst {
@@ -288,11 +288,8 @@ body.mijn {
 .praat-opener:hover { color: var(--ink); border-left-color: var(--copper-500); }
 .praat-label { font-family: var(--sans); font-size: var(--type-label); font-weight: 600;
   letter-spacing: .16em; text-transform: uppercase; color: var(--ink3); }
+.praat-lead { margin: 0; font-size: 13px; line-height: 1.6; color: var(--ink2); }
 .praat-context { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--ink2); }
-.praat-grens { display: flex; gap: var(--space-3); flex-wrap: wrap; }
-.praat-weeg { display: flex; align-items: flex-start; gap: var(--space-3); font-size: 13px; color: var(--ink); cursor: pointer; }
-.praat-weeg input { margin: 3px 0 0; accent-color: var(--copper-500); flex: none; }
-.praat-weeg-uit { margin: 0; font-size: 12px; line-height: 1.6; color: var(--ink3); }
 .praat-acties { display: flex; gap: var(--space-3); flex-wrap: wrap; }
 
 /* de draad zelf: wie het zei, wat er staat, wanneer */

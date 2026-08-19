@@ -365,10 +365,59 @@ test('geen zichtbare tekst over de deelstaat suggereert iets over dimensie A', (
   }
 });
 
+test('precies één plek zegt wie binnen de klantorganisatie het inzicht ziet', () => {
+  // Dimensie A was tot nu toe alleen een waarde in de database en nergens een zin op het scherm.
+  // De vraag "kan mijn collega dit zien" werd daardoor beantwoord door de deelstaat, en dat is
+  // precies de verwarring die we hebben weggehaald. Er is nu één zin die het expliciet en juist
+  // zegt, en die staat in het grensblok, apart van de deelstaat en van de uitleg daarbij.
+  assert.ok(MIJN_JS.includes('met toegang tot Mijn Maculis ziet dit inzicht.'),
+    'de zichtbaarheidsregel staat er');
+  assert.ok(MIJN_JS.includes('Je antwoord en je gesprek zijn van jou.'),
+    'en zegt meteen wat er niet organisatiebreed is');
+  assert.match(MIJN_JS, /bw-grens-wie/, 'hij hangt aan zijn eigen element, niet aan de deelstaat');
+  assert.ok(MIJN_HTML.includes('id="bw-grens-wie"'), 'dat element bestaat in het blad');
+
+  // En andersom: de deelstaat en zijn uitleg zeggen niets over personen binnen de organisatie.
+  // Dit is de assertie die A en B uit elkaar houdt in de tekst, zoals migratie 010 dat in het
+  // datamodel doet.
+  const deelstaatCopy = [
+    'Gedeeld met Maculis', 'Niet gedeeld met Maculis',
+    'Maculis gebruikt dit inzicht niet zolang het niet gedeeld is.',
+    'Maculis mag dit inzicht gebruiken in jullie samenwerking en in relevante gesprekken.',
+    'Hier valt nog niets te delen, want er is nog niets vastgesteld.',
+  ];
+  for (const zin of deelstaatCopy) {
+    assert.ok(MIJN_JS.includes(zin), `"${zin}" hoort er te staan`);
+    assert.ok(!/collega|iedereen|niemand anders/i.test(zin),
+      `"${zin}" gaat over Maculis en mag niets over personen binnen de klant zeggen`);
+  }
+});
+
+test('de gespreksinvoer draagt geen enkele toestemmingskeuze meer', () => {
+  // De deelbeslissing woont op één plek. Deze test bewaakt de bron; de harness meet daarnaast op
+  // het echte oppervlak dat er in geen enkele toestand een tweede control bijkomt.
+  for (const weg of [
+    'Laat dit meewegen in wat Maculis van ons weet',
+    'Deel dit inzicht met Maculis',
+    'praat-weeg',
+    'weegMee',
+  ]) {
+    assert.ok(!MIJN_JS.includes(weg), `de invoer mag "${weg}" niet meer kennen`);
+  }
+  // En de gespreksingang hoort er altijd te zijn, ook bij een gedeeld inzicht.
+  assert.ok(MIJN_JS.includes("maakKnop('Praat hierover met Maculis'"), 'de ingang bestaat');
+  assert.ok(MIJN_JS.includes('Wil je iets vragen, aanvullen of bespreken over wat je hier ziet?'),
+    'met de uitnodiging erboven');
+});
+
 test('de persoonlijke laag houdt zijn eigen belofte, en die gaat wél over jou', () => {
   // "Bij jou" is hier waar sinds fase 1: herkenning staat per (inzicht, persoon) en komt niet in
   // sharedContextForOrg. Deze zin hoort dus te blijven staan, juist omdat hij iets anders belooft
   // dan de deelstaat erboven.
   assert.ok(MIJN_JS.includes('Je antwoord blijft bij jou.'),
-    'de belofte bij de herkenningsvraag blijft ongewijzigd');
+    'de belofte bij de herkenningsvraag blijft staan');
+  // Wat er NIET meer bij staat: een verwijzing naar het gesprek. Die maakte van deze zin een
+  // vierde route naar dezelfde vraag als het grensblok eronder.
+  assert.ok(!MIJN_JS.includes('Wil je dat Maculis het weet, zeg het dan hier'),
+    'de herkenningsvraag stuurt niet meer door naar een deelbeslissing');
 });

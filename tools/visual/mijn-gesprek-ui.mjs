@@ -9,7 +9,12 @@
 //   * een gesprek begint vanuit een patroon, en de tekst die je typt komt terecht bij dat patroon;
 //   * bij een patroon dat nog van jou alleen is staat er wát Maculis meekrijgt, en delen is een
 //     aparte knop en een aparte bevestiging;
-//   * het vinkje "Laat dit meewegen" staat uit, en zonder aanvinken gaat het ook als uit mee;
+//   * DE DEELSTAAT WOONT OP ÉÉN PLEK. Op een geopend inzicht staat, in elke toestand en met de
+//     invoer zowel open als dicht, ten hoogste één zichtbare control die de deelstaat verruimt en
+//     ten hoogste één die hem beperkt, allebei uitsluitend in het grensblok. De invoer draagt er
+//     nooit een. Dit is de meetbare vorm van de klacht die dit ontwerp opriep: drie controls die
+//     voor de lezer allemaal dezelfde vraag stelden;
+//   * de gespreksingang staat er meteen, ook voordat de detailaanroep terug is;
 //   * Ja, Deels en Nee worden bewaard, met de vraag om toelichting erbij;
 //   * een gesprek kan ook zonder patroon beginnen, en is later terug te vinden;
 //   * een antwoord van Maculis komt in dezelfde draad terug;
@@ -51,6 +56,37 @@ async function openInvoer(page, ingang, vorm) {
   await page.waitForSelector(vorm);
 }
 
+// ---- de deelstaat woont op één plek -------------------------------------------------------------
+//
+// Elke zichtbare control in het bewijsblad waarmee de deelstaat naar Maculis te wijzigen is, met
+// zijn eigen naam. Knoppen én invoervelden, want een vinkje is net zo goed een control als een
+// knop, en een hernoemde dubbelganger moet ook door de mand vallen.
+const DEELCONTROLS = (page) => page.evaluate(() => {
+  const blad = document.getElementById('bewijs');
+  if (!blad) return [];
+  const zichtbaar = (e) => {
+    const st = getComputedStyle(e);
+    return e.offsetParent !== null && st.visibility !== 'hidden' && Number(st.opacity) > 0;
+  };
+  const naam = (e) => (e.textContent || e.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
+  const uit = [];
+  for (const e of blad.querySelectorAll('button, input[type=checkbox], [role=checkbox]')) {
+    if (!zichtbaar(e)) continue;
+    const t = e.tagName === 'INPUT' ? naam(e.closest('label') || e) : naam(e);
+    if (/\bdeel\b|\bdelen\b|\bmeewegen\b/i.test(t)) uit.push(t);
+  }
+  return uit.sort();
+});
+
+// De invoer draagt er nooit een: geen vinkje, geen deelknop, geen andere toestemmingskeuze.
+const geenKeuzeInDeInvoer = async (page) => page.evaluate(() => {
+  const praat = document.getElementById('bw-praat');
+  if (!praat) return true;
+  if (praat.querySelector('input[type=checkbox], [role=checkbox]')) return false;
+  return ![...praat.querySelectorAll('button')].some((b) =>
+    /\bdeel\b|\bdelen\b|\bmeewegen\b/i.test((b.textContent || '').trim()));
+});
+
 let fails = 0;
 const chk = (l, c, d = '') => { if (!c) fails++; console.log(`  [${c ? 'OK ' : 'FOUT'}] ${l}${d ? ' · ' + d : ''}`); };
 
@@ -90,24 +126,43 @@ async function ronde(br, { breedte, hoogte, naam }) {
   await page.waitForSelector('.praat-ingang');
   const ingangTekst = await page.locator('.praat-ingang').textContent();
   chk('de ingang bij een patroon heet "Praat hierover met Maculis"', ingangTekst.trim() === 'Praat hierover met Maculis');
+  chk('en er staat een uitnodiging boven die ingang',
+    /iets vragen, aanvullen of bespreken/i.test(await page.locator('#bw-praat .praat-lead').textContent()));
+  chk('met de invoer dicht is praten de enige koperen knop op het blad',
+    JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('#bewijs .knop.primair')]
+      .filter((b) => b.offsetParent).map((b) => b.textContent.trim())))
+      === JSON.stringify(['Praat hierover met Maculis']));
+
+  // De deelstaat woont op één plek. Bij een niet gedeeld inzicht, met de invoer nog dicht.
+  chk('niet gedeeld, invoer dicht: precies één deelcontrol, in het grensblok',
+    JSON.stringify(await DEELCONTROLS(page)) === JSON.stringify(['Deel dit met Maculis']),
+    JSON.stringify(await DEELCONTROLS(page)));
 
   await page.click('.praat-ingang');
   await page.waitForSelector('.praat-vorm');
 
-  // ---- 2. praten over een privépatroon: de grens staat er, en delen is apart -------------------
+  chk('niet gedeeld, invoer open: nog steeds precies die ene deelcontrol',
+    JSON.stringify(await DEELCONTROLS(page)) === JSON.stringify(['Deel dit met Maculis']),
+    JSON.stringify(await DEELCONTROLS(page)));
+
+  // Canon 12: één koperen knop per blad. De primaire plek is bewust die van praten, niet die van
+  // delen: op het moment dat je een inzicht net begrijpt is reageren de natuurlijke volgende stap.
+  // Zodra je schrijft, gaat die plek naar Versturen en treedt de ingang terug.
+  const primair = () => page.evaluate(() => [...document.querySelectorAll('#bewijs .knop.primair')]
+    .filter((b) => b.offsetParent).map((b) => b.textContent.trim()));
+  chk('en er staat precies één koperen knop op het blad, die van Versturen',
+    JSON.stringify(await primair()) === JSON.stringify(['Versturen']), JSON.stringify(await primair()));
+
+  // ---- 2. praten over een privépatroon: er staat wat meegaat, en verder geen enkele keuze ------
   const context = (await page.locator('.praat-context').textContent()).trim();
-  // Versturen ís de keuze om context te delen, dus dat moet er vóór het versturen staan, en er moet
-  // staan wat er NIET meegaat en dat het inzicht ongedeeld blijft.
-  chk('bij een niet gedeeld patroon staat wat versturen wél en niet deelt',
-    /nog niet gedeeld met Maculis/i.test(context)
-    && /door te versturen/i.test(context)
+  // Versturen ís de keuze om deze context te delen, dus dat moet er vóór het versturen staan: wat
+  // er meegaat, wat er bij jou blijft, en dat het inzicht ongedeeld blijft.
+  chk('bij een niet gedeeld patroon staat wat versturen wél en niet meestuurt',
+    /uitspraak van dit patroon mee/i.test(context)
     && /blijven bij jou/i.test(context)
     && /blijft ongedeeld/i.test(context), context.slice(0, 96) + '...');
-  chk('en er staat een aparte knop om het inzicht er wél bij te doen',
-    await page.locator('.praat-grens .knop', { hasText: 'Deel dit inzicht met Maculis' }).count() === 1);
-
-  // ---- 5. het vinkje staat uit ----------------------------------------------------------------
-  chk('"Laat dit meewegen" staat standaard uit', (await page.locator('.praat-weeg input').isChecked()) === false);
+  chk('en de invoer draagt geen enkele toestemmingskeuze', await geenKeuzeInDeInvoer(page),
+    'geen vinkje, geen deelknop');
 
   const veld = page.locator('.praat-vorm .veldtekst');
   await veld.fill('Waar baseren jullie dit precies op?');
@@ -117,15 +172,18 @@ async function ronde(br, { breedte, hoogte, naam }) {
   const eerste = store.verstuurd[0];
   chk('het bericht gaat naar het patroon waar je op keek',
     eerste && eerste.insightId === PRIVE.id, eerste && eerste.insightId);
-  chk('en het gaat als gesprek, niet als geheugen', eerste && eerste.weegMee === false);
+  chk('en de klantzijde stuurt geen enkel toestemmingsveld mee',
+    eerste && Object.keys(eerste.extra || {}).length === 0, JSON.stringify(eerste && eerste.extra));
   chk('praten heeft niets gedeeld: er is geen deelactie gedaan',
     !store.verstuurd.some((v) => v.gedeeld), 'delen blijft een aparte handeling');
   chk('je ziet je eigen woorden meteen in de draad',
     (await page.locator('.draad-item.van-jij .draad-tekst').last().textContent()).includes('Waar baseren jullie dit'));
 
   // ---- 3. het inzicht daarna wél delen: aparte handeling, eigen bevestiging --------------------
+  // Vanuit het grensblok, want daar woont die beslissing. De invoer mag open staan; ook dan komt
+  // er geen tweede deelcontrol bij.
   await openInvoer(page, '.praat-ingang', '.praat-vorm');
-  await page.click('.praat-grens .knop');
+  await page.locator('#bw-grens-acties .knop', { hasText: 'Deel dit met Maculis' }).click();
   await page.waitForSelector('#confirm:not(.hidden)');
   chk('delen vraagt een eigen bevestiging',
     (await page.locator('#confirm-title').textContent()).trim() === 'Delen met Maculis');
@@ -144,20 +202,20 @@ async function ronde(br, { breedte, hoogte, naam }) {
     /je antwoord blijft bij jou/i.test(await page.locator('#bw-uitkomst').textContent()));
 
   await page.fill('#bw-toel-tekst', 'De helft klopt, de andere helft speelde vorig jaar.');
-  await page.click('#bw-toel-bewaar');
-  await page.waitForTimeout(200);
+  await page.locator('#bw-toel-tekst').blur();
+  await page.waitForTimeout(220);
   const metNoot = store.herkenningen.filter((h) => h.note);
   chk('de toelichting wordt bewaard bij het antwoord',
     metNoot.length === 1 && metNoot[0].note.startsWith('De helft klopt'));
 
-  // ---- 5b. mét vinkje komt het er wél bij -----------------------------------------------------
+  // ---- 5b. een tweede bericht in dezelfde draad blijft ook een gesprek ------------------------
   await openInvoer(page, '.praat-ingang', '.praat-vorm');
-  await page.locator('.praat-weeg input').check();
   await page.locator('.praat-vorm .veldtekst').fill('Wij hebben sinds januari een nieuw klantteam.');
   await page.click('.praat-acties .knop.primair');
   await page.waitForTimeout(220);
   const laatste = store.verstuurd[store.verstuurd.length - 1];
-  chk('met het vinkje aan gaat het als voorstel mee', laatste && laatste.weegMee === true);
+  chk('ook een tweede bericht draagt geen toestemmingsveld',
+    laatste && Object.keys(laatste.extra || {}).length === 0, JSON.stringify(laatste && laatste.extra));
 
   // ---- 6. een gesprek zonder patroon ----------------------------------------------------------
   // Op een telefoon is het bewijsblad een bodemvel dat de periferie bedekt. Eerst terug naar het
@@ -210,8 +268,79 @@ async function ronde(br, { breedte, hoogte, naam }) {
   const zichtbaar = await page.evaluate(() => document.body.innerText);
   const gevonden = NOOIT_ZICHTBAAR.filter((w) => zichtbaar.includes(w));
   chk('de klant leest nergens interne bestuurstaal', gevonden.length === 0, gevonden.join(', ') || 'niets gevonden');
-  chk('en waar we zeggen dat we iets meenemen, staat geen voorbehoud in vakjargon',
-    /Laat dit meewegen in wat Maculis van ons weet/.test(zichtbaar));
+  chk('en er staat nergens meer een tweede toestemmingsvraag in de invoer',
+    !/Laat dit meewegen/i.test(zichtbaar) && !/Deel dit inzicht met Maculis/i.test(zichtbaar));
+  chk('de invoer draagt geen enkele toestemmingskeuze, ook niet bij een tweede bezoek',
+    await geenKeuzeInDeInvoer(page));
+
+  // ---- de deelstaat bij een AL GEDEELD inzicht -------------------------------------------------
+  // Daar hoort precies één control te staan, en die beperkt in plaats van te verruimen. En de
+  // gespreksingang staat er, want praten hangt niet aan de deelstaat.
+  await page.click('#btn-sluit');
+  await page.waitForTimeout(360);
+  await page.click('#btn-patronen');
+  await page.waitForSelector('.patronen.in');
+  await page.locator('.pt-item', { hasText: GEDEELD.title }).first().click();
+  await page.waitForSelector('.bewijs.in');
+  await page.waitForSelector('.praat-ingang');
+  // Dit fixture-inzicht is gedeeld én heeft een nieuwere lezing: toestand 4. Twee controls, en dat
+  // is geen dubbeling maar een keuze tussen twee richtingen. Ten hoogste één verruimt, ten hoogste
+  // één beperkt.
+  chk('gedeeld met een nieuwere lezing: één control die verruimt, één die beperkt',
+    JSON.stringify(await DEELCONTROLS(page)) === JSON.stringify(['Deel de nieuwe lezing', 'Delen intrekken']),
+    JSON.stringify(await DEELCONTROLS(page)));
+  chk('en de gespreksingang staat er ook bij een gedeeld inzicht',
+    await page.locator('#bw-praat .praat-ingang').count() === 1);
+  const contextG = (await page.evaluate(() => {
+    document.querySelector('.praat-ingang').click();
+    return new Promise((r) => setTimeout(() => r(
+      (document.querySelector('.praat-context') || {}).textContent || ''), 120));
+  })).trim();
+  chk('bij een gedeeld patroon staat dezelfde belofte over de persoonlijke laag',
+    /volledig op ingaan/i.test(contextG) && /blijven bij jou/i.test(contextG),
+    contextG.slice(0, 96));
+  chk('en met de invoer open komt er nog steeds niets bij',
+    JSON.stringify(await DEELCONTROLS(page)) === JSON.stringify(['Deel de nieuwe lezing', 'Delen intrekken']),
+    JSON.stringify(await DEELCONTROLS(page)));
+
+  // Toestand 3: gewoon gedeeld, zonder nieuwere lezing. Bereikbaar door de nieuwe lezing te delen.
+  await page.locator('#bw-grens-acties .knop', { hasText: 'Deel de nieuwe lezing' }).click();
+  await page.waitForSelector('#confirm:not(.hidden)');
+  chk('bijwerken heet een lezing en geen ontwikkeling',
+    (await page.locator('#confirm-title').textContent()).trim() === 'Nieuwe lezing delen'
+    && (await page.locator('#confirm-ok').textContent()).trim() === 'Deel de nieuwe lezing');
+  await page.click('#confirm-ok');
+  await page.waitForTimeout(400);
+  chk('gedeeld zonder nieuwere lezing: precies één control, en die trekt in',
+    JSON.stringify(await DEELCONTROLS(page)) === JSON.stringify(['Delen intrekken']),
+    JSON.stringify(await DEELCONTROLS(page)));
+  chk('en de staat leest "Gedeeld met Maculis"',
+    (await page.locator('#bw-staat').textContent()).trim() === 'Gedeeld met Maculis');
+
+  // Toestand 1: er is nog niets vastgesteld, dus er valt niets te delen en er staat geen control.
+  await page.click('#btn-sluit');
+  await page.waitForTimeout(360);
+  await page.click('#btn-patronen');
+  await page.waitForSelector('.patronen.in');
+  await page.locator('.pt-item', { hasText: F.insights[5].title }).first().click();
+  await page.waitForSelector('.bewijs.in');
+  await page.waitForSelector('.praat-ingang');
+  chk('nog niets vastgesteld: geen enkele deelcontrol',
+    JSON.stringify(await DEELCONTROLS(page)) === JSON.stringify([]),
+    JSON.stringify(await DEELCONTROLS(page)));
+  chk('maar de zichtbaarheidsregel staat er wél',
+    /met toegang tot Mijn Maculis ziet dit inzicht/i.test(await page.locator('#bw-grens-wie').textContent()));
+  chk('en je kunt er ook over praten',
+    await page.locator('#bw-praat .praat-ingang').count() === 1);
+
+  // ---- dimensie A staat er, en uitsluitend daar ------------------------------------------------
+  const wie = (await page.locator('#bw-grens-wie').textContent()).trim();
+  chk('het grensblok zegt wie binnen de organisatie het inzicht ziet',
+    /met toegang tot Mijn Maculis ziet dit inzicht/i.test(wie)
+    && /Je antwoord en je gesprek zijn van jou/i.test(wie), wie);
+  chk('en de deelstaat zelf zegt daar niets over',
+    !/collega|iedereen|binnen/i.test((await page.locator('#bw-staat').textContent())
+      + ' ' + (await page.locator('#bw-grens-tekst').textContent())));
 
   // ---- 10. knoppen passen, ook op een telefoon ------------------------------------------------
   const teBreed = await page.evaluate(() => {
