@@ -5,6 +5,90 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-19 — Twee losse correcties na fase 1, geaccepteerd (preview)
+
+**Stand.** `415afee` en `860ed48` op `claude/mijn-maculis-visual-dna-94ut9s` zijn door de opdracht-
+gever geaccepteerd en gelden als de actuele stand. Fase 2, dus uitnodiging, activatie, sessie en
+intrekking, is uitdrukkelijk nog niet gestart. Twee bewust kleine wijzigingen, apart gecommit zodat
+hun bewijs en bedoeling los van elkaar herleidbaar blijven.
+
+### `415afee` — de comm-ai testfout, uitsluitend in de testopzet
+
+De DB-test in `tests/comm-ai.test.mjs` zette `RESEND_WEBHOOK_SECRET` in de body van de test. Dat is
+te laat: `server/config.mjs` leest die variabele eenmalig bij het laden van de module, en de
+statische imports bovenaan het testbestand laden config al. De secret stond daardoor leeg,
+`signWebhook` tekende met `''`, `verifyWebhook` antwoordde `no_secret`, de webhook eindigde op 401,
+er ontstond geen gesprek en `runCopilot` gaf terecht `{ ok: false, reason: 'no_conversation' }`.
+
+Aantoonbaar geen regressie van fase 0 of 1: de test faalt identiek op `7002853` van 15 augustus, de
+commit die zowel de statische import als de te late toewijzing introduceerde. Hij heeft dus nooit
+geslaagd zonder die omgevingsvariabele.
+
+De volgorde wordt nu afgedwongen door `tests/helpers/webhook-secret.mjs`, dat als allereerste import
+staat. ESM voert modules uit in importvolgorde, dus de variabele staat er voordat config wordt
+geladen. Een secret uit de omgeving wint nog steeds. **Geen productcode aangeraakt**: de 401 bij een
+ontbrekende secret is correct gedrag en blijft staan. De volledige suite was direct na deze
+wijziging 91 van 91.
+
+### `860ed48` — de deelstaat gaat over Maculis, niet over je collega
+
+"Alleen voor jou" stond voor `sharing != SHARED`, dus voor dimensie B, maar het beloofde iets over
+dimensie A. Zolang er één mens per klant was viel dat niet op; vanaf fase 1 zitten Sanne en Piet
+naast elkaar en is die belofte onwaar. Precies de twee dimensies die migratie 010 uit elkaar haalde,
+raakten in de zichtbare tekst weer op één hoop. Dit is het geparkeerde punt uit de fase 1-notitie
+hieronder, en het is hiermee opgelost.
+
+Vijf plekken, allemaal uitsluitend dimensie B, dus uitsluitend de vraag of Maculis het inzicht mag
+zien en gebruiken:
+
+| Plek | Nu |
+|---|---|
+| staat in het bewijsblad | `Gedeeld met Maculis` / `Niet gedeeld met Maculis` |
+| merkje in Alle patronen | hetzelfde volledige paar |
+| uitleg bij niet gedeeld | "Maculis gebruikt dit inzicht niet zolang het niet gedeeld is. Delen is een aparte keuze, en je kunt hem later weer intrekken." |
+| bevestiging bij intrekken | "… Het blijft in Mijn Maculis gewoon zichtbaar." |
+| blok in Samenwerking | "Maculis gebruikt alleen inzichten die je hebt gedeeld. Wat niet gedeeld is, blijft buiten onze samenwerking, en je kunt een gedeeld inzicht op elk moment weer intrekken." |
+
+"Je antwoord blijft bij jou" bij de herkenningsvraag blijft staan. Dat gaat niet over het inzicht
+maar over de persoonlijke laag, en daar is "bij jou" sinds fase 1 gewoon waar.
+
+**Gemeten, niet preventief ingekort.** `tools/visual/mijn-copy-mobiel.mjs` meet op 393x660, 390x844
+en 430x932, in beide staten: het merkje is 19,2px hoog bij een regelhoogte van 19,2px, dus het
+breekt nergens binnen zichzelf af; het is 147,7px breed voluit tegen 125,7px voor de gedeelde
+variant; het overlapt de houdingspil nergens en niets schuift horizontaal. Op 393 en 390 valt het
+merkje bij 2 van de 6 patronen naar een tweede regel onder de pil, bij de twee langste
+houdingslabels. De kop is een wrap-flex, dus dat is wat die hoort te doen, en het blijft links
+uitgelijnd en rustig. Met het korte paar zou het 0 van 6 zijn. Dat is geen aantoonbaar niet passen,
+dus het volledige paar blijft staan.
+
+**Vastgelegd.** Drie tests in `tests/mijn-toegang.test.mjs`, zonder database: de exacte eindteksten,
+een verbodslijst met "Alleen voor jou", "blijft van jou tot", "Inzichten zijn van jou" en "voor jou
+zichtbaar", dat `PRIVATE`, `AGGREGATED` en `ORGANISATIE` nooit zichtbaar worden, en dat de belofte
+bij de herkenningsvraag blijft staan. Zo raken dimensie A en dimensie B later niet opnieuw stilletjes
+door elkaar.
+
+### Bewijs en previewstatus
+
+Volledige suite **94 van 94 groen**, nul rood, nul overgeslagen. Dat is de 91 van hierboven plus de
+drie nieuwe copytests. De privacygrenzen tussen Sanne en Piet draaien mee en zijn groen, inclusief de
+zes regressies en de `deepEqual` die aantoont dat een handeling van Piet niets aan Sanne verandert.
+Audit, gesprek-UI, mobiele acceptatie en affordance ALLES GROEN.
+
+Uitsluitend naar de harmonisatiepreview, niets gemerged en niets naar productie. Render heeft
+automatisch gedeployd: deploy `dep-da2pquoae00c73c68pp0` op commit `860ed48` staat op live.
+
+**Nog visueel te controleren door de opdrachtgever.** De preview zelf is vanuit de bouwomgeving niet
+op te halen: het netwerkbeleid van die omgeving beantwoordt een CONNECT naar `onrender.com` met een
+403. Het bewijs dat de nieuwe copy draait is daarom de deploystatus van Render op exact `860ed48`,
+en niet een eigen ophaalactie. De visuele eindcontrole op het toestel staat dus nog open, op
+`/mijn.html?t=preview-mijn-maculis-de-voorbeeld-groep-0001` en dezelfde link met `-piet` erachter.
+
+**Blijft geparkeerd.** Het opruimen van de ongebruikte `customer_insight.recognition*` kolommen, het
+ontdubbelen van "Waarop dit rust" en "Waar baseren we dit op?", en het terugkoppelen van Samenwerking
+naar de patronen. Alle drie wachten op een eigen GO.
+
+---
+
 ## 2026-08-19 — Mijn Maculis fase 1: gedeelde werkelijkheid, persoonlijke aandacht (preview)
 
 **Wat.** Twee mensen bij één organisatie zien vanaf nu dezelfde inzichten, maar niet elkaars
