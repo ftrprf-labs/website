@@ -92,7 +92,10 @@ Postgres 16, beide preview-seeds op één database, alle 12 migraties toegepast.
    privacygesprek staat in geen enkele bucket en in geen enkele gesprekslijst.
 7. Nul consolefouten. Schermafdrukken in `tools/visual/integratie-e2e/`.
 
-## Openstaand defect, niet opgelost want buiten scope
+## Defect gevonden bij de integratie, inmiddels opgelost
+
+> Opgelost in `aa58388`. Zie "Nalevering: primaire bezorging tegenover secundaire notificatie"
+> verderop. De beschrijving hieronder blijft staan omdat ze vastlegt hoe het defect zich voordeed.
 
 De aankondigingsmail "Er staat een antwoord voor je klaar in Mijn Maculis" gaat via
 `server/mijn/notify.mjs` door `sendOnChannel` zonder `conversationId`. Daardoor landt hij als
@@ -187,3 +190,126 @@ het defect zich voordeed. Deelden ze één persoon, dan zou de test de fout niet
 Tegenproef: met de fix slagen alle zes. Met alleen `attention.mjs` teruggedraaid falen 1, 2, 4 en 5,
 en blijft 3 groen. Situatie 3 is dus de controle die bewijst dat een echt bezorgprobleem nog steeds
 gewoon bovenkomt.
+
+
+## Ketenproef Mijn Maculis naar Cockpit, handmatig uitgevoerd
+
+Uitgevoerd op de integratiepreview met de mock-AI, om de communicatie tussen Mijn Maculis en de
+Cockpit zuiver te kunnen vaststellen zonder een tweede variabele. De klant stuurde vanuit het
+gedeelde patroon "Positionering wordt extern duidelijker dan intern" het bericht "Waar baseren
+jullie dit precies op? Intern herkennen we dit niet zo.", met het vinkje "Laat dit meewegen in wat
+Maculis van ons weet" UIT.
+
+Bewezen werkend: Mijn Maculis naar Communication Layer naar Vandaag. Twee bevindingen kwamen eruit.
+
+### Bevinding 1: een relatie met twee wachtende draden verloor er een
+
+Opgelost in `90b31ee`.
+
+Op recordniveau gereproduceerd met dezelfde seed en dezelfde twee berichten. De klant had eerder
+een los bericht gestuurd en daarna een vraag bij een patroon. Dat zijn terecht twee draden. Beide
+wachtten op antwoord.
+
+**Oorzaak A.** `aggregateSignals` vat een relatie samen tot een kaart, wat de bedoeling is, maar
+ontdubbelde de nevenredenen op signaaltype alleen. Twee onbeantwoorde klantberichten leveren allebei
+`INBOUND_MESSAGE` op, dus de tweede draad viel volledig weg. Het nieuwste klantbericht was in de
+Cockpit nergens meer te zien. Welke van de twee overbleef bepaalde `cmpSignals`, dat bij gelijke
+prioriteit oudste eerst kiest. Dat is juist voor het rangschikken van relaties onderling, niet voor
+het kiezen tussen de draden van een relatie.
+
+**Oorzaak B.** `/api/cockpit/relation/:id` beantwoordde de vraag "welk gesprek open ik hier" twee
+keer, met twee verschillende regels. Gemeten in een en dezelfde respons:
+`attention.conversationId=507707f4` tegenover `primaryConversationId=0626f463`.
+
+**Reparatie.** Ontdubbelen per type en per gesprek; de nevenreden draagt zijn eigen gespreks-id en
+is aanklikbaar; het gespreks-id van de kaart komt van de primaire reden; de dossierroute volgt de
+radar. Berichten, draden en gespreksdetail waren al correct en zijn niet aangeraakt. Er worden geen
+draden samengevoegd en er ontstaan er geen nieuwe.
+
+**Tests.** `tests/cockpit-mijn-maculis-draad.test.mjs`, zes tests. Tegenproef: met `signals.mjs`
+teruggedraaid faalt test 1, met `routes.mjs` teruggedraaid faalt test 2.
+
+### Bevinding 2: de geheugengrens is gecontroleerd en blijkt dicht
+
+Geen reparatie nodig, en dus ook geen reparatie uitgevoerd.
+
+| Meting | Resultaat |
+|---|---|
+| vinkje UIT, na verzenden | `relationship_memory`: 0 rijen |
+| vinkje UIT, daarna "Concept schrijven" | `relationship_memory`: 0 rijen |
+| vinkje AAN | 1 rij: `kind=fact, source=customer, confidence=proposed, source_ref.type=mijn_maculis_message` |
+
+`runCopilot` is de enige route die uit zichzelf geheugen voorstelt, en die draait op e-mail en
+overige kanalen, niet op een Mijn Maculis-bericht. `openDraft` schrijft geen geheugen. Wat in de
+relatiekaart te zien was, is de handtekening van de derde regel: een verzending met het vinkje aan.
+
+Resterende onzekerheid, uitdrukkelijk vastgelegd: de integratiedatabase was vanuit de sessie niet
+bevraagbaar, dus dit bewijs komt uit een lokale reproductie met dezelfde seed en dezelfde code. Er
+is bewezen dat geen andere route zulke regels kan maken; er is niet bewezen wat de specifieke rijen
+in de preview heeft gemaakt.
+
+## Nalevering: herkomst tegenover status in de relatiekaart
+
+Opgelost in `a54ef7e`. Voortgekomen uit bevinding 2 hierboven.
+
+De relatiekaart splitste zijn regels op `confidence` en zette boven elke onbevestigde regel het
+etiket "AI-voorstel". Maar `confidence` zegt niets over herkomst. Een klant die uitdrukkelijk iets
+deelt levert een regel met `source='customer'` die ook nog bevestigd moet worden. Die stond er dus
+bij als een gok van het systeem, en de mens die het las kon niet zien wie iets beweerde.
+
+Twee assen, twee antwoorden, en ze worden nergens uit elkaar afgeleid:
+
+| | vraag | in beeld |
+|---|---|---|
+| herkomst (`source`) | waar komt dit vandaan | Door de klant gedeeld, Door Maculis afgeleid, Door een collega vastgelegd, Uit de Lens, Herkomst onbekend |
+| status (`confidence`) | wat telt het | Nog te bevestigen, Bevestigd |
+
+De opslag verandert niet: `source` en `confidence` blijven wat ze in de database al waren. Een
+onbekende herkomst wordt benoemd en niet stilzwijgend toegeschreven.
+
+`public/herkomst.js` draagt de regel en wordt door zowel de operationele Cockpit als het prototype
+geimporteerd, zodat de goedgekeurde visuele referentie niet iets anders toont dan het product.
+
+Twee gevolgen die bij deze scheiding horen. Het lichtpunt hoort voortaan alleen bij een waarneming
+van Maculis zelf (canon 9, val 1): wat de klant, een collega of de Lens vertelde draagt het niet.
+En de herkomstchip is bewust neutraal, zonder kapitalen en zonder semantische kleur, want herkomst
+is geen status en canon 2 houdt het koper schaars.
+
+**Tests.** `tests/cockpit-herkomst.test.mjs`, tien tests. Tegenproef: met de herkomst weer uit
+`confidence` afgeleid falen er vijf.
+
+## Acceptatiestatus
+
+| Onderdeel | Commit | Status |
+|---|---|---|
+| Canon 1.0.4 als geldende canon | `4080dc3` (ftrlabs-docs) | vastgesteld |
+| Merge van beide ontwikkellijnen, zeven conflicten | `c18446d` | geaccepteerd |
+| Blocker A, antwoord op het oorspronkelijke kanaal | `3d9eb19` | geaccepteerd |
+| Blocker B, TD-002 structureel gesloten | `3d9eb19` | geaccepteerd |
+| Blocker C, privacy-attentiesignaal | `3d9eb19` | geaccepteerd |
+| Baseline hersteld, meetmethode vastgelegd | `b162b0b` | geaccepteerd |
+| Primaire bezorging tegenover secundaire notificatie | `aa58388` | geaccepteerd |
+| Twee wachtende draden, en de knop die naar de andere wees | `90b31ee` | geaccepteerd |
+| Herkomst tegenover status in de relatiekaart | `a54ef7e` | geaccepteerd |
+
+Geaccepteerd door Lud op 19 augustus 2026, op de integratiepreview.
+
+**Nog GEEN Production GO.** Wat daarvoor nog open staat:
+
+- de ketenproef met het echte taalmodel, waarvoor `COMM_AI_PROVIDER` en een sleutel gekoppeld
+  moeten worden;
+- de ketenproef met echte e-mail heen en terug, waarvoor Resend gekoppeld moet worden;
+- daarna pas de beslissing over Production GO.
+
+Productie en de twee oorspronkelijke previews zijn gedurende dit hele spoor niet aangeraakt.
+`maculis-cockpit-visual-dna-preview` staat op `c96856a`, `mijn-maculis-harmonisatie-preview` op
+`6a05d6a`.
+
+## Technische schuld, genoteerd en niet opgelost
+
+| Wat | Waarom niet nu |
+|---|---|
+| `comm-ai.test.mjs` leest `RESEND_WEBHOOK_SECRET` bij import in plaats van in de testbody | testharnasfout, geen productdefect |
+| `prototype.beheer.*` rendert niet-deterministisch door `mac-sharpen` | gereedschap, geen product |
+| De pixelharness van Mijn Maculis is niet-deterministisch door `new Date()` in de fixtures | gereedschap, geen product |
+| De baseline in de repo is in een andere omgeving gemaakt dan de sessie | meetmethode staat beschreven onder Kanttekening |

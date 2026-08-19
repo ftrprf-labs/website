@@ -5,6 +5,72 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-19 — Integratie Cockpit en Mijn Maculis: een spoor afgerond, geaccepteerd, nog geen Production GO
+
+**Status: geaccepteerd op de integratiepreview. Nog GEEN Production GO en niets naar de
+productiebranch.** De volledige verantwoording staat in `docs/INTEGRATIE_COCKPIT_MIJN_MACULIS.md`;
+deze regel legt vast wat er is gebeurd en waar het te vinden is.
+
+**Branch:** `claude/maculis-integratie-cockpit-mijn`. **Preview:** `maculis-integratie-preview`
+(`srv-da2mnr9t0dsc73aohvjg`), met een eigen database `maculis-integratie-db`. De twee
+oorspronkelijke previews zijn gedurende het hele spoor niet aangeraakt en staan onveranderd op
+`c96856a` en `6a05d6a`.
+
+### Wat er is gedaan, en waarom
+
+| Commit | Wat | Reden |
+|---|---|---|
+| `4080dc3` (ftrlabs-docs) | C-10 en C-10b naar main, tokens 1.0.4 | Mijn Maculis van dag naar nacht; `surface.private` hoort op `:root` en niet in het dagblok |
+| `c18446d` | merge van beide ontwikkellijnen, zeven conflicten | de Mijn Maculis-lijn was gebouwd naast de Cockpit-lijn en moest erin |
+| `3d9eb19` | de drie Production GO-blockers A, B en C | antwoorden op het oorspronkelijke kanaal; TD-002 structureel gesloten; een privacysignaal zonder inhoud |
+| `b162b0b` | goedgekeurde baseline hersteld | de sessieomgeving rendert anders dan de omgeving waarin de baseline is gemaakt; de meetmethode staat nu opgeschreven |
+| `aa58388` | primaire bezorging tegenover secundaire notificatie | een mislukte melding zei dat het antwoord de klant niet had bereikt, terwijl het bezorgd was |
+| `90b31ee` | twee wachtende draden bij een relatie | de tweede draad viel weg en de knop wees naar de andere; op recordniveau gereproduceerd |
+| `a54ef7e` | herkomst tegenover status in de relatiekaart | boven een uitspraak van de klant stond "AI-voorstel"; wie het las kon niet zien wie iets beweerde |
+
+### Architectuurbeslissingen die blijven gelden
+
+- **Een melding over communicatie is geen communicatie.** `message.is_notification` (migratie 010)
+  scheidt primaire bezorging van secundaire notificatie. De grens loopt langs de ROL van het
+  bericht en nergens langs een kanaalnaam, dus een tweede notificatiekanaal zoals WhatsApp kan er
+  later bij zonder wijziging aan `conversation`, `message` of `delivery_event`. Toestemming loopt
+  automatisch mee: een melding gaat door dezelfde consentpoort en is fail closed.
+- **Herkomst en status zijn twee vragen.** `source` zegt waar informatie vandaan komt, `confidence`
+  wat ze telt. Ze mogen niet uit elkaar worden afgeleid. Een uitspraak van de klant wordt nooit als
+  afleiding van Maculis gepresenteerd en andersom. `public/herkomst.js` draagt die regel voor zowel
+  het product als het prototype.
+- **Het lichtpunt hoort bij een waarneming van Maculis zelf** (canon 9, val 1). Wat de klant, een
+  collega of de Lens ons vertelde draagt het punt niet.
+- **Een relatie blijft een kaart, maar verliest geen draad.** Nevenredenen worden ontdubbeld per
+  type en per gesprek, en dragen hun eigen gespreks-id.
+- **Er is precies een uitgaande weg**, `sendOnChannel`. `server/comm/outbound.mjs` is verwijderd,
+  niet alleen ongebruikt gemaakt.
+- **Praten is niet onthouden.** Zonder het vinkje in Mijn Maculis ontstaat er geen geheugenrecord.
+  Twee keer gemeten, en er bestaat geen andere route die het zou kunnen doen.
+
+### Testresultaten
+
+- Volledige databasesuite: **267 van 267**, 0 gefaald, 0 overgeslagen (van 245 bij de merge).
+- Nieuwe regressietests: `comm-uitgaande-grens` (7), `cockpit-mijn-maculis-antwoord` (4),
+  `comm-primair-versus-notificatie` (6), `cockpit-mijn-maculis-draad` (6), `cockpit-herkomst` (10).
+- Elke reparatie is met een tegenproef getoetst: met de fix teruggedraaid falen de tests die hem
+  bewaken, en de controletests blijven groen.
+- Tokenpoort 4/4 op canon 1.0.4, canonscan 0 afwijkende kleuren en 0 streepjes als stijlmiddel,
+  Cockpit-audit 90 controles 0 afwijkingen, Mijn Maculis-audit groen.
+- Visuele regressie, beide bomen in dezelfde omgeving gerenderd: de integratie en de drie blockers
+  veranderen niets; de herkomstwijziging raakt precies de 16 dossierrenders en geen enkel ander
+  scherm.
+- Testerbeheer, Inbox en Workspace zijn byte-identiek aan de goedgekeurde productiestaat `23ddbba`,
+  op een additief `MIJN_MACULIS`-kanaallabel na.
+
+### Wat nog open staat voor Production GO
+
+De ketenproef met het echte taalmodel en de ketenproef met echte e-mail heen en terug. Beide
+vragen om een koppeling in Render die nog niet is gelegd. Pas als beide ketens bewezen zijn, valt
+de beslissing over Production GO.
+
+---
+
 ## 2026-08-19 — Cockpit-verfijning: de signaaltaal terug, en hiërarchie waar het vlak vlak werd
 
 **Status: GO met visuele correcties op de vorige kandidaat, nog geen definitieve visuele GO en
