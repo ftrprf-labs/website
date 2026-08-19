@@ -9,9 +9,19 @@
 //   letterlijk niet meer dan dat er iets klaarstaat. Dat is geen belofte maar een constructie:
 //   deze module leest de body van het bericht nergens uit, en het onderwerp is een constante.
 //
-// De tweede regel: de bestaande consentregels blijven leidend. De melding is een gewone
-// uitgaande e-mail en gaat door dezelfde poort als elke andere. Geen geldige toestemming, geen
-// melding, en dat wordt teruggemeld in plaats van stil weggeslikt.
+// De tweede regel: de bestaande consentregels blijven leidend. De melding is een gewone uitgaande
+// zending en gaat door dezelfde poort als elke andere. Geen geldige toestemming, geen melding, en
+// dat wordt teruggemeld in plaats van stil weggeslikt.
+//
+// De derde regel, en die staat los van het kanaal: dit bericht is SECUNDAIR. Het brengt onder de
+// aandacht dat er iets klaarstaat; het is niet het bericht zelf. Daarom gaat het als
+// isNotification de verzendlaag in, en daarom kan een mislukte melding het gesprek nooit als
+// bezorgprobleem laten zien. Zie migratie 010.
+//
+// Vandaag gaat de melding over e-mail. Dat is een POLICY-keuze en geen eigenschap van dit
+// mechanisme: welk toegestaan kanaal iemands voorkeur heeft, hoort in communication_preference en
+// wordt hier straks één opzoeking. Zolang die er niet is, kiest deze module niet en raadt ze niet,
+// maar neemt ze het kanaal waarvan de consentpolicy service-verkeer standaard toestaat.
 //
 // Fail-closed op elke schakel: geen contact aan de toegang gekoppeld betekent geen ontvanger en
 // dus geen melding. We raden nooit een adres.
@@ -80,6 +90,12 @@ export async function announceReply({ tenantId, organizationId, conversationId, 
       channel: 'EMAIL', purpose: 'service',
       subject: ONDERWERP,
       text: bodyTekst(),
+      // Dit is de melding, niet het bericht. Het antwoord staat al in Mijn Maculis en is daar
+      // bezorgd. Mislukt deze zending, dan is er een meldingsprobleem en geen bezorgprobleem, en
+      // het aandachtsmodel mag er nooit uit afleiden dat de klant ons bericht niet kreeg.
+      // De vlag hangt aan de ROL van dit bericht, niet aan het kanaal: gaat de melding later over
+      // een ander toegestaan kanaal, dan verandert hier alleen de waarde van `channel`.
+      isNotification: true,
     });
     uit.push({ contactId, ok: Boolean(r.ok), reason: r.ok ? null : r.reason, consent: r.consent || null });
   }

@@ -1,0 +1,62 @@
+-- Communication Layer — het verschil tussen communicatie en een melding daarover.
+-- ADDITIEF op 001-009: één nieuwe kolom met een default, niets bestaands wordt gewijzigd of
+-- verwijderd, dus veilig bij elke start en veilig op de live database.
+--
+-- WAAROM DIT BESTAAT
+--   Een bericht kan twee heel verschillende dingen zijn. Het kan de communicatie zelf zijn: het
+--   antwoord dat de klant leest. Of het kan een melding zijn dat er ergens anders iets klaarstaat.
+--   Die twee hebben tegengestelde gevolgen als ze mislukken, en tot nu toe waren ze in de
+--   message-tabel niet uit elkaar te houden. Allebei OUTBOUND, allebei met een kanaal, allebei met
+--   een delivery-status. Het aandachtsmodel leest de laatste OUTBOUND-aflevering en concludeert bij
+--   FAILED dat ons bericht de klant niet bereikte. Mislukte de melding, dan zei de Cockpit dus dat
+--   het antwoord niet was aangekomen terwijl het aantoonbaar bezorgd was. Dat is geen weergavefout
+--   maar een betekenisfout: twee verschillende feiten deelden één veld.
+--
+--   De rol van een bericht in de relatie is een duurzaam feit over dat bericht zelf. Daarom een
+--   kolom op message, en niet een filter in een query, een uitzondering op onderwerp of een
+--   correctie in het scherm. Wie later een andere lezer schrijft, erft de grens automatisch.
+--
+-- DE REGEL IS KANAALONAFHANKELIJK
+--   Dit is uitdrukkelijk niet "Mijn Maculis tegenover e-mail". Het onderscheid loopt tussen
+--   primaire communicatie en secundaire notificatie, en beide houden hun eigen kanaal en hun eigen
+--   delivery-status in dezelfde bestaande kolommen. Vandaag ziet dat er zo uit:
+--
+--     PRIMAIR       MIJN_MACULIS   DELIVERED
+--     NOTIFICATIE   EMAIL          FAILED
+--
+--   en een tweede notificatiekanaal is niets anders dan dezelfde twee regels met een andere waarde
+--   in message.channel:
+--
+--     PRIMAIR       MIJN_MACULIS   DELIVERED
+--     NOTIFICATIE   WHATSAPP       DELIVERED
+--
+--   Er is dus geen kanaal in deze migratie genoemd en er hoeft er later ook geen bij. Een nieuw
+--   notificatiekanaal is een provider in de bestaande registry plus een regel in de consentpolicy.
+--   conversation, message en delivery_event blijven zoals ze zijn.
+--
+--   Toestemming volgt automatisch dezelfde weg, want een notificatie is een gewone uitgaande
+--   zending en gaat door dezelfde poort: kanaal niet toegestaan betekent niet verzenden, fail
+--   closed. Welk toegestaan kanaal iemands voorkeur heeft, is een aparte vraag die hier bewust nog
+--   niet wordt beantwoord: dat hoort bij communication_preference en niet bij deze reparatie.
+--
+--   Bewust een boolean en geen taxonomie. De regel die we vandaag kennen is binair: dit bericht is
+--   de communicatie, of het is een melding erover. Zodra er een tweede soort secundair bericht komt
+--   die zich anders moet gedragen, is dat het moment om er een rol-enum van te maken. Eerder niet,
+--   want een lege taxonomie belooft onderscheid dat er niet is.
+--
+--   De melding blijft volledig bestaan: ze staat in de draad, houdt haar eigen kanaal en haar eigen
+--   delivery-status, haar delivery_event, haar audit- en activity-regel. Er wordt niets verzwegen.
+--   Wat vervalt is uitsluitend de vertaling van haar mislukking naar de uitspraak dat het primaire
+--   bericht niet is aangekomen. Juist doordat die registratie blijft, kan Maculis later zien dat
+--   een melding niet aankwam en desgewenst een ander toegestaan kanaal proberen.
+--
+--   Default false: elk bestaand bericht is primaire communicatie. Dat is historisch juist, want de
+--   enige secundaire verzender die vandaag bestaat is server/mijn/notify.mjs.
+
+alter table message add column if not exists is_notification boolean not null default false;
+
+-- Het aandachtsmodel zoekt per gesprek de laatste primaire OUTBOUND. Zonder deze index moet het
+-- daarvoor door de meldingen heen die juist genegeerd worden.
+create index if not exists message_primair_outbound_idx
+  on message (conversation_id, created_at desc)
+  where direction = 'OUTBOUND' and not is_notification and deleted_at is null;

@@ -14,7 +14,8 @@ export async function inboxConversations(tenantId, { box = 'communication', filt
             ct.first_name, ct.last_name, ct.email, o.name as org,
             (select direction from message m where m.conversation_id=c.id order by created_at desc limit 1) as last_dir,
             (select body_text from message m where m.conversation_id=c.id order by created_at desc limit 1) as last_body,
-            exists(select 1 from message m where m.conversation_id=c.id and m.direction='OUTBOUND' and m.delivery in ('FAILED','BOUNCED')) as delivery_problem,
+            exists(select 1 from message m where m.conversation_id=c.id and m.direction='OUTBOUND'
+                     and not m.is_notification and m.delivery in ('FAILED','BOUNCED')) as delivery_problem,
             exists(select 1 from ai_draft a where a.conversation_id=c.id and a.status='proposed') as ai_ready
        from conversation c
        left join contact ct on ct.id=c.contact_id
@@ -71,7 +72,8 @@ export async function inboxSummary(tenantId) {
          count(*) filter (where contact_id is null and is_privacy=false and deleted_at is null) as unknown,
          count(*) filter (where is_privacy=true and status in ('NEW','OPEN')) as privacy_open,
          count(*) filter (where exists(select 1 from ai_draft a where a.conversation_id=conversation.id and a.status='proposed')) as ai_ready,
-         count(*) filter (where exists(select 1 from message m where m.conversation_id=conversation.id and m.direction='OUTBOUND' and m.delivery in ('FAILED','BOUNCED'))) as delivery_problem
+         count(*) filter (where exists(select 1 from message m where m.conversation_id=conversation.id and m.direction='OUTBOUND'
+                            and not m.is_notification and m.delivery in ('FAILED','BOUNCED'))) as delivery_problem
        from conversation where tenant_id=$1 and deleted_at is null`, [tenantId]).then((r) => r.rows[0]),
     query("select count(*) filter (where status='open' and (due_at is null or due_at <= now())) as due from follow_up where tenant_id=$1", [tenantId]).then((r) => r.rows[0]),
     query("select count(*) as missed from call_record where tenant_id=$1 and status='MISSED'", [tenantId]).then((r) => r.rows[0]),

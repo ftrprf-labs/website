@@ -82,6 +82,10 @@ export async function sendOnChannel({
   tenantId, conversationId = null, contactId = null, organizationId = null,
   channel = 'EMAIL', subject = null, text, html = null, toOverride = null,
   purpose = 'service', userId = null, draftId = null, ipRef = null, provider = null,
+  // Is dit de communicatie zelf, of een melding OVER communicatie die elders al is bezorgd?
+  // Alleen het eerste mag ooit tot de uitspraak leiden dat ons bericht de klant niet bereikte.
+  // Zie migratie 010. Standaard primair: wie niets zegt, verstuurt echte communicatie.
+  isNotification = false,
 }) {
   const tid = tenantId || await getDefaultTenantId();
   if (!text || !String(text).trim()) return { ok: false, reason: 'empty_body' };
@@ -146,18 +150,25 @@ export async function sendOnChannel({
       : { channel_provider: prov.name };
     const msg = await client.query(
       `insert into message(tenant_id, conversation_id, direction, channel, from_address, to_addresses, subject,
-          body_text, body_html_sanitized, transport_meta, provider, provider_message_id, rfc_message_id, delivery, sent_by, sent_at)
-       values ($1,$2,'OUTBOUND',$3,$4,$5::jsonb,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14, now()) returning id`,
+          body_text, body_html_sanitized, transport_meta, provider, provider_message_id, rfc_message_id, delivery, sent_by, is_notification, sent_at)
+       values ($1,$2,'OUTBOUND',$3,$4,$5::jsonb,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15, now()) returning id`,
       [tid, convId, channel, fromAddress, JSON.stringify([to]), subj, text, safeHtml || null,
        JSON.stringify(transportMeta), prov.name, sent.providerMessageId || null,
-       channel === 'EMAIL' ? threading.messageId : null, delivery, userId || null]);
+       channel === 'EMAIL' ? threading.messageId : null, delivery, userId || null, isNotification]);
     const messageId = msg.rows[0].id;
     await client.query(
       `insert into delivery_event(tenant_id, message_id, channel, provider, provider_message_id, state, detail)
        values ($1,$2,$3,$4,$5,$6,$7)`,
       [tid, messageId, channel, prov.name, sent.providerMessageId || null, delivery, sent.ok ? null : (sent.reason || 'send_failed')]);
     if (sent.ok) {
-      await client.query(`update conversation set status='ANSWERED', last_message_at=now(), updated_at=now() where id=$1`, [convId]);
+      // Een melding beantwoordt niets. Ze zet het gesprek dus ook niet op ANSWERED: dat is een
+      // uitspraak over de primaire communicatie. Haar tijdstempel telt wel, want er is
+      // aantoonbaar iets gebeurd op deze draad.
+      await client.query(
+        isNotification
+          ? `update conversation set last_message_at=now(), updated_at=now() where id=$1`
+          : `update conversation set status='ANSWERED', last_message_at=now(), updated_at=now() where id=$1`,
+        [convId]);
     }
     if (draftId && sent.ok) {
       await client.query(`update comm_draft set status='sent', sent_message_id=$2, sent_at=now(), updated_at=now() where id=$1`, [draftId, messageId]);

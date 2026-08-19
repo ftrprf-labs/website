@@ -90,6 +90,12 @@ export function deriveAttention(row) {
   };
 }
 
+// Alle drie de OUTBOUND-feiten hieronder tellen uitsluitend PRIMAIRE berichten. Een secundaire
+// notificatie meldt dat er ergens anders iets klaarstaat; ze beantwoordt niets en ze bezorgt niets.
+// Haar mislukking is daarom geen bezorgprobleem van dit gesprek en haar succes is geen antwoord.
+// Dat geldt ongeacht het kanaal waarop de melding ging: de grens loopt langs de rol van het
+// bericht, nooit langs EMAIL, WHATSAPP of welk kanaal dan ook. Zie migratie 010.
+//
 // One tenant-wide scan → the derived attention for every non-privacy conversation, plus everything
 // the cockpit, the row indicators and the Inbox badge need. Privacy conversations are excluded from
 // the cockpit entirely (§ PRIVACY — no automatic attention surfacing of privacy communication).
@@ -99,13 +105,16 @@ export async function attentionOverview(tenantId, { limit = 500 } = {}) {
             c.last_read_at, c.last_inbound_at, c.last_message_at, c.subject,
             ct.first_name, ct.last_name, lower(ct.email) as email, o.name as org,
             (select direction from message m where m.conversation_id=c.id and m.deleted_at is null
+               and not m.is_notification
               order by created_at desc limit 1) as last_dir,
             (select body_text from message m where m.conversation_id=c.id and m.direction='INBOUND' and m.deleted_at is null
               order by created_at desc limit 1) as last_inbound_body,
             exists(select 1 from ai_draft a where a.conversation_id=c.id and a.status='proposed') as has_ai_proposed,
             (select created_at from message m where m.conversation_id=c.id and m.direction='OUTBOUND' and m.deleted_at is null
+               and not m.is_notification
               order by created_at desc limit 1) as last_outbound_at,
             (select delivery from message m where m.conversation_id=c.id and m.direction='OUTBOUND' and m.deleted_at is null
+               and not m.is_notification
               order by created_at desc limit 1) as last_outbound_delivery
        from conversation c
        left join contact ct on ct.id=c.contact_id
