@@ -21,14 +21,18 @@ export const session = {
 
 // Vaste tijdstempels. Nooit Date.now(): dat zou elke run een andere datum tonen.
 const T = {
-  a: '2027-03-02T09:12:00.000Z',
-  b: '2027-02-24T14:03:00.000Z',
-  c: '2027-02-17T10:41:00.000Z',
-  d: '2027-02-10T08:55:00.000Z',
-  e: '2027-02-03T16:20:00.000Z',
-  f: '2027-01-27T11:05:00.000Z',
-  due: '2027-04-20T13:00:00.000Z',
+  a: '2026-08-12T09:12:00.000Z',
+  b: '2026-08-05T14:03:00.000Z',
+  c: '2026-07-29T10:41:00.000Z',
+  d: '2026-07-22T08:55:00.000Z',
+  e: '2026-07-15T16:20:00.000Z',
+  f: '2026-07-08T11:05:00.000Z',
+  due: '2026-09-22T13:00:00.000Z',
 };
+
+// Het vorige bezoek, vast gezet. Zonder dit zou "nieuw sinds je vorige bezoek" per run
+// verschillen en was een visuele regressie niet te lezen. Alles ná dit moment is nieuw.
+export const VORIG_BEZOEK = '2026-08-08T12:00:00.000Z';
 
 export const insights = [
   {
@@ -40,7 +44,7 @@ export const insights = [
     basis: 'We zien dit terug in de eerste Lens, op meerdere plekken in hoe jullie naar buiten en naar binnen over jezelf spreken.',
     not_yet_known: 'We weten nog niet of dit verschil bewust is, of dat het vooral een kwestie van taal en herhaling is. Daar hebben we jullie beeld bij nodig.',
     source: 'lens', created_at: T.c, updated_at: T.a, shared_at: null,
-    developed: true, unshared_development: false,
+    developed: true, unshared_development: false, evidence_count: 7,
   },
   {
     id: ID(2),
@@ -51,7 +55,7 @@ export const insights = [
     basis: 'Een terugkerend patroon in de eerste Lens tussen jullie externe en interne uitingen.',
     not_yet_known: 'Waar precies het verschil ontstaat, willen we samen met jullie scherper krijgen.',
     source: 'lens', created_at: T.d, updated_at: T.b, shared_at: T.c,
-    developed: true, unshared_development: true,
+    developed: true, unshared_development: true, evidence_count: 5,
   },
   {
     id: ID(3),
@@ -62,7 +66,7 @@ export const insights = [
     basis: 'We zien dit op meerdere plekken in de eerste Lens op dezelfde manier terugkomen.',
     not_yet_known: 'Of deze betrokkenheid overal even sterk is, of vooral bij bepaalde teams, is nog een open vraag.',
     source: 'lens', created_at: T.e, updated_at: T.c, shared_at: null,
-    developed: false, unshared_development: false,
+    developed: false, unshared_development: false, evidence_count: 6,
   },
   {
     id: ID(4),
@@ -73,7 +77,7 @@ export const insights = [
     basis: 'Terug te zien in de eerste Lens, in de variatie tussen verschillende interne uitingen.',
     not_yet_known: 'Of dit als storend wordt ervaren, of juist als ruimte, weten we nog niet.',
     source: 'lens', created_at: T.e, updated_at: T.d, shared_at: null,
-    developed: false, unshared_development: false,
+    developed: false, unshared_development: false, evidence_count: 4,
   },
   {
     id: ID(5),
@@ -84,7 +88,7 @@ export const insights = [
     basis: 'We hebben hier in de eerste Lens gericht naar gekeken en geen spanning aangetroffen.',
     not_yet_known: 'Of dit zo blijft naarmate jullie groeien, is iets om in de gaten te houden.',
     source: 'lens', created_at: T.f, updated_at: T.e, shared_at: null,
-    developed: false, unshared_development: false,
+    developed: false, unshared_development: false, evidence_count: 3,
   },
   {
     id: ID(6),
@@ -95,7 +99,7 @@ export const insights = [
     basis: 'De eerste Lens kijkt vooral naar wat zichtbaar is aan de buitenkant. Besluitvorming laat zich daar lastig uit aflezen.',
     not_yet_known: 'Vrijwel alles. Als jullie hier meer zicht op willen, is dit iets om samen te verkennen.',
     source: 'lens', created_at: T.f, updated_at: T.f, shared_at: null,
-    developed: false, unshared_development: false,
+    developed: false, unshared_development: false, evidence_count: 1,
   },
 ];
 
@@ -146,8 +150,29 @@ const DEV = {
   ],
 };
 
+// Het bewijs onder elk inzicht: precies zoveel waarnemingen als evidence_count belooft,
+// want het licht mag nooit meer beweren dan de lijst kan tonen.
+const BRON = {
+  [ID(1)]: ['De pagina Over ons op jullie website', 'De klantcase over de gemeente',
+    'Vacaturetekst voor accountmanager', 'Vacaturetekst voor projectleider',
+    'Bericht van een teamlid op LinkedIn', 'Interne nieuwsbrief, editie mei',
+    'Tweede bericht van een teamlid'],
+  [ID(2)]: ['Homepage en dienstenpagina', 'Twee persberichten', 'Profiel op een brancheplatform',
+    'Presentatie die publiek staat', 'Bericht van een teamlid, intern van toon'],
+  [ID(3)]: ['Zes klantverhalen op de site', 'Reactie op een recensie',
+    'Teampagina, hoe jullie het zelf zeggen', 'Nieuwsbericht over een geslaagd project',
+    'Antwoord op een klantvraag, publiek', 'De belofte op de homepage'],
+  [ID(4)]: ['Interne nieuwsbrief, editie maart', 'Interne nieuwsbrief, editie mei',
+    'Twee vacatureteksten naast elkaar', 'Bericht van een teamlid'],
+  [ID(5)]: ['Elf publieke reacties van klanten', 'De belofte op de homepage', 'Drie klantverhalen'],
+  [ID(6)]: ['Eén zin in een jaarbericht'],
+};
+const MOMENT = [T.f, T.e, T.d, T.c, T.b, T.a, T.a];
+
+export const evidence = (id) => (BRON[id] || []).map((label, k) => ({ label, at: MOMENT[k % MOMENT.length] }));
+
 export const detail = (id) => {
   const insight = insights.find((i) => i.id === id);
   if (!insight) return null;
-  return { insight, development: DEV[id] || [] };
+  return { insight, development: DEV[id] || [], evidence: evidence(id) };
 };

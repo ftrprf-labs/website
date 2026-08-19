@@ -38,6 +38,19 @@ const server = http.createServer(async (req, res) => {
   } catch { res.writeHead(404); res.end('not found'); }
 });
 
+// Het vorige bezoek vastzetten. Mijn Maculis leest dat uit localStorage onder een sleutel die
+// van de organisatie is afgeleid; welke sleutel dat is, hoeft de harness niet te weten.
+const VASTE_OPSLAG = `(() => {
+  const echt = Storage.prototype.getItem;
+  Storage.prototype.getItem = function (k) {
+    if (String(k).startsWith('mijn_laatst_')) return ${JSON.stringify(F.VORIG_BEZOEK)};
+    return echt.call(this, k);
+  };
+  Storage.prototype.setItem = new Proxy(Storage.prototype.setItem, {
+    apply(t, self, args) { if (String(args[0]).startsWith('mijn_laatst_')) return; return Reflect.apply(t, self, args); },
+  });
+})();`;
+
 const VIEWPORTS = [
   { name: 'mobile', width: 390, height: 844 },
   { name: 'tablet', width: 768, height: 1024 },
@@ -72,16 +85,16 @@ export function routeMijn(page) {
   });
 }
 
-// De vier momenten van de kamer. Het detail draagt het gedeelde inzicht met een nog niet
-// gedeelde ontwikkeling: daar staat de zwaarste compositie van de kamer.
+// De vier momenten van de kamer. Het veld is er één, de andere drie zijn de bladen die
+// eruit voortkomen. De cyclus wordt overgeslagen zodat we altijd de eindtoestand vastleggen.
 export const SCREENS = [
-  { name: 'overzicht', hash: '#/overzicht', wait: '.hero h2' },
-  { name: 'spiegel', hash: '#/inzichten', wait: '.icard, .spiegel-hero' },
-  { name: 'detail', hash: `#/inzicht/${F.insights[1].id}`, wait: '.detail h2' },
-  { name: 'samenwerking', hash: '#/samenwerking', wait: '.glance-row' },
+  { name: 'veld', wait: '.zeg.in', doe: null },
+  { name: 'bewijs', wait: '.bewijs.in', doe: '#btn-waarom' },
+  { name: 'patronen', wait: '.patronen.in', doe: '#btn-patronen' },
+  { name: 'samen', wait: '.samen.in', doe: '#btn-samen' },
 ];
 
-const url = (base, hash) => `${base}/mijn.html?t=${F.TOKEN}${hash}`;
+const url = (base) => `${base}/mijn.html?t=${F.TOKEN}`;
 
 async function capture(browser, base, { reduce }) {
   for (const vp of VIEWPORTS) {
@@ -92,6 +105,7 @@ async function capture(browser, base, { reduce }) {
       locale: 'nl-NL',
       timezoneId: 'Europe/Amsterdam',
     });
+    await ctx.addInitScript(VASTE_OPSLAG);
     const page = await ctx.newPage();
     const errors = [];
     page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -99,10 +113,14 @@ async function capture(browser, base, { reduce }) {
     await routeMijn(page);
 
     for (const s of SCREENS) {
-      await page.goto(url(base, s.hash), { waitUntil: 'networkidle' });
+      await page.goto(url(base), { waitUntil: 'networkidle' });
+      // de cyclus overslaan: een klik op het lege veld brengt hem meteen in de eindtoestand
+      await page.mouse.click(4, Math.round(vp.height / 2));
+      await page.waitForTimeout(600);
+      if (s.doe) await page.click(s.doe);
       await page.waitForSelector(s.wait, { timeout: 8000 }).catch(() => {});
       await page.addStyleTag({ content: FREEZE });
-      await page.waitForTimeout(250);
+      await page.waitForTimeout(900);
       const name = `mijn.${s.name}.${vp.name}${reduce ? '.reduce' : ''}.png`;
       await page.screenshot({ path: join(OUT, name), fullPage: true, animations: 'disabled' });
       const overflow = await page.evaluate(() =>

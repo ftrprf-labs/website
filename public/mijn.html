@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="nl" data-maculis-regime="day">
+<html lang="nl" data-maculis-regime="night">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -13,92 +13,139 @@
   <link rel="stylesheet" href="/mijn.css" />
 </head>
 <body class="mijn">
-  <!-- Access / loading gate: shown until a token resolves. -->
+  <!-- Toegangspoort: zichtbaar tot een token is opgelost. -->
   <div id="gate" class="gate">
     <div class="gate-card">
-      <div class="brand-ring" aria-hidden="true"></div>
-      <h1 class="brand-word">MAC<span>U</span>LIS</h1>
+      <span class="punt" aria-hidden="true"></span>
+      <h1 class="merkwoord">Mijn Maculis</h1>
       <p id="gate-msg" class="gate-msg">Mijn Maculis wordt geopend.</p>
     </div>
   </div>
 
-  <!-- App shell (hidden until authorized). -->
+  <!-- Het veld IS de kamer. De rest komt eruit voort. -->
   <div id="app" class="app hidden">
-    <!-- Sidebar -->
-    <aside class="side">
-      <div class="side-brand">
-        <div class="brand-ring" aria-hidden="true"></div>
-        <div class="brand-text">
-          <span class="brand-word small">MAC<span>U</span>LIS</span>
-          <span class="brand-sub">Mijn Maculis</span>
-        </div>
+    <canvas id="veld" class="veld" aria-hidden="true"></canvas>
+    <div class="vig" aria-hidden="true"></div>
+
+    <div class="hud">
+      <div class="merk">
+        <span class="punt" aria-hidden="true"></span>
+        <span class="merk-tekst">
+          <span class="merk-naam">Mijn Maculis</span>
+          <span id="org-naam" class="merk-org"></span>
+        </span>
       </div>
 
-      <nav class="side-nav" aria-label="Hoofdmenu">
-        <a class="nav-item" data-route="overzicht" href="#/overzicht">
-          <span class="nav-ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 10.5 12 4l9 6.5"/><path d="M5 9.5V20h14V9.5"/><path d="M9.5 20v-5h5v5"/></svg>
-          </span>
-          <span class="nav-label"><span class="nav-title">Overzicht</span></span>
-        </a>
-        <a class="nav-item" data-route="inzichten" href="#/inzichten">
-          <span class="nav-ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="2.6"/></svg>
-          </span>
-          <span class="nav-label"><span class="nav-title">Inzichten</span><span class="nav-desc">De Spiegel</span></span>
-        </a>
-        <a class="nav-item" data-route="samenwerking" href="#/samenwerking">
-          <span class="nav-ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8.5" cy="9" r="3"/><circle cx="16" cy="10" r="2.4"/><path d="M3.5 19c0-2.8 2.2-4.6 5-4.6s5 1.8 5 4.6"/><path d="M14.5 18.6c.2-2 1.6-3.3 3.6-3.3 1.9 0 3.4 1.3 3.4 3.6"/></svg>
-          </span>
-          <span class="nav-label"><span class="nav-title">Samenwerking</span></span>
-        </a>
+      <nav class="rand" aria-label="Mijn Maculis">
+        <button class="knop" id="btn-patronen" type="button">Alle patronen</button>
+        <button class="knop" id="btn-blind" type="button">Wat zie ik niet?</button>
+        <button class="knop" id="btn-samen" type="button">Samenwerking</button>
+        <button class="knop" id="btn-opnieuw" type="button">Opnieuw</button>
       </nav>
 
-      <div class="side-foot">
-        <div class="side-org">
-          <span class="side-label">Organisatie</span>
-          <span id="side-org-name" class="side-org-name"></span>
+      <div class="onder">
+        <p class="groet" id="groet"></p>
+        <p class="sinds" id="sinds"></p>
+        <p class="toestand" id="toestand" role="status"></p>
+      </div>
+
+      <!-- De uitspraak komt uit haar kern voort en is eraan verankerd. -->
+      <div class="zeg" id="zeg">
+        <p class="lab v" id="zeg-aanhef"></p>
+        <h1 class="zeg-titel" id="zeg-titel"></h1>
+        <p class="zeg-rust" id="zeg-rust"></p>
+        <div class="zeg-acties">
+          <button class="knop primair" id="btn-waarom" type="button">Waarom ziet Maculis dit?</button>
         </div>
-        <div class="side-user">
-          <span id="side-avatar" class="avatar" aria-hidden="true"></span>
-          <span class="side-user-text">
-            <span id="side-user-name" class="side-user-name"></span>
-            <span id="side-user-role" class="side-user-role"></span>
-          </span>
+      </div>
+    </div>
+
+    <!-- Het bewijs komt uit het veld: de kern treedt naar voren, de rest treedt terug. -->
+    <aside class="blad bewijs" id="bewijs" aria-labelledby="bw-titel" aria-hidden="true">
+      <div class="blad-kop">
+        <button class="knop tekst" id="btn-sluit" type="button">Terug naar het veld</button>
+      </div>
+      <div class="blad-body">
+        <p class="lab c" id="bw-aanhef"></p>
+        <h2 class="blad-titel" id="bw-titel"></h2>
+        <p class="blad-lead" id="bw-lead"></p>
+
+        <div class="sterkte">
+          <span class="sterkte-getal" id="bw-getal"></span>
+          <p id="bw-sterkte"></p>
+        </div>
+
+        <p class="lab" id="bw-bronnen-kop">Waarop dit rust</p>
+        <ul class="bronnen" id="bw-bronnen"></ul>
+
+        <div class="qa" id="bw-qa"></div>
+
+        <details class="dev hidden" id="bw-dev">
+          <summary><span class="dev-titel">Hoe dit inzicht zich ontwikkelde</span><span class="dev-hint" id="bw-dev-hint"></span></summary>
+          <ol class="dev-lijst" id="bw-dev-lijst"></ol>
+        </details>
+
+        <!-- De menselijke laag: Maculis verkondigt niet, het vraagt. -->
+        <div class="vraag" id="bw-vraag">
+          <p class="vraag-q">Herken je dit?</p>
+          <div class="vraag-keuzes">
+            <button class="knop" data-antwoord="ja" type="button">Ja</button>
+            <button class="knop" data-antwoord="deels" type="button">Deels</button>
+            <button class="knop" data-antwoord="nee" type="button">Nee</button>
+          </div>
+          <p class="vraag-uit" id="bw-uitkomst"></p>
+        </div>
+
+        <!-- De grens tussen wat van jou is en wat gedeeld is. -->
+        <div class="grens">
+          <p class="grens-staat"><span class="grens-punt" id="bw-grens-punt" aria-hidden="true"></span><span id="bw-staat"></span></p>
+          <p class="grens-tekst" id="bw-grens-tekst"></p>
+          <div class="grens-acties" id="bw-grens-acties"></div>
         </div>
       </div>
     </aside>
 
-    <!-- Main -->
-    <main class="main">
-      <header class="topbar">
-        <div class="topbar-text">
-          <h1 id="page-title" class="page-title">Overzicht</h1>
-          <p id="page-sub" class="page-sub"></p>
+    <!-- De volledige, niet-ruimtelijke weg naar dezelfde inhoud. Geen tweederangs lijst:
+         alles wat het veld toont staat hier ook, met toetsenbord bereikbaar. -->
+    <aside class="blad patronen" id="patronen" aria-labelledby="pt-titel" aria-hidden="true">
+      <div class="blad-kop">
+        <button class="knop tekst" id="btn-patronen-sluit" type="button">Terug naar het veld</button>
+      </div>
+      <div class="blad-body">
+        <p class="lab c">Alles wat Maculis nu ziet</p>
+        <h2 class="blad-titel" id="pt-titel">Alle patronen</h2>
+        <p class="blad-lead">Dezelfde inhoud als in het veld, op een rij. Kies een patroon om het bewijs eronder te openen.</p>
+        <ul class="pt-lijst" id="pt-lijst"></ul>
+      </div>
+    </aside>
+
+    <!-- Wat we samen doen. Blijft bestaan; het veld is de kamer, dit is wat we afspraken. -->
+    <aside class="blad samen" id="samen" aria-labelledby="sm-titel" aria-hidden="true">
+      <div class="blad-kop">
+        <button class="knop tekst" id="btn-samen-sluit" type="button">Terug naar het veld</button>
+      </div>
+      <div class="blad-body">
+        <p class="lab c">Wat we samen doen</p>
+        <h2 class="blad-titel" id="sm-titel">Samenwerking</h2>
+        <ul class="sm-lijst" id="sm-lijst"></ul>
+        <div class="grens">
+          <p class="lab">Jouw informatie, jouw keuze</p>
+          <p class="grens-tekst">Inzichten zijn van jou tot je ze deelt. Alleen gedeelde inzichten worden onderdeel van onze samenwerking, en je kunt dat op elk moment intrekken.</p>
         </div>
-        <a class="help" href="#/overzicht" aria-label="Hulp">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.2a2.5 2.5 0 0 1 4.6 1.3c0 1.7-2.1 2-2.1 3.4"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/></svg>
-          <span>Help</span>
-        </a>
-      </header>
+      </div>
+    </aside>
 
-      <div id="view" class="view" aria-live="polite"></div>
-
-      <footer class="mijn-foot">
-        Mijn Maculis is een omgeving van Maculis. Samen bouwen we aan beter zien, begrijpen en kiezen.
-      </footer>
-    </main>
+    <div class="tip" id="tip" aria-hidden="true"></div>
   </div>
 
-  <!-- Confirmation dialog (share / withdraw). Non-modal fallback friendly; JS wires it up. -->
+  <!-- Bevestiging bij het oversteken van de grens. -->
   <div id="confirm" class="confirm hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
     <div class="confirm-card">
       <h2 id="confirm-title" class="confirm-title">Delen met Maculis</h2>
       <p id="confirm-body" class="confirm-body"></p>
       <div class="confirm-actions">
-        <button id="confirm-cancel" class="btn btn-ghost" type="button">Annuleren</button>
-        <button id="confirm-ok" class="btn btn-primary" type="button">Delen met Maculis</button>
+        <button id="confirm-cancel" class="knop" type="button">Annuleren</button>
+        <button id="confirm-ok" class="knop primair" type="button">Delen met Maculis</button>
       </div>
     </div>
   </div>

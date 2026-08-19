@@ -50,30 +50,54 @@ const route = (page) => page.route('**/api/mijn/**', async (r) => {
   return j({});
 });
 
+// Het vorige bezoek vastzetten. Mijn Maculis leest dat uit localStorage onder een sleutel die
+// van de organisatie is afgeleid; welke sleutel dat is, hoeft de harness niet te weten.
+const VASTE_OPSLAG = `(() => {
+  const echt = Storage.prototype.getItem;
+  Storage.prototype.getItem = function (k) {
+    if (String(k).startsWith('mijn_laatst_')) return ${JSON.stringify(F.VORIG_BEZOEK)};
+    return echt.call(this, k);
+  };
+  Storage.prototype.setItem = new Proxy(Storage.prototype.setItem, {
+    apply(t, self, args) { if (String(args[0]).startsWith('mijn_laatst_')) return; return Reflect.apply(t, self, args); },
+  });
+})();`;
+
 const SCREENS = [
-  { name: 'overzicht', hash: '#/overzicht', wait: '.hero h2' },
-  { name: 'spiegel', hash: '#/inzichten', wait: '.icard, .spiegel-hero' },
-  { name: 'detail', hash: `#/inzicht/${F.insights[1].id}`, wait: '.detail h2' },
-  { name: 'samenwerking', hash: '#/samenwerking', wait: '.glance-row' },
+  { name: 'veld', wait: '.zeg.in', doe: null },
+  { name: 'bewijs', wait: '.bewijs.in', doe: '#btn-waarom' },
+  { name: 'patronen', wait: '.patronen.in', doe: '#btn-patronen' },
+  { name: 'samen', wait: '.samen.in', doe: '#btn-samen' },
 ];
 const BASE = `http://127.0.0.1:${PORT}`;
-const url = (hash) => `${BASE}/mijn.html?t=${F.TOKEN}${hash}`;
+const url = () => `${BASE}/mijn.html?t=${F.TOKEN}`;
+
+// Elk scherm in de eindtoestand: de cyclus wordt overgeslagen door één keer in het lege
+// veld te klikken, precies zoals een bezoeker dat ook kan.
+async function naar(p, s, breedte, hoogte) {
+  await p.goto(url(), { waitUntil: 'networkidle' });
+  await p.mouse.click(4, Math.round(hoogte / 2));
+  await p.waitForTimeout(500);
+  if (s.doe) await p.click(s.doe);
+  await p.waitForSelector(s.wait, { timeout: 8000 }).catch(() => {});
+  await p.waitForTimeout(700);
+}
 
 const br = await chromium.launch();
 
 // ---- regime en grond -----------------------------------------------------------------
 {
   const ctx = await br.newContext({ viewport: { width: 1280, height: 800 }, locale: 'nl-NL', timezoneId: 'Europe/Amsterdam' });
+  await ctx.addInitScript(VASTE_OPSLAG);
   const p = await ctx.newPage(); await route(p);
-  await p.goto(url('#/overzicht'), { waitUntil: 'networkidle' });
-  await p.waitForTimeout(400);
+  await naar(p, SCREENS[0], 1280, 800);
   console.log('\n=== regime ===');
   const regime = await p.getAttribute('html', 'data-maculis-regime');
-  chk('regime is day', regime === 'day', String(regime));
+  chk('regime is night (canon C-10)', regime === 'night', String(regime));
   const bg = await p.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  chk('grond is ink.50 perkament', bg === 'rgb(247, 241, 230)', bg);
+  chk('grond is ink.980', bg === 'rgb(10, 11, 16)', bg);
   const serif = await p.evaluate(() => {
-    const h = document.querySelector('.hero h2') || document.querySelector('h2');
+    const h = document.querySelector('.zeg-titel');
     return h ? getComputedStyle(h).fontFamily : '';
   });
   chk('Uitspraak staat op Newsreader', /Newsreader/i.test(serif), serif);
@@ -86,6 +110,7 @@ const br = await chromium.launch();
 for (const vp of [{ n: 'desktop 1280', w: 1280, h: 800 }, { n: 'mobiel 390', w: 390, h: 844 }]) {
   console.log(`\n=== ${vp.n} ===`);
   const ctx = await br.newContext({ viewport: { width: vp.w, height: vp.h }, locale: 'nl-NL', timezoneId: 'Europe/Amsterdam' });
+  await ctx.addInitScript(VASTE_OPSLAG);
   const p = await ctx.newPage();
   const errs = [];
   p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
@@ -94,9 +119,7 @@ for (const vp of [{ n: 'desktop 1280', w: 1280, h: 800 }, { n: 'mobiel 390', w: 
   await route(p);
 
   for (const s of SCREENS) {
-    await p.goto(url(s.hash), { waitUntil: 'networkidle' });
-    await p.waitForSelector(s.wait, { timeout: 8000 }).catch(() => {});
-    await p.waitForTimeout(300);
+    await naar(p, s, vp.w, vp.h);
 
     const ov = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     chk(`geen horizontale overflow · ${s.name}`, ov <= 0, ov + 'px');
@@ -203,14 +226,18 @@ for (const vp of [{ n: 'desktop 1280', w: 1280, h: 800 }, { n: 'mobiel 390', w: 
 console.log('\n=== reduced motion ===');
 for (const s of SCREENS) {
   const ctx = await br.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce', locale: 'nl-NL', timezoneId: 'Europe/Amsterdam' });
+  await ctx.addInitScript(VASTE_OPSLAG);
   const p = await ctx.newPage(); await route(p);
-  await p.goto(url(s.hash), { waitUntil: 'networkidle' });
-  await p.waitForSelector(s.wait, { timeout: 8000 }).catch(() => {});
-  await p.waitForTimeout(400);
+  await naar(p, s, 1280, 800);
   const anim = await p.evaluate(() => document.getAnimations().filter((a) => a.playState === 'running').length);
   chk(`geen lopende animatie · ${s.name}`, anim === 0, anim + ' actief');
+  // Bewust verborgen elementen (visibility: hidden) tellen niet mee: die zijn weggehaald,
+  // niet blijven staan door een animatie die nooit startte.
   const hidden = await p.evaluate(() => [...document.querySelectorAll('body *')]
-    .filter((e) => e.offsetParent !== null && parseFloat(getComputedStyle(e).opacity) === 0).length);
+    .filter((e) => {
+      const cs = getComputedStyle(e);
+      return e.offsetParent !== null && cs.visibility !== 'hidden' && parseFloat(cs.opacity) === 0;
+    }).length);
   chk(`niets onzichtbaar door een niet-gestarte animatie · ${s.name}`, hidden === 0, hidden + ' op opacity 0');
   await ctx.close();
 }

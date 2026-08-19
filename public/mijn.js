@@ -1,20 +1,24 @@
-// Mijn Maculis — customer environment front end.
+// Mijn Maculis · Het Veld — klantomgeving.
 //
-// CSP-safe: no inline handlers, no external resources. The access token is read once from the URL
-// (?t=), kept in memory, and removed from the address bar so it is not left in history/bookmarks.
-// Every API call carries it in the x-mijn-token header.
+// CSP-safe: geen inline handlers, geen externe bronnen. Het toegangstoken wordt één keer uit de URL
+// gelezen (?t=), in het geheugen gehouden en uit de adresbalk verwijderd, zodat het niet in de
+// geschiedenis of in bladwijzers achterblijft. Elke API-aanroep draagt het in de x-mijn-token header.
 //
-// Visueel volgt dit bestand de canon (UX-VISUAL-DNA v1.0, tokens 1.0.3). Twee dingen die hier
-// bewust worden afgedwongen en niet alleen in CSS staan:
-//   1. De vijf semantische rollen worden afgeleid uit de houding van het inzicht, nooit uit opmaak.
-//   2. Het signaalveld is bewijs, geen versiering: het aantal punten, de verbindingen en de straal
-//      van het licht volgen de werkelijke inzichten. Canon 7: als je niet kunt zeggen welk bewijs
-//      de gloed draagt, hoort er geen gloed.
+// HET VELD IS DE KAMER. Niet een visualisatie in de interface: de interface komt eruit voort.
+// Drie dingen worden hier afgedwongen en staan daarom niet alleen in CSS:
+//
+//   1. Licht is bewijs. De straal van een kern is een functie van het aantal waarnemingen dat de
+//      uitspraak draagt (canon 7). Dat aantal komt uit `evidence_count`, dezelfde fail-closed bron
+//      als de bronnenlijst. Het veld kan daardoor nooit meer beweren dan het bewijs kan tonen.
+//   2. Beweging is onzekerheid. De drift van een waarneming is een functie van (1 - voortgang);
+//      wat betekenis heeft gekregen, verplaatst zich niet meer (canon 8.1).
+//   3. Een verbinding ontstaat alleen tussen waarnemingen die over hetzelfde gaan, dus binnen
+//      hetzelfde patroon. Nooit op grond van afstand alleen; dat is het verboden cliché.
 
 (() => {
   'use strict';
 
-  // ---- token bootstrap ----
+  // ---- toegang -------------------------------------------------------------------------------
   const url = new URL(location.href);
   let token = url.searchParams.get('t') || sessionStorage.getItem('mijn_token') || '';
   if (url.searchParams.get('t')) {
@@ -24,8 +28,8 @@
   }
 
   const $ = (id) => document.getElementById(id);
-  const gate = $('gate'), gateMsg = $('gate-msg'), app = $('app'), view = $('view');
-  let orgName = '';
+  const gate = $('gate'), gateMsg = $('gate-msg'), app = $('app');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   async function api(path, opts = {}) {
     const res = await fetch(path, {
@@ -34,601 +38,943 @@
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     });
     let data = {};
-    try { data = await res.json(); } catch { /* empty */ }
+    try { data = await res.json(); } catch { /* leeg */ }
     return { status: res.status, data };
   }
 
-  // ---- small helpers ----
+  // ---- kleine hulpjes ------------------------------------------------------------------------
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+  const cl = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const ease = (t) => (t < 0 ? 0 : t > 1 ? 1 : 1 - Math.pow(1 - t, 3));
+  const nu = () => (window.performance && performance.now ? performance.now() : Date.now());
 
-  function fmtDate(iso, withWeekday) {
+  function fmtDatum(iso, metDag) {
     if (!iso) return '';
     try {
       const d = new Date(iso);
-      const opt = withWeekday
+      return cap(d.toLocaleDateString('nl-NL', metDag
         ? { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }
-        : { day: 'numeric', month: 'long', year: 'numeric' };
-      return cap(d.toLocaleDateString('nl-NL', opt));
+        : { day: 'numeric', month: 'long', year: 'numeric' }));
     } catch { return ''; }
+  }
+  function fmtKort(iso) {
+    if (!iso) return '';
+    try { return new Date(iso).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' }); }
+    catch { return ''; }
+  }
+  // Stabiele hash over een id: dezelfde organisatie krijgt altijd hetzelfde veld terug.
+  function hash(s) {
+    let h = 2166136261;
+    for (let i = 0; i < String(s).length; i++) { h ^= String(s).charCodeAt(i); h = Math.imul(h, 16777619); }
+    return ((h >>> 0) % 100000) / 100000;
   }
 
   // Menselijke, Nederlandse statuslabels (canon 10). Geen Engelse hoofdletterbadges.
-  const STANCE = {
+  const HOUDING = {
     reveal: 'Dit valt op',
     tension: 'Hier zit spanning',
     consistency: 'Hier zien we consistentie',
     non_reveal: 'Hier zien we géén verschil',
     unknown: 'Dit weten we nog niet',
   };
-  const stanceLabel = (s) => STANCE[s] || 'Dit zien we';
+  const houdingLabel = (s) => HOUDING[s] || 'Dit zien we';
 
-  // De houding van een inzicht vertaalt naar precies één van de vijf semantische rollen uit
-  // canon 3.3. Er wordt hier geen nieuwe betekenislaag verzonnen: spanning en waarneming vragen
-  // aandacht, consistentie en géén-verschil zijn bevestigd, onbekend blijft kleurloos.
-  // De houding is de houding. Dat er een nog niet gedeelde ontwikkeling ligt, is een
-  // aparte toestand ("aan het worden") en draagt zijn eigen pil; het overschrijft de
-  // houding niet. Canon 10: de drie dimensies overschrijven elkaar nooit.
-  function role(ins) {
-    if (!ins) return 'uncertain';
-    switch (ins.stance) {
+  // De houding vertaalt naar precies één van de vijf semantische rollen uit canon 3.3.
+  // Dat er een nog niet gedeelde ontwikkeling ligt is een aparte toestand en overschrijft de
+  // houding niet: canon 10 zegt dat de drie dimensies elkaar nooit overschrijven.
+  function rol(i) {
+    if (!i) return 'uncertain';
+    switch (i.stance) {
       case 'tension': case 'reveal': return 'signal';
       case 'consistency': case 'non_reveal': return 'confirmed';
       default: return 'uncertain';
     }
   }
 
-  const ICON = {
-    lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>',
-    people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8.5" cy="9" r="3"/><circle cx="16" cy="10" r="2.4"/><path d="M3.5 19c0-2.8 2.2-4.6 5-4.6s5 1.8 5 4.6"/><path d="M14.5 18.6c.2-2 1.6-3.3 3.6-3.3 1.9 0 3.4 1.3 3.4 3.6"/></svg>',
-    shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3.5 19 6v5.5c0 4.3-3 7.4-7 9-4-1.6-7-4.7-7-9V6z"/><path d="M9.2 12.2 11.2 14l3.6-3.7"/></svg>',
-    compass: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="m15.6 8.4-2 5.2-5.2 2 2-5.2z" fill="currentColor" stroke="none"/></svg>',
-    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.3 2.3 4.7-4.9"/></svg>',
-    research: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="6.2"/><path d="m20 20-4.2-4.2"/></svg>',
-    bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6.5 17V11a5.5 5.5 0 0 1 11 0v6"/><path d="M4.5 17h15"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>',
-    chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m9 6 6 6-6 6"/></svg>',
-    handshake: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 8 2.5-1.8 5 4v6l-2 .6"/><path d="M12 8 8 6 3 9.2v5.3l3 1.4"/><path d="m6.5 14 3 2.6c.8.7 1.8.6 2.4-.1l.3-.3 1.7 1.4c.8.6 1.7.5 2.3-.2"/></svg>',
-    arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h15"/><path d="m13 6 6 6-6 6"/></svg>',
-  };
-
-  // Gedeeld of privé draagt tekst; het oppervlak draagt het onderscheid (canon 6 en 12).
-  function shareTag(sharing) {
-    if (sharing === 'SHARED') return `<span class="share-tag">${ICON.people}Gedeeld</span>`;
-    if (sharing === 'AGGREGATED') return `<span class="share-tag">${ICON.people}Patroon</span>`;
-    return `<span class="share-tag">${ICON.lock}Alleen voor jou</span>`;
-  }
-
-  // De statuspil: transparant vlak, één semantische hairline, de semantische kleur als tekst
-  // (canon 10). Nooit een gevulde badge.
-  function stancePill(ins) {
-    return `<span class="pill is-${role(ins)}"><span class="dot"></span>${esc(stanceLabel(ins.stance))}</span>`;
-  }
+  // De bewijsdrempel waarboven violet ontsteekt hangt af van het SOORT uitspraak, niet van een
+  // vast getal (canon 8.1): "een tegenstrijdigheid heeft aan twee gegronde signalen genoeg, een
+  // patroon heeft er veel meer nodig". Onbekend ontsteekt nooit; onzekerheid blijft kleurloos.
+  const DREMPEL = { tension: 2, reveal: 4, consistency: 5, non_reveal: 5, unknown: Infinity };
+  const drempel = (i) => DREMPEL[i && i.stance] ?? 4;
+  const bewijs = (i) => Math.max(1, Number(i && i.evidence_count) || 0);
 
   // ============================================================================================
-  // HET SIGNAALVELD
-  //
-  // Trap 1 tot 4 van de signal language (canon 9), in het dagregime. Koper aan de rand, violet
-  // in de kern. Elk punt is een werkelijke waarneming van deze organisatie. Een verbinding
-  // ontstaat uitsluitend tussen signalen die over hetzelfde gaan, nooit op grond van afstand
-  // (canon 8.1). De straal van het licht volgt het aantal signalen dat de uitspraak draagt
-  // (canon 7), niet de opmaak.
-  //
-  // De beweging is de levenscyclus uit canon 8.1: waarnemen, elkaar herkennen, verband, bewijs,
-  // inzicht, rust. Hij loopt één keer en blijft daarna staan. In het dagregime is er geen emissie
-  // (canon 7): het inzicht draagt een zachte bloom en een slagschaduw in plaats van gloed.
+  // 1. HET VELD
   // ============================================================================================
-  function signalField(insights, leading) {
-    const CX = 160, CY = 160, R = 116;
-    const others = (insights || []).filter((i) => !leading || i.id !== leading.id);
-    if (!others.length) return { svg: '', signals: 0, links: 0 };
+  const cv = $('veld');
+  const ctx = cv ? cv.getContext('2d') : null;
+  let W = 0, H = 0, SCHAAL = 1, CX = 0, CY = 0;
+  let patronen = [], signalen = [], kernen = [];
+  let klok = 0, t0 = 0, p = 0, raf = null;
+  let cam = { x: 0, y: 0, z: 1 }, camDoel = { x: 0, y: 0, z: 1 };
+  let modus = 'openen';            // openen · rust · bewijs
+  let focus = null;                // index van het patroon waarvan het bewijs open staat
+  let hoverSig = null;
+  let zegAnker = null, zegPunt = { x: 0, y: 0 }, zegBox = null;
+  let herkenning = {};             // inzicht-id → 'ja' | 'deels' | 'nee'; alleen dit bezoek
+  let laatsteBezoek = null;
 
-    const leadRole = role(leading);
-    // Nabijheid is het gevolg van betekenis: gelijke rollen komen naast elkaar te staan.
-    const ORDER = ['signal', 'emerging', 'confirmed', 'uncertain'];
-    const sorted = others.slice().sort((a, b) => ORDER.indexOf(role(a)) - ORDER.indexOf(role(b)));
+  const GOLD = '215,179,106', GOLD3 = '243,227,135', COP = '200,137,74', VIO = '138,121,224', ZAND = '236,224,201';
 
-    const n = sorted.length;
-    const nodes = sorted.map((ins, k) => {
-      // Deterministische plaatsing. Geen willekeur, dus twee runs geven hetzelfde veld.
-      const angle = (-Math.PI / 2) + (k * 2 * Math.PI / n) + 0.32;
-      const r = R - (k % 3) * 13;
-      const x = CX + Math.cos(angle) * r;
-      const y = CY + Math.sin(angle) * r * 0.92;
-      return { ins, x, y, role: role(ins), k, angle };
+  function meet() {
+    const r = cv.getBoundingClientRect();
+    // DPR begrensd: dit moet vloeiend zijn op gewone hardware. Er wordt nergens een filter of
+    // realtime blur gebruikt, alleen radiale gradients, arcs en lijnen.
+    let d = Math.min(window.devicePixelRatio || 1, 2);
+    if (r.width * r.height > 1600 * 1000) d = Math.min(d, 1.5);
+    cv.width = Math.max(1, Math.round(r.width * d));
+    cv.height = Math.max(1, Math.round(r.height * d));
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    W = r.width; H = r.height;
+    SCHAAL = (W <= 760) ? Math.min(W / 1.95, (H - 236) / 1.95) : Math.min(W / 2.35, H / 1.85);
+    CX = W * 0.5;
+    CY = (W <= 760) ? (H - 236) * 0.5 : H * 0.5;
+  }
+
+  // De compositie volgt de inhoud. Patronen worden geordend op rol, zodat wat over hetzelfde
+  // soort uitspraak gaat bij elkaar in de buurt ligt, en vervolgens op een spiraal geplaatst met
+  // een verschuiving die uit de organisatie zelf komt. Hetzelfde veld voor dezelfde organisatie,
+  // een ander veld zodra het beeld verandert. Nooit een vaste template.
+  function bouwVeld(inzichten, leidendId) {
+    const VOLGORDE = ['signal', 'emerging', 'confirmed', 'uncertain'];
+    const gesorteerd = inzichten.slice().sort((a, b) => {
+      if (a.id === leidendId) return -1;
+      if (b.id === leidendId) return 1;
+      const d = VOLGORDE.indexOf(rol(a)) - VOLGORDE.indexOf(rol(b));
+      return d !== 0 ? d : bewijs(b) - bewijs(a);
     });
 
-    // Trap 2 en 3. Twee soorten verbanden, beide betekenisdragend:
-    //   naar de kern  : dit signaal draagt de leidende uitspraak (zelfde rol)
-    //   onderling     : deze twee waarnemingen gaan over hetzelfde (zelfde rol, naast elkaar)
-    const links = [];
-    for (const nd of nodes) {
-      if (nd.role === leadRole) links.push({ x1: CX, y1: CY, x2: nd.x, y2: nd.y, kind: 'core' });
+    const zaad = hash(inzichten.map((i) => i.id).join('|')) * 6.2832;
+    const m = Math.max(gesorteerd.length, 1);
+    patronen = gesorteerd.map((ins, k) => {
+      const hoek = zaad + k * 2.39996;                     // gulden hoek: nooit een ring, nooit een raster
+      const straalUitCentrum = k === 0 ? 0.30 : 0.34 + 0.58 * Math.sqrt(k / m);
+      const wiebel = (hash(ins.id) - 0.5) * 0.16;
+      return {
+        ins,
+        x: cl(Math.cos(hoek) * (straalUitCentrum + wiebel) * 1.02, -0.94, 0.94),
+        y: cl(Math.sin(hoek) * (straalUitCentrum + wiebel) * 0.86, -0.80, 0.80),
+        straal: cl(0.085 + bewijs(ins) * 0.011, 0.07, 0.22),
+        n: bewijs(ins),
+        leidend: ins.id === leidendId,
+        nieuw: Boolean(laatsteBezoek && ins.updated_at && new Date(ins.updated_at) > laatsteBezoek),
+      };
+    });
+
+    signalen = []; kernen = [];
+    let k = 0;
+    patronen.forEach((pat, pi) => {
+      for (let i = 0; i < pat.n; i++) {
+        k++;
+        const a = (i / pat.n) * 6.2832 + pi * 2.1;
+        const rr = pat.straal * (0.74 + (i % 3) * 0.15);
+        const s1 = hash(pat.ins.id + ':' + i), s2 = hash(i + ':' + pat.ins.id);
+        signalen.push({
+          pat: pi, index: i,
+          // verstrooid thuis: de waarneming bestond al voordat zij betekenis kreeg
+          hx: (s1 * 2 - 1) * 1.02, hy: (s2 * 2 - 1) * 0.92,
+          // semantisch doel: waar zij hoort zodra duidelijk is waar zij over gaat
+          tx: pat.x + Math.cos(a) * rr, ty: pat.y + Math.sin(a) * rr * 0.86,
+          fase: s1 * 6.28, snel: 0.26 + s2 * 0.26, amp: 0.030 + s1 * 0.026,
+          vroeg: i / pat.n, nieuw: pat.nieuw && i >= pat.n - 1,
+        });
+      }
+      kernen.push({ pat: pi, ref: pat });
+    });
+  }
+
+  const sx = (x) => CX + (x - cam.x) * SCHAAL * cam.z;
+  const sy = (y) => CY + (y - cam.y) * SCHAAL * cam.z;
+
+  // Beweging is onzekerheid, stilte is bevestigd inzicht. De drift van elke waarneming neemt af
+  // naarmate haar patroon betekenis krijgt. Wie een patroon niet herkent, maakt het weer onzeker:
+  // dan komen de waarnemingen los en gaan zij opnieuw bewegen.
+  function positie(s) {
+    const eigen = cl((p - s.vroeg * 0.10) / 0.62);
+    const e = ease(eigen);
+    const pat = patronen[s.pat];
+    const antw = herkenning[pat.ins.id];
+    const los = antw === 'nee' ? 0.55 : 0;
+    const vast = antw === 'ja' ? 1 : 0;
+    const drift = (1 - e * 0.9) * (1 - vast) + los;
+    const adem = e * (1 - los);
+    return {
+      x: s.hx + (s.tx - s.hx) * e + Math.cos(klok * s.snel + s.fase) * s.amp * drift + Math.cos(klok * 0.20 + s.fase) * 0.004 * adem,
+      y: s.hy + (s.ty - s.hy) * e + Math.sin(klok * s.snel * 0.82 + s.fase) * s.amp * drift + Math.sin(klok * 0.17 + s.fase) * 0.004 * adem,
+      e,
+    };
+  }
+
+  // Hoeveel bewijs draagt dit patroon, ten opzichte van zijn eigen drempel. Menselijke herkenning
+  // telt mee: zonder de mens blijft een patroon een vermoeden.
+  function kracht(pat) {
+    let k2 = pat.n / (drempel(pat.ins) === Infinity ? Infinity : Math.max(drempel(pat.ins), 1));
+    const a = herkenning[pat.ins.id];
+    if (a === 'ja') k2 *= 1.35;
+    if (a === 'deels') k2 *= 0.92;
+    if (a === 'nee') k2 *= 0.42;
+    return k2;
+  }
+  const ontstoken = (pat) => kracht(pat) >= 1;
+  // Canon 7: de straal is een functie van het aantal onafhankelijke signalen, niet van de opmaak.
+  const halo = (pat, ign) => (0.030 + pat.n * 0.0092) * Math.min(kracht(pat), 1.9) * ign;
+
+  function gloed(x, y, r, rgb, a) {
+    if (r <= 0.4 || a <= 0.004) return;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(${rgb},${a})`);
+    g.addColorStop(0.42, `rgba(${rgb},${(a * 0.28).toFixed(4)})`);
+    g.addColorStop(1, `rgba(${rgb},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+  }
+
+  // Waar het bewijs open staat, treedt de rest terug. Dat is geen dimmen om esthetiek maar focus.
+  function demping(patIndex) {
+    if (focus === null) return 1;
+    return patIndex === focus ? 1 : 0.18;
+  }
+  // Waar Maculis spreekt, maakt het veld ruimte. Het patroon dat spreekt wijkt nooit voor zijn
+  // eigen tekst: dat is juist de hoofdrol.
+  function ruimte(x, y, ontzie) {
+    if (ontzie || !zegBox || !$('zeg').classList.contains('in')) return 1;
+    const m = 26;
+    const dx = Math.max(zegBox.x - m - x, 0, x - (zegBox.x + zegBox.w + m));
+    const dy = Math.max(zegBox.y - m - y, 0, y - (zegBox.y + zegBox.h + m));
+    return cl(Math.hypot(dx, dy) / 58, 0.10, 1);
+  }
+
+  // De HUD staat op vaste plekken in beeld. Een naam uit het veld hoort daar niet doorheen te
+  // lopen: een label is tekst, en twee teksten over elkaar zijn onleesbaar. Signalen en lijnen
+  // mogen er wel achter blijven staan, want die lezen als diepte.
+  let hudZones = [];
+  function meetHud() {
+    hudZones = ['.merk', '.rand', '.onder'].map((sel) => {
+      const el = document.querySelector(sel);
+      if (!el || el.offsetParent === null) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.left - 12, y: r.top - 10, w: r.width + 24, h: r.height + 20 };
+    }).filter(Boolean);
+  }
+  function vrijVoorTekst(x, y, halfBreed, ontzie) {
+    if (ruimte(x, y, ontzie) < 0.5) return false;
+    for (const z of hudZones) {
+      if (x + halfBreed > z.x && x - halfBreed < z.x + z.w && y > z.y - 12 && y < z.y + z.h + 6) return false;
     }
-    for (let k = 1; k < nodes.length; k++) {
-      if (nodes[k].role === nodes[k - 1].role) {
-        links.push({ x1: nodes[k - 1].x, y1: nodes[k - 1].y, x2: nodes[k].x, y2: nodes[k].y, kind: 'peer' });
+    return true;
+  }
+
+  function teken() {
+    ctx.clearRect(0, 0, W, H);
+    if (!patronen.length) return;
+    meetHud();
+
+    // light.field: een zeer wijde radiale gradient die het oppervlak richting geeft. Hij staat waar
+    // op dit moment het meeste bewijs ligt, dus hij betekent iets (canon 7).
+    const zwaarste = patronen.reduce((a, b) => (kracht(b) > kracht(a) ? b : a), patronen[0]);
+    const lf = cl((p - 0.30) / 0.5);
+    gloed(sx(zwaarste.x), sy(zwaarste.y), Math.min(W, H) * 0.95 * cam.z, VIO, 0.055 * lf);
+
+    const P = signalen.map(positie);
+
+    // trap 2 en 3: verband, uitsluitend binnen hetzelfde patroon
+    const link = cl((p - 0.40) / 0.24);
+    if (link > 0) {
+      ctx.lineWidth = 1;
+      for (let i = 0; i < signalen.length; i++) {
+        for (let j = i + 1; j < signalen.length; j++) {
+          if (signalen[j].pat !== signalen[i].pat) continue;
+          const ax = sx(P[i].x), ay = sy(P[i].y), bx = sx(P[j].x), by = sy(P[j].y);
+          const d = Math.hypot(ax - bx, ay - by), reik = 118 * cam.z;
+          if (d > reik) continue;
+          const eigen = signalen[i].pat === zegAnker;
+          let a = link * (1 - d / reik) * 0.26 * demping(signalen[i].pat)
+            * Math.min(ruimte(ax, ay, eigen), ruimte(bx, by, eigen));
+          if (herkenning[patronen[signalen[i].pat].ins.id] === 'nee') a *= 0.35;
+          if (a <= 0.004) continue;
+          ctx.strokeStyle = `rgba(${COP},${a.toFixed(4)})`;
+          ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+        }
       }
     }
 
-    // Het bewijs onder de uitspraak: het aantal signalen dat naar de kern loopt. Daar volgt de
-    // straal van het licht uit, en verder niets.
-    const carrying = links.filter((l) => l.kind === 'core').length;
-    const halo = 34 + carrying * 13;
-    const core = 7 + Math.min(carrying, 4);
+    // trap 4: het inzicht. Canon 7: maximaal één light.core per scherm.
+    const ign = cl((p - 0.66) / 0.30);
+    const hoofdrol = focus !== null ? focus : zegAnker;
+    kernen.forEach((kern) => {
+      const pat = kern.ref;
+      const kx = sx(pat.x), ky = sy(pat.y);
+      let dim = demping(kern.pat) * ruimte(kx, ky, kern.pat === zegAnker);
+      if (dim <= 0.02) return;
+      const straal = halo(pat, ign) * SCHAAL * cam.z;
+      const isKern = kern.pat === hoofdrol;
 
-    const len = (l) => Math.round(Math.hypot(l.x2 - l.x1, l.y2 - l.y1));
-    const linkSvg = links.map((l, i) => {
-      const stroke = l.kind === 'core' ? 'var(--semantic-emerging)' : 'var(--copper-700)';
-      const op = l.kind === 'core' ? 0.34 : 0.24;
-      return `<line class="sf-link" style="--len:${len(l)};--i:${i}" x1="${l.x1.toFixed(1)}" y1="${l.y1.toFixed(1)}" x2="${l.x2.toFixed(1)}" y2="${l.y2.toFixed(1)}" stroke="${stroke}" stroke-opacity="${op}" stroke-width="1"/>`;
-    }).join('');
+      // Van jou alleen: een zandmerkteken op de kern. Het oppervlak draagt het, niet een badge.
+      if (pat.ins.sharing !== 'SHARED' && pat.ins.sharing !== 'AGGREGATED' && ign > 0 && ontstoken(pat)) {
+        const pr = cl(straal * 1.15, 13 * cam.z, 30 * cam.z);
+        ctx.strokeStyle = `rgba(${ZAND},${(0.26 * ign * dim).toFixed(4)})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(kx, ky, pr, 0, 6.2832); ctx.stroke();
+      }
 
-    const nodeSvg = nodes.map((nd) => {
-      // Signalen komen binnen als koper (canon 9). Alleen wat nog aan het worden is, staat violet.
-      const fill = nd.role === 'emerging' ? 'var(--semantic-emerging)' : 'var(--copper-500)';
-      const r = nd.role === leadRole ? 4 : 3;
-      // Ze drijven van buiten naar binnen: waarnemen, dan naar elkaar toe buigen.
-      const dx = (Math.cos(nd.angle) * 26).toFixed(1);
-      const dy = (Math.sin(nd.angle) * 26).toFixed(1);
-      return `<circle class="sf-node" style="--i:${nd.k};--dx:${dx}px;--dy:${dy}px" cx="${nd.x.toFixed(1)}" cy="${nd.y.toFixed(1)}" r="${r}" fill="${fill}" fill-opacity="${nd.role === leadRole ? 0.95 : 0.7}"/>`;
-    }).join('');
+      if (ontstoken(pat) && ign > 0) {
+        const sterkte = isKern ? 1 : 0.16;
+        gloed(kx, ky, straal * (isKern ? 2.6 : 1.5), VIO, (0.11 + pat.n * 0.006) * ign * dim * sterkte);
+        if (isKern) {
+          gloed(kx, ky, straal * 0.66, VIO, 0.42 * ign * dim);
+          ctx.fillStyle = `rgba(200,192,245,${(0.95 * ign * dim).toFixed(3)})`;
+          ctx.beginPath(); ctx.arc(kx, ky, 3.0, 0, 6.2832); ctx.fill();
+        } else {
+          ctx.fillStyle = `rgba(169,155,236,${(0.42 * ign * dim).toFixed(3)})`;
+          ctx.beginPath(); ctx.arc(kx, ky, 1.8, 0, 6.2832); ctx.fill();
+        }
+      }
 
-    const svg = `<svg class="orbit" viewBox="0 0 320 320" aria-hidden="true">
-      <defs>
-        <radialGradient id="sfBloom" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="var(--semantic-emerging)" stop-opacity="0.22"/>
-          <stop offset="55%" stop-color="var(--semantic-emerging)" stop-opacity="0.07"/>
-          <stop offset="100%" stop-color="var(--semantic-emerging)" stop-opacity="0"/>
-        </radialGradient>
-        <filter id="sfCast" x="-60%" y="-60%" width="220%" height="220%">
-          <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#5f4fb0" flood-opacity="0.35"/>
-        </filter>
-      </defs>
-      ${linkSvg}
-      ${nodeSvg}
-      <circle class="sf-halo" cx="${CX}" cy="${CY}" r="${halo}" fill="url(#sfBloom)"/>
-      <circle class="sf-core" cx="${CX}" cy="${CY}" r="${core}" fill="var(--semantic-emerging)" filter="url(#sfCast)"/>
-    </svg>`;
+      // De naam verschijnt pas als het patroon echt is. Wat te weinig bewijs heeft krijgt geen
+      // naam maar wel een eerlijke tekst: Maculis kleurt niet wat het niet weet.
+      const la = cl((p - 0.58) / 0.26) * dim;
+      if (la > 0) {
+        const noem = ontstoken(pat);
+        ctx.font = `600 10px ${getComputedStyle(document.body).fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.letterSpacing = '1.6px';
+        ctx.fillStyle = (noem && isKern) ? `rgba(169,155,236,${(0.88 * la).toFixed(3)})`
+          : noem ? `rgba(168,154,134,${(0.62 * la).toFixed(3)})`
+            : `rgba(139,131,119,${(0.66 * la).toFixed(3)})`;
+        const tekst = noem ? kort(pat.ins.title).toUpperCase() : 'TE WEINIG BEWIJS';
+        const half = ctx.measureText(tekst).width * 0.5 + 10;
+        const off = Math.max(straal, pat.straal * SCHAAL * cam.z * 0.95, 18) + 26;
+        const lx = cl(kx, half, Math.max(half, W - half));
+        // twee kandidaatplekken: onder de kern, en anders erboven
+        let ly = ky + off;
+        if (!vrijVoorTekst(lx, ly, half, kern.pat === zegAnker)) ly = ky - off;
+        if (vrijVoorTekst(lx, ly, half, kern.pat === zegAnker)) ctx.fillText(tekst, lx, ly);
+        ctx.letterSpacing = '0px';
+      }
+    });
 
-    return { svg, signals: nodes.length, links: links.length };
-  }
+    // trap 1: de waarnemingen zelf
+    for (let q = 0; q < signalen.length; q++) {
+      const s = signalen[q], pt = P[q];
+      const x = sx(pt.x), y = sy(pt.y);
+      if (x < -40 || x > W + 40 || y < -40 || y > H + 40) continue;
+      let dim = demping(s.pat) * ruimte(x, y, s.pat === zegAnker);
+      if (dim <= 0.02) continue;
+      const geboorte = cl(p / 0.10);
+      // helderheid volgt hoe dicht een waarneming bij een inzicht staat
+      const aan = geboorte * lerp(0.42, 1, pt.e) * dim * (hoverSig === q ? 1.5 : 1);
+      gloed(x, y, 13 * (hoverSig === q ? 1.6 : 1) * cam.z, GOLD, 0.26 * aan);
+      ctx.fillStyle = `rgba(${GOLD3},${(0.90 * aan).toFixed(3)})`;
+      ctx.beginPath(); ctx.arc(x, y, 1.9 * (hoverSig === q ? 1.6 : 1), 0, 6.2832); ctx.fill();
 
-  // De legenda maakt het licht eerlijk: in tekst staat waarop het rust (canon 7 en 10).
-  function fieldLegend(field) {
-    if (!field.svg) return '';
-    const w = (n, one, many) => `<b>${n}</b> ${n === 1 ? one : many}`;
-    return `<p class="field-legend">Dit inzicht rust op ${w(field.signals, 'waarneming', 'waarnemingen')}
-      en ${w(field.links, 'verband', 'verbanden')}.</p>`;
-  }
-
-  // ---- navigation / router ----
-  const PAGES = {
-    overzicht: { title: 'Waar vraagt onze organisatie om aandacht?', sub: 'Dit is wat we op dit moment zien, begrijpen en samen doen.' },
-    inzichten: { title: 'De Spiegel', sub: 'Wat we over jullie organisatie zien. Nieuw, bevestigd, en soms nog onzeker.' },
-    samenwerking: { title: 'Samenwerking', sub: 'Waar we samen aan werken en wat we hebben afgesproken.' },
-    inzicht: { title: 'Inzicht', sub: '' },
-  };
-
-  function setActiveNav(route) {
-    document.querySelectorAll('.nav-item').forEach((a) => a.classList.toggle('active', a.dataset.route === route));
-  }
-  function setHeader(page) {
-    $('page-title').textContent = PAGES[page].title;
-    $('page-sub').textContent = PAGES[page].sub;
-  }
-  const go = (hash) => { location.hash = hash; };
-
-  async function router() {
-    const hash = location.hash.replace(/^#\//, '') || 'overzicht';
-    const [route, arg] = hash.split('/');
-    if (route === 'inzichten') { setActiveNav('inzichten'); setHeader('inzichten'); return renderInsights(); }
-    if (route === 'samenwerking') { setActiveNav('samenwerking'); setHeader('samenwerking'); return renderCollaboration(); }
-    if (route === 'inzicht' && arg) { setActiveNav('inzichten'); setHeader('inzicht'); return renderDetail(arg); }
-    setActiveNav('overzicht'); setHeader('overzicht'); return renderOverview();
-  }
-
-  // ---- views ----
-  function skeleton() { view.innerHTML = '<p class="skel">Eén moment.</p>'; }
-
-  // Lege staat: ontworpen, niet leeg. Serif-regel plus één actie (canon 12).
-  function emptyState(line, actionLabel, nav) {
-    return `<div class="empty">
-      <p class="stem">${esc(line)}</p>
-      ${actionLabel ? `<button class="btn-link" data-nav="${esc(nav)}">${esc(actionLabel)} ${ICON.arrow}</button>` : ''}
-    </div>`;
-  }
-
-  async function renderOverview() {
-    skeleton();
-    // Het signaalveld moet op ALLE waarnemingen rusten, niet alleen op de drie recente.
-    // Anders zou het licht meer beweren dan het bewijs draagt (canon 7).
-    const [ov, ins] = await Promise.all([api('/api/mijn/overview'), api('/api/mijn/insights')]);
-    const data = ov.data || {};
-    const a = data.attention;
-    const c = data.collaboration || {};
-    const all = ((ins.data && ins.data.insights) || []).length
-      ? ins.data.insights
-      : (a ? [a, ...(data.recent || [])] : (data.recent || []));
-
-    const field = a ? signalField(all, a) : { svg: '', signals: 0, links: 0 };
-    const hero = a ? `
-      <section class="hero">
-        <div class="hero-inner">
-          <div class="detail-head">
-            ${stancePill(a)}
-            ${shareTag(a.sharing)}
-          </div>
-          <h2>${esc(a.title)}</h2>
-          <p>${esc(a.basis || a.observation || '')}</p>
-          ${fieldLegend(field)}
-          <div class="hero-actions">
-            <button class="btn btn-primary" data-nav="inzicht/${esc(a.id)}">Bekijk inzicht</button>
-            <button class="btn-ghost" data-nav="inzichten">Meer inzichten ${ICON.arrow}</button>
-          </div>
-        </div>
-        ${field.svg}
-      </section>` : `<section class="hero"><div class="hero-inner">
-        <h2>Je bent bij.</h2>
-        <p class="stem">Zodra Maculis iets over jullie organisatie ziet, verschijnt het hier.</p>
-      </div></section>`;
-
-    const recent = (data.recent || []).map((i) => insightCard(i)).join('');
-    const recentPanel = `
-      <section class="panel">
-        <p class="section-label">Recente inzichten</p>
-        <div class="insight-grid">${recent || emptyState('Er is nog niets anders te zien.')}</div>
-        ${data.insightCount > 1 ? '<button class="btn btn-block" data-nav="inzichten">Naar alle inzichten</button>' : ''}
-      </section>`;
-
-    // Een stille reflectie in de eigen stem van de omgeving, geen aanbeveling.
-    const epigraph = `
-      <section class="epigraph">
-        <p class="stem">Losse signalen krijgen hier langzaam betekenis, tot je ziet wat er werkelijk speelt.</p>
-        <span class="epigraph-src"><span class="brand-ring" aria-hidden="true"></span>Mijn Maculis</span>
-      </section>`;
-
-    view.innerHTML = `
-      <div class="ov-grid">
-        <div class="ov-col">${hero}${recentPanel}</div>
-        <div class="ov-col">${collabGlance(c)}${laatsteStap(c)}${epigraph}</div>
-      </div>
-      ${privacyRow()}`;
-    wireNav();
-  }
-
-  // Right-column building blocks, shared between the Overzicht and De Spiegel compositions so both
-  // pages carry the same samenwerking glance and next-step card.
-  function collabGlance(c) {
-    c = c || {};
-    return `
-      <section class="panel">
-        <p class="section-label">Samenwerking in één oogopslag</p>
-        <div class="glance">
-          ${c.upcomingAppointment ? glanceRow('ok', ICON.check, 'Eerstvolgende afspraak', `${esc(fmtDate(c.upcomingAppointment.due_at, true))}${c.upcomingAppointment.detail ? '. ' + esc(c.upcomingAppointment.detail) : ''}`, 'samenwerking') : ''}
-          ${c.research ? glanceRow('', ICON.research, esc(c.research.title), esc(c.research.detail || 'Lopend onderzoek'), 'samenwerking') : ''}
-          ${glanceRow('', ICON.bell, 'Gedeeld met Maculis', `${c.sharedCount || 0} ${(c.sharedCount === 1) ? 'inzicht' : 'inzichten'}${c.lastSharedAt ? '. Laatste gedeeld op ' + esc(fmtDate(c.lastSharedAt)) : ''}`, 'inzichten')}
-        </div>
-      </section>`;
-  }
-
-  function laatsteStap(c) {
-    const step = (c || {}).nextStep;
-    return `
-      <section class="atmos-card">
-        <div class="atmos-inner">
-          <p class="atmos-eyebrow">Onze laatste stap</p>
-          <p class="atmos-line">${esc(step ? (step.detail || step.title) : 'Zodra we samen een volgende stap afspreken, zie je die hier.')}</p>
-          <button class="btn-ghost" data-nav="samenwerking">Bekijk alle afspraken ${ICON.arrow}</button>
-        </div>
-      </section>`;
-  }
-
-  // De Spiegel sluit af met een reflectie in de stem van de organisatie zelf.
-  function orgEpigraph() {
-    return `
-      <section class="epigraph">
-        <p class="stem">De inzichten geven ons een helder beeld van waar we staan en waar de kansen liggen.</p>
-        <span class="epigraph-src"><span class="brand-ring" aria-hidden="true"></span>${esc(orgName || 'Onze organisatie')}</span>
-      </section>`;
-  }
-
-  function glanceRow(icoMod, ico, title, meta, nav) {
-    return `<button class="glance-row" data-nav="${esc(nav)}">
-      <span class="glance-ico ${icoMod}">${ico}</span>
-      <span class="glance-text"><span class="glance-title">${title}</span><span class="glance-meta">${meta}</span></span>
-      <span class="glance-chev">${ICON.chev}</span>
-    </button>`;
-  }
-
-  // De kaart draagt drie dingen, elk met een eigen drager: het oppervlak zegt of dit van jou
-  // alleen is, de linkerrand van 2px zegt welke houding het inzicht heeft, en de tekst zegt
-  // allebei nog een keer. Kleur is nooit de enige drager (canon 10).
-  function insightCard(i) {
-    const when = fmtDate(i.updated_at || i.created_at, false);
-    const priv = i.sharing === 'SHARED' || i.sharing === 'AGGREGATED' ? '' : ' is-private';
-    return `<button class="icard on-${role(i)}${priv}" data-nav="inzicht/${esc(i.id)}">
-      <div class="icard-top">
-        ${shareTag(i.sharing)}
-        ${i.unshared_development ? '<span class="pill is-emerging"><span class="dot"></span>Bijgewerkt</span>' : ''}
-      </div>
-      <h3>${esc(i.title)}</h3>
-      <p>${esc(i.observation || '')}</p>
-      <div class="icard-foot">
-        <span class="icard-when">${esc(when)}</span>
-        <span class="icard-go" aria-hidden="true">${ICON.arrow}</span>
-      </div>
-    </button>`;
-  }
-
-  function privacyRow() {
-    return `<section class="panel privacy">
-      <p class="section-label">Jouw informatie, jouw keuze</p>
-      <div class="privacy-grid">
-        <div class="priv"><span class="priv-ico lock">${ICON.lock}</span><div><h4>Wat blijft privé?</h4><p>Inzichten die alleen voor jou zichtbaar zijn. Deze gebruikt Maculis niet zonder jouw expliciete toestemming.</p></div></div>
-        <div class="priv"><span class="priv-ico share">${ICON.people}</span><div><h4>Wat kun je delen?</h4><p>Jij bepaalt wat je met Maculis wilt bespreken. Alleen gedeelde inzichten worden onderdeel van onze samenwerking.</p></div></div>
-        <div class="priv"><span class="priv-ico trust">${ICON.shield}</span><div><h4>Jouw vertrouwen, onze basis</h4><p>Privacy en vertrouwelijkheid staan centraal. Zo gaan we zorgvuldig met jouw informatie om.</p></div></div>
-      </div>
-    </section>`;
-  }
-
-  // De Spiegel: één leidende uitspraak die het signaalveld draagt, de rest in een rustig raster.
-  function spiegelHero(i, all) {
-    const field = signalField(all, i);
-    return `<button class="spiegel-hero" data-nav="inzicht/${esc(i.id)}">
-      <div class="spiegel-hero-inner">
-        <div class="detail-head">
-          ${stancePill(i)}
-          ${shareTag(i.sharing)}
-        </div>
-        <h2>${esc(i.title)}</h2>
-        <p>${esc(i.observation || '')}</p>
-        ${fieldLegend(field)}
-        <span class="btn-link">Bekijk inzicht ${ICON.arrow}</span>
-      </div>
-      ${field.svg}
-    </button>`;
-  }
-
-  async function renderInsights() {
-    skeleton();
-    const [ins, ov] = await Promise.all([api('/api/mijn/insights'), api('/api/mijn/overview')]);
-    const items = (ins.data && ins.data.insights) || [];
-    if (!items.length) {
-      view.innerHTML = emptyState('Je bent bij. Er is nog niets dat we jullie kunnen teruggeven.', 'Naar samenwerking', 'samenwerking');
-      wireNav();
-      return;
+      // wat sinds je vorige bezoek is bijgekomen, draagt een koperen ring tot je het hebt gezien
+      if (s.nieuw && modus !== 'bewijs') {
+        ctx.strokeStyle = `rgba(${COP},${(0.5 * aan).toFixed(3)})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(x, y, 7 + Math.sin(klok * 0.9 + s.fase) * 1.2, 0, 6.2832); ctx.stroke();
+      }
     }
-    const c = (ov.data && ov.data.collaboration) || {};
-    const dominant = items.find((i) => i.attention) || items[0];
-    const rest = items.filter((i) => i.id !== dominant.id);
 
-    const recentPanel = `
-      <section class="panel">
-        <p class="section-label">Recente inzichten</p>
-        <div class="insight-grid">${rest.length ? rest.map(insightCard).join('') : emptyState('Dit is op dit moment het enige inzicht.')}</div>
-      </section>`;
-
-    view.innerHTML = `
-      <div class="ov-grid">
-        <div class="ov-col">${spiegelHero(dominant, items)}${recentPanel}</div>
-        <div class="ov-col">${collabGlance(c)}${laatsteStap(c)}${orgEpigraph()}</div>
-      </div>
-      ${privacyRow()}`;
-    wireNav();
+    // de leider van de uitspraak naar haar kern
+    if (zegAnker !== null && patronen[zegAnker] && $('zeg').classList.contains('in') && W > 760) {
+      ctx.strokeStyle = `rgba(${COP},.22)`; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(zegPunt.x, zegPunt.y);
+      ctx.lineTo(sx(patronen[zegAnker].x), sy(patronen[zegAnker].y)); ctx.stroke();
+    }
   }
 
-  async function renderDetail(id) {
-    skeleton();
-    const { status, data } = await api('/api/mijn/insights/' + encodeURIComponent(id));
+  // Een korte naam voor in het veld: de eerste betekenisvolle woorden van de uitspraak.
+  function kort(titel) {
+    const woorden = String(titel || '').replace(/[.,:;]/g, '').split(/\s+/).filter(Boolean);
+    const stop = new Set(['de', 'het', 'een', 'en', 'van', 'in', 'op', 'te', 'dat', 'die', 'is', 'we', 'er', 'wordt', 'jullie', 'onze', 'over', 'niet', 'nog', 'hebben', 'zien', 'tussen', 'wat']);
+    const kern = woorden.filter((w) => !stop.has(w.toLowerCase()));
+    return (kern.slice(0, 2).join(' ') || woorden.slice(0, 2).join(' ')).slice(0, 26);
+  }
+
+  // ============================================================================================
+  // 2. DE CHOREOGRAFIE
+  // Twintig seconden, één keer, met een eindtoestand. Reduced motion toont die eindtoestand
+  // direct: nooit een bevroren begin (canon 8.5).
+  // ============================================================================================
+  const DUUR = 20000;
+  const STADIA = [
+    [0.00, 'Maculis kijkt.'],
+    [0.10, 'Waarnemingen komen binnen. Nog zonder verband.'],
+    [0.30, 'Sommige signalen zoeken hun plaats.'],
+    [0.42, 'Signalen die over hetzelfde gaan, vinden elkaar.'],
+    [0.58, 'Er tekent zich een patroon af.'],
+    [0.70, 'Hier komt genoeg bewijs samen.'],
+    [0.88, 'Het veld is tot rust gekomen.'],
+  ];
+
+  function stadium() {
+    let s = STADIA[0][1];
+    for (const [g, tekst] of STADIA) if (p >= g) s = tekst;
+    if (modus === 'bewijs') s = 'Je kijkt naar het bewijs onder dit inzicht.';
+    const el = $('toestand');
+    if (el.textContent !== s) el.textContent = s;
+  }
+
+  function plaatsUitspraak() {
+    const elZeg = $('zeg');
+    if (zegAnker === null || !patronen[zegAnker] || W <= 760) { zegBox = null; return; }
+    const pat = patronen[zegAnker];
+    const kx = sx(pat.x), ky = sy(pat.y);
+    const breed = elZeg.offsetWidth, hoog = elZeg.offsetHeight;
+    if (!breed || !hoog) return;
+    const marge = Math.min(W, H) * 0.055;
+    const straal = Math.max(halo(pat, 1) * SCHAAL * cam.z, pat.straal * SCHAAL * cam.z) + 56;
+
+    // Maculis spreekt waar het veld ruimte heeft. De uitspraak staat dus niet op een vaste plek
+    // in een template maar in het leegste gebied naast haar eigen kern.
+    const kandidaten = [
+      { x: kx + straal, y: ky - hoog * 0.5 },
+      { x: kx - straal - breed, y: ky - hoog * 0.5 },
+      { x: kx - breed * 0.5, y: ky + straal },
+      { x: kx - breed * 0.5, y: ky - straal - hoog },
+      { x: W - breed - marge, y: H * 0.5 - hoog * 0.5 },
+      { x: marge, y: H * 0.5 - hoog * 0.5 },
+    ];
+    let beste = null, besteScore = -Infinity;
+    for (const k of kandidaten) {
+      const bx = cl(k.x, marge, Math.max(marge, W - breed - marge));
+      const by = cl(k.y, marge + 44, Math.max(marge + 44, H - hoog - marge - 84));
+      const mx = bx + breed * 0.5, my = by + hoog * 0.5;
+      let score = 0;
+      patronen.forEach((q, qi) => {
+        if (qi === zegAnker) return;
+        score += Math.min(Math.hypot(sx(q.x) - mx, sy(q.y) - my), 520);
+      });
+      score -= Math.hypot(kx - mx, ky - my) * 0.55;
+      // de eigen kern is de hoofdrol: daar gaat de uitspraak nooit overheen
+      const eigenR = Math.max(pat.straal * SCHAAL * cam.z, 60) + 40;
+      const dx = Math.max(bx - kx, 0, kx - (bx + breed));
+      const dy = Math.max(by - ky, 0, ky - (by + hoog));
+      if (Math.hypot(dx, dy) < eigenR) score -= 1e5;
+      if (by < 100 && bx + breed > W - 400) score -= 900;      // niet over de bediening
+      if (by + hoog > H - 130 && bx < 470) score -= 900;       // niet over de groet
+      if (score > besteScore) { besteScore = score; beste = { x: bx, y: by }; }
+    }
+    elZeg.style.transform = `translate3d(${Math.round(beste.x)}px,${Math.round(beste.y)}px,0)`;
+    zegBox = { x: beste.x, y: beste.y, w: breed, h: hoog };
+    const naarRechts = kx > beste.x + breed * 0.5;
+    zegPunt.x = naarRechts ? beste.x + breed + 10 : beste.x - 10;
+    zegPunt.y = beste.y + hoog * 0.42;
+  }
+
+  function lus() {
+    const dt = nu() - t0;
+    klok = (dt / 1000) * 0.72;
+    if (modus === 'openen') {
+      p = cl(dt / DUUR);
+      if (p >= 1) { modus = 'rust'; toonUitspraak(); }
+    }
+    cam.x = lerp(cam.x, camDoel.x, 0.045);
+    cam.y = lerp(cam.y, camDoel.y, 0.045);
+    cam.z = lerp(cam.z, camDoel.z, 0.045);
+    teken(); stadium(); plaatsUitspraak();
+    raf = requestAnimationFrame(lus);
+  }
+
+  function meteenKlaar() {
+    if (modus !== 'openen') return;
+    t0 = nu() - DUUR; p = 1; modus = 'rust'; toonUitspraak();
+  }
+
+  // ============================================================================================
+  // 3. WAT MACULIS ZEGT
+  // ============================================================================================
+  let inzichten = [], leidend = null, samenwerking = null;
+
+  function toonUitspraak() {
+    const pat = patronen[zegAnker];
+    if (!pat) return;
+    const i = pat.ins;
+    $('zeg-aanhef').textContent = houdingLabel(i.stance);
+    $('zeg-titel').innerHTML = accent(i.title);
+    const n = bewijs(i);
+    $('zeg-rust').innerHTML = ontstoken(pat)
+      ? `Rust op <b>${n}</b> ${n === 1 ? 'waarneming' : 'waarnemingen'}.`
+        + (pat.nieuw ? ' Sinds je vorige bezoek is er iets bijgekomen.' : '')
+      : 'Hier is nog <b>te weinig bewijs</b> om iets te zeggen.';
+    $('zeg').classList.add('in');
+  }
+
+  // De cursieve nadruk valt op het woord dat het inzicht draagt (canon 4.2), en dat is de
+  // ontkenning of de kwalificatie in de zin. Geen willekeurig woord.
+  function accent(titel) {
+    const t = esc(titel || '');
+    const kandidaten = ['niet overal', 'géén verschil', 'geen kloof', 'onvoldoende zicht', 'niet', 'géén', 'geen', 'consistente lijn', 'duidelijker'];
+    for (const k of kandidaten) {
+      const idx = t.toLowerCase().indexOf(k);
+      if (idx >= 0) return t.slice(0, idx) + '<em>' + t.slice(idx, idx + k.length) + '</em>' + t.slice(idx + k.length);
+    }
+    return t;
+  }
+
+  // ============================================================================================
+  // 4. HET BEWIJS KOMT UIT HET VELD
+  // ============================================================================================
+  const bladen = ['bewijs', 'patronen', 'samen'];
+  function sluitBladen(behalve) {
+    bladen.forEach((id) => {
+      const el = $(id);
+      if (id === behalve) return;
+      el.classList.remove('in');
+      el.setAttribute('aria-hidden', 'true');
+      el.inert = true;
+    });
+    if (!behalve) {
+      document.body.classList.remove('blad-open');
+      $('zeg').classList.remove('wijkt');
+      document.querySelector('.rand').classList.remove('wijkt');
+    }
+  }
+  function openBlad(id) {
+    sluitBladen(id);
+    const el = $(id);
+    el.inert = false;
+    el.setAttribute('aria-hidden', 'false');
+    el.classList.add('in');
+    document.body.classList.add('blad-open');
+    $('zeg').classList.add('wijkt');
+    document.querySelector('.rand').classList.add('wijkt');
+  }
+
+  async function openBewijs(patIndex) {
+    meteenKlaar();
+    const pat = patronen[patIndex];
+    if (!pat) return;
+    focus = patIndex;
+    modus = 'bewijs';
+    zegAnker = patIndex;
+    // de camera brengt dit patroon naar voren; de rest treedt terug
+    camDoel.x = pat.x + (window.innerWidth > 760 ? 0.22 : 0);
+    camDoel.y = pat.y + (window.innerWidth > 760 ? 0 : -0.16);
+    camDoel.z = 1.7;
+    openBlad('bewijs');
+
+    const i = pat.ins;
+    $('bw-aanhef').textContent = houdingLabel(i.stance);
+    $('bw-titel').innerHTML = accent(i.title);
+    $('bw-lead').textContent = i.observation || 'Dit hebben we nog niet opgeschreven.';
+    $('bw-getal').textContent = String(bewijs(i));
+    $('bw-bronnen').innerHTML = '<li class="leeg">Eén moment.</li>';
+    $('bw-sterkte').textContent = '';
+    $('bw-dev').classList.add('hidden');
+    toonVraag(pat);
+    toonGrens(pat);
+
+    const { status, data } = await api('/api/mijn/insights/' + encodeURIComponent(i.id));
     if (status !== 200 || !data.insight) {
-      view.innerHTML = emptyState('Dit inzicht is niet gevonden.', 'Terug naar De Spiegel', 'inzichten');
-      wireNav();
+      $('bw-bronnen').innerHTML = '<li class="leeg"><p>Dit inzicht is niet meer beschikbaar.</p></li>';
       return;
     }
-    view.innerHTML = detailMarkup(data.insight, data.development || []);
-    wireNav();
-    wireDetail(data.insight);
+    pat.ins = data.insight;
+    vulBewijs(pat, data.evidence || [], data.development || []);
   }
 
-  // De menselijke ontwikkeling: rustig, standaard dichtgeklapt, zonder versie-ids of confidence.
-  function developmentSection(development) {
-    if (!development || development.length < 2) return '';
-    const rows = development.map((e) => `
-      <li class="dev-entry ${e.current ? 'current' : ''}">
-        <span class="dev-when">${esc(fmtDate(e.at, false))}${e.current ? ', nu' : ''}</span>
-        <span class="dev-body">
-          <span class="dev-stance">${esc(e.stanceLabel)}</span>
-          <span class="dev-note">${esc(e.note || e.headline || '')}</span>
-        </span>
-      </li>`).join('');
-    return `<details class="dev">
-      <summary><span class="dev-summary-title">Hoe dit inzicht zich ontwikkelde</span><span class="dev-summary-hint">${development.length} momenten</span></summary>
-      <ol class="dev-list">${rows}</ol>
-    </details>`;
-  }
+  function vulBewijs(pat, evidence, development) {
+    const i = pat.ins;
+    const momenten = new Set(evidence.map((e) => fmtKort(e.at))).size;
+    $('bw-getal').textContent = String(evidence.length || bewijs(i));
+    $('bw-sterkte').textContent = evidence.length <= 1
+      ? 'waarneming. Te weinig om iets te zeggen, en dat zeggen we dan ook.'
+      : `onafhankelijke waarnemingen, over ${momenten} ${momenten === 1 ? 'moment' : 'momenten'}. De straal van het licht volgt dit aantal.`;
 
-  function sharePanel(i) {
-    const shared = i.sharing === 'SHARED';
-    const unshared = shared && i.unshared_development;
-    const skin = shared ? '' : ' is-private';
-    if (unshared) {
-      // Een eerdere lezing is gedeeld, een nieuwere is privé. Kalm, ondubbelzinnig, geen dark pattern.
-      return `<div class="share-panel${skin}">
-        <div class="share-status">
-          <span class="priv-ico share">${ICON.people}</span>
-          <span class="share-status-text">
-            <span class="share-status-title">Gedeeld met Maculis</span>
-            <span class="share-status-desc">Maculis gebruikt op dit moment de eerder gedeelde lezing.</span>
-          </span>
-        </div>
-        <div class="dev-notice">${ICON.compass}<span>Er is een nieuwe ontwikkeling die je nog niet met Maculis hebt gedeeld.</span></div>
-        <p class="share-note">Als je de nieuwe ontwikkeling deelt, werk je de eerder gedeelde lezing bij voor Maculis. Er wordt niets automatisch gedeeld.</p>
-        <div class="share-actions">
-          <button class="btn btn-primary" id="act-share-update">Deel de nieuwe ontwikkeling</button>
-          <button class="btn" id="act-revoke">Delen intrekken</button>
-        </div>
-      </div>`;
+    const ul = $('bw-bronnen');
+    ul.innerHTML = '';
+    if (!evidence.length) {
+      ul.innerHTML = '<li class="leeg"><p class="stem">Hier hebben we nog niets vastgelegd dat we met je kunnen delen.</p></li>';
     }
-    return `<div class="share-panel${skin}">
-      <div class="share-status">
-        <span class="priv-ico ${shared ? 'share' : 'lock'}">${shared ? ICON.people : ICON.lock}</span>
-        <span class="share-status-text">
-          <span class="share-status-title">${shared ? 'Gedeeld met Maculis' : 'Alleen voor jou'}</span>
-          <span class="share-status-desc">${shared ? 'Maculis mag dit inzicht gebruiken in jullie samenwerking.' : 'Dit inzicht blijft privé tot je het zelf deelt.'}</span>
-        </span>
-      </div>
-      <p class="share-note">${shared
-        ? 'Je kunt dit op elk moment weer intrekken. Dan gebruikt Maculis dit inzicht niet langer.'
-        : 'Als je dit deelt, kan Maculis dit inzicht gebruiken in jullie samenwerking en relevante gesprekken.'}</p>
-      ${shared
-        ? '<button class="btn" id="act-revoke">Delen intrekken</button>'
-        : '<button class="btn btn-primary" id="act-share">Bespreek met Maculis</button>'}
-    </div>`;
-  }
+    evidence.forEach((e, k) => {
+      const nieuw = Boolean(laatsteBezoek && e.at && new Date(e.at) > laatsteBezoek);
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'bron' + (nieuw ? ' nieuw' : '');
+      b.innerHTML = '<span class="bron-punt" aria-hidden="true"></span><span class="bron-wat"></span><span class="bron-wanneer"></span>';
+      b.querySelector('.bron-wat').textContent = e.label;
+      b.querySelector('.bron-wanneer').textContent = (nieuw ? 'nieuw, ' : '') + fmtKort(e.at);
+      // een bron aanwijzen licht haar eigen waarneming op in het veld
+      const idx = signalen.findIndex((s) => s.pat === pat.index && s.index === k);
+      const zet = (v) => { hoverSig = v; };
+      b.addEventListener('mouseenter', () => zet(idx)); b.addEventListener('mouseleave', () => zet(null));
+      b.addEventListener('focus', () => zet(idx)); b.addEventListener('blur', () => zet(null));
+      li.appendChild(b); ul.appendChild(li);
+    });
 
-  // Insight surface (canon 12): de serif-uitspraak leidt, het bewijs staat eronder achter een
-  // rail van 1px. "Nog niet bekend" blijft kleurloos, en waar niets staat, staat dat in woorden.
-  function detailMarkup(i, development) {
-    const q = (label, text, mod) =>
-      `<div class="qa${mod ? ' ' + mod : ''}"><h3>${label}</h3><p>${esc(text || 'Dit hebben we nog niet opgeschreven.')}</p></div>`;
-    return `<div class="detail">
-      <div class="detail-back"><button class="btn-link" data-nav="inzichten">${leftArrow()} De Spiegel</button></div>
-      <div class="detail-head">
-        ${stancePill(i)}
-        ${shareTag(i.sharing)}
-      </div>
-      <h2>${esc(i.title)}</h2>
+    // de vier vragen, achter een rail van 1px (canon 12, insight surface)
+    const q = (label, tekst, mod) =>
+      `<div class="qa-blok${mod ? ' ' + mod : ''}"><h3 class="lab">${label}</h3><p>${esc(tekst || 'Dit hebben we nog niet opgeschreven.')}</p></div>`;
+    $('bw-qa').innerHTML =
+      q('Wat betekent dit mogelijk?', i.meaning) +
+      q('Waar baseren we dit op?', i.basis) +
+      q('Wat weten we nog niet?', i.not_yet_known, 'onbekend');
 
-      <p class="qa-lead">${esc(i.observation || 'Dit hebben we nog niet opgeschreven.')}</p>
-
-      <div class="evidence">
-        ${q('Wat betekent dit mogelijk?', i.meaning)}
-        ${q('Waar baseren we dit op?', i.basis)}
-        ${q('Wat weten we nog niet?', i.not_yet_known, 'unknown')}
-      </div>
-
-      ${developmentSection(development)}
-      ${sharePanel(i)}
-    </div>`;
-  }
-
-  function leftArrow() { return '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:-2px"><path d="M20 12H5"/><path d="m11 6-6 6 6 6"/></svg>'; }
-
-  function wireDetail(insight) {
-    const shareBtn = $('act-share'), updateBtn = $('act-share-update'), revokeBtn = $('act-revoke');
-    if (shareBtn) shareBtn.addEventListener('click', () => confirmShare(insight, 'share'));
-    if (updateBtn) updateBtn.addEventListener('click', () => confirmShare(insight, 'share-update'));
-    if (revokeBtn) revokeBtn.addEventListener('click', () => confirmShare(insight, 'revoke'));
-  }
-
-  async function renderCollaboration() {
-    skeleton();
-    const { data } = await api('/api/mijn/collaboration');
-    const items = data.items || [];
-    if (!items.length) {
-      view.innerHTML = emptyState('Er zijn nog geen gezamenlijke afspraken of stappen.', 'Naar De Spiegel', 'inzichten');
-      wireNav();
-      return;
+    if (development && development.length >= 2) {
+      $('bw-dev').classList.remove('hidden');
+      $('bw-dev-hint').textContent = `${development.length} momenten`;
+      $('bw-dev-lijst').innerHTML = development.map((e) => `
+        <li class="dev-item ${e.current ? 'nu' : ''}">
+          <span class="dev-wanneer">${esc(fmtDatum(e.at))}${e.current ? ', nu' : ''}</span><br>
+          <span class="dev-houding">${esc(e.stanceLabel)}</span><span class="dev-noot">${esc(e.note || e.headline || '')}</span>
+        </li>`).join('');
     }
-    const KIND = { agreement: 'Afspraak', next_step: 'Volgende stap', research: 'Onderzoek', decision: 'Besluit', shared_note: 'Notitie' };
-    const rows = items.map((i) => {
-      const meta = [KIND[i.kind] || 'Item', i.due_at ? fmtDate(i.due_at, true) : ''].filter(Boolean).join(', ');
-      const ico = i.kind === 'research' ? ICON.research : i.due_at ? ICON.check : ICON.handshake;
-      return `<div class="glance-row" style="cursor:default">
-        <span class="glance-ico ${i.due_at ? 'ok' : 'amber'}">${ico}</span>
-        <span class="glance-text"><span class="glance-title">${esc(i.title)}</span><span class="glance-meta">${esc(meta)}${i.detail ? '. ' + esc(i.detail) : ''}</span></span>
-      </div>`;
-    }).join('');
-    view.innerHTML = `<section class="panel"><p class="section-label">Wat we samen doen</p><div class="glance">${rows}</div></section>`;
   }
 
-  // ---- share confirmation flow ----
-  const confirm = $('confirm'), confirmTitle = $('confirm-title'), confirmBody = $('confirm-body'), confirmOk = $('confirm-ok'), confirmCancel = $('confirm-cancel');
-  let pending = null;
+  // ============================================================================================
+  // 5. DE MENSELIJKE LAAG
+  // Maculis verkondigt niet. Waar menselijke betekenis nodig is, vraagt het, en het antwoord
+  // verandert zichtbaar wat het veld toont.
+  //
+  // BEPERKING, bewust en zichtbaar: dit antwoord geldt voor dit bezoek. Het vastleggen ervan
+  // vraagt een productbeslissing die nog niet genomen is, namelijk hoe een menselijk antwoord
+  // weegt tegenover nieuw bewijs. Zolang die er niet is, wordt hier niets opgeslagen en belooft
+  // de tekst dat ook niet.
+  // ============================================================================================
+  function toonVraag(pat) {
+    const el = $('bw-vraag');
+    const blind = drempel(pat.ins) === Infinity;
+    el.classList.toggle('hidden', blind);
+    const gekozen = herkenning[pat.ins.id];
+    el.querySelectorAll('[data-antwoord]').forEach((b) => {
+      const aan = b.getAttribute('data-antwoord') === gekozen;
+      b.classList.toggle('primair', aan);
+      b.setAttribute('aria-pressed', aan ? 'true' : 'false');
+    });
+    $('bw-uitkomst').innerHTML = uitkomstTekst(gekozen);
+  }
+  function uitkomstTekst(a) {
+    if (a === 'ja') return '<b>Bevestigd door jou.</b> Het patroon komt tot rust en het licht wordt sterker. Je antwoord geldt voor dit bezoek.';
+    if (a === 'deels') return '<b>Deels herkend.</b> Maculis houdt het inzicht aan en het licht neemt iets af. Je antwoord geldt voor dit bezoek.';
+    if (a === 'nee') return '<b>Niet herkend.</b> Het patroon wordt weer onzeker: de waarnemingen komen los en gaan opnieuw bewegen. Je antwoord geldt voor dit bezoek.';
+    return 'Jouw antwoord verandert wat het veld laat zien. Er wordt niets vastgelegd zonder dat jij het deelt.';
+  }
 
-  function confirmShare(insight, action) {
-    pending = { insight, action };
-    if (action === 'share') {
-      confirmTitle.textContent = 'Delen met Maculis';
-      confirmBody.textContent = 'Als je dit deelt, kan Maculis dit inzicht gebruiken in jullie samenwerking en relevante gesprekken. Je kunt het later weer intrekken.';
+  document.querySelectorAll('[data-antwoord]').forEach((b) => {
+    b.addEventListener('click', () => {
+      if (focus === null) return;
+      const pat = patronen[focus];
+      const a = b.getAttribute('data-antwoord');
+      herkenning[pat.ins.id] = herkenning[pat.ins.id] === a ? undefined : a;
+      toonVraag(pat);
+      toonUitspraak();
+      vulPatronen();
+    });
+  });
+
+  // ============================================================================================
+  // 6. DE GRENS: PRIVÉ EN GEDEELD
+  // ============================================================================================
+  function toonGrens(pat) {
+    const i = pat.ins;
+    const isGedeeld = i.sharing === 'SHARED';
+    const blind = drempel(i) === Infinity;
+    $('bw-grens-punt').className = 'grens-punt' + (isGedeeld ? ' gedeeld' : '');
+    $('bw-staat').textContent = isGedeeld ? 'Gedeeld met Maculis' : 'Alleen voor jou';
+    $('bw-grens-tekst').textContent = blind
+      ? 'Hier valt nog niets te delen, want er is nog niets vastgesteld.'
+      : isGedeeld
+        ? 'Maculis mag dit inzicht gebruiken in jullie samenwerking en in relevante gesprekken. Je kunt dat op elk moment intrekken.'
+        : 'Dit inzicht blijft van jou tot je het zelf deelt. Maculis gebruikt het tot dan niet.';
+    const acties = $('bw-grens-acties');
+    acties.innerHTML = '';
+    if (blind) return;
+    if (i.unshared_development) {
+      acties.appendChild(maakKnop('Deel de nieuwe ontwikkeling', 'primair', () => bevestig(i, 'share-update')));
+      acties.appendChild(maakKnop('Delen intrekken', '', () => bevestig(i, 'revoke')));
+    } else if (isGedeeld) {
+      acties.appendChild(maakKnop('Delen intrekken', '', () => bevestig(i, 'revoke')));
+    } else {
+      acties.appendChild(maakKnop('Bespreek met Maculis', 'primair', () => bevestig(i, 'share')));
+    }
+  }
+  function maakKnop(tekst, extra, fn) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'knop' + (extra ? ' ' + extra : ''); b.textContent = tekst;
+    b.addEventListener('click', fn);
+    return b;
+  }
+
+  const confirmEl = $('confirm'), confirmOk = $('confirm-ok'), confirmCancel = $('confirm-cancel');
+  let hangend = null;
+  function bevestig(insight, actie) {
+    hangend = { insight, actie };
+    if (actie === 'share') {
+      $('confirm-title').textContent = 'Delen met Maculis';
+      $('confirm-body').textContent = 'Als je dit deelt, kan Maculis dit inzicht gebruiken in jullie samenwerking en in relevante gesprekken. Je kunt het later weer intrekken.';
       confirmOk.textContent = 'Delen met Maculis';
-    } else if (action === 'share-update') {
-      confirmTitle.textContent = 'Nieuwe ontwikkeling delen';
-      confirmBody.textContent = 'Je werkt de eerder gedeelde lezing bij voor Maculis met de huidige ontwikkeling. Vanaf dat moment gebruikt Maculis de nieuwe lezing. Er wordt niets automatisch gedeeld.';
+    } else if (actie === 'share-update') {
+      $('confirm-title').textContent = 'Nieuwe ontwikkeling delen';
+      $('confirm-body').textContent = 'Je werkt de eerder gedeelde lezing bij met de huidige ontwikkeling. Vanaf dat moment gebruikt Maculis de nieuwe lezing. Er wordt niets automatisch gedeeld.';
       confirmOk.textContent = 'Nieuwe ontwikkeling delen';
     } else {
-      confirmTitle.textContent = 'Delen intrekken';
-      confirmBody.textContent = 'Maculis gebruikt dit inzicht daarna niet langer in jullie samenwerking. Het blijft wel voor jou zichtbaar.';
+      $('confirm-title').textContent = 'Delen intrekken';
+      $('confirm-body').textContent = 'Maculis gebruikt dit inzicht daarna niet langer in jullie samenwerking. Het blijft wel voor jou zichtbaar.';
       confirmOk.textContent = 'Intrekken';
     }
-    confirmOk.className = 'btn btn-primary';
-    confirm.classList.remove('hidden');
+    confirmEl.classList.remove('hidden');
     confirmOk.focus();
   }
-  function closeConfirm() { confirm.classList.add('hidden'); pending = null; }
-  confirmCancel.addEventListener('click', closeConfirm);
-  confirm.addEventListener('click', (e) => { if (e.target === confirm) closeConfirm(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !confirm.classList.contains('hidden')) closeConfirm(); });
+  function sluitConfirm() { confirmEl.classList.add('hidden'); hangend = null; }
+  confirmCancel.addEventListener('click', sluitConfirm);
+  confirmEl.addEventListener('click', (e) => { if (e.target === confirmEl) sluitConfirm(); });
   confirmOk.addEventListener('click', async () => {
-    if (!pending) return;
-    const { insight, action } = pending;
-    // 'share' and 'share-update' both hit the share endpoint; only 'revoke' hits revoke.
-    const endpoint = action === 'revoke' ? 'revoke' : 'share';
+    if (!hangend) return;
+    const { insight, actie } = hangend;
+    const endpoint = actie === 'revoke' ? 'revoke' : 'share';
     confirmOk.disabled = true;
     const { status, data } = await api(`/api/mijn/insights/${encodeURIComponent(insight.id)}/${endpoint}`, { method: 'POST', body: {} });
     confirmOk.disabled = false;
-    closeConfirm();
-    if (status === 200) {
-      toast(action === 'revoke' ? 'Delen ingetrokken' : action === 'share-update' ? 'Nieuwe ontwikkeling gedeeld' : 'Gedeeld met Maculis');
-      view.innerHTML = detailMarkup(data.insight, data.development || []);
-      wireNav(); wireDetail(data.insight);
-    } else {
-      toast('Er ging iets mis. Probeer het opnieuw.');
+    sluitConfirm();
+    if (status !== 200) { toast('Er ging iets mis. Probeer het opnieuw.'); return; }
+    toast(actie === 'revoke' ? 'Delen ingetrokken' : actie === 'share-update' ? 'Nieuwe ontwikkeling gedeeld' : 'Gedeeld met Maculis');
+    const pat = patronen.find((q) => q.ins.id === insight.id);
+    if (pat && data.insight) {
+      pat.ins = data.insight;
+      toonGrens(pat);
+      vulBewijs(pat, data.evidence || [], data.development || []);
+      vulPatronen();
     }
   });
 
   let toastTimer = null;
   function toast(msg) {
-    const existing = document.querySelector('.toast');
-    if (existing) existing.remove();
+    const bestaand = document.querySelector('.toast');
+    if (bestaand) bestaand.remove();
     const t = document.createElement('div');
-    t.className = 'toast';
-    t.setAttribute('role', 'status');
-    t.innerHTML = ICON.check + '<span></span>';
-    t.querySelector('span').textContent = msg;
+    t.className = 'toast'; t.setAttribute('role', 'status');
+    t.innerHTML = '<span class="stip" aria-hidden="true"></span><span></span>';
+    t.querySelector('span:last-child').textContent = msg;
     document.body.appendChild(t);
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.remove(), 2600);
   }
 
-  // Event delegation for all data-nav buttons (CSP-safe: no inline handlers).
-  function wireNav() {
-    view.querySelectorAll('[data-nav]').forEach((el) => {
-      el.addEventListener('click', () => go('#/' + el.dataset.nav));
+  // ============================================================================================
+  // 7. ALLE PATRONEN: dezelfde inhoud, zonder ruimte nodig te hebben
+  // ============================================================================================
+  function vulPatronen() {
+    const ul = $('pt-lijst');
+    ul.innerHTML = '';
+    if (!patronen.length) {
+      ul.innerHTML = '<li class="leeg"><p class="stem">Je bent bij. Zodra Maculis iets over jullie organisatie ziet, verschijnt het hier.</p></li>';
+      return;
+    }
+    patronen.forEach((pat, k) => {
+      const i = pat.ins;
+      const isGedeeld = i.sharing === 'SHARED' || i.sharing === 'AGGREGATED';
+      const n = bewijs(i);
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = `pt-item op-${rol(i)}${isGedeeld ? '' : ' is-prive'}`;
+      b.innerHTML = `
+        <span class="pt-kop">
+          <span class="pil op-${rol(i)}"><span class="stip" aria-hidden="true"></span>${esc(houdingLabel(i.stance))}</span>
+          <span class="merkje${isGedeeld ? ' gedeeld' : ''}"><span class="stip" aria-hidden="true"></span>${isGedeeld ? 'Gedeeld' : 'Alleen voor jou'}</span>
+        </span>
+        <span class="pt-titel"></span>
+        <span class="pt-meta"></span>`;
+      b.querySelector('.pt-titel').textContent = i.title;
+      b.querySelector('.pt-meta').textContent = ontstoken(pat)
+        ? `${n} ${n === 1 ? 'waarneming' : 'waarnemingen'}${pat.nieuw ? ', nieuw sinds je vorige bezoek' : ''}`
+        : 'Te weinig bewijs om iets te zeggen';
+      b.addEventListener('click', () => openBewijs(k));
+      li.appendChild(b); ul.appendChild(li);
     });
   }
 
-  // ---- boot ----
+  function vulSamenwerking(items) {
+    const SOORT = { agreement: 'Afspraak', next_step: 'Volgende stap', research: 'Onderzoek', decision: 'Besluit', shared_note: 'Notitie' };
+    const ul = $('sm-lijst');
+    ul.innerHTML = '';
+    if (!items || !items.length) {
+      ul.innerHTML = '<li class="leeg"><p class="stem">Er zijn nog geen gezamenlijke afspraken of stappen.</p></li>';
+      return;
+    }
+    items.forEach((it) => {
+      const meta = [SOORT[it.kind] || 'Item', it.due_at ? fmtDatum(it.due_at, true) : ''].filter(Boolean).join(', ');
+      const li = document.createElement('li');
+      li.innerHTML = '<div class="sm-item"><span class="sm-titel"></span><span class="sm-meta"></span></div>';
+      li.querySelector('.sm-titel').textContent = it.title;
+      li.querySelector('.sm-meta').textContent = meta + (it.detail ? '. ' + it.detail : '');
+      ul.appendChild(li);
+    });
+  }
+
+  // ============================================================================================
+  // 8. AANWIJZEN IN HET VELD
+  // ============================================================================================
+  const tip = $('tip');
+  function raakSignaal(mx, my) {
+    let beste = -1, best = 18;
+    const P = signalen.map(positie);
+    for (let i = 0; i < signalen.length; i++) {
+      if (demping(signalen[i].pat) < 0.2) continue;
+      const d = Math.hypot(sx(P[i].x) - mx, sy(P[i].y) - my);
+      if (d < best) { best = d; beste = i; }
+    }
+    return beste;
+  }
+  function raakKern(mx, my) {
+    let beste = -1, best = 46;
+    patronen.forEach((q, i) => {
+      const d = Math.hypot(sx(q.x) - mx, sy(q.y) - my);
+      if (d < best) { best = d; beste = i; }
+    });
+    return beste;
+  }
+  if (cv) {
+    cv.addEventListener('pointermove', (e) => {
+      if (p < 0.5 || modus === 'bewijs') { hoverSig = null; tip.classList.remove('in'); return; }
+      const i = raakSignaal(e.clientX, e.clientY);
+      const k = raakKern(e.clientX, e.clientY);
+      hoverSig = i >= 0 ? i : null;
+      cv.classList.toggle('aanwijsbaar', i >= 0 || k >= 0);
+      if (i >= 0) {
+        const pat = patronen[signalen[i].pat];
+        tip.innerHTML = '<b></b><span></span>';
+        tip.querySelector('b').textContent = ontstoken(pat) ? kort(pat.ins.title) : 'Te weinig bewijs';
+        tip.querySelector('span').textContent = 'Kies dit patroon om te zien waarop het rust.';
+        tip.style.transform = `translate3d(${Math.round(Math.min(e.clientX + 16, W - 280))}px,${Math.round(e.clientY + 16)}px,0)`;
+        tip.classList.add('in');
+      } else tip.classList.remove('in');
+    });
+    cv.addEventListener('pointerleave', () => { hoverSig = null; tip.classList.remove('in'); });
+    cv.addEventListener('click', (e) => {
+      meteenKlaar();
+      const k = raakKern(e.clientX, e.clientY);
+      if (k >= 0) return openBewijs(k);
+      const i = raakSignaal(e.clientX, e.clientY);
+      if (i >= 0) return openBewijs(signalen[i].pat);
+      if (focus !== null) terug();
+    });
+  }
+
+  function terug() {
+    focus = null;
+    if (modus === 'bewijs') modus = 'rust';
+    camDoel = { x: 0, y: 0, z: 1 };
+    sluitBladen(null);
+    zegAnker = patronen.findIndex((q) => q.leidend);
+    if (zegAnker < 0) zegAnker = 0;
+    toonUitspraak();
+  }
+
+  // ---- bediening ------------------------------------------------------------------------------
+  $('btn-waarom').addEventListener('click', () => { if (zegAnker !== null) openBewijs(zegAnker); });
+  $('btn-sluit').addEventListener('click', terug);
+  $('btn-patronen-sluit').addEventListener('click', terug);
+  $('btn-samen-sluit').addEventListener('click', terug);
+  $('btn-patronen').addEventListener('click', () => { meteenKlaar(); vulPatronen(); openBlad('patronen'); });
+  $('btn-samen').addEventListener('click', () => { meteenKlaar(); openBlad('samen'); });
+  $('btn-opnieuw').addEventListener('click', () => { herstart(); });
+  // Wat zie ik niet: geen tekstje maar een plek. De camera gaat naar het patroon met het minste bewijs.
+  $('btn-blind').addEventListener('click', () => {
+    meteenKlaar();
+    let zwak = -1, laagst = Infinity;
+    patronen.forEach((q, i) => { const k = kracht(q); if (k < laagst) { laagst = k; zwak = i; } });
+    if (zwak >= 0) openBewijs(zwak);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!confirmEl.classList.contains('hidden')) sluitConfirm();
+    else if (document.body.classList.contains('blad-open')) terug();
+  });
+  window.addEventListener('resize', () => { meet(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { if (raf) cancelAnimationFrame(raf); raf = null; }
+    else if (!raf && !reduce) { t0 = nu() - p * DUUR; lus(); }
+  });
+
+  function herstart() {
+    if (!patronen.length) return;
+    focus = null; modus = 'openen'; camDoel = { x: 0, y: 0, z: 1 }; cam = { x: 0, y: 0, z: 1 };
+    sluitBladen(null);
+    $('zeg').classList.remove('in');
+    p = 0; t0 = nu();
+    if (reduce) { p = 1; modus = 'rust'; toonUitspraak(); teken(); stadium(); plaatsUitspraak(); }
+  }
+
+  // ============================================================================================
+  // 9. BOOT
+  // ============================================================================================
   async function boot() {
-    if (!token) { gateMsg.textContent = 'Deze link is niet meer geldig. Vraag Maculis om een nieuwe toegang.'; gateMsg.classList.add('error'); return; }
-    const { status, data } = await api('/api/mijn/session');
-    if (status !== 200) {
-      gateMsg.textContent = status === 401 ? 'Deze toegang is niet (meer) geldig. Vraag Maculis om een nieuwe link.' : 'Mijn Maculis kon niet worden geopend.';
+    if (!token) {
+      gateMsg.textContent = 'Deze link is niet meer geldig. Vraag Maculis om een nieuwe toegang.';
+      gateMsg.classList.add('error');
+      return;
+    }
+    const sessie = await api('/api/mijn/session');
+    if (sessie.status !== 200) {
+      gateMsg.textContent = sessie.status === 401
+        ? 'Deze toegang is niet (meer) geldig. Vraag Maculis om een nieuwe link.'
+        : 'Mijn Maculis kon niet worden geopend.';
       gateMsg.classList.add('error');
       sessionStorage.removeItem('mijn_token');
       return;
     }
-    orgName = data.organization || '';
-    $('side-org-name').textContent = data.organization || 'Onbekend';
-    const name = (data.user && data.user.label) || 'Klant';
-    $('side-user-name').textContent = name;
-    $('side-user-role').textContent = (data.user && data.user.role) || '';
-    $('side-avatar').textContent = name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+    const org = sessie.data.organization || '';
+    const naam = ((sessie.data.user && sessie.data.user.label) || '').split(/\s+/)[0] || '';
+    $('org-naam').textContent = org;
+    $('groet').textContent = naam ? `Goedendag, ${naam}.` : 'Goedendag.';
+
+    // Wanneer was je hier voor het laatst? Daar hangt aan wat "nieuw" betekent.
+    const sleutel = 'mijn_laatst_' + hash(org + '|' + (sessie.data.user ? sessie.data.user.label : ''));
+    try {
+      const vorig = localStorage.getItem(sleutel);
+      if (vorig) laatsteBezoek = new Date(vorig);
+      localStorage.setItem(sleutel, new Date().toISOString());
+    } catch { /* zonder opslag is alles gewoon niet nieuw */ }
+
     gate.classList.add('hidden');
     app.classList.remove('hidden');
-    window.addEventListener('hashchange', router);
-    if (!location.hash) location.hash = '#/overzicht';
-    router();
+    sluitBladen(null);
+    meet();
+
+    const [lijst, overzicht, samen] = await Promise.all([
+      api('/api/mijn/insights'), api('/api/mijn/overview'), api('/api/mijn/collaboration'),
+    ]);
+    inzichten = (lijst.data && lijst.data.insights) || [];
+    samenwerking = (samen.data && samen.data.items) || [];
+    vulSamenwerking(samenwerking);
+
+    if (!inzichten.length) {
+      $('sinds').textContent = '';
+      $('toestand').textContent = '';
+      $('zeg-aanhef').textContent = 'Je bent bij';
+      $('zeg-titel').textContent = 'Er is nog niets dat we jullie kunnen teruggeven.';
+      $('zeg-rust').innerHTML = '';
+      $('btn-waarom').classList.add('hidden');
+      $('zeg').classList.add('in');
+      $('btn-blind').disabled = true;
+      vulPatronen();
+      return;
+    }
+
+    const aandacht = (overzicht.data && overzicht.data.attention) || null;
+    leidend = (aandacht && aandacht.id) || inzichten[0].id;
+    bouwVeld(inzichten, leidend);
+    patronen.forEach((q, i) => { q.index = i; });
+    zegAnker = patronen.findIndex((q) => q.leidend);
+    if (zegAnker < 0) zegAnker = 0;
+    vulPatronen();
+
+    const nieuweN = patronen.filter((q) => q.nieuw).length;
+    $('sinds').textContent = !laatsteBezoek
+      ? 'Dit is wat Maculis tot nu toe van jullie organisatie ziet.'
+      : nieuweN
+        ? `Sinds je vorige bezoek is er bij ${nieuweN} ${nieuweN === 1 ? 'patroon' : 'patronen'} iets bijgekomen.`
+        : 'Sinds je vorige bezoek is er niets bijgekomen. Het veld is rustig.';
+
+    // De cyclus loopt één keer en blijft daarna staan. Reduced motion toont die eindtoestand
+    // direct, dus zonder cyclus en zonder lopende animatie.
+    t0 = nu(); p = 0; modus = 'openen';
+    if (reduce) { p = 1; modus = 'rust'; toonUitspraak(); teken(); stadium(); plaatsUitspraak(); }
+    else lus();
   }
 
   boot();
