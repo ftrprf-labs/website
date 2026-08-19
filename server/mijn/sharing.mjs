@@ -32,10 +32,16 @@ import { recordAudit } from '../comm/audit.mjs';
 //   recognition           = het eigen antwoord van DEZE persoon op "Herken je dit?". Het komt uit
 //                           insight_recognition en hangt aan (inzicht, contact). Het reist nooit met
 //                           `sharing` mee: zie de opmerking bij sharedContextForOrg.
+//   intent                = de eigen keuze van DEZE persoon bij "Wil je hier iets mee?", uit
+//                           insight_intent. Ook persoonlijk, en ook per (inzicht, contact): de
+//                           keuze van Piet is voor Sanne niet zichtbaar en overschrijft de hare
+//                           niet. Het is een DERDE signaal naast herkenning en vrijgave, en geen
+//                           van de drie is uit een ander af te leiden.
 const CUSTOMER_SELECT =
   `ci.id, ci.title, ci.stance, ci.observation, ci.meaning, ci.basis, ci.not_yet_known, ci.sharing,
    ci.audience, ci.source, ci.status, ci.attention, ci.created_at, ci.updated_at, ci.shared_at,
    ir.answer as recognition, ir.note as recognition_note, ir.at as recognition_at,
+   ii.intent as intent, ii.at as intent_at,
    (select count(*) from insight_version v where v.insight_id = ci.id) > 1 as developed,
    (ci.sharing='SHARED' and ci.shared_version_id is distinct from ci.current_version_id) as unshared_development,
    (select count(*)::int from insight_observation o
@@ -54,14 +60,18 @@ export const ZICHTBAAR_BINNEN_ORGANISATIE = ['ORGANISATIE'];
 
 // De persoonlijke laag hangt aan (inzicht, contact). Zonder contact blijft hij LEEG, nooit
 // organisatiebreed: dat is de fail-closed kant van deze join.
-const PERSOONLIJK_JOIN =
-  'left join insight_recognition ir on ir.insight_id = ci.id and ir.contact_id = $CONTACT::uuid';
+// Een functie en geen sjabloon met een tekstvervanging: er hangen nu twee joins aan dezelfde
+// parameter, en een replace zonder /g zou alleen de eerste raken. Dat is precies het soort stille
+// fout waar een tweede persoonlijke laag om vraagt.
+const PERSOONLIJK_JOIN = (p) =>
+  `left join insight_recognition ir on ir.insight_id = ci.id and ir.contact_id = ${p}::uuid`
+  + ` left join insight_intent ii on ii.insight_id = ci.id and ii.contact_id = ${p}::uuid`;
 
 // Elk inzicht dat deze persoon binnen zijn organisatie mag zien.
 export async function visibleInsights(tenantId, organizationId, contactId = null) {
   const r = await query(
     `select ${CUSTOMER_SELECT} from customer_insight ci
-       ${PERSOONLIJK_JOIN.replace('$CONTACT', '$4')}
+       ${PERSOONLIJK_JOIN('$4')}
       where ci.tenant_id=$1 and ci.organization_id=$2 and ci.status <> 'archived'
         and ci.audience = any($3)
       order by ci.attention desc, ci.updated_at desc`,
@@ -74,7 +84,7 @@ export async function visibleInsights(tenantId, organizationId, contactId = null
 export async function insightForCustomer(tenantId, organizationId, insightId, contactId = null) {
   const r = await query(
     `select ${CUSTOMER_SELECT} from customer_insight ci
-       ${PERSOONLIJK_JOIN.replace('$CONTACT', '$5')}
+       ${PERSOONLIJK_JOIN('$5')}
       where ci.id=$1 and ci.tenant_id=$2 and ci.organization_id=$3 and ci.status <> 'archived'
         and ci.audience = any($4)`,
     [insightId, tenantId, organizationId, ZICHTBAAR_BINNEN_ORGANISATIE, contactId]);

@@ -100,6 +100,20 @@
             <label class="vraag-toel-vraag" id="bw-toel-vraag" for="bw-toel-tekst"></label>
             <textarea class="veldtekst" id="bw-toel-tekst" rows="2"></textarea>
           </div>
+
+          <!-- De enige vraag in deze reis die niet uit context af te leiden is. Verschijnt alleen
+               wanneer hij ergens over gaat: boven de bewijsdrempel, na Ja of Deels, en alleen bij
+               een spanning of een opvallendheid. Bij Nee bestaat het patroon voor deze mens niet,
+               en bij een sterkte is "wil je hier iets aan veranderen" een categoriefout. -->
+          <div class="intentie hidden" id="bw-intentie">
+            <p class="vraag-q">Wil je hier iets mee?</p>
+            <div class="vraag-keuzes">
+              <button class="knop" data-intentie="weten" type="button">Nee, alleen weten</button>
+              <button class="knop" data-intentie="zelf" type="button">Zelf oppakken</button>
+              <button class="knop" data-intentie="samen" type="button">Samen met Maculis</button>
+            </div>
+            <p class="vraag-uit" id="bw-intentie-uit"></p>
+          </div>
         </div>
 
         <!-- De grens tussen wat van jou is en wat gedeeld is. -->

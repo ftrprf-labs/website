@@ -633,6 +633,7 @@
     $('bw-sterkte').textContent = '';
     $('bw-dev').classList.add('hidden');
     toonVraag(pat);
+    toonIntentie(pat);
     toonGrens(pat);
     // De gespreksingang is geen gevolg van de detailaanroep, dus hij wacht er ook niet op.
     praatOpen = false;
@@ -645,8 +646,10 @@
     }
     pat.ins = data.insight;
     herkenning[data.insight.id] = data.insight.recognition || undefined;
+    intentie[data.insight.id] = data.insight.intent || undefined;
     vulBewijs(pat, data.evidence || [], data.development || []);
     toonVraag(pat);
+    toonIntentie(pat);
     // Het gesprek over dit patroon staat hier ook, zodat je nooit ergens anders hoeft te zoeken
     // naar wat je hier hebt gezegd.
     toonPraat(pat, data.conversation);
@@ -751,6 +754,73 @@
     return 'Jouw antwoord verandert wat het veld laat zien. Het blijft bij jou.';
   }
 
+  // ============================================================================================
+  // 5b. WIL JE HIER IETS MEE?
+  //
+  // De enige vraag in deze reis die niet uit context af te leiden is. Herkenning zegt of iets waar
+  // is; deze zegt of iemand er iets mee wil. Eén vraag, drie antwoorden, en daarmee is de klant
+  // klaar: bij "Samen met Maculis" neemt Maculis het voorbereidende werk over.
+  //
+  // Hij verschijnt niet bij elk patroon. Vier voorwaarden, alle vier afgeleid uit wat er al staat,
+  // zodat dit een vraag blijft op het enige moment waarop hij ergens over gaat, en geen trechter
+  // wordt. Dezelfde regel staat aan serverzijde in intentie.mjs; daar is hij de grens, hier de
+  // weergave.
+  // ============================================================================================
+  const intentie = {};
+  function intentieRelevant(i) {
+    if (!i) return false;
+    if (drempel(i) === Infinity) return false;
+    const a = herkenning[i.id];
+    if (a !== 'ja' && a !== 'deels') return false;
+    return i.stance === 'tension' || i.stance === 'reveal';
+  }
+
+  const INTENTIE_UIT = {
+    weten: 'Goed om te weten. We laten dit rusten tot jullie er zelf op terugkomen.',
+    zelf: 'Genoteerd. We volgen dit mee en zien het terug in wat er verandert.',
+    samen: 'We kijken wat hier de beste vervolgstap is en komen bij je terug.',
+  };
+
+  function toonIntentie(pat) {
+    const el = $('bw-intentie');
+    const i = pat.ins;
+    const toon = intentieRelevant(i);
+    el.classList.toggle('hidden', !toon);
+    if (!toon) return;
+    const gekozen = intentie[i.id];
+    el.querySelectorAll('[data-intentie]').forEach((b) => {
+      const aan = b.getAttribute('data-intentie') === gekozen;
+      b.classList.toggle('primair', false);   // geen van de drie is luider dan de andere
+      b.setAttribute('aria-pressed', aan ? 'true' : 'false');
+    });
+    $('bw-intentie-uit').textContent = gekozen ? INTENTIE_UIT[gekozen] : '';
+  }
+
+  async function bewaarIntentie(pat, keuze) {
+    const i = pat.ins;
+    intentie[i.id] = keuze || undefined;
+    i.intent = keuze || null;
+    toonIntentie(pat);
+    const { status, data } = await api(`/api/mijn/insights/${encodeURIComponent(i.id)}/intent`, {
+      method: 'POST', body: { intent: keuze || null },
+    });
+    if (status !== 200) { toast('Je keuze kon niet worden bewaard.'); return; }
+    if (data.insight) { pat.ins = data.insight; intentie[i.id] = data.insight.intent || undefined; }
+    toonIntentie(pat);
+    // Bij "Samen met Maculis" staat het gesprek meteen open met een zin erin. Sturen mag, hoeft
+    // niet: het signaal was compleet bij de klik.
+    if (keuze === 'samen') openPraat(pat, OPENER_SAMEN);
+  }
+
+  document.querySelectorAll('[data-intentie]').forEach((b) => {
+    b.addEventListener('click', () => {
+      if (focus === null) return;
+      const pat = patronen[focus];
+      const k = b.getAttribute('data-intentie');
+      bewaarIntentie(pat, intentie[pat.ins.id] === k ? null : k);
+    });
+  });
+
   // Het antwoord bewaren. Het inzicht in het geheugen wordt meteen bijgewerkt, zodat het veld en
   // de teksten hetzelfde zeggen als de server.
   async function bewaarHerkenning(pat, antwoord, toelichting) {
@@ -759,6 +829,7 @@
     i.recognition = antwoord || null;
     i.recognition_note = antwoord ? (toelichting || null) : null;
     toonVraag(pat);
+    toonIntentie(pat);
     toonUitspraak();
     vulPatronen();
     const { status } = await api(`/api/mijn/insights/${encodeURIComponent(i.id)}/recognition`, {
@@ -1152,7 +1223,7 @@
   // dingen, en de deelbeslissing woont in het grensblok erboven. Dat was niet altijd zo: de
   // deelknop stond hier ook, met net andere woorden, en daarnaast een vinkje dat een derde vraag
   // leek te stellen. Voor de lezer waren dat drie keer dezelfde vraag.
-  function maakComposer(insight, klaar, { kop = true } = {}) {
+  function maakComposer(insight, klaar, { kop = true, voorvul = null } = {}) {
     const wrap = el('div', 'praat-vorm');
 
     if (kop) wrap.appendChild(el('p', 'lab', insight ? 'Praat hierover met Maculis' : 'Iets vertellen'));
@@ -1174,6 +1245,9 @@
     label.setAttribute('for', tekst.id);
     const groei = () => { tekst.style.height = 'auto'; tekst.style.height = Math.min(tekst.scrollHeight, 260) + 'px'; };
     tekst.addEventListener('input', groei);
+    // Wie op "Samen met Maculis" klikte, hoeft niets te typen. De zin staat er al, en versturen mag
+    // maar hoeft niet: het signaal was compleet bij de klik.
+    if (voorvul) { tekst.value = voorvul; setTimeout(groei, 0); }
     wrap.appendChild(label);
     wrap.appendChild(tekst);
 
@@ -1213,9 +1287,21 @@
   // die aanroep, dan verscheen hij helemaal niet. Vanaf nu wordt hij meteen getekend, met de draad
   // als enige dat later invalt.
   let praatOpen = false;
-  function toonPraat(pat, draad) {
+  let praatDraad = null;
+  const OPENER_SAMEN = 'Hier willen we graag met jullie naar kijken.';
+
+  // Het gesprek openen vanuit een andere handeling, met de eerste zin er al in.
+  function openPraat(pat, voorvul) {
+    praatOpen = true;
+    toonPraat(pat, praatDraad, voorvul);
+    const vorm = $('bw-praat').querySelector('.praat-vorm');
+    if (vorm) vorm.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+  }
+
+  function toonPraat(pat, draad, voorvul = null) {
     const houder = $('bw-praat');
     const i = pat.ins;
+    praatDraad = draad;
 
     const ingang = maakKnop('Praat hierover met Maculis', 'primair praat-ingang', () => {
       praatOpen = !praatOpen;
@@ -1231,7 +1317,9 @@
       houder.appendChild(ingang);
       if (praatOpen) {
         // De kop staat hierboven al; de invoer herhaalt hem niet.
-        houder.appendChild(maakComposer(i, (nieuw) => { praatOpen = false; toonPraat(pat, nieuw); }, { kop: false }));
+        houder.appendChild(maakComposer(i, (nieuw) => { praatOpen = false; toonPraat(pat, nieuw); },
+          { kop: false, voorvul }));
+        voorvul = null;   // alleen bij het openen, niet bij elke hertekening
       }
       houder.appendChild(maakDraad(draad));
     }

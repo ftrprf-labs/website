@@ -256,6 +256,8 @@ body.mijn {
 .grens-wie { margin: 0; padding-top: var(--space-3); font-size: 12px; line-height: 1.6; color: var(--ink3); }
 
 /* toelichting bij Deels en Nee: het veld staat meteen open en mag leeg blijven */
+.intentie { display: flex; flex-direction: column; gap: var(--space-3);
+  padding-top: var(--space-4); border-top: 1px solid var(--lijn); }
 .vraag-toel { display: flex; flex-direction: column; gap: var(--space-2); }
 .vraag-toel-vraag { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: .98rem; color: var(--ink2); }
 

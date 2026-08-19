@@ -213,6 +213,7 @@ export function maakStore(startDraden = []) {
     verstuurd: [],
     herkenningen: [],
     gedeeld: [],
+    intenties: [],
     lijst() {
       return {
         items: draden.slice().reverse().map(uit),
@@ -260,8 +261,17 @@ export function maakStore(startDraden = []) {
         ...i,
         recognition: (h && h.answer) || null,
         recognition_note: (h && h.note) || null,
+        intent: this.intentstand[i.id] || null,
         ...(d || {}),
       };
+    },
+    // De intentie is persoonlijk en hoort dus net als de herkenning bij dit geheugen en niet bij de
+    // gedeelde fixture.
+    intentstand: {},
+    intentie(insightId, { intent = null } = {}) {
+      this.intenties.push({ insightId, intent });
+      this.intentstand[insightId] = intent || null;
+      return { ok: true, intent: intent || null };
     },
     // De deelstaat, per store en niet in de gedeelde fixture, om dezelfde reden als de herkenning.
     // Hiermee zijn alle vier de toestanden van het grensblok in één ronde te bereiken: niet
@@ -324,6 +334,12 @@ export function routeMijn(page, store = null) {
     if (draad && method === 'GET') {
       const d = store && store.open(draad[1]);
       return d ? j({ conversation: d }) : j({}, 404);
+    }
+    const intent = p.match(/^\/api\/mijn\/insights\/([^/]+)\/intent$/);
+    if (intent && method === 'POST') {
+      if (!store) return j({ ok: true });
+      const res2 = store.intentie(intent[1], body());
+      return j({ ...res2, ...detail(intent[1], store) });
     }
     const herken = p.match(/^\/api\/mijn\/insights\/([^/]+)\/recognition$/);
     if (herken && method === 'POST') {

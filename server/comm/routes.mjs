@@ -195,11 +195,18 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
       `select id, summary, intent, suggested_reply, suggested_actions, status from ai_draft
         where conversation_id=$1 and status='proposed' order by created_at desc limit 1`, [id])).rows[0] || null;
     const consent = conv.contact_id ? await channelConsentState(tenantId, conv.contact_id) : null;
+    // Het hulpdossier bij dit gesprek, wanneer een klant heeft gevraagd het samen op te pakken.
+    // De query blijft in server/mijn/ staan, net als boundaryProof, zodat het klantzijdige model
+    // niet naar de communicatielaag verhuist. Er zit niets persoonlijks in behalve wie het vroeg en
+    // wanneer: het herkenningsantwoord en de toelichting komen hier niet in en worden er ook niet
+    // uit afgeleid (ADR-0002).
+    const { dossierVoorGesprek } = await import('../mijn/hulp.mjs');
+    const hulpdossier = conv.is_privacy ? null : await dossierVoorGesprek(tenantId, id).catch(() => null);
     if (conv.status === 'NEW') await query("update conversation set status='OPEN' where id=$1 and status='NEW'", [id]);
     // A human opened the conversation — this is the ONLY signal that marks it read. Moving the
     // watermark to now() is idempotent (it only advances) and clears the unread/attention state.
     await markConversationRead(tenantId, id, { userId: null });
-    json(res, 200, { conversation: conv, messages, notes, ai_draft: draft, consent });
+    json(res, 200, { conversation: conv, messages, notes, ai_draft: draft, consent, hulpdossier });
     return true;
   }
 
@@ -216,6 +223,10 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
   if (replyMatch && method === 'POST') {
     const body = await readJson(req); if (!body) { json(res, 400, { error: 'bad_body' }); return true; }
     const result = await sendReply({ conversationId: replyMatch[1], userId: null, text: body.text, html: body.html, ipRef: ipRefOf(req) });
+    if (result && result.ok) {
+      const { markeerOpgepakt } = await import('../mijn/hulp.mjs');
+      await markeerOpgepakt(tenantId, replyMatch[1]).catch(() => {});
+    }
     json(res, result.ok ? 200 : 400, result);
     return true;
   }
@@ -293,6 +304,13 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
     await query("update comm_draft set status='approved', approved_at=now() where id=$1", [d.id]);
     const result = await sendOnChannel({ tenantId, conversationId: d.conversation_id, contactId: d.contact_id, organizationId: d.organization_id, channel: d.channel, subject: d.subject, text: d.body, draftId: d.id, ipRef: ipRefOf(req) });
     if (!result.ok) await query("update comm_draft set status='draft', approved_at=null where id=$1", [d.id]); // let the user retry
+    // Het ene beslismoment is genomen: hangt er een hulpdossier aan dit gesprek, dan staat het
+    // vanaf nu op opgepakt. Niet automatisch afgerond, want of er werkelijk iets is afgesproken
+    // beslist een mens.
+    if (result.ok) {
+      const { markeerOpgepakt } = await import('../mijn/hulp.mjs');
+      await markeerOpgepakt(tenantId, d.conversation_id).catch(() => {});
+    }
     json(res, result.ok ? 200 : 400, result);
     return true;
   }

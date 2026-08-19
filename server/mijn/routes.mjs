@@ -158,6 +158,28 @@ export async function handleMijn(req, res, { pathname, method }) {
     return true;
   }
 
+  // "Wil je hier iets mee?" Eén vraag, drie antwoorden, en bij "samen" is deze klik de laatste
+  // noodzakelijke handeling van de klant: daarna stelt Maculis het hulpdossier samen, schrijft het
+  // een conceptantwoord en zet het een interne taak klaar. Er gaat niets naar buiten; dat blijft
+  // één menselijk besluit in de Cockpit.
+  //
+  // Het hulpdossier heeft met opzet GEEN klantzijdig leespad. Er is hier dus alleen een POST, en
+  // geen enkele route onder /api/mijn/ geeft een dossier terug. Dat is wat voorkomt dat het signaal
+  // van de een zichtbaar wordt voor de ander.
+  const intentMatch = pathname.match(new RegExp(`^/api/mijn/insights/${UUID}/intent$`));
+  if (intentMatch && method === 'POST') {
+    const body = await readJson(req);
+    if (!body) { json(res, 400, { error: 'Ongeldig verzoek.' }); return true; }
+    const { zetIntentie } = await import('./intentie.mjs');
+    const result = await zetIntentie(tenantId, organizationId, intentMatch[1], {
+      intent: body.intent || null, accessId: access.accessId, contactId,
+    });
+    if (!result.ok) { json(res, result.error === 'not_found' ? 404 : 400, result); return true; }
+    const detail = await customerInsightDetail(tenantId, organizationId, intentMatch[1], contactId);
+    json(res, 200, { ok: true, intent: result.intent, ...detail });
+    return true;
+  }
+
   // Samenwerking.
   if (pathname === '/api/mijn/collaboration' && method === 'GET') {
     json(res, 200, { items: await collaboration(tenantId, organizationId) });

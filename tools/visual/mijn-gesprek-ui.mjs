@@ -15,6 +15,10 @@
 //     nooit een. Dit is de meetbare vorm van de klacht die dit ontwerp opriep: drie controls die
 //     voor de lezer allemaal dezelfde vraag stelden;
 //   * de gespreksingang staat er meteen, ook voordat de detailaanroep terug is;
+//   * "Wil je hier iets mee?" verschijnt alleen wanneer hij ergens over gaat, draagt drie
+//     gelijkwaardige keuzes, en "Samen met Maculis" is de laatste noodzakelijke klant-handeling:
+//     het gesprek staat daarna open met de eerste zin er al in, zonder dat er iets verstuurd is en
+//     zonder dat de deelstaat verandert;
 //   * Ja, Deels en Nee worden bewaard, met de vraag om toelichting erbij;
 //   * een gesprek kan ook zonder patroon beginnen, en is later terug te vinden;
 //   * een antwoord van Maculis komt in dezelfde draad terug;
@@ -190,6 +194,67 @@ async function ronde(br, { breedte, hoogte, naam }) {
   chk('en de knop zegt wat hij doet',
     (await page.locator('#confirm-ok').textContent()).trim() === 'Deel dit met Maculis');
   await page.click('#confirm-cancel');
+
+  // ---- 3b. "Wil je hier iets mee?" -------------------------------------------------------------
+  //
+  // De enige vraag in deze reis die niet af te leiden is. Hij hoort er alleen te staan wanneer hij
+  // ergens over gaat: na Ja of Deels, en alleen bij een spanning of een opvallendheid. Dat is de
+  // structurele maatregel tegen een trechter, dus die wordt hier gemeten en niet aangenomen.
+  chk('de vervolgvraag staat er niet voordat je hebt geantwoord',
+    await page.locator('#bw-intentie:not(.hidden)').count() === 0);
+
+  await page.click('[data-antwoord="ja"]');
+  await page.waitForSelector('#bw-intentie:not(.hidden)');
+  const keuzes = await page.locator('#bw-intentie [data-intentie]').allTextContents();
+  chk('na Ja verschijnt hij, met precies drie gelijkwaardige keuzes',
+    JSON.stringify(keuzes.map((t) => t.trim()))
+      === JSON.stringify(['Nee, alleen weten', 'Zelf oppakken', 'Samen met Maculis']),
+    JSON.stringify(keuzes));
+  chk('en geen van de drie is luider dan de andere',
+    await page.locator('#bw-intentie .knop.primair').count() === 0);
+
+  // Nee, alleen weten is een volwaardig antwoord en geen wegklikoptie.
+  await page.click('[data-intentie="weten"]');
+  await page.waitForTimeout(200);
+  chk('"Nee, alleen weten" laat het rusten en zet niets in gang',
+    /laten dit rusten/i.test(await page.locator('#bw-intentie-uit').textContent())
+    && (store.intenties[store.intenties.length - 1] || {}).intent === 'weten');
+
+  // Samen met Maculis: de klik is de laatste noodzakelijke handeling. Het gesprek staat daarna open
+  // met de eerste zin er al in, maar versturen hoeft niet.
+  const verstuurdVoor = store.verstuurd.length;
+  await page.click('[data-intentie="samen"]');
+  await page.waitForSelector('.praat-vorm');
+  chk('"Samen met Maculis" belooft een vervolgstap en geen uitvoering',
+    /beste vervolgstap/i.test(await page.locator('#bw-intentie-uit').textContent()));
+  chk('en het gesprek staat meteen open met de eerste zin er al in',
+    (await page.locator('.praat-vorm .veldtekst').inputValue()).trim().length > 10);
+  chk('de klik alleen heeft nog niets verstuurd', store.verstuurd.length === verstuurdVoor);
+  chk('en er komt geen tweede toestemmingskeuze bij', await geenKeuzeInDeInvoer(page));
+  chk('de deelstaat is door dit alles niet veranderd',
+    JSON.stringify(await DEELCONTROLS(page)) === JSON.stringify(['Deel dit met Maculis']),
+    JSON.stringify(await DEELCONTROLS(page)));
+
+  // Bij een sterkte is "wil je hier iets aan veranderen" een categoriefout.
+  await page.click('#btn-sluit');
+  await page.waitForTimeout(360);
+  await page.click('#btn-patronen');
+  await page.waitForSelector('.patronen.in');
+  await page.locator('.pt-item', { hasText: F.insights[2].title }).first().click();
+  await page.waitForSelector('.bewijs.in');
+  await page.click('[data-antwoord="ja"]');
+  await page.waitForTimeout(250);
+  chk('op een sterkte verschijnt de vervolgvraag niet, ook niet na Ja',
+    await page.locator('#bw-intentie:not(.hidden)').count() === 0);
+
+  // Terug naar het spanningspatroon voor de rest van de ronde.
+  await page.click('#btn-sluit');
+  await page.waitForTimeout(360);
+  await page.click('#btn-patronen');
+  await page.waitForSelector('.patronen.in');
+  await page.locator('.pt-item', { hasText: PRIVE.title }).first().click();
+  await page.waitForSelector('.bewijs.in');
+  await page.waitForTimeout(400);
 
   // ---- 4. Ja, Deels en Nee, met de vraag om toelichting ---------------------------------------
   await page.click('[data-antwoord="deels"]');
