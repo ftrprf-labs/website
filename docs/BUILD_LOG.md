@@ -5,6 +5,83 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-19 — Cockpit-verfijning: de signaaltaal terug, en hiërarchie waar het vlak vlak werd
+
+**Status: GO met visuele correcties op de vorige kandidaat, nog geen definitieve visuele GO en
+geen Production GO.** Lud heeft de basisrichting goedgekeurd en zeven gerichte correcties gevraagd.
+Dit is de kandidaat die daarop volgt.
+
+**Branch:** `claude/maculis-cockpit-visual-dna-5zqhjd`. **Preview:**
+`maculis-cockpit-visual-dna-preview` (`srv-da2jsmn40ujc73aggn1g`). Het wachtwoord staat in Render
+onder Environment en niet meer in de chat.
+
+### De signaaltaal, en waarom elk lichtpunt daar staat
+
+Canon 14 geeft de Cockpit **uitsluitend trap 1**: het lichtpunt. Trap 2, een verbinding, en trap 3,
+een patroon, horen bij de Website, de Lens en Mijn Maculis. Er wordt hier dus geen lijn getrokken
+en geen constellatie gebouwd. Wat meerdere waarnemingen samen betekenen, wordt uitgedrukt in de
+**straal van het licht**, precies zoals canon 7 dat voorschrijft.
+
+Vier regels, en alle vier zijn hard:
+
+1. **Een lichtpunt verschijnt alleen waar Maculis zelf iets heeft waargenomen.** Een bericht dat
+   binnenkomt is geen waarneming van Maculis. Daardoor draagt de kaart van een wachtende klant geen
+   punt, en de radarkaarten wel: die staan er omdat Maculis iets opmerkte zonder dat iemand vroeg.
+2. **De halo volgt het bewijs.** De straal is een functie van het aantal onafhankelijke, gegronde
+   signalen: alleen een feit en een waarneming tellen mee, want die bestaan buiten Maculis. Een
+   afleiding of hypothese is Maculis' eigen redenering en draagt geen licht.
+3. **Hoogstens een light.core per scherm**, conform canon 7. De kern gaat naar de best onderbouwde
+   uitspraak op dat scherm; de andere punten blijven kaal.
+4. **Beweging is onzekerheid.** Een bevestigd geheugen draagt hetzelfde punt, gedoofd.
+
+Drie gebaren, alle uit canon 8.3 en 15, en alle eenmalig:
+
+| Gebaar | Waar | Waarom daar |
+|---|---|---|
+| **Scherpstellen** | de uitspraak van de dag, de reveal, een open observatie | Canon 15, signature 3: het enige onthullingsgebaar, exclusief voorbehouden aan iets wat Maculis heeft gezien |
+| **Land** | een waarneming die zojuist binnenkwam | Canon 8.3. Vervangt de randflits, die aandacht vroeg zonder betekenis te dragen |
+| **light.edge** | elk vlak waar Maculis spreekt | Canon 7: markeert dat hier iets onthuld wordt. Nooit op archief of administratie |
+
+Onder `prefers-reduced-motion` staat de eindtoestand er onmiddellijk. De audit meet dat nu expliciet
+per gebaar: scherp, zichtbaar en op zijn plaats.
+
+### Hiërarchie in plaats van meer kaarten
+
+- **Dossier.** Tien vrijwel identieke rechthoeken. De secties dragen nu een rol: waar Maculis
+  spreekt is een verhoogd vlak met light.edge, het archief is een stille lijst onder de kop
+  Dossier. Dezelfde secties, dezelfde inhoud, andere rangorde en ander gewicht.
+- **Gesprekken.** Een gesprek dat niets vraagt en waarvoor niets klaarstaat draagt geen eigen vlak
+  meer. Canon 10: een pil in een dichte context, een linkerrand in een rustige.
+- **Beheer.** Was vier kaarten waarvan drie "binnenkort in de cockpit". Nu een uitspraak, een echte
+  ingang en een eerlijke zin over wat elders woont. Canon 12: ontworpen, niet leeg.
+- **Koper was versiering geworden.** Elke rij droeg een gevulde koperen avatar. Canon 2 maakt koper
+  schaars, dus de avatars zijn een hairline. Daardoor leest een echt signaal weer als signaal.
+- **Beweging krijgt de violette pip.** Violet beschrijft toestand en roept nooit om aandacht.
+
+### Leesbaarheid
+
+Dertig regels secundaire tekst van `text.quiet` (5,00:1) naar `text.secondary` (6,79:1), en zes
+teksten die op dekking stonden naar een echte tokenkleur. Geen nieuw tonaal niveau.
+
+### Verificatie
+
+| Controle | Uitkomst |
+|---|---|
+| Tokenpoort | 4 van 4 |
+| `npm test` | 175 tests, 0 fail, 27 overgeslagen |
+| Canonscan | 0 afwijkende kleuren, 0 neutrale hairlines, 0 oneindige beweging, 0 streepjes in copy |
+| Audit | 90 controles, 0 afwijkingen, inclusief de nieuwe eindtoestandcontrole per gebaar |
+| Determinisme | 104 van 104 byte-identiek over twee volledige runs |
+| Delta tegenover de goedgekeurde staat | gericht: Relaties 0,5 procent, Gesprek 3,4 procent, Vandaag 5,8 procent, Gesprekken 30 procent, dossier 21 procent |
+
+### Openstaande canonvraag
+
+**Mag de Cockpit trap 2 of trap 3 tonen?** Canon 14 zegt nee: alleen trap 1. Een verbinding tussen
+twee waarnemingen of een kleine constellatie is dus niet gebouwd, hoe aantrekkelijk ook. Wil de
+Cockpit dat wel, dan is dat een canonwijziging via hoofdstuk 17 en niet een schermbeslissing.
+
+---
+
 ## 2026-08-19 — Cockpit-harmonisatie Visual DNA v1.0: klaar voor visuele beoordeling
 
 **Status: nog geen akkoord.** Dit is de staat die ter beoordeling voorligt, niet een freeze.
