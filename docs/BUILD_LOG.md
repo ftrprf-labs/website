@@ -5,6 +5,45 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-19 — Mijn Maculis: de mobiele compositie van Het Veld (preview)
+
+**Wat.** Op een telefoon liepen de waarnemingen dwars door de leesbare HUD-tekst, terwijl er onderin
+ruimte onbenut bleef. Oorzaak: `meet()` centreerde het veld op `(H − 236) / 2`. Die 236 reserveert
+de uitspraak onderaan, maar bovenaan werd niets gereserveerd. Op desktop hoeft dat niet, want daar
+staat de HUD in verre hoeken. Op een telefoon is de HUD een band dwars over de bovenkant, gemeten
+van 14 tot 218px, en het veldmidden landde daar middenin.
+
+- Boven wordt nu gereserveerd wat er werkelijk staat, gemeten en niet vastgezet, en opnieuw gemeten
+  zodra de regels onder de groet er staan.
+- Onder wordt alleen het dekkende deel van de uitspraak gereserveerd. Zij ligt als een verloop over
+  het veld (`0deg, var(--bg) 58%, transparent`), dus de bovenste 42 procent is bewust doorzichtig en
+  daar mag het veld doorheen lopen. Gemeten is de uitspraak 230 tot 245px hoog, waarvan 133 tot
+  142px dekkend; de vloer staat op 150px zodat de compositie stabiel is vanaf het eerste beeld.
+- Het veld wordt in de overgebleven band gecentreerd en daarop geschaald. Op 390x844 en 430x932
+  blijft de straal exact gelijk en verhuist het veld alleen; op een korte in-app browser krimpt het,
+  want daar is niet meer ruimte.
+- Het trefvlak van een patroon schaalt op mobiel mee omlaag met het veld. Zonder dat overlapten de
+  vaste 46px-vlakken van buurpatronen elkaar zodra het veld kleiner werd, en raakte je met één tik
+  het verkeerde patroon. Alleen kleiner, nooit groter, en alleen op een telefoon.
+
+**Gemeten, kernen in rust.** 393x660: midden 223 naar 378. 390x844: midden 315 naar 473, halve
+hoogte 113 en 113. 430x932: midden 360 naar 518, halve hoogte 124 en 124. Helderste veldpixel
+bovenop leesbare tekst, gewogen met alfa: 192 naar 2 (390x844), 192 naar 3 (393x660), 10 naar 1
+(430x932).
+
+**Bewijs.** `tools/visual/mijn-mobiel.mjs` dwingt dit nu hard af, op drie viewports, in rust én over
+de hele opbouwcyclus, plus dat elk patroon zijn eigen trefvlak houdt. Terugdraaien van de fix maakt
+die harness rood, dus hij meet werkelijk iets. Audit, motion, affordance en de gesprekstest
+ALLES GROEN.
+
+**Twee bevindingen over de harness zelf.** De opname van het `praat`-scherm hing af van waar de klik
+op de ingang het blad toevallig heen schoof; dat is nu vastgezet. En de plaatsing van de uitspraak
+op een breed scherm wisselt 4px tussen runs, ook zonder codewijziging: gemeten 348 en 352 over acht
+runs op de oude code. Byte-identieke opnames zijn voor een levend canvas dus niet haalbaar; de
+vergelijking blijft daardoor een beoordeling en geen poort.
+
+---
+
 ## 2026-08-19 — Mijn Maculis: de mobiele presentatie van een inzicht (preview)
 
 **Wat.** Op een telefoon dekte het bewijsblad het hele veld af: het blad was 88vh en de 101px die

@@ -18,7 +18,12 @@
 //   * lege veldruimte aantikken brengt je terug, en dan is de periferie er weer;
 //   * Gesprekken en Samenwerking openen en sluiten;
 //   * draaien en terugdraaien laat het patroon in de strook staan;
-//   * de veilige zone onderaan het toestel wordt gerespecteerd.
+//   * de veilige zone onderaan het toestel wordt gerespecteerd;
+//   * en, hard afgedwongen: Het Veld loopt niet door de leesbare HUD-tekst. Op een telefoon is de
+//     HUD een band dwars over de bovenkant, geen hoekversiering. `vrijVoorTekst` houdt alleen de
+//     LABELS uit die zone; de punten en verbindingen zelf worden nooit onderdrukt. Ze horen er dus
+//     simpelweg niet te komen, en dat wordt hier op de pixels gemeten, tijdens de opbouw én in
+//     rust. Alfa telt mee: een bijna doorzichtige pixel is op het scherm niets.
 
 import { chromium } from 'playwright';
 import http from 'node:http';
@@ -32,11 +37,63 @@ const MIME={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=u
 const srv=http.createServer(async(q,r)=>{try{const b=await readFile(join(PUBLIC,decodeURIComponent(new URL(q.url,'http://x').pathname)));r.writeHead(200,{'content-type':MIME[extname(q.url.split('?')[0])]||'application/octet-stream'});r.end(b)}catch{r.writeHead(404);r.end()}});
 await new Promise(r=>srv.listen(PORT,'127.0.0.1',r));
 const OPSLAG=`(()=>{const e=Storage.prototype.getItem;Storage.prototype.getItem=function(k){if(String(k).startsWith('mijn_laatst_'))return ${JSON.stringify(F.VORIG_BEZOEK)};return e.call(this,k)};})();`;
-const br=await chromium.launch(); let fout=0;
+const br=await chromium.launch(); // Hoe helder wordt het canvas binnen de vakken van de leesbare HUD-tekst? Gewogen met alfa, want
+// het canvas is doorzichtig waar niets is getekend. De achtergrond is bijna zwart, dus alles boven
+// een handvol telt als zichtbaar licht bovenop tekst.
+const HUD_BOTSING = () => {
+  const cv = document.getElementById('veld');
+  const c = cv.getContext('2d', { willReadFrequently: true });
+  const dpr = cv.width / cv.getBoundingClientRect().width;
+  let max = 0, onder = 0;
+  for (const sel of ['.merk', '.rand', '.onder']) {
+    const e = document.querySelector(sel);
+    if (!e) continue;
+    const st = getComputedStyle(e);
+    if (st.visibility === 'hidden' || Number(st.opacity) === 0) continue;
+    const r = e.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) continue;
+    onder = Math.max(onder, r.bottom);
+    const d = c.getImageData(Math.round(r.left * dpr), Math.round(r.top * dpr),
+      Math.round(r.width * dpr), Math.round(r.height * dpr)).data;
+    for (let i = 0; i < d.length; i += 4) max = Math.max(max, ((d[i] + d[i + 1] + d[i + 2]) / 3) * (d[i + 3] / 255));
+  }
+  return { max: Math.round(max), hudOnder: Math.round(onder) };
+};
+
+// Waar staan de patronen? Ze zijn aanwijsbaar, dus we rasteren af en clusteren waar de cursor
+// verandert. Zo is ook meteen te zien of elk patroon nog zijn eigen trefvlak heeft.
+const KERNEN = () => {
+  const cv = document.getElementById('veld'); const raak = []; const S = 10;
+  for (let y = S; y < window.innerHeight - S; y += S) for (let x = S; x < window.innerWidth - S; x += S) {
+    cv.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y, bubbles: true }));
+    if (cv.classList.contains('aanwijsbaar')) raak.push([x, y]);
+  }
+  cv.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }));
+  const ouder = raak.map((_, i) => i);
+  const w = (i) => (ouder[i] === i ? i : (ouder[i] = w(ouder[i])));
+  for (let i = 0; i < raak.length; i++) for (let j = i + 1; j < raak.length; j++) {
+    if (Math.hypot(raak[i][0] - raak[j][0], raak[i][1] - raak[j][1]) <= S * 1.5) ouder[w(i)] = w(j);
+  }
+  const bak = new Map();
+  raak.forEach((pt, i) => { const r = w(i); if (!bak.has(r)) bak.set(r, []); bak.get(r).push(pt); });
+  return [...bak.values()].map((g) => [
+    Math.round(g.reduce((a, [x]) => a + x, 0) / g.length),
+    Math.round(g.reduce((a, [, y]) => a + y, 0) / g.length)]);
+};
+
+// Licht bovenop leesbare tekst mag verwaarloosbaar zijn en niet meer dan dat. De wijde veldgloed
+// reikt overal een beetje; een punt of een verbinding is tientallen keren helderder.
+const BOTSING_GRENS = 12;
+
+let fout=0;
 const ok=(l,c,d='')=>{if(!c)fout++;console.log(`  [${c?'OK ':'FOUT'}] ${l}${d?' · '+d:''}`)};
 const perifZichtbaar=(p)=>p.evaluate(()=>{const s=getComputedStyle(document.querySelector('.rand'));return s.visibility!=='hidden'&&Number(s.opacity)>0});
 
-for (const vp of [{w:390,h:844,n:'iPhone 390 x 844'},{w:430,h:932,n:'iPhone 430 x 932'}]) {
+for (const vp of [
+  {w:393,h:660,n:'in-app browser 393 x 660'},
+  {w:390,h:844,n:'iPhone 390 x 844'},
+  {w:430,h:932,n:'iPhone 430 x 932'},
+]) {
   console.log(`\n=== ${vp.n} ===`);
   const ctx=await br.newContext({viewport:{width:vp.w,height:vp.h},reducedMotion:'reduce',locale:'nl-NL',timezoneId:'Europe/Amsterdam'});
   await ctx.addInitScript(OPSLAG);
@@ -45,6 +102,47 @@ for (const vp of [{w:390,h:844,n:'iPhone 390 x 844'},{w:430,h:932,n:'iPhone 430 
   await F.routeMijn(p,F.maakStore(F.startDraden));
   await p.goto(`http://127.0.0.1:${PORT}/mijn.html?t=${F.TOKEN}`,{waitUntil:'networkidle'});
   await p.waitForSelector('.zeg.in');
+
+  // ---- de compositie: Het Veld loopt niet door de leesbare HUD-tekst ----
+  const rust = await p.evaluate(HUD_BOTSING);
+  ok('in rust valt er geen veldlicht op de leesbare HUD-tekst', rust.max <= BOTSING_GRENS,
+    `helderste pixel ${rust.max} van 255, HUD tot ${rust.hudOnder}px`);
+
+  const kernen = await p.evaluate(KERNEN);
+  const ys = kernen.map((k) => k[1]);
+  const midden = Math.round(ys.reduce((a, b) => a + b, 0) / (ys.length || 1));
+  const halve = ys.length ? Math.round(Math.max(...ys.map((y) => Math.abs(y - midden)))) : 0;
+  ok('elk patroon houdt zijn eigen trefvlak, ook wanneer het veld krimpt', kernen.length === F.insights.length,
+    `${kernen.length} van ${F.insights.length}, midden y=${midden}, halve hoogte ${halve}`);
+  ok('en alle patronen staan onder de leesbare tekst', Math.min(...ys) > rust.hudOnder,
+    `hoogste kern op y=${Math.min(...ys)}, HUD tot ${rust.hudOnder}`);
+
+  // Tijdens de opbouw staat de uitspraak er nog niet en is er dus meer ruimte. Ook dan mag er geen
+  // licht op de tekst vallen: dat is precies het moment waarop het eerder misging.
+  const opbouw = await p.evaluate(async () => {
+    const cv = document.getElementById('veld');
+    document.getElementById('btn-opnieuw').click();
+    let max = 0;
+    for (let k = 0; k < 24; k++) {
+      await new Promise((r) => setTimeout(r, 260));
+      const c = cv.getContext('2d', { willReadFrequently: true });
+      const dpr = cv.width / cv.getBoundingClientRect().width;
+      for (const sel of ['.merk', '.rand', '.onder']) {
+        const e = document.querySelector(sel);
+        const st = getComputedStyle(e);
+        if (st.visibility === 'hidden' || Number(st.opacity) === 0) continue;
+        const r2 = e.getBoundingClientRect();
+        if (r2.width < 1 || r2.height < 1) continue;
+        const d = c.getImageData(Math.round(r2.left * dpr), Math.round(r2.top * dpr),
+          Math.round(r2.width * dpr), Math.round(r2.height * dpr)).data;
+        for (let i = 0; i < d.length; i += 4) max = Math.max(max, ((d[i] + d[i + 1] + d[i + 2]) / 3) * (d[i + 3] / 255));
+      }
+    }
+    return Math.round(max);
+  });
+  ok('ook tijdens de opbouw, vóór de uitspraak er is, blijft de tekst vrij', opbouw <= BOTSING_GRENS,
+    `helderste pixel over de hele cyclus ${opbouw} van 255`);
+  await p.waitForTimeout(400);
 
   // ---- patroon openen vanaf Het Veld ----
   await p.click('#btn-waarom'); await p.waitForSelector('.bewijs.in'); await p.waitForTimeout(1200);

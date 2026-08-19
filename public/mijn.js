@@ -106,6 +106,11 @@
   const cv = $('veld');
   const ctx = cv ? cv.getContext('2d') : null;
   let W = 0, H = 0, SCHAAL = 1, CX = 0, CY = 0;
+  // Adem tussen de HUD-tekst en de eerste waarneming, en de vloer onder de ruimte die de uitspraak
+  // dekkend nodig heeft. Gemeten op een telefoon is de uitspraak 230 tot 245px hoog, waarvan 133
+  // tot 142px dekkend; 150 dekt dat met marge en houdt de compositie stabiel vanaf het eerste
+  // beeld, ook wanneer de uitspraak er nog niet is. Groeit hij ooit verder, dan wint de meting.
+  const LUCHT = 14, ZEG_DEKKEND = 150, BAND_MIN = 150;
   let patronen = [], signalen = [], kernen = [];
   let klok = 0, t0 = 0, p = 0, raf = null;
   let cam = { x: 0, y: 0, z: 1 }, camDoel = { x: 0, y: 0, z: 1 };
@@ -128,9 +133,41 @@
     cv.height = Math.max(1, Math.round(r.height * d));
     ctx.setTransform(d, 0, 0, d, 0, 0);
     W = r.width; H = r.height;
-    SCHAAL = (W <= 760) ? Math.min(W / 1.95, (H - 236) / 1.95) : Math.min(W / 2.35, H / 1.85);
     CX = W * 0.5;
-    CY = (W <= 760) ? (H - 236) * 0.5 : H * 0.5;
+    if (W > 760) {
+      // Breed scherm: de HUD staat in verre hoeken, het veld staat gewoon in het midden.
+      SCHAAL = Math.min(W / 2.35, H / 1.85);
+      CY = H * 0.5;
+      return;
+    }
+
+    // Op een telefoon is de HUD geen hoekversiering maar een band dwars over de bovenkant: het
+    // merk, een navigatie die naar twee rijen wikkelt, en de groet met de regels eronder. Die band
+    // moet net zo goed gereserveerd worden als de uitspraak onderaan, anders komen de waarnemingen
+    // achter leesbare tekst te staan. `vrijVoorTekst` houdt alleen de LABELS uit die zone; de
+    // punten en verbindingen zelf worden nooit onderdrukt, en dat hoeft ook niet zolang ze er
+    // gewoon niet komen.
+    //
+    // Boven reserveren we wat er werkelijk staat, gemeten en niet vastgezet: de regel over het
+    // vorige bezoek breekt af bij langere teksten en de band groeit dan mee.
+    let boven = 0;
+    for (const sel of ['.merk', '.rand', '.onder']) {
+      const el = document.querySelector(sel);
+      if (el) boven = Math.max(boven, el.getBoundingClientRect().bottom + LUCHT);
+    }
+
+    // Onder reserveren we alleen het DEKKENDE deel van de uitspraak. Zij ligt op mobiel als een
+    // verloop over het veld (`linear-gradient(0deg, var(--bg) 58%, transparent)`), dus de bovenste
+    // 42 procent is bewust doorzichtig en daar mag het veld doorheen lopen. Dat is precies het
+    // verschil met de tekst bovenaan: die heeft geen sluier en moet vrij blijven.
+    const zeg = document.querySelector('.zeg');
+    const dekkend = Math.max(ZEG_DEKKEND, (zeg ? zeg.getBoundingClientRect().height : 0) * 0.58);
+
+    // De band die overblijft. Het veld verhuist daarheen; het krimpt alleen wanneer de band
+    // werkelijk smaller is dan de breedte toestaat, dus op een korte in-app browser.
+    const band = Math.max(BAND_MIN, (H - dekkend) - boven);
+    SCHAAL = Math.min(W / 1.95, band / 1.95);
+    CY = boven + band * 0.5;
   }
 
   // De compositie volgt de inhoud. Patronen worden geordend op rol, zodat wat over hetzelfde
@@ -871,8 +908,16 @@
   // Een los punt is een waarneming, geen onderwerp. Het is voor de klant niet afzonderlijk
   // ontcijferbaar en mag dat dus ook niet suggereren: geen tooltip, geen cursor, geen klik.
   // Betekenis ontstaat pas in het patroon, en alleen het patroon is aanwijsbaar.
+  // Het trefvlak van een patroon. 46px is de maat bij de gewone schaal van het veld. Wordt het veld
+  // op een korte in-app browser kleiner, dan moet het trefvlak mee krimpen: anders overlappen de
+  // vlakken van buurpatronen elkaar en raak je met één tik het verkeerde patroon. Alleen kleiner,
+  // nooit groter, en alleen op een telefoon, zodat een breed scherm precies blijft zoals het was.
+  function trefvlak() {
+    if (W > 760) return 46;
+    return Math.max(26, 46 * Math.min(1, SCHAAL / 200));
+  }
   function raakKern(mx, my) {
-    let beste = -1, best = 46;
+    let beste = -1, best = trefvlak();
     patronen.forEach((q, i) => {
       const d = Math.hypot(sx(q.x) - mx, sy(q.y) - my);
       if (d < best) { best = d; beste = i; }
@@ -1282,6 +1327,10 @@
 
     // De cyclus loopt één keer en blijft daarna staan. Reduced motion toont die eindtoestand
     // direct, dus zonder cyclus en zonder lopende animatie.
+    // De regels onder de groet staan er nu pas, en die bepalen mede hoeveel ruimte de HUD inneemt.
+    // Opnieuw meten, anders is de band te ruim berekend en komt het veld alsnog tegen de tekst aan.
+    meet();
+
     // Staat er iets voor je klaar? Een stille stip in de periferie, meer niet.
     vernieuwGesprekken();
 

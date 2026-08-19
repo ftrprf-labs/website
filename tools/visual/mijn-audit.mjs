@@ -60,7 +60,9 @@ const SCREENS = [
   { name: 'bewijs', wait: '.bewijs.in', doe: '#btn-waarom' },
   // Het gesprek bij een patroon dat nog van jou alleen is: de invoer staat open, met de
   // grens erboven en de aparte deelknop ernaast.
-  { name: 'praat', wait: '.praat-vorm', doe: ['#btn-waarom', '.praat-ingang'] },
+  // `scroll` zet het blad op een vaste plek. Zonder dat hangt de scrollpositie af van waar de klik
+    // op de ingang het blad toevallig heen schuift, en dan verschilt de opname per run.
+  { name: 'praat', wait: '.praat-vorm', doe: ['#btn-waarom', '.praat-ingang'], scroll: '.praat-vorm' },
   { name: 'patronen', wait: '.patronen.in', doe: '#btn-patronen' },
   { name: 'gesprekken', wait: '.gesprekken.in', doe: '#btn-gesprekken' },
   { name: 'samen', wait: '.samen.in', doe: '#btn-samen' },
@@ -75,6 +77,13 @@ async function naar(p, s, breedte, hoogte) {
   await p.mouse.click(4, Math.round(hoogte / 2));
   await p.waitForTimeout(500);
   for (const stap of [].concat(s.doe || [])) await p.click(stap);
+  if (s.scroll) {
+    await p.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      const body = el && el.closest('.blad-body');
+      if (body) body.scrollTop = el.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 12;
+    }, s.scroll);
+  }
   await p.waitForSelector(s.wait, { timeout: 8000 }).catch(() => {});
   await p.waitForTimeout(700);
 }
