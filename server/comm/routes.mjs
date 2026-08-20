@@ -24,6 +24,7 @@ import { addMemory, confirmMemory, dismissMemory, listMemory } from './memory.mj
 import { channelConsentState, setPreference, listPreferences } from './consent.mjs';
 import { channelStatusBoard, SENDABLE_CHANNELS } from './providers/index.mjs';
 import { receiveChannelInbound, linkConversationToContact } from './channel-inbound.mjs';
+import { kamersDieWachten, kamer, nodigUit, wijsAf } from '../mijn/kamers.mjs';
 
 const UUID = '([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})';
 
@@ -64,6 +65,29 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
   if (!isAuthed(req)) { json(res, 401, { error: 'Niet ingelogd' }); return true; }
   const caps = capabilities(req);
   const tenantId = await getDefaultTenantId();
+
+  // ---- Mijn Maculis: de kamers die op één beslissing wachten (ADR-0003 D4) --------------------
+  // Eén regel per kamer, met alles wat nodig is om te beslissen en niets meer. Er zit geen join op
+  // de persoonlijke laag in, dus dit pad KAN geen reflectie of intentie tonen.
+  if (pathname === '/api/comm/mijn/kamers' && method === 'GET') {
+    json(res, 200, { kamers: await kamersDieWachten(tenantId) });
+    return true;
+  }
+  const kamerActie = pathname.match(new RegExp(`^/api/comm/mijn/kamers/${UUID}/(uitnodigen|afwijzen)$`));
+  if (kamerActie && method === 'POST') {
+    const [, roomId, actie] = kamerActie;
+    if (actie === 'uitnodigen') {
+      // De enige handeling in deze keten die het gebouw verlaat, en daarom de enige met een mens
+      // ervoor. Uitstellen bestaat niet als handeling: dat is de knop niet indrukken.
+      const r = await nodigUit(tenantId, roomId, { ipRef: ipRefOf(req) });
+      json(res, r.ok ? 200 : 400, r.ok ? { ok: true, kamer: await kamer(tenantId, roomId) } : { ok: false, error: r.error });
+      return true;
+    }
+    const body = await readJson(req) || {};
+    const r = await wijsAf(tenantId, roomId, body.reden, {});
+    json(res, r.ok ? 200 : 400, r.ok ? { ok: true, kamer: await kamer(tenantId, roomId) } : { ok: false, error: r.error });
+    return true;
+  }
 
   // ---- channel + AI status board (what is LIVE vs MOCK, §48/§81) -----------------------------
   if (pathname === '/api/comm/status' && method === 'GET') {

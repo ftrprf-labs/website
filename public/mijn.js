@@ -30,6 +30,32 @@
     history.replaceState(null, '', url.pathname + (url.hash || ''));
   }
 
+  // Een eenmalige waarde uit een uitnodiging (?u=) of een inloglink (?l=). Die wisselen we in voor
+  // de duurzame toegang en dan is hij op. De waarde gaat via de body en niet via de header, want op
+  // dit moment is er nog geen toegang; hij verdwijnt meteen uit de adresbalk zodat hij niet in de
+  // geschiedenis of in een bladwijzer achterblijft.
+  const eenmalig = url.searchParams.get('u') ? { code: url.searchParams.get('u'), pad: 'uitnodiging' }
+    : url.searchParams.get('l') ? { code: url.searchParams.get('l'), pad: 'inloglink' } : null;
+  if (eenmalig) {
+    url.searchParams.delete('u');
+    url.searchParams.delete('l');
+    history.replaceState(null, '', url.pathname + (url.hash || ''));
+  }
+
+  async function wisselIn(e) {
+    try {
+      const res = await fetch(`/api/mijn/toegang/${e.pad}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: e.code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok || !data.token) return data.error || 'invalid';
+      token = data.token;
+      sessionStorage.setItem('mijn_token', token);
+      return null;
+    } catch { return 'network'; }
+  }
+
   const $ = (id) => document.getElementById(id);
   const gate = $('gate'), gateMsg = $('gate-msg'), app = $('app');
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -576,6 +602,21 @@
   // van kiezen en bij de terugkeer, en niet permanent. Dat is de afgesproken compositie: de strook
   // boven het blad is veld en geen menu, en terug gaat via "Terug naar het veld".
   const BESTEMMINGEN = ['btn-patronen', 'btn-blind', 'btn-samen', 'btn-gesprekken'];
+
+  // Verberg wat nergens heen gaat. Niet uitschakelen maar weglaten: een grijze knop is nog steeds
+  // een belofte van iets dat er niet is.
+  //
+  //   alle patronen   zinloos bij één patroon, want dat is het veld zelf
+  //   wat zie ik niet zinloos bij één patroon, want dat opent hetzelfde inzicht
+  //   samenwerking    leeg tot er werkelijke afspraken zijn
+  //   gesprekken      leeg tot er een draad is. Hij ontstaat vanzelf zodra hij er een begint
+  function stemBestemmingenAf(draden) {
+    const toon = (id, ja) => { const b = document.getElementById(id); if (b) b.classList.toggle('hidden', !ja); };
+    toon('btn-patronen', patronen.length > 1);
+    toon('btn-blind', patronen.length > 1);
+    toon('btn-samen', Array.isArray(samenwerking) && samenwerking.length > 0);
+    toon('btn-gesprekken', Array.isArray(draden) && draden.length > 0);
+  }
   function zetActief(knopId) {
     BESTEMMINGEN.forEach((id) => {
       const b = $(id);
@@ -1395,7 +1436,25 @@
   // ============================================================================================
   // 10. BOOT
   // ============================================================================================
+  // De teksten bij een uitnodiging die niet meer werkt. Een verlopen of gebruikte link haalt geen
+  // toegang weg: de kamer staat er nog, hij heeft alleen een nieuwe manier nodig om binnen te komen.
+  const INWISSEL_FOUT = {
+    used: 'Deze uitnodiging is al gebruikt. Je toegang blijft bestaan. Vraag Maculis om een nieuwe inloglink.',
+    expired: 'Deze uitnodiging is verlopen. Je kamer staat er nog. Vraag Maculis om een nieuwe inloglink.',
+    invalid: 'Deze link werkt niet meer. Vraag Maculis om een nieuwe.',
+    no_access: 'Er is nog geen toegang aan dit adres gekoppeld. Vraag Maculis om een uitnodiging.',
+    network: 'Mijn Maculis kon niet worden bereikt. Probeer het zo nog eens.',
+  };
+
   async function boot() {
+    if (eenmalig) {
+      const fout = await wisselIn(eenmalig);
+      if (fout) {
+        gateMsg.textContent = INWISSEL_FOUT[fout] || INWISSEL_FOUT.invalid;
+        gateMsg.classList.add('error');
+        return;
+      }
+    }
     if (!token) {
       gateMsg.textContent = 'Deze link is niet meer geldig. Vraag Maculis om een nieuwe toegang.';
       gateMsg.classList.add('error');
@@ -1473,7 +1532,17 @@
     meet();
 
     // Staat er iets voor je klaar? Een stille stip in de periferie, meer niet.
-    vernieuwGesprekken();
+    const draden = await vernieuwGesprekken();
+
+    // ADR-0003 D6: geen lege module wordt getoond. Een bestemming die nergens heen gaat leest als
+    // "hier hoort iets te staan", en dat is precies het gevoel dat de eerste kamer moet vermijden.
+    // Donkere ruimte in het veld is geen gat; een leeg blad met een kop erop wel.
+    stemBestemmingenAf(draden);
+
+    // De eerste keer landt hij op zijn eigen zin en niet op de kaart. De herkenningsvraag is "zijn
+    // dit de woorden die ik zag", en een tussenstap kost precies die seconden. Vanaf het tweede
+    // bezoek komt hij gewoon in het veld binnen.
+    if (!laatsteBezoek && patronen.length === 1) openBewijs(0);
 
     t0 = nu(); p = 0; modus = 'openen';
     if (reduce) { p = 1; modus = 'rust'; toonUitspraak(); teken(); stadium(); plaatsUitspraak(); }

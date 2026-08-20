@@ -162,6 +162,9 @@ async function syncLifecycleFromMaculis() {
     const d = byToken.get(inv.token);
     if (!d) continue;
     store.applySessionStatus(inv.id, d.started, d.completed);
+    // ADR-0003 D2: "bewaren" is een eigen toestemming naast "benaderen" en wordt hier vastgelegd
+    // zodra hij uit een echt journey-antwoord blijkt. Idempotent; een tweede signaal doet niets.
+    if (d.keep) store.setKeepConsent(inv.id, d.keep_at || null);
     if (d.started) store.recordEventOnce(inv.id, 'journey_started', { at: d.started_at || null });
     if (d.eval_status !== 'NOT_STARTED') store.recordEventOnce(inv.id, 'evaluation_started', { at: d.started_at || null });
     if (d.eval_status === 'COMPLETED') store.recordEventOnce(inv.id, 'evaluation_completed', { at: d.completed_at || d.started_at || null });
@@ -169,6 +172,30 @@ async function syncLifecycleFromMaculis() {
       const before = store.getInvitation(inv.id);
       if (before && before.consent_status !== 'OPTED_IN') {
         store.setConsent(inv.id, 'OPTED_IN', { source: 'pass_the_lens', version: d.consent_version || null, at: d.consent_at || undefined });
+      }
+    }
+    // ADR-0003 D4: afgerond plus bewaren betekent dat de kamer wordt klaargezet. Automatisch, want
+    // afleidbaar, omkeerbaar en intern. Er gaat niets naar buiten; dat blijft één menselijke klik.
+    //
+    // Eén keer proberen per tester, gemeten aan het history-event, zodat dit niet bij elke
+    // lijstweergave opnieuw werk doet. Mislukt het, dan is er geen event en probeert de volgende
+    // verversing het opnieuw: een mislukte voorbereiding mag een echte vraag nooit laten verdwijnen.
+    if (commEnabled() && d.completed && d.keep) {
+      const nu = store.getInvitation(inv.id);
+      const alGedaan = nu && Array.isArray(nu.history) && nu.history.some((h) => h.event === 'mijn_room_prepared');
+      if (!alGedaan) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const { bereidKamerVoor } = await import('./mijn/voorbereiden.mjs');
+          // eslint-disable-next-line no-await-in-loop
+          const res = await bereidKamerVoor(nu, d);
+          // Een kamer die op contacttoestemming wacht is nog niet af: komt die toestemming later
+          // alsnog, dan moet de volgende verversing hem naar `klaargezet` kunnen tillen. Daarom
+          // wordt het event pas gezet als de voorbereiding werkelijk klaar is.
+          if (res && res.ok && res.status !== 'wacht_op_contact') {
+            store.recordEventOnce(inv.id, 'mijn_room_prepared', { result: res.status });
+          }
+        } catch { /* best effort: de tester blijft gewoon AFGEROND en niets is half zichtbaar */ }
       }
     }
   }

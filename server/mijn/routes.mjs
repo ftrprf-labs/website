@@ -11,6 +11,7 @@ import { resolveAccess } from './access.mjs';
 import { customerOverview, customerInsights, customerInsightDetail, collaboration } from './insights.mjs';
 import { shareInsight, revokeInsight } from './sharing.mjs';
 import { stuurBericht, draden, draadVoorKlant, ongelezen, zetHerkenning } from './gesprek.mjs';
+import { verzilverUitnodiging, gebruikInloglink } from './uitnodiging.mjs';
 
 const UUID = '([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})';
 
@@ -43,6 +44,29 @@ export async function handleMijn(req, res, { pathname, method }) {
   if (!commEnabled()) { json(res, 503, { error: 'Mijn Maculis is nog niet geactiveerd.' }); return true; }
 
   const url = new URL(req.url, 'http://x');
+
+  // ---- de twee routes die GEEN toegang vooronderstellen, want ze maken hem juist -----------------
+  // ADR-0003 D5: geen registratie en geen wachtwoord. De ondernemer wisselt een eenmalige waarde in
+  // voor de duurzame toegang. De waarde staat in de body en nooit in de URL, zodat hij niet in een
+  // requestlog, een history-item of een bladwijzer achterblijft.
+  //
+  // De foutredenen zijn grof en de statuscode is altijd 400: uit het verschil tussen "bestaat niet",
+  // "al gebruikt" en "verlopen" mag niemand kunnen afleiden of een waarde ooit geldig was.
+  if (pathname === '/api/mijn/toegang/uitnodiging' && method === 'POST') {
+    const body = await readJson(req) || {};
+    const r = await verzilverUitnodiging(body.code);
+    if (!r.ok) { json(res, 400, { ok: false, error: r.error }); return true; }
+    json(res, 200, { ok: true, token: r.token });
+    return true;
+  }
+  if (pathname === '/api/mijn/toegang/inloglink' && method === 'POST') {
+    const body = await readJson(req) || {};
+    const r = await gebruikInloglink(body.code);
+    if (!r.ok) { json(res, 400, { ok: false, error: r.error }); return true; }
+    json(res, 200, { ok: true, token: r.token });
+    return true;
+  }
+
   const token = presentedToken(req, url);
   const access = token ? await resolveAccess(token) : null;
   if (!access) { json(res, 401, { error: 'Geen geldige toegang tot Mijn Maculis.' }); return true; }

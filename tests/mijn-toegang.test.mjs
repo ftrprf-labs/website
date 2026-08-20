@@ -101,10 +101,14 @@ test('fase 0: migratie 010 is additief, idempotent en scheidt de twee privacyvra
     await query('drop table if exists customer_invite');
     await query('alter table customer_insight drop constraint if exists customer_insight_audience_chk');
     await query('alter table customer_insight drop column if exists audience');
-    await query(`delete from schema_migrations where version='010_mijn_maculis_toegang.sql'`);
+    // 012 hangt aan een tabel die 010 aanmaakt (`insight_recognition.origin`). Wie 010 terugdraait,
+    // draait dus ook 012 terug, anders blijft de kolom weg terwijl de migratie als toegepast staat
+    // geregistreerd. Beide zijn volledig herhaalbaar geschreven, dus opnieuw draaien is veilig.
+    await query(`delete from schema_migrations where version in ('010_mijn_maculis_toegang.sql','012_lens_naar_mijn_maculis.sql')`);
 
     const her = await runMigrations({ silent: true });
-    assert.deepEqual(her.ran, ['010_mijn_maculis_toegang.sql'], 'de migratie draait opnieuw');
+    assert.deepEqual(her.ran, ['010_mijn_maculis_toegang.sql', '012_lens_naar_mijn_maculis.sql'],
+      'de migratie draait opnieuw, met de migratie die erop voortbouwt');
 
     const overgenomen = (await query('select insight_id, contact_id, answer, note from insight_recognition order by answer')).rows;
     assert.equal(overgenomen.length, 1, 'alleen wat aan een persoon te hangen is, komt mee');

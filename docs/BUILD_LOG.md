@@ -5,6 +5,79 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-20 — Van de Lens naar Mijn Maculis: de V1-keten
+
+**Stand.** De keten loopt end to end in code en in tests: Lens afgerond, toestemming bewaren, kamer
+voorbereid, uitnodiging klaargezet, menselijke verstuuractie, ondernemer binnen, eerste ster
+zichtbaar, en terugkomen zonder dat een verlopen link iets weghaalt. Volledige suite 100 van 100,
+mobiele acceptatie, gesprek-UI, affordance en de mobiele copycontrole allemaal groen.
+
+Grondslag: ADR-0003 (de overgang vraagt geen onboarding), ADR-0004 (Mijn Maculis is de
+relatiecontext, de Lens is één ingang), `PROD-RELATIONSHIP-MODEL` en het V1-acceptatiekader.
+
+### Wat is toegevoegd, en waarom precies dat
+
+**Bewaartoestemming afleiden** (`maculis-sessions.mjs`, `store.mjs`, `index.mjs`). De sessie droeg
+`account_handoff_accepted` allang mee, maar er werd alleen naar de contacttoestemming gekeken. Dit
+is de enige trigger van de hele keten (ADR-0003 D1) en hij krijgt een eigen paar velden naast
+`consent_status`. Samenvoegen zou de toestemming om voor te bereiden vouwen in de toestemming om te
+benaderen, en dat is de ene samenvoeging die het model verbiedt (D2).
+
+**De voorbereider** (`mijn/voorbereiden.mjs`). Organisatie en persoon komen uit de herkenning die er
+al was en al ontdubbelt. Het inzicht is de zin uit `reveal_presented`, woordelijk. Er wordt niets
+opnieuw geanalyseerd, niets samengevat en niets afgeleid uit zijn antwoorden. Idempotent op
+(organisatie, bron, titel), want de aanroeper draait bij elke lijstweergave.
+
+**De drie assen** (migratie 012, `mijn/woordenschat.mjs`). Gebied en perspectief als kolommen en
+niet als tabellen: de namen zijn voor elke organisatie dezelfde, en een tabel zou suggereren dat een
+organisatie eigen gebieden heeft. De bron zat al in `customer_insight.source`.
+
+**Herkomst van een reflectie** (migratie 012). `insight_recognition` bevat vanaf nu twee soorten met
+verschillende regels: een antwoord uit de Lens had Maculis aantoonbaar al, een antwoord uit de kamer
+is van de persoon. Zonder markering leest een latere functie de tabel en trekt de verkeerde
+conclusie. Default `mijn`, dus fail-closed op persoonlijk.
+
+**De kamer** (migratie 012, `mijn_room`). Een eigen levensloop naast die van de tester, want ze gaan
+over verschillende dingen. Een verlopen uitnodiging zet een kamer nooit terug.
+
+**Uitnodiging en terugkeer** (`mijn/uitnodiging.mjs`). De tabellen lagen er sinds migratie 010 en
+werden nergens gebruikt. De uitnodiging is de deurbel, de toegang is de sleutel: een verlopen of
+gebruikte uitnodiging haalt geen toegang weg. Alleen hashes worden bewaard.
+
+**Eén regel in de Cockpit** (`mijn/kamers.mjs`, `comm.js`). Uitnodigen of afwijzen. Geen knop om de
+tekst te wijzigen, want wat in zijn kamer staat moet zijn wat hij zag. De module noemt de
+persoonlijke tabellen zelfs niet bij naam, en een test bewaakt dat.
+
+**De kamer bij één patroon** (`mijn.js`). Bestemmingen die nergens heen gaan worden verborgen en niet
+uitgeschakeld: een grijze knop is nog steeds een belofte van iets dat er niet is. En de eerste keer
+landt hij op zijn eigen zin, niet op de kaart.
+
+### Twee dingen die eerlijk moeten worden opgeschreven
+
+**Het bewijs onder het eerste inzicht is een aantal en geen citaten.** De Lens toont achter "Waar zie
+je dat?" letterlijke citaten met bron, maar het event `reveal_presented` draagt alleen
+`evidence_count` mee. De kamer zegt daarom hoeveel aanwijzingen Maculis vond en verzint de citaten
+niet. De schone oplossing is één extra veld op dat event aan Journeykant; die repo valt buiten de
+GitHub-scope van deze sessie, dus dat is een aparte stap.
+
+**Antwoorden op "Klopt dit?" en "Had je dit zelf al zo gezien?" reizen niet mee.** De kamer stelt één
+vraag, "Herken je dit?", en die krijgt het antwoord uit de Lens. Voor de andere twee een plek maken
+zou een nieuw scherm zijn, en dat verbiedt ADR-0003 D6. Ze blijven zichtbaar in de
+evaluatieweergave van Testerbeheer.
+
+### Eén reparatie onderweg
+
+`tests/mijn-toegang.test.mjs` laat migratie 010 opnieuw draaien door de tabellen te droppen. Migratie
+012 hangt aan een van die tabellen, dus die moet mee terug, anders blijft `insight_recognition.origin`
+weg terwijl 012 als toegepast geregistreerd staat. Beide migraties zijn volledig herhaalbaar.
+
+### Wat nog niet werkt buiten de code
+
+De Journey-preview heeft `MACULIS_DATA_DIR=/var/data` en geen disk, dus de sessie-export levert 200
+met een lege lijst en er komt niets binnen. Zolang dat zo is, kan de keten niet live worden gemeten.
+
+---
+
 ## 2026-08-19 — Twee losse correcties na fase 1, geaccepteerd (preview)
 
 **Stand.** `415afee` en `860ed48` op `claude/mijn-maculis-visual-dna-94ut9s` zijn door de opdracht-

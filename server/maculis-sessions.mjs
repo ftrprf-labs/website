@@ -62,8 +62,21 @@ export function deriveByToken(sessions) {
     if (!token || typeof token !== 'string') continue;
     let d = byToken.get(token);
     if (!d) {
-      d = { started: true, completed: false, answers: {}, contexts: {}, started_at: null, completed_at: null, consent: null, consent_at: null, consent_version: null };
+      d = { started: true, completed: false, answers: {}, contexts: {}, started_at: null, completed_at: null, consent: null, consent_at: null, consent_version: null,
+        // ADR-0003 D1/D2: "bewaren" is a SEPARATE permission from "benaderen". It is the only
+        // trigger for preparing a Mijn Maculis environment, and it never implies contact.
+        keep: false, keep_at: null,
+        // The reveal EXACTLY as the participant saw it. Carried across verbatim, never rewritten
+        // (amplify, do not author). `evidence_count` is what the Lens counted under it; the
+        // individual quotes are not exported today, see BUILD_LOG.
+        reveal: null };
       byToken.set(token, d);
+    }
+    // The journey also mirrors the presented outcome on the session itself (§J). Prefer the event,
+    // fall back to this, so a session that lost its event trail still yields the right line.
+    if (s.shown && typeof s.shown.reveal_line === 'string' && s.shown.reveal_line.trim() && !d.reveal) {
+      d.reveal = { line: s.shown.reveal_line.trim(), family: s.shown.family || null,
+        outcome: s.shown.outcome || null, evidence_count: 0, at: s.received_at || s.updated_at || null };
     }
     if (s.started_at && (!d.started_at || s.started_at < d.started_at)) d.started_at = s.started_at;
     // The journey stamps the consent version it actually showed (maculis-contact-v1).
@@ -83,6 +96,15 @@ export function deriveByToken(sessions) {
       else if (e.name === 'recognition_context' && e.text) d.contexts.recognition_context = String(e.text);
       else if (e.name === 'accuracy_context' && e.text) d.contexts.accuracy_context = String(e.text);
       else if (e.name === 'session_completed') { d.completed = true; d.completed_at = s.received_at || s.updated_at || d.completed_at; }
+      // "Ja, bewaar dit". The permission to prepare an environment, and nothing else. Declining
+      // (`account_handoff_declined`) records nothing: absence of permission is not a permission.
+      else if (e.name === 'account_handoff_accepted') { d.keep = true; d.keep_at = d.keep_at || e.at || s.updated_at || s.received_at || null; }
+      // The reveal line the participant actually read, with the number of evidence items the Lens
+      // showed under it. An event wins over the mirrored `shown` block.
+      else if (e.name === 'reveal_presented' && typeof e.line === 'string' && e.line.trim()) {
+        d.reveal = { line: e.line.trim(), family: e.family || null, outcome: 'REVEAL',
+          evidence_count: Number(e.evidence_count || 0) || 0, at: s.received_at || s.updated_at || null };
+      }
       // Consent events carried in the session event trail. Only an affirmative
       // opt-in maps to consent; `inner_circle_declined` ("Nog niet") is a
       // deferral and is intentionally NOT mapped (stays UNKNOWN). We still read
