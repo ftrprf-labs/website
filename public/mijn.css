@@ -235,6 +235,10 @@ body.mijn {
 .stem-antwoord { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--ink); }
 .stem-woorden { margin: var(--space-2) 0 0; font-size: 13.5px; line-height: 1.6; color: var(--ink); font-style: italic; }
 
+/* de openingsregel van Maculis boven het lege veld. Van Maculis, dus niet cursief zoals de woorden
+   van de ondernemer, en nooit in het invoerveld zelf. */
+.praat-opening { margin: 0 0 var(--space-3); font-size: 13.5px; line-height: 1.6; color: var(--ink2); }
+
 /* ontwikkeling door de tijd */
 .dev { border: 1px solid var(--lijn); border-radius: var(--radius-md); overflow: hidden; }
 .dev > summary { list-style: none; cursor: pointer; padding: var(--space-3) var(--space-4); display: flex; align-items: center; gap: var(--space-3); }

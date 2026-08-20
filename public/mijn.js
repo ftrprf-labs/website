@@ -1302,15 +1302,21 @@
   //      dat er letterlijk, met een aparte knop ernaast voor wie het er wél bij wil doen.
   //   3. Het vinkje staat uit. Wie niets aanvinkt, praat gewoon.
   // ============================================================================================
+  // MACULIS SPREEKT NAMENS ZICHZELF, JIJ SPREEKT NAMENS JEZELF.
+  //
+  // Hier stonden kant en klare zinnen in ZIJN stem: "Dit herken ik deels, maar bij ons speelt nog
+  // iets anders", "Er is bij ons iets veranderd". Eén klik zette ze in het veld dat "Je eigen
+  // woorden" heet, en dan waren die woorden niet van hem. Nu zijn het vragen van Maculis. Ze zetten
+  // de cursor in een leeg veld en schrijven niets voor.
   const OPENERS_PATROON = [
-    'Dit herken ik deels, maar bij ons speelt nog iets anders',
-    'Waar baseren jullie dit precies op?',
-    'Wat zouden jullie hiermee doen?',
+    'Welke vraag roept dit bij jullie op?',
+    'Wat zie jij hier dat wij van buitenaf niet konden zien?',
+    'Wat zouden jullie willen dat wij hiermee doen?',
   ];
   const OPENERS_LOS = [
-    'Er is bij ons iets veranderd',
-    'Ik heb een vraag over wat jullie zien',
-    'Jullie missen iets',
+    'Wat is er bij jullie veranderd?',
+    'Waar wil je ons naar laten kijken?',
+    'Wat missen wij?',
   ];
 
   let gesprekOngelezen = 0;
@@ -1359,17 +1365,22 @@
   // dingen, en de deelbeslissing woont in het grensblok erboven. Dat was niet altijd zo: de
   // deelknop stond hier ook, met net andere woorden, en daarnaast een vinkje dat een derde vraag
   // leek te stellen. Voor de lezer waren dat drie keer dezelfde vraag.
-  function maakComposer(insight, klaar, { kop = true, voorvul = null } = {}) {
+  function maakComposer(insight, klaar, { kop = true, opening = null } = {}) {
     const wrap = el('div', 'praat-vorm');
 
     if (kop) wrap.appendChild(el('p', 'lab', insight ? 'Praat hierover met Maculis' : 'Iets vertellen'));
+    // De openingsregel is van MACULIS en staat boven het veld, niet erin. Hier stond eerder een zin
+    // in zijn stem, voorgevuld en klaar om te versturen: "Hier willen we graag met jullie naar
+    // kijken." Dat is Maculis die namens de ondernemer spreekt, en dat mag niet.
+    if (opening) wrap.appendChild(el('p', 'praat-opening', opening));
 
     const openers = el('ul', 'praat-openers');
     (insight ? OPENERS_PATROON : OPENERS_LOS).forEach((o) => {
       const li = document.createElement('li');
       const b = el('button', 'praat-opener', o);
       b.type = 'button';
-      b.addEventListener('click', () => { tekst.value = o; tekst.focus(); groei(); });
+      // Aanklikken zet de cursor in het lege veld. Wat er komt te staan, schrijft hij zelf.
+      b.addEventListener('click', () => { tekst.focus(); });
       li.appendChild(b); openers.appendChild(li);
     });
     wrap.appendChild(openers);
@@ -1381,9 +1392,8 @@
     label.setAttribute('for', tekst.id);
     const groei = () => { tekst.style.height = 'auto'; tekst.style.height = Math.min(tekst.scrollHeight, 260) + 'px'; };
     tekst.addEventListener('input', groei);
-    // Wie op "Samen met Maculis" klikte, hoeft niets te typen. De zin staat er al, en versturen mag
-    // maar hoeft niet: het signaal was compleet bij de klik.
-    if (voorvul) { tekst.value = voorvul; setTimeout(groei, 0); }
+    // Wie op "Samen met Maculis" klikte, hoeft niets te typen: het signaal was compleet bij de klik.
+    // Het veld blijft leeg, want alles wat hier staat is van hem.
     wrap.appendChild(label);
     wrap.appendChild(tekst);
 
@@ -1424,17 +1434,18 @@
   // als enige dat later invalt.
   let praatOpen = false;
   let praatDraad = null;
-  const OPENER_SAMEN = 'Hier willen we graag met jullie naar kijken.';
+  // Een vraag van Maculis, niet een zin van hem. Zie maakComposer.
+  const OPENER_SAMEN = 'Goed. Wil je hier samen verder naar kijken? Vertel wat je hierover denkt, in je eigen woorden.';
 
   // Het gesprek openen vanuit een andere handeling, met de eerste zin er al in.
-  function openPraat(pat, voorvul) {
+  function openPraat(pat, opening) {
     praatOpen = true;
-    toonPraat(pat, praatDraad, voorvul);
+    toonPraat(pat, praatDraad, opening);
     const vorm = $('bw-praat').querySelector('.praat-vorm');
     if (vorm) vorm.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
   }
 
-  function toonPraat(pat, draad, voorvul = null) {
+  function toonPraat(pat, draad, opening = null) {
     const houder = $('bw-praat');
     const i = pat.ins;
     praatDraad = draad;
@@ -1454,8 +1465,8 @@
       if (praatOpen) {
         // De kop staat hierboven al; de invoer herhaalt hem niet.
         houder.appendChild(maakComposer(i, (nieuw) => { praatOpen = false; toonPraat(pat, nieuw); },
-          { kop: false, voorvul }));
-        voorvul = null;   // alleen bij het openen, niet bij elke hertekening
+          { kop: false, opening }));
+        opening = null;   // alleen bij het openen, niet bij elke hertekening
       }
       houder.appendChild(maakDraad(draad));
     }

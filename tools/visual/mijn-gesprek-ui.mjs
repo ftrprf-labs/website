@@ -221,21 +221,32 @@ async function ronde(br, { breedte, hoogte, naam }) {
     && (store.intenties[store.intenties.length - 1] || {}).intent === 'weten');
 
   // Samen met Maculis: de klik is de laatste noodzakelijke handeling. Het gesprek staat daarna open
-  // met de eerste zin er al in, maar versturen hoeft niet.
+  // met een vraag van Maculis erboven, en versturen hoeft niet.
   const verstuurdVoor = store.verstuurd.length;
   await page.click('[data-intentie="samen"]');
   await page.waitForSelector('.praat-vorm');
-  // De draad wordt aangemaakt en dan pas met de openingszin gevuld. Wachten op het bestaan van het
-  // formulier is dus te vroeg: dit wachtte op de inhoud, anders meet de test een race in plaats van
-  // het gedrag. Faalt hij alsnog, dan is de zin er echt niet.
+  // De draad wordt aangemaakt en dan pas getekend. Wachten op het bestaan van het formulier is dus
+  // te vroeg: dit wacht op de openingsregel, anders meet de test een race in plaats van het gedrag.
   await page.waitForFunction(() => {
-    const t = document.querySelector('.praat-vorm .veldtekst');
-    return Boolean(t) && String(t.value || '').trim().length > 10;
+    const p2 = document.querySelector('.praat-vorm .praat-opening');
+    return Boolean(p2) && String(p2.textContent || '').trim().length > 10;
   }, null, { timeout: 5000 }).catch(() => {});
   chk('"Samen met Maculis" belooft een vervolgstap en geen uitvoering',
     /beste vervolgstap/i.test(await page.locator('#bw-intentie-uit').textContent()));
-  chk('en het gesprek staat meteen open met de eerste zin er al in',
-    (await page.locator('.praat-vorm .veldtekst').inputValue()).trim().length > 10);
+  // MACULIS SPREEKT NAMENS ZICHZELF. Hier stond eerder een voorgevulde zin in de stem van de
+  // ondernemer, in een veld dat "Je eigen woorden" heet. Nu staat de vraag van Maculis erboven en
+  // blijft het veld leeg, want alles wat daarin komt is van hem.
+  chk('het gesprek staat meteen open met een vraag van Maculis erboven',
+    /wil je hier samen verder naar kijken/i.test(
+      await page.locator('.praat-vorm .praat-opening').textContent()));
+  chk('en het veld met zijn eigen woorden is leeg',
+    (await page.locator('.praat-vorm .veldtekst').inputValue()).trim() === '');
+  const openers = await page.locator('.praat-opener').allTextContents();
+  chk('geen enkele opening is een zin in zijn stem',
+    openers.length > 0 && openers.every((o) => /\?$/.test(o.trim())), openers.join(' | '));
+  await page.locator('.praat-opener').first().click();
+  chk('een opening aanklikken vult zijn veld niet',
+    (await page.locator('.praat-vorm .veldtekst').inputValue()).trim() === '');
   chk('de klik alleen heeft nog niets verstuurd', store.verstuurd.length === verstuurdVoor);
   chk('en er komt geen tweede toestemmingskeuze bij', await geenKeuzeInDeInvoer(page));
   chk('de deelstaat is door dit alles niet veranderd',
@@ -267,7 +278,7 @@ async function ronde(br, { breedte, hoogte, naam }) {
   await page.click('[data-antwoord="deels"]');
   await page.waitForSelector('#bw-toel:not(.hidden)');
   chk('Deels vraagt meteen om een toelichting',
-    (await page.locator('#bw-toel-vraag').textContent()).trim() === 'Wat klopt er wel en wat niet?');
+    (await page.locator('#bw-toel-vraag').textContent()).trim() === 'Wat klopt er wel, en wat ziet er van binnenuit anders uit?');
   chk('en het antwoord is meteen bewaard',
     store.herkenningen.some((h) => h.insightId === PRIVE.id && h.answer === 'deels'));
   chk('de tekst zegt waar je antwoord blijft',
