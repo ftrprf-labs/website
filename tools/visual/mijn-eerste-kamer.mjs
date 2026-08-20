@@ -79,7 +79,13 @@ await page.route('**/api/mijn/**', async (r) => {
   if (p === `/api/mijn/insights/${ID}/recognition`) return j({ ok: true });
   if (p === `/api/mijn/insights/${ID}/intent`) return j({ ok: true, insight });
   if (p === `/api/mijn/insights/${ID}`) {
-    return j({ insight, evidence: GROND.map((label) => ({ label, at: '2026-08-20T09:00:00.000Z' })), versions: [] });
+    return j({
+      insight,
+      evidence: GROND.map((label) => ({ label, at: '2026-08-20T09:00:00.000Z' })),
+      versions: [],
+      // Wat hij tijdens de Lens zei. Zijn eerste bijdrage, met het moment erbij.
+      stemmen: [{ origin: 'lens', answer: 'deels', note: null, at: '2026-08-20T09:00:00.000Z' }],
+    });
   }
   return j({});
 });
@@ -192,6 +198,19 @@ for (const antwoord of ['ja', 'deels', 'nee']) {
   });
   stap(vervolg, `en de vervolgvraag blijft staan bij "${antwoord}"`);
 }
+
+// 7. TWEE STEMMEN. Wat wij zagen staat er met zijn bron; wat hij toevoegt staat er apart.
+const blad2 = await page.evaluate(() => document.getElementById('bewijs').innerText);
+stap(/dit zagen wij/i.test(blad2), 'de eerste stem draagt een naam: dit zagen wij');
+stap(/dit voeg jij toe/i.test(blad2), 'en de tweede ook: dit voeg jij toe');
+stap(/bron: jouw reflectie/i.test(blad2), 'met zijn eigen bron, niet die van de Lens');
+stap(/tijdens de maculis lens/i.test(blad2), 'zijn antwoord uit de Lens blijft herkenbaar als Lens-antwoord');
+stap(/hier, in mijn maculis/i.test(blad2), 'en zijn antwoord hier krijgt een eigen oorsprong');
+stap(/20 aug/.test(blad2), 'beide met een datum');
+// De volgorde van de stemmen is de volgorde van de tijd, niet de laatste die de eerste vervangt.
+const iLens = blad2.toLowerCase().indexOf('tijdens de maculis lens');
+const iMijn = blad2.toLowerCase().indexOf('hier, in mijn maculis');
+stap(iLens > -1 && iMijn > iLens, 'wat hij eerder zei staat boven wat hij later zei');
 
 stap(fouten.length === 0, 'geen console errors', fouten.length ? fouten[0] : 'nul');
 

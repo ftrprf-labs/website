@@ -101,14 +101,14 @@ test('fase 0: migratie 010 is additief, idempotent en scheidt de twee privacyvra
     await query('drop table if exists customer_invite');
     await query('alter table customer_insight drop constraint if exists customer_insight_audience_chk');
     await query('alter table customer_insight drop column if exists audience');
-    // 012 hangt aan een tabel die 010 aanmaakt (`insight_recognition.origin`). Wie 010 terugdraait,
-    // draait dus ook 012 terug, anders blijft de kolom weg terwijl de migratie als toegepast staat
-    // geregistreerd. Beide zijn volledig herhaalbaar geschreven, dus opnieuw draaien is veilig.
-    await query(`delete from schema_migrations where version in ('010_mijn_maculis_toegang.sql','012_lens_naar_mijn_maculis.sql')`);
+    // 012 en 013 hangen aan een tabel die 010 aanmaakt (`insight_recognition`). Wie 010 terugdraait,
+    // draait die dus ook terug, anders blijven kolom en sleutel weg terwijl de migraties als
+    // toegepast staan geregistreerd. Alle drie zijn volledig herhaalbaar geschreven.
+    await query(`delete from schema_migrations where version in ('010_mijn_maculis_toegang.sql','012_lens_naar_mijn_maculis.sql','013_twee_stemmen.sql')`);
 
     const her = await runMigrations({ silent: true });
-    assert.deepEqual(her.ran, ['010_mijn_maculis_toegang.sql', '012_lens_naar_mijn_maculis.sql'],
-      'de migratie draait opnieuw, met de migratie die erop voortbouwt');
+    assert.deepEqual(her.ran, ['010_mijn_maculis_toegang.sql', '012_lens_naar_mijn_maculis.sql', '013_twee_stemmen.sql'],
+      'de migratie draait opnieuw, met de migraties die erop voortbouwen');
 
     const overgenomen = (await query('select insight_id, contact_id, answer, note from insight_recognition order by answer')).rows;
     assert.equal(overgenomen.length, 1, 'alleen wat aan een persoon te hangen is, komt mee');
@@ -122,8 +122,12 @@ test('fase 0: migratie 010 is additief, idempotent en scheidt de twee privacyvra
     assert.equal((await query('select recognition from customer_insight where id=$1', [b.insightId])).rows[0].recognition,
       'nee', 'een onherleidbaar antwoord blijft staan waar het stond');
 
-    // En nog eens draaien voegt niets toe.
-    await query(`delete from schema_migrations where version='010_mijn_maculis_toegang.sql'`);
+    // En nog eens draaien voegt niets toe. Opnieuw met de migraties die erop voortbouwen: 013 zet de
+    // unieke sleutel van insight_recognition om naar (insight_id, contact_id, origin), zodat de twee
+    // stemmen naast elkaar bestaan. De backfill van 010 mikt op de sleutel zoals 010 die aanlegt, en
+    // die keten hoort dus als geheel terug te draaien of als geheel te blijven staan.
+    await query(`delete from schema_migrations where version in ('010_mijn_maculis_toegang.sql','012_lens_naar_mijn_maculis.sql','013_twee_stemmen.sql')`);
+    await query('drop table if exists insight_recognition');
     await runMigrations({ silent: true });
     assert.equal((await query('select count(*)::int n from insight_recognition')).rows[0].n, 1,
       'de backfill is idempotent');

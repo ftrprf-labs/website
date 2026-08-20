@@ -710,6 +710,7 @@
     $('bw-bronnen').innerHTML = '<li class="leeg">Eén moment.</li>';
     $('bw-sterkte').textContent = '';
     $('bw-dev').classList.add('hidden');
+    $('bw-stem').classList.add('hidden');
     toonVraag(pat);
     toonIntentie(pat);
     toonGrens(pat);
@@ -726,11 +727,42 @@
     herkenning[data.insight.id] = data.insight.recognition || undefined;
     intentie[data.insight.id] = data.insight.intent || undefined;
     vulBewijs(pat, data.evidence || [], data.development || []);
+    toonStem(data.stemmen || []);
     toonVraag(pat);
     toonIntentie(pat);
     // Het gesprek over dit patroon staat hier ook, zodat je nooit ergens anders hoeft te zoeken
     // naar wat je hier hebt gezegd.
     toonPraat(pat, data.conversation);
+  }
+
+  // DIT VOEG JIJ TOE. Naast "dit zagen wij", nooit erin. Wat hij tijdens de Lens zei en wat hij
+  // later in de kamer toevoegde staan als twee bijdragen onder elkaar, elk met het moment waarop
+  // hij het zei. Ze vervangen elkaar niet: een latere reflectie wist de eerste niet uit, want dan
+  // zou zichtbaar blijven wat iemand nu vindt en verdwijnen wat hij eerder zag.
+  const STEM_MOMENT = {
+    lens: 'Tijdens de Maculis Lens',
+    mijn: 'Hier, in Mijn Maculis',
+  };
+  const STEM_ANTWOORD = {
+    ja: 'Je herkende dit.',
+    deels: 'Je herkende dit deels.',
+    nee: 'Je herkende dit niet. Jullie kijken hier anders naar.',
+  };
+  let stemmenNu = [];
+  function toonStem(stemmen) {
+    stemmenNu = stemmen;
+    const blok = $('bw-stem');
+    const lijst = $('bw-stem-lijst');
+    lijst.innerHTML = '';
+    if (!stemmen.length) { blok.classList.add('hidden'); return; }
+    blok.classList.remove('hidden');
+    stemmen.forEach((st) => {
+      const li = el('li', 'stem-item');
+      li.appendChild(el('span', 'stem-wanneer', `${STEM_MOMENT[st.origin] || ''}${st.at ? ', ' + fmtDatum(st.at) : ''}`));
+      if (st.answer) li.appendChild(el('p', 'stem-antwoord', STEM_ANTWOORD[st.answer] || ''));
+      if (st.note) li.appendChild(el('p', 'stem-woorden', `"${st.note}"`));
+      lijst.appendChild(li);
+    });
   }
 
   function vulBewijs(pat, evidence, development) {
@@ -925,6 +957,13 @@
     herkenning[i.id] = antwoord || undefined;
     i.recognition = antwoord || null;
     i.recognition_note = antwoord ? (toelichting || null) : null;
+    // Zijn nieuwe reflectie komt NAAST wat hij tijdens de Lens zei, nooit eroverheen. Dat is aan
+    // serverzijde de tweede rij met een eigen origin, en hier de tweede regel onder "Dit voeg jij
+    // toe". Een antwoord intrekken haalt alleen zijn eigen regel weg.
+    const rest = stemmenNu.filter((st) => st.origin !== 'mijn');
+    toonStem(antwoord
+      ? rest.concat([{ origin: 'mijn', answer: antwoord, note: toelichting || null, at: new Date().toISOString() }])
+      : rest);
     toonVraag(pat);
     toonIntentie(pat);
     toonUitspraak();

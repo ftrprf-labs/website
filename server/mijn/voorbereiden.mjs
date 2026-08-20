@@ -165,7 +165,7 @@ export async function bereidKamerVoor(record, d, { tenantId = null } = {}) {
     await query(
       `insert into insight_recognition(tenant_id, organization_id, insight_id, contact_id, answer, origin, at)
        values ($1,$2,$3,$4,$5,'lens', coalesce($6::timestamptz, now()))
-       on conflict (insight_id, contact_id) do nothing`,
+       on conflict (insight_id, contact_id, origin) do nothing`,
       [tid, organizationId, insightId, contact.id, antwoord, d.completed_at || null]);
   }
 

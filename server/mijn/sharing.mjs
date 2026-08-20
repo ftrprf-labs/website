@@ -40,7 +40,11 @@ import { recordAudit } from '../comm/audit.mjs';
 const CUSTOMER_SELECT =
   `ci.id, ci.title, ci.stance, ci.observation, ci.meaning, ci.basis, ci.not_yet_known, ci.sharing,
    ci.audience, ci.source, ci.status, ci.attention, ci.created_at, ci.updated_at, ci.shared_at,
-   ir.answer as recognition, ir.note as recognition_note, ir.at as recognition_at,
+   coalesce(irm.answer, irl.answer) as recognition,
+   coalesce(irm.note, irl.note) as recognition_note,
+   coalesce(irm.at, irl.at) as recognition_at,
+   irl.answer as lens_answer, irl.at as lens_answer_at,
+   irm.answer as mijn_answer, irm.note as mijn_note, irm.at as mijn_at,
    ii.intent as intent, ii.at as intent_at,
    (select count(*) from insight_version v where v.insight_id = ci.id) > 1 as developed,
    (ci.sharing='SHARED' and ci.shared_version_id is distinct from ci.current_version_id) as unshared_development,
@@ -60,11 +64,20 @@ export const ZICHTBAAR_BINNEN_ORGANISATIE = ['ORGANISATIE'];
 
 // De persoonlijke laag hangt aan (inzicht, contact). Zonder contact blijft hij LEEG, nooit
 // organisatiebreed: dat is de fail-closed kant van deze join.
-// Een functie en geen sjabloon met een tekstvervanging: er hangen nu twee joins aan dezelfde
+// Een functie en geen sjabloon met een tekstvervanging: er hangen nu drie joins aan dezelfde
 // parameter, en een replace zonder /g zou alleen de eerste raken. Dat is precies het soort stille
 // fout waar een tweede persoonlijke laag om vraagt.
+//
+// TWEE STEMMEN, TWEE JOINS. Wat hij tijdens de Lens zei en wat hij later in de kamer toevoegt, zijn
+// twee bijdragen op twee momenten. Ze deelden eerder één rij, waardoor de tweede de eerste
+// overschreef en niet meer te zien was wanneer hij wat zei. `recognition` blijft het geldende
+// antwoord, dus de knoppen in de kamer gedragen zich zoals ze deden; daarnaast staan beide stemmen
+// nu apart, met een eigen datum.
 const PERSOONLIJK_JOIN = (p) =>
-  `left join insight_recognition ir on ir.insight_id = ci.id and ir.contact_id = ${p}::uuid`
+  `left join insight_recognition irl on irl.insight_id = ci.id and irl.contact_id = ${p}::uuid`
+  + ` and irl.origin = 'lens'`
+  + ` left join insight_recognition irm on irm.insight_id = ci.id and irm.contact_id = ${p}::uuid`
+  + ` and irm.origin = 'mijn'`
   + ` left join insight_intent ii on ii.insight_id = ci.id and ii.contact_id = ${p}::uuid`;
 
 // Elk inzicht dat deze persoon binnen zijn organisatie mag zien.

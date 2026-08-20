@@ -273,10 +273,31 @@ test('lens naar mijn maculis: de persoonlijke laag komt nergens in de Cockpit', 
     assert.equal(k.ok, true);
 
     // Hij antwoordt in de kamer, met zijn eigen woorden. Dit is de persoonlijke laag.
+    //
+    // Via de ECHTE schrijfroute, niet met een update. Die update zette `origin` met de hand op
+    // 'mijn' en dekte daarmee toe dat zetHerkenning de kolom helemaal niet schreef: een reflectie
+    // uit de kamer bleef geregistreerd staan als een antwoord uit de Lens.
     const GEHEIM = 'Dit durf ik intern eigenlijk niet hardop te zeggen.';
-    await query(
-      `update insight_recognition set answer='ja', note=$2, origin='mijn' where insight_id=$1`,
-      [k.insightId, GEHEIM]);
+    const { zetHerkenning } = await import('../server/mijn/gesprek.mjs');
+    const gezet = await zetHerkenning(tid, k.organizationId, k.insightId,
+      { answer: 'ja', note: GEHEIM, contactId: k.contactId });
+    assert.equal(gezet.ok, true);
+
+    // ---- T11: twee stemmen, naast elkaar en niet over elkaar heen ------------------------------
+    const stemmen = (await query(
+      'select answer, note, origin from insight_recognition where insight_id=$1 order by origin', [k.insightId])).rows;
+    assert.equal(stemmen.length, 2, 'wat hij in de Lens zei en wat hij hier zegt, zijn twee bijdragen');
+    const uitLens = stemmen.find((r) => r.origin === 'lens');
+    const uitKamer = stemmen.find((r) => r.origin === 'mijn');
+    assert.equal(uitLens.answer, 'deels', 'zijn antwoord uit de Lens staat er onveranderd');
+    assert.equal(uitLens.note, null, 'en draagt niet ineens woorden die hij hier pas schreef');
+    assert.equal(uitKamer.answer, 'ja');
+    assert.equal(uitKamer.note, GEHEIM, 'zijn reflectie hoort bij het moment waarop hij hem gaf');
+
+    // En de geschiedenis blijft de geschiedenis: elk antwoord is een gebeurtenis, ook dit.
+    const gebeurd = (await query(
+      'select answer from insight_recognition_event where insight_id=$1 order by at asc', [k.insightId])).rows;
+    assert.ok(gebeurd.length >= 1, 'een reflectie laat een spoor achter dat niet wordt overschreven');
 
     // ---- T10: geen enkel Cockpitpad draagt dat mee --------------------------------------------
     const lijst = JSON.stringify(await kamersDieWachten(tid));

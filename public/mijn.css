@@ -225,6 +225,16 @@ body.mijn {
 .qa-blok p { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--ink); }
 .qa-blok.onbekend p { color: var(--ink2); }
 
+/* de tweede stem: wat jij toevoegt, naast wat wij zagen. Bewust dezelfde rust als het bewijs
+   erboven, en bewust geen kader eromheen: het is geen opmerking bij een rapport. */
+.stem { display: flex; flex-direction: column; gap: var(--space-2); }
+.stem-bron { margin: 0; font-size: 12.5px; color: var(--ink2); }
+.stem-lijst { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.stem-item { border-left: 1px solid var(--lijn); padding-left: var(--space-4); }
+.stem-wanneer { display: block; font-size: 12px; color: var(--ink2); margin-bottom: var(--space-1); }
+.stem-antwoord { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--ink); }
+.stem-woorden { margin: var(--space-2) 0 0; font-size: 13.5px; line-height: 1.6; color: var(--ink); font-style: italic; }
+
 /* ontwikkeling door de tijd */
 .dev { border: 1px solid var(--lijn); border-radius: var(--radius-md); overflow: hidden; }
 .dev > summary { list-style: none; cursor: pointer; padding: var(--space-3) var(--space-4); display: flex; align-items: center; gap: var(--space-3); }

@@ -126,5 +126,15 @@ export async function customerInsightDetail(tenantId, organizationId, insightId,
     insightEvidence(tenantId, organizationId, insightId),
     draadOverInzicht(tenantId, organizationId, contactId, insightId),
   ]);
-  return { insight, development, evidence, conversation };
+  // TWEE STEMMEN, OP VOLGORDE VAN TIJD. Wat hij tijdens de Lens zei en wat hij later in de kamer
+  // toevoegde, allebei met hun eigen moment. Ze vervangen elkaar niet en ze worden niet opgeteld.
+  // Beide zijn van hem, dus beide horen alleen thuis in zijn eigen leespad en nooit in de Cockpit.
+  const stemmen = [];
+  if (insight.lens_answer) {
+    stemmen.push({ origin: 'lens', answer: insight.lens_answer, note: null, at: insight.lens_answer_at });
+  }
+  if (insight.mijn_answer) {
+    stemmen.push({ origin: 'mijn', answer: insight.mijn_answer, note: insight.mijn_note, at: insight.mijn_at });
+  }
+  return { insight, development, evidence, conversation, stemmen };
 }
