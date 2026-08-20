@@ -168,9 +168,24 @@ async function autoPublishParticipant(rec) {
 // status is refreshed from real events on every read and never sticks on a stale DRAFT/SENT.
 // OPENED comes from a real session_started (link actually opened); COMPLETED from a real
 // session_completed. On a pull failure the store keeps its last known status (fail-safe).
+// Waarom de laatste poging mislukte, zodat een lege Cockpit een reden heeft in plaats van stilte.
+// Alleen bij verandering gelogd: een defecte sleutel is één regel en geen regen van regels, en een
+// herstel is zichtbaar in plaats van dat het geruis gewoon ophoudt. Nooit een host of een sleutel.
+let laatsteSyncReden = null;
+function meldSync(reden) {
+  if (reden === laatsteSyncReden) return;
+  laatsteSyncReden = reden;
+  if (reden) console.log(`  [comm] lifecycle-sync overgeslagen: ${reden}`);
+  else console.log('  [comm] lifecycle-sync weer gelukt');
+}
+export function laatsteSyncStatus() {
+  return laatsteSyncReden ? { ok: false, reason: laatsteSyncReden } : { ok: true };
+}
+
 async function syncLifecycleFromMaculis() {
   const pull = await pullSessions();
-  if (!pull.ok) return { ok: false, reason: pull.reason, byToken: new Map() };
+  if (!pull.ok) { meldSync(pull.reason); return { ok: false, reason: pull.reason, byToken: new Map() }; }
+  meldSync(null);
   const byToken = deriveByToken(pull.sessions);
   for (const inv of store.listInvitations()) {
     const d = byToken.get(inv.token);
@@ -280,7 +295,7 @@ async function handleApi(req, res, pathname) {
   // other comm routes gate on the admin session inside handleComm. Additive — never touches the
   // existing Invitation Manager / First Five routes.
   if (pathname.startsWith('/api/comm/')) {
-    const handled = await handleComm(req, res, { pathname, method, isAuthed });
+    const handled = await handleComm(req, res, { pathname, method, isAuthed, syncLifecycle: syncLifecycleFromMaculis });
     if (handled) return;
   }
 

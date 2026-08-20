@@ -48,7 +48,7 @@ const ipRefOf = (req) => (req.socket && req.socket.remoteAddress ? String(req.so
 // app_user capabilities (§44) plugs in here.
 function capabilities() { return { communication: true, privacy: true, admin: true }; }
 
-export async function handleComm(req, res, { pathname, method, isAuthed }) {
+export async function handleComm(req, res, { pathname, method, isAuthed, syncLifecycle = null }) {
   if (!commEnabled() || !pathname.startsWith('/api/comm/')) return false;
   const u = new URL(req.url, 'http://x');
 
@@ -70,7 +70,24 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
   // Eén regel per kamer, met alles wat nodig is om te beslissen en niets meer. Er zit geen join op
   // de persoonlijke laag in, dus dit pad KAN geen reflectie of intentie tonen.
   if (pathname === '/api/comm/mijn/kamers' && method === 'GET') {
-    json(res, 200, { kamers: await kamersDieWachten(tenantId) });
+    // EERST DE LENS BIJWERKEN, DAN PAS TONEN. De Cockpit toonde een lijst kamers en was de enige
+    // pagina die niet probeerde die lijst actueel te maken: `syncLifecycleFromMaculis` hing alleen
+    // aan de testerlijst. Een afgeronde Journey werd daardoor pas een kamer wanneer iemand toevallig
+    // Testerbeheer opende, en niet wanneer iemand op de plek keek waar de kamer hoort te staan.
+    //
+    // Dezelfde bestaande sync, dezelfde poort, dezelfde afleiding. Er komt geen tweede bron bij: de
+    // Lens blijft de bron van de journey, Postgres blijft de bron van de kamers.
+    //
+    // Faalt de sync, dan blokkeert dat niets. De lijst komt dan uit de database en de reden gaat mee
+    // in het antwoord, zodat een lege Cockpit een verklaring heeft in plaats van stilte.
+    let sync = { ok: true };
+    if (typeof syncLifecycle === 'function') {
+      try {
+        const r = await syncLifecycle();
+        if (r && r.ok === false) sync = { ok: false, reason: r.reason || 'unknown' };
+      } catch { sync = { ok: false, reason: 'exception' }; }
+    }
+    json(res, 200, { kamers: await kamersDieWachten(tenantId), sync });
     return true;
   }
   const kamerActie = pathname.match(new RegExp(`^/api/comm/mijn/kamers/${UUID}/(uitnodigen|afwijzen)$`));

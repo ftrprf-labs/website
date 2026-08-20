@@ -36,14 +36,23 @@ export const EVAL_QUESTIONS = [
 const CORE = ['recognition', 'accuracy', 'novelty'];
 
 // Pull the raw sessions from Maculis. Returns { ok, sessions } or { ok:false, reason }.
+// Hoe lang een pagina mag wachten op de Lens voordat hij toont wat hij zelf al weet. Zonder deze
+// grens hangt een trage of slapende Lens de Cockpit op, en dat is het eerste scherm dat een
+// medewerker onder tijdsdruk opent. Verstrijkt de tijd, dan is dat een reden zoals elke andere:
+// de lijst komt gewoon uit de database en de volgende verversing probeert het opnieuw.
+const PULL_TIMEOUT_MS = 8000;
+
 export async function pullSessions() {
   if (!config.maculisExportKey) return { ok: false, reason: 'not_configured' };
   const url = `${config.maculisHost}/api/session/export?key=${encodeURIComponent(config.maculisExportKey)}`;
   let res;
   try {
-    res = await fetch(url);
-  } catch {
-    return { ok: false, reason: 'network' }; // no host in message → no PII/secret
+    res = await fetch(url, { signal: AbortSignal.timeout(PULL_TIMEOUT_MS) });
+  } catch (e) {
+    // Een afgebroken verzoek is iets anders dan een onbereikbare host, en dat verschil bepaalt waar
+    // je gaat kijken. Geen host en geen sleutel in de reden.
+    const verlopen = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+    return { ok: false, reason: verlopen ? 'timeout' : 'network' };
   }
   if (res.status === 403) return { ok: false, reason: 'forbidden' };
   let body = null;

@@ -119,12 +119,28 @@ async function linkUnknown() { const email = prompt('Koppel deze afzender aan ee
 // hij werkelijk zag, en een redactieslag maakt dat onwaar. `Amplify, do not author`.
 //
 // Uitstellen is geen knop. Dat is de knop niet indrukken, en de regel blijft dan gewoon staan.
+// Waarom de lijst niet actueel is, in woorden waar een medewerker iets mee kan. Geen host, geen
+// sleutel, geen stacktrace: alleen waar hij moet gaan kijken.
+const SYNC_REDEN = {
+  not_configured: 'De koppeling met de Lens is niet ingesteld, dus afgeronde journeys komen hier nog niet binnen.',
+  timeout: 'De Lens reageerde niet op tijd. Deze lijst kan verouderd zijn. Ververs zo nog een keer.',
+  network: 'De Lens is niet bereikbaar. Deze lijst kan verouderd zijn.',
+  forbidden: 'De Lens weigerde onze sleutel, dus afgeronde journeys komen hier nog niet binnen.',
+  exception: 'Het bijwerken vanaf de Lens ging mis. Deze lijst kan verouderd zijn.',
+  unknown: 'Het bijwerken vanaf de Lens lukte niet. Deze lijst kan verouderd zijn.',
+};
 async function loadKamers() {
   const box = $('#kamers');
   if (!box) return;
   const r = await api('/api/comm/mijn/kamers');
   const ks = (r.status === 200 && r.body.kamers) || [];
-  if (!ks.length) { box.innerHTML = ''; return; }
+  // Een lege lijst kan twee dingen betekenen: er wacht niemand, of we konden de Lens niet lezen.
+  // Dat verschil hoort zichtbaar te zijn, want anders leest een storing als rust.
+  const sync = (r.status === 200 && r.body.sync) || { ok: true };
+  if (!ks.length) {
+    box.innerHTML = sync.ok ? '' : `<p class="note">${esc(SYNC_REDEN[sync.reason] || SYNC_REDEN.unknown)}</p>`;
+    return;
+  }
   box.innerHTML = ks.map((k) => {
     const wie = esc(k.naam || 'Iemand');
     const org = k.organisatie ? ` (${esc(k.organisatie)})` : '';

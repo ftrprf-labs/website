@@ -168,6 +168,20 @@ try {
   for (let i = 0; i < 80; i++) { const s = await api('/api/comm/status'); if (s.status === 200) break; await wacht(400); }
 
   // ---- de sync: dit is de hele automatische voorbereiding ---------------------------------------
+  //
+  // Bewust UITSLUITEND via de Cockpit, en niet via de testerlijst. Dat was namelijk het gat: de
+  // Cockpit toonde een lijst kamers en was de enige pagina die niet probeerde die lijst actueel te
+  // maken. Wie hier /api/invitations eerst aanroept, test de oude weg en merkt de reparatie niet.
+  let kamers = null;
+  for (let i = 0; i < 20; i++) {
+    kamers = await api('/api/comm/mijn/kamers');
+    if ((kamers.body.kamers || []).length) break;
+    await wacht(400);
+  }
+  stap(kamers && kamers.body.sync && kamers.body.sync.ok === true,
+    'de Cockpit werkt zichzelf bij vanaf de Lens', kamers && kamers.body.sync ? JSON.stringify(kamers.body.sync) : 'geen sync');
+
+  // Pas hierna de testerlijst, om vast te stellen wat de Cockpit al had veroorzaakt.
   let rec = null;
   for (let i = 0; i < 20; i++) {
     const lijst = await api('/api/invitations');
@@ -181,9 +195,8 @@ try {
   stap(rec && rec.history.some((h) => h.event === 'mijn_room_prepared'), 'de kamer is automatisch klaargezet');
 
   // ---- de Cockpitregel --------------------------------------------------------------------------
-  const kamers = await api('/api/comm/mijn/kamers');
   const kamer = (kamers.body.kamers || [])[0];
-  stap(Boolean(kamer), 'de kamer staat in de Cockpit');
+  stap(Boolean(kamer), 'de kamer staat in de Cockpit, zonder dat de testerlijst is geopend');
   stap(kamer && kamer.organisatie === 'OCEA', 'met de juiste organisatie', kamer ? kamer.organisatie : '');
   stap(kamer && kamer.naam === 'Ludwig Vermeulen', 'en de juiste mens');
   stap(kamer && kamer.eersteInzicht === REVEAL, 'de regel toont de zin uit de Lens, woordelijk');

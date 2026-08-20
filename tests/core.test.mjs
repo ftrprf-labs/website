@@ -435,3 +435,42 @@ test('de geschiedenis legt een mislukte publicatie vast, met reden en herhaalbaa
     config.dbFile = prevDb; config.dataDir = prevDir; store._resetForTests();
   }
 });
+
+// De Cockpit mag niet hangen aan een trage Lens, en een mislukte pull moet een naam hebben.
+//
+// Zonder grens houdt een slapende Lens de eerste pagina vast die een medewerker onder tijdsdruk
+// opent. En zonder onderscheid tussen "te laat" en "onbereikbaar" weet niemand waar hij moet kijken.
+test('pullSessions geeft op tijd op, en benoemt waarom', async () => {
+  const { config } = await import('../server/config.mjs');
+  const { pullSessions } = await import('../server/maculis-sessions.mjs');
+  const http = await import('node:http');
+
+  const prevKey = config.maculisExportKey, prevHost = config.maculisHost;
+  try {
+    // 1. zonder sleutel is er niets te halen, en dat is een reden en geen stilte
+    config.maculisExportKey = '';
+    assert.equal((await pullSessions()).reason, 'not_configured');
+
+    config.maculisExportKey = 'test-export-key';
+
+    // 2. onbereikbaar heet netwerk
+    config.maculisHost = 'http://127.0.0.1:1';
+    assert.equal((await pullSessions()).reason, 'network');
+
+    // 3. een server die wél opneemt maar niet antwoordt, heet timeout. Hij mag de aanroeper niet
+    //    vasthouden: acht seconden is de grens, dus binnen tien is dit terug.
+    const traag = http.createServer(() => { /* nooit antwoorden */ });
+    await new Promise((r) => traag.listen(0, '127.0.0.1', r));
+    config.maculisHost = `http://127.0.0.1:${traag.address().port}`;
+    const t0 = Date.now();
+    const uit = await pullSessions();
+    const duur = Date.now() - t0;
+    traag.closeAllConnections?.();
+    traag.close();
+    assert.equal(uit.ok, false);
+    assert.equal(uit.reason, 'timeout', 'te laat is iets anders dan onbereikbaar');
+    assert.ok(duur < 10000, `gaf pas na ${duur} ms op`);
+  } finally {
+    config.maculisExportKey = prevKey; config.maculisHost = prevHost;
+  }
+});
