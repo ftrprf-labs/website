@@ -14,6 +14,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+// De uitnodigingslink heeft een publieke basis nodig, anders krijgt iemand een link die hij niet
+// kan openen. node:test draait elk bestand in een eigen proces, dus dit staat er voordat config
+// wordt geladen. Een echte omgeving krijgt deze waarde van Render.
+process.env.MIJN_MACULIS_URL = process.env.MIJN_MACULIS_URL || 'https://mijn-maculis.test';
+
 const HAS_DB = Boolean(process.env.DATABASE_URL) && /^(1|true|yes|on)$/i.test(process.env.COMM_LAYER_ENABLED || '');
 const opts = { skip: HAS_DB ? false : 'no DATABASE_URL/COMM_LAYER_ENABLED — ketentests overgeslagen' };
 
@@ -138,7 +143,26 @@ test('lens naar mijn maculis: voorbereiden, uitnodigen, binnenkomen, terugkomen'
     assert.equal(wachtend[0].naam, 'Ludwig Vermeulen');
     assert.equal(wachtend[0].eersteInzicht, sessie().reveal.line);
 
+    // De menselijke handeling. Zonder echt e-mailtransport wordt er NIET gedaan alsof: er gaat
+    // niets uit, de uitnodiging staat klaar en de link gaat terug naar de mens die klikte. Een
+    // omgeving die "verzonden" meldt zonder transport is precies het incident dat we vermijden.
+    const gezet = await nodigUit(tid, k.roomId, {});
+    assert.equal(gezet.ok, true);
+    assert.equal(gezet.bezorging, 'handmatig', 'geen transport, dus geen verzending');
+    assert.match(gezet.link || '', /\/mijn\.html\?u=/, 'de link gaat terug naar de Cockpit');
+    assert.equal((await query("select count(*)::int n from message where direction='OUTBOUND'")).rows[0].n, 0,
+      'er is werkelijk niets verstuurd');
+    assert.equal((await kamerVoorOrganisatie(tid, k.organizationId)).status, 'uitgenodigd');
+    // En die link werkt: dit is dezelfde weg die de ondernemer loopt.
+    const viaCockpit = await verzilverUitnodiging(new URL(gezet.link, 'http://x').searchParams.get('u'));
+    assert.equal(viaCockpit.ok, true, 'de link uit de Cockpit brengt hem binnen');
+    assert.ok(await resolveAccess(viaCockpit.token));
+    assert.equal((await kamerVoorOrganisatie(tid, k.organizationId)).status, 'actief');
+
     // ---- T6: de uitnodiging werkt zonder registratie en zonder wachtwoord ---------------------
+    // Een tweede uitnodiging voor dezelfde mens. Die mag geen tweede toegang naast de eerste zetten:
+    // één mens heeft één toegang, anders weet niemand meer hoeveel sleutels er zijn.
+    await query('delete from customer_invite');
     const uitn = await maakUitnodiging(tid, k.organizationId, k.contactId, {});
     assert.equal(uitn.ok, true);
     assert.ok(uitn.token && uitn.token.length > 30, 'de rauwe waarde bestaat één keer');

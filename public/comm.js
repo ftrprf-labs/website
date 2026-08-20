@@ -141,9 +141,18 @@ async function loadKamers() {
 }
 async function kamerUitnodigen(ds) {
   const r = await api('/api/comm/mijn/kamers/' + ds.id + '/uitnodigen', { method: 'POST', body: JSON.stringify({}) });
-  if (r.status === 200 && r.body.ok) toast('Uitnodiging verstuurd.');
-  else toast('Niet verstuurd: ' + ((r.body && r.body.error) || 'onbekend'));
+  if (r.status !== 200 || !r.body.ok) { toast('Niet verstuurd: ' + ((r.body && r.body.error) || 'onbekend')); loadKamers(); return; }
+  if (r.body.bezorging === 'email') { toast('Uitnodiging verstuurd.'); loadKamers(); return; }
+  // Geen e-mailtransport op deze omgeving. We melden dus niet dat er iets verstuurd is, want dat is
+  // niet zo. De uitnodiging staat klaar en jij geeft de link zelf door.
+  const box = $('#kamers');
   loadKamers();
+  if (box) {
+    box.insertAdjacentHTML('afterbegin',
+      '<div class="kamer"><div class="kamer-t">Uitnodiging klaargezet. Er staat op deze omgeving geen e-mail aan, dus er is niets verstuurd.</div>'
+      + '<div class="kamer-i">Geef deze link zelf door. Hij is eenmalig en zeven dagen geldig.</div>'
+      + '<div class="kamer-a"><input class="uitn-link" readonly value="' + esc(r.body.link || '') + '"></div></div>');
+  }
 }
 async function kamerAfwijzen(ds) {
   const reden = prompt('Waarom nodig je deze ondernemer niet uit? Wordt alleen intern vastgelegd.');

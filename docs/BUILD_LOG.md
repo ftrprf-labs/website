@@ -5,6 +5,69 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-20 — De keten echt gelopen, en wat de eerste kamer laat zien
+
+**Stand.** De hele keten is over HTTP tegen een draaiende server gelopen, niet alleen in unit tests:
+`tools/visual/lens-naar-mijn-e2e.mjs` start de echte server met een nagebootste Journey-export
+ernaast en loopt daarna de weg van de ondernemer en de medewerker. **28 van 28 stappen groen.**
+Volledige suite 100 van 100, alle visuele harnessen groen, plus een nieuwe.
+
+### Uitgaand zonder mailtransport: klaarzetten, niet doen alsof
+
+`nodigUit` kijkt nu naar de werkelijke modus van het e-mailkanaal. Staat er een echt transport, dan
+gaat de uitnodiging per mail. Staat dat er niet, dan wordt er **niets verstuurd en ook niets
+beweerd**: de uitnodiging staat klaar en de link gaat terug naar de mens die op de knop drukte,
+zodat hij hem zelf kan doorgeven. Er is nog steeds precies één menselijke handeling en er verlaat
+niets ongemerkt het gebouw. Dit maakt de keten testbaar op een omgeving zonder mailsleutel, zonder
+ergens een valse "verzonden" te melden.
+
+Daarnaast: zonder publieke basis-URL wordt er geen uitnodiging meer gemaakt. Liever niets dan een
+link die begint met een schuine streep.
+
+### Eén mens, één toegang
+
+Een tweede uitnodiging voor iemand die al toegang heeft, zette er een tweede naast. Dan sluit
+intrekken de ene en laat de andere openstaan, en weet niemand meer hoeveel sleutels er zijn. Het
+verzilveren draait nu de waarde van de bestaande toegang om in plaats van een tweede aan te maken.
+
+### Wat de eerste kamer visueel opleverde
+
+`tools/visual/mijn-eerste-kamer.mjs` is nieuw en meet de toestand die de bestaande harness juist
+NIET dekt: één organisatie, één gebied, één uitspraak, bron Lens. De bestaande harness draait op zes
+patronen en meet daarmee een volle kamer. Vier dingen kwamen daar uit, en drie zijn gerepareerd.
+
+**De uitspraak stond er twee keer.** Groot als titel, en er direct onder nog eens als waarneming.
+Bij een inzicht dat rechtstreeks uit de Lens komt, is de uitspraak de waarneming. De lead blijft nu
+leeg wanneer die twee gelijk zijn.
+
+**Twee lege modules met een kop erop.** "Wat betekent dit mogelijk?" en "Wat weten we nog niet?"
+toonden allebei "Dit hebben we nog niet opgeschreven." Een vraag zonder antwoord wordt nu
+weggelaten in plaats van met een plaatshouder gevuld (ADR-0003 D6).
+
+**De bron werd nergens genoemd**, terwijl ADR-0003 D3 dat eist. Waar de lead leeg zou blijven staat
+nu de herkomst: "Bron: Maculis Lens. Dit is wat Maculis vanuit het perspectief van buitenaf zag."
+
+**De eerste keer sprong hij het bewijsblad in**, en miste daarmee de begroeting. Dat maakte de kamer
+een dossier in plaats van een vervolg. Hij landt nu op het veld, waar zijn naam, zijn organisatie én
+zijn eigen zin al staan, en het bewijs is één tik weg.
+
+### En één bevinding die NIET is gerepareerd, met opzet
+
+Onder zijn eigen onthulling staat: **"Hier is nog te weinig bewijs om iets te zeggen."** In het
+bewijsblad staat het nog scherper: "1 waarneming. Te weinig om iets te zeggen, en dat zeggen we dan
+ook."
+
+Dat is technisch waar, want er is één klantzijdige bewijsregel. Maar de Lens liet hem er drie zien
+en toonde de onthulling met vertrouwen. De kamer haalt daarmee, in de eerste seconden, precies dat
+vertrouwen onderuit.
+
+Dit is niet met copy op te lossen en het is ook geen reden om de bewijsdrempel te verlagen. Het is
+het bewijs dat de geparkeerde beslissing genomen moet worden: **het event `reveal_presented` moet de
+citaten meesturen die de Lens tóch al aan de ondernemer toonde.** Zolang dat niet gebeurt, vertelt de
+kamer hem dat er te weinig grond is voor iets wat hij zelf met bewijs onderbouwd heeft gezien.
+
+---
+
 ## 2026-08-20 — Van de Lens naar Mijn Maculis: de V1-keten
 
 **Stand.** De keten loopt end to end in code en in tests: Lens afgerond, toestemming bewaren, kamer

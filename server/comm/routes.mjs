@@ -80,7 +80,9 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
       // De enige handeling in deze keten die het gebouw verlaat, en daarom de enige met een mens
       // ervoor. Uitstellen bestaat niet als handeling: dat is de knop niet indrukken.
       const r = await nodigUit(tenantId, roomId, { ipRef: ipRefOf(req) });
-      json(res, r.ok ? 200 : 400, r.ok ? { ok: true, kamer: await kamer(tenantId, roomId) } : { ok: false, error: r.error });
+      json(res, r.ok ? 200 : 400, r.ok
+        ? { ok: true, bezorging: r.bezorging, link: r.link || null, kamer: await kamer(tenantId, roomId) }
+        : { ok: false, error: r.error });
       return true;
     }
     const body = await readJson(req) || {};

@@ -16,6 +16,7 @@
 import { query } from '../comm/db.mjs';
 import { recordAudit } from '../comm/audit.mjs';
 import { sendOnChannel } from '../comm/send.mjs';
+import { getChannelProvider } from '../comm/providers/index.mjs';
 import { config } from '../config.mjs';
 import { maakUitnodiging } from './uitnodiging.mjs';
 
@@ -110,25 +111,47 @@ export async function nodigUit(tenantId, roomId, { userId = null, ipRef = null }
   // maken, dus hier valt niets te versturen. Dat is geen fout maar een dubbele klik.
   if (!inv.token) return { ok: false, error: 'already_open' };
 
+  // Zonder publieke basis-URL zou de link beginnen met een schuine streep, en dan geef je iemand
+  // iets wat hij niet kan openen. Liever niets dan een kapotte deur.
   const basis = (config.mijnMaculisUrl || '').replace(/\/+$/, '');
+  if (!basis) return { ok: false, error: 'no_public_url' };
   const link = `${basis}/mijn.html?u=${encodeURIComponent(inv.token)}`;
   const tekst = uitnodigingstekst({ voornaam: k.first_name || null, organisatie: k.organisatie || null, link });
 
-  const verstuurd = await sendOnChannel({
-    tenantId, contactId: k.contact_id, organizationId: k.organization_id,
-    channel: 'EMAIL', subject: 'Wat Maculis zag staat voor je klaar',
-    text: tekst, purpose: 'service', userId, ipRef,
-  });
-  if (!verstuurd || !verstuurd.ok) return { ok: false, error: verstuurd ? verstuurd.reason : 'send_failed' };
+  // Twee manieren van bezorgen, en de keuze is geen instelling maar een feit: staat er een echt
+  // e-mailtransport, dan gaat hij per mail. Staat dat er niet, dan doen we NIET alsof.
+  //
+  // Dat laatste is de belangrijkste regel in deze functie. Een omgeving zonder transport die "1
+  // verzonden" meldt, is precies het incident waar de uitgaande poort tegen beschermt. In plaats
+  // daarvan is de uitnodiging klaargezet en krijgt de mens die op de knop drukte de link, zodat hij
+  // hem zelf kan doorgeven. Er is nog steeds precies één menselijke handeling, en er verlaat niets
+  // ongemerkt het gebouw.
+  const post = getChannelProvider('EMAIL');
+  const bezorging = post && post.mode === 'live' ? 'email' : 'handmatig';
+
+  if (bezorging === 'email') {
+    const verstuurd = await sendOnChannel({
+      tenantId, contactId: k.contact_id, organizationId: k.organization_id,
+      channel: 'EMAIL', subject: 'Wat Maculis zag staat voor je klaar',
+      text: tekst, purpose: 'service', userId, ipRef,
+    });
+    if (!verstuurd || !verstuurd.ok) return { ok: false, error: verstuurd ? verstuurd.reason : 'send_failed' };
+  }
 
   await query(
     `update mijn_room set status='uitgenodigd', invited_at=now(), invited_by=$2, updated_at=now()
       where id=$1`, [roomId, userId]);
   await recordAudit({
     tenantId, actorUserId: userId, action: 'mijn_room_invited', entityType: 'mijn_room', entityId: roomId,
-    ipRef, meta: { organization_id: k.organization_id, channel: 'EMAIL' },
+    ipRef, meta: { organization_id: k.organization_id, bezorging },
   });
-  return { ok: true, contactId: k.contact_id, organizationId: k.organization_id };
+  // De link gaat alleen terug naar de Cockpit wanneer er niets is verstuurd. Ging hij wel per mail,
+  // dan staat hij daar en heeft niemand hier een tweede kopie nodig.
+  return {
+    ok: true, contactId: k.contact_id, organizationId: k.organization_id, bezorging,
+    link: bezorging === 'handmatig' ? link : null,
+    tekst: bezorging === 'handmatig' ? tekst : null,
+  };
 }
 
 // Afwijzen is een volwaardige uitkomst met een genoteerde reden, geen verstopte optie. De kamer

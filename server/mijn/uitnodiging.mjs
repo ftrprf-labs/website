@@ -72,9 +72,26 @@ export async function verzilverUitnodiging(rawToken) {
   if (new Date(inv.expires_at).getTime() < Date.now()) return { ok: false, error: 'expired' };
 
   const label = [inv.first_name, inv.last_name].filter(Boolean).join(' ') || null;
-  const access = await createAccess(inv.tenant_id, inv.organization_id, {
-    label, role: 'Klantadmin', contactId: inv.contact_id,
-  });
+
+  // Eén mens heeft één toegang tot zijn kamer. Had hij er al een, dan levert een tweede uitnodiging
+  // GEEN tweede naast de eerste op: dan draaien we de waarde van de bestaande om. Twee parallelle
+  // toegangen zouden betekenen dat intrekken de ene sluit en de andere open laat staan, en dat is
+  // een deur waarvan niemand meer weet hoeveel sleutels er zijn.
+  const bestaande = (await query(
+    `select id from customer_access
+      where tenant_id=$1 and contact_id=$2 and revoked_at is null order by created_at asc limit 1`,
+    [inv.tenant_id, inv.contact_id])).rows[0];
+  let access;
+  if (bestaande) {
+    const raw = generateAccessToken();
+    await query('update customer_access set token_hash=$2, label=coalesce($3, label) where id=$1',
+      [bestaande.id, hashToken(raw), label]);
+    access = { id: bestaande.id, token: raw };
+  } else {
+    access = await createAccess(inv.tenant_id, inv.organization_id, {
+      label, role: 'Klantadmin', contactId: inv.contact_id,
+    });
+  }
   await withTransaction(async (c) => {
     await c.query('update customer_invite set accepted_at=now(), accepted_access_id=$2 where id=$1', [inv.id, access.id]);
     await c.query('update customer_access set activated_at=coalesce(activated_at, now()), invite_id=$2 where id=$1', [access.id, inv.id]);

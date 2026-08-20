@@ -654,6 +654,21 @@
     document.querySelector('.rand').classList.add('wijkt');
   }
 
+  // De lead onder de titel. Leeg wanneer de waarneming letterlijk de uitspraak is, want dan zou hij
+  // dezelfde zin twee keer onder elkaar zetten. Leeg wanneer er niets is, want een plaatshouder is
+  // een lege module. In beide gevallen valt het blok gewoon weg.
+  const gelijk = (a, b) => String(a || '').trim() === String(b || '').trim();
+  // Waar een inzicht vandaan komt, in gewone taal en als mededeling. Niet als knop, want er valt
+  // niets te kiezen: het is een feit over de uitspraak (ADR-0003 D3).
+  const BRONZIN = { lens: 'Bron: Maculis Lens. Dit is wat Maculis vanuit het perspectief van buitenaf zag.' };
+  function leadTekst(i) {
+    if (!i) return '';
+    if (i.observation && !gelijk(i.observation, i.title)) return i.observation;
+    // Zou de lead leeg blijven, dan staat daar de herkomst. Zo is de plek onder de uitspraak nooit
+    // leeg en weet hij altijd wie dit heeft gezegd.
+    return BRONZIN[i.source] || '';
+  }
+
   async function openBewijs(patIndex) {
     meteenKlaar();
     const pat = patronen[patIndex];
@@ -668,7 +683,9 @@
     const i = pat.ins;
     $('bw-aanhef').textContent = houdingLabel(i.stance);
     $('bw-titel').innerHTML = accent(i.title);
-    $('bw-lead').textContent = i.observation || 'Dit hebben we nog niet opgeschreven.';
+    // Bij een inzicht dat rechtstreeks uit de Lens komt, is de uitspraak zelf de waarneming. Die
+    // dan nog een keer eronder herhalen leest als een fout, dus dan blijft de lead leeg.
+    $('bw-lead').textContent = leadTekst(i);
     $('bw-getal').textContent = String(bewijs(i));
     $('bw-bronnen').innerHTML = '<li class="leeg">Eén moment.</li>';
     $('bw-sterkte').textContent = '';
@@ -726,9 +743,12 @@
       li.appendChild(b); ul.appendChild(li);
     });
 
-    // de vier vragen, achter een rail van 1px (canon 12, insight surface)
-    const q = (label, tekst, mod) =>
-      `<div class="qa-blok${mod ? ' ' + mod : ''}"><h3 class="lab">${label}</h3><p>${esc(tekst || 'Dit hebben we nog niet opgeschreven.')}</p></div>`;
+    // De vier vragen, achter een rail van 1px (canon 12, insight surface). Een vraag zonder antwoord
+    // wordt WEGGELATEN en niet met een plaatshouder gevuld: een kop met "dit hebben we nog niet
+    // opgeschreven" eronder is een lege module, en die tonen we niet (ADR-0003 D6).
+    const q = (label, tekst, mod) => (tekst
+      ? `<div class="qa-blok${mod ? ' ' + mod : ''}"><h3 class="lab">${label}</h3><p>${esc(tekst)}</p></div>`
+      : '');
     $('bw-qa').innerHTML =
       q('Wat betekent dit mogelijk?', i.meaning) +
       q('Waar baseren we dit op?', i.basis) +
@@ -1539,10 +1559,10 @@
     // Donkere ruimte in het veld is geen gat; een leeg blad met een kop erop wel.
     stemBestemmingenAf(draden);
 
-    // De eerste keer landt hij op zijn eigen zin en niet op de kaart. De herkenningsvraag is "zijn
-    // dit de woorden die ik zag", en een tussenstap kost precies die seconden. Vanaf het tweede
-    // bezoek komt hij gewoon in het veld binnen.
-    if (!laatsteBezoek && patronen.length === 1) openBewijs(0);
+    // Eerder sprong de eerste keer meteen het bewijsblad in. Dat kostte de begroeting: hij landde in
+    // een detail zonder dat er ooit "Welkom terug" had gestaan, en dan leest de kamer als een
+    // dossier in plaats van als een vervolg op wat hij net heeft meegemaakt. Het veld toont zijn
+    // naam, zijn organisatie én zijn eigen zin, dus daar landt hij, en het bewijs is één tik weg.
 
     t0 = nu(); p = 0; modus = 'openen';
     if (reduce) { p = 1; modus = 'rust'; toonUitspraak(); teken(); stadium(); plaatsUitspraak(); }

@@ -100,7 +100,9 @@ export async function bereidKamerVoor(record, d, { tenantId = null } = {}) {
       title: lijn,
       stance: HOUDING[d.reveal.outcome || 'REVEAL'] || 'reveal',
       observation: lijn,
-      basis: grond,
+      // `basis` blijft leeg. De grond staat al als bewijsregel onder "Waarop dit rust"; hem daar
+      // ook nog eens als antwoord op "Waar baseren we dit op?" zetten is dezelfde zin twee keer.
+      basis: null,
       sharing: 'SHARED',
       source: BRON_LENS,
       // Interne herkomst. Nooit klantzijdig, en zonder token: alleen wat nodig is om later te
