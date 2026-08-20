@@ -61,7 +61,33 @@ const journey = createServer((req, res) => {
 });
 await new Promise((r) => journey.listen(JPORT, '127.0.0.1', r));
 
-// ---- 2. de echte server -------------------------------------------------------------------------
+// ---- 2. schone lei ------------------------------------------------------------------------------
+//
+// Deze harness ruimde zichzelf niet op. Een tweede run vond de organisatie, de kamer en de tester
+// van de vorige run terug en werd rood op stappen die niets mankeerden, waarna de achtergebleven
+// server de poort bezet hield en de dérde run al bij het opstarten strandde. Een testinstrument dat
+// alleen de eerste keer de waarheid vertelt, is erger dan geen instrument.
+//
+// Beide kanten van de staat gaan weg: het bestand van Testerbeheer en het schema van de database.
+// Het hele schema, niet de inhoud van de tabellen: leegmaken laat de migraties als toegepast staan
+// terwijl wat zij zaaien (de standaardtenant) verdwenen is, en dan start de server met een
+// communicatielaag die nergens meer bij hoort. De migraties draaien bij het opstarten opnieuw en
+// bouwen alles terug.
+const { rm } = await import('node:fs/promises');
+await rm('/var/tmp/e2e-data', { recursive: true, force: true });
+{
+  const { Client } = await import('pg');
+  const c = new Client({ connectionString: 'postgresql://maculis@127.0.0.1:55432/maculis_e2e' });
+  try {
+    await c.connect();
+    await c.query('drop schema public cascade');
+    await c.query('create schema public');
+  } catch (e) {
+    console.log(`  let op: kon de e2e-database niet legen (${e.message}). Draait Postgres op 55432 met database maculis_e2e?`);
+  } finally { await c.end().catch(() => {}); }
+}
+
+// ---- 3. de echte server -------------------------------------------------------------------------
 const env = {
   ...process.env,
   PORT: String(PORT),
@@ -77,6 +103,9 @@ const env = {
 };
 delete env.NODE_ENV;
 const srv = spawn('node', ['server/index.mjs'], { env, cwd: '/home/user/website', stdio: ['ignore', 'pipe', 'pipe'] });
+// De tweede server (de herstart-controle) leeft in het try-blok, maar moet ook opgeruimd worden
+// wanneer daar iets misgaat. Daarom staat hij hier.
+let srv2 = null;
 let bootlog = '';
 srv.stdout.on('data', (b) => { bootlog += b; });
 srv.stderr.on('data', (b) => { bootlog += b; });
@@ -132,7 +161,7 @@ try {
   // De server houdt de store in geheugen; herstart hem zodat hij het aangepaste token leest.
   srv.kill('SIGTERM');
   await wacht(800);
-  const srv2 = spawn('node', ['server/index.mjs'], { env, cwd: '/home/user/website', stdio: ['ignore', 'pipe', 'pipe'] });
+  srv2 = spawn('node', ['server/index.mjs'], { env, cwd: '/home/user/website', stdio: ['ignore', 'pipe', 'pipe'] });
   srv2.stdout.on('data', (b) => { bootlog += b; });
   srv2.stderr.on('data', (b) => { bootlog += b; });
   for (let i = 0; i < 60; i++) { await wacht(300); try { const r = await fetch(`${BASE}/healthz`); if (r.ok) break; } catch { /* wacht */ } }
@@ -207,6 +236,22 @@ try {
   const naReactie = await api('/api/comm/mijn/kamers');
   stap(!JSON.stringify(naReactie.body).includes('Klopt, dit zeggen klanten ook'), 'zijn woorden komen NIET in de Cockpit');
 
+  // ---- twee stemmen -----------------------------------------------------------------------------
+  // Wat hij tijdens de Lens zei en wat hij hier zegt, staan naast elkaar. De tweede vervangt de
+  // eerste niet, en beide dragen het moment waarop hij ze gaf.
+  const naDetail = await api(`/api/mijn/insights/${ins.id}`, { headers: { 'x-mijn-token': mijn } });
+  const stemmen = naDetail.body.stemmen || [];
+  const uitLens = stemmen.find((v) => v.origin === 'lens');
+  const uitKamer = stemmen.find((v) => v.origin === 'mijn');
+  stap(stemmen.length === 2, 'de kamer houdt twee stemmen uit elkaar', `${stemmen.length}`);
+  stap(Boolean(uitLens) && uitLens.answer === 'deels', 'zijn antwoord uit de Lens staat er onveranderd');
+  stap(Boolean(uitKamer) && uitKamer.answer === 'ja', 'en zijn reflectie hier is de tweede stem');
+  stap(Boolean(uitKamer) && uitKamer.note === 'Klopt, dit zeggen klanten ook.', 'met zijn eigen woorden erbij');
+  stap(Boolean(uitLens) && !uitLens.note, 'en de eerste stem draagt geen woorden die hij pas later schreef');
+  const bewijsNa = (naDetail.body.evidence || []).length;
+  stap(bewijsNa === 3, 'de grond is niet meebewogen met zijn antwoord', `${bewijsNa} regels`);
+  stap(naDetail.body.insight.title === REVEAL, 'en de uitspraak staat er woordelijk nog steeds');
+
   // ---- terugkomen -------------------------------------------------------------------------------
   const nogmaals = await api('/api/mijn/toegang/uitnodiging', { method: 'POST', body: { code } });
   stap(nogmaals.status === 400 && nogmaals.body.error === 'used', 'dezelfde uitnodiging werkt geen tweede keer');
@@ -214,13 +259,15 @@ try {
   const ins2 = (tweedeBezoek.body.insights || [])[0];
   stap(ins2 && ins2.id === ins.id && ins2.recognition === 'ja', 'zijn toegang blijft werken en toont dezelfde kamer');
 
-  srv2.kill('SIGTERM');
 } catch (e) {
   stap(false, 'onverwachte fout', e.message);
   console.log('\n--- serverlog ---\n' + bootlog.slice(-2500));
 } finally {
+  // Allebei, ook als het misging. srv2 werd alleen op het gelukkige pad afgesloten, waardoor een
+  // rode run poort 8099 bezet liet en de volgende run al bij het opstarten strandde op iets dat
+  // niets met de keten te maken had.
   journey.close();
-  try { srv.kill('SIGKILL'); } catch { /* al weg */ }
+  for (const p of [srv, srv2]) { try { if (p) p.kill('SIGKILL'); } catch { /* al weg */ } }
 }
 
 const fout = stappen.filter((s) => !s.ok);

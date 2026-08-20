@@ -594,7 +594,23 @@
       ? 'Hier is nog <b>te weinig bewijs</b> om iets te zeggen.'
       : `Rust op <b>${n}</b> ${n === 1 ? 'waarneming' : 'waarnemingen'}.`
         + (pat.nieuw ? ' Sinds je vorige bezoek is er iets bijgekomen.' : '');
+    toonEigenBijdrage(i);
     $('zeg').classList.add('in');
+  }
+
+  // WAT JIJ TOEVOEGDE, ZONDER ERNAAR TE ZOEKEN. Eén regel, in zijn eigen taal, naast wat wij zagen.
+  // Zijn woorden zelf blijven in het blad: die horen bij het bewijs waar ze over gaan, en niet op
+  // een overzichtsscherm waar iemand anders overheen kan kijken.
+  const EIGEN_BIJDRAGE = {
+    ja: 'Jij herkende dit.',
+    deels: 'Jij herkende dit deels.',
+    nee: 'Jij ziet dit anders.',
+  };
+  function toonEigenBijdrage(i) {
+    const el2 = $('zeg-jij');
+    const zin = EIGEN_BIJDRAGE[herkenning[i.id]];
+    el2.textContent = zin || '';
+    el2.classList.toggle('hidden', !zin);
   }
 
   // De cursieve nadruk valt op het woord dat het inzicht draagt (canon 4.2), en dat is de
