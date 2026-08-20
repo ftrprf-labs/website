@@ -90,14 +90,18 @@ test('intentie: de keten, en alle grenzen eromheen', opts, async () => {
     assert.equal(vraagIsRelevant({ stance: 'tension', evidence_count: 4, recognition: 'ja' }), true);
     assert.equal(vraagIsRelevant({ stance: 'tension', evidence_count: 4, recognition: 'deels' }), true,
       'deels herkennen sluit willen veranderen niet uit');
-    assert.equal(vraagIsRelevant({ stance: 'tension', evidence_count: 4, recognition: 'nee' }), false,
-      'bij nee bestaat het patroon voor deze mens niet, dus er valt niets aan te veranderen');
+    assert.equal(vraagIsRelevant({ stance: 'tension', evidence_count: 4, recognition: 'nee' }), true,
+      'bij nee verschillen twee perspectieven op dezelfde werkelijkheid, en juist daar heeft de vraag betekenis');
     assert.equal(vraagIsRelevant({ stance: 'tension', evidence_count: 4, recognition: null }), false,
       'zonder herkenning is dit een vraag over iets wat nog niet vaststaat');
     assert.equal(vraagIsRelevant({ stance: 'consistency', evidence_count: 9, recognition: 'ja' }), false,
       'op een sterkte is "wil je hier iets aan veranderen" een categoriefout');
     assert.equal(vraagIsRelevant({ stance: 'unknown', evidence_count: 9, recognition: 'ja' }), false,
-      'onder de bewijsdrempel valt er niets te willen');
+      'onbekend IS de uitspraak "hier is te weinig om iets te zeggen", daar valt niets te willen');
+    // De onthulling van de Lens komt met de citaten waaruit ze is afgeleid. Drie regels, en dat is
+    // genoeg grond: dit soort uitspraak kent geen onafhankelijke bevestiging.
+    assert.equal(vraagIsRelevant({ stance: 'reveal', evidence_count: 3, recognition: 'deels' }), true,
+      'een onthulling uit de Lens draagt zichzelf, ook met drie regels');
 
     // ---- 2. Ja, Deels en Nee ---------------------------------------------------------------------
     for (const [token, antwoord] of [[sanne.token, 'ja'], [piet.token, 'deels']]) {

@@ -76,6 +76,8 @@ await page.route('**/api/mijn/**', async (r) => {
   if (p === '/api/mijn/insights') return j({ insights: [insight] });
   if (p === '/api/mijn/collaboration') return j({ items: [] });
   if (p === '/api/mijn/conversations') return j({ items: [], unread: 0 });
+  if (p === `/api/mijn/insights/${ID}/recognition`) return j({ ok: true });
+  if (p === `/api/mijn/insights/${ID}/intent`) return j({ ok: true, insight });
   if (p === `/api/mijn/insights/${ID}`) {
     return j({ insight, evidence: GROND.map((label) => ({ label, at: '2026-08-20T09:00:00.000Z' })), versions: [] });
   }
@@ -145,9 +147,51 @@ stap(/lens/i.test(tekst), 'de bron wordt genoemd');
 // 5. de drie lagen: uitspraak, onderbouwing, verdieping
 stap(tekst.includes(ZIN), 'laag 1, de uitspraak: zijn eigen zin');
 stap(GROND.every((g) => tekst.includes(g)), 'laag 2, de onderbouwing: elk citaat dat hij in de Lens zag');
-stap(!/te weinig bewijs|Te weinig om iets te zeggen/.test(tekst), 'de kamer haalt zijn onthulling niet meer onderuit');
+// Deze meting hoort op het scherm waar hij LANDT. Ze stond eerder alleen op `tekst`, en dat is de
+// pagina met het blad open; dan is #zeg verborgen en meet ze de zin niet die er wel degelijk stond.
+stap(!/te weinig bewijs|Te weinig om iets te zeggen/.test(veld),
+  'de kamer haalt zijn onthulling niet onderuit op het scherm waar hij landt');
+stap(!/te weinig bewijs|Te weinig om iets te zeggen/.test(tekst), 'en ook niet in het bewijsblad');
+stap(/Rust op/.test(veld), 'in plaats daarvan staat er waar de uitspraak op rust');
 stap(tekst.includes(VERDIEPING), 'laag 3, de verdieping: wat we nog niet weten');
 stap(!/koppel|upload|verbind/i.test(tekst), 'en dat is geen aanbod, dus geen modulemenu');
+
+// 6. HET LICHT VOLGT DE GROND, NOOIT DE MENING.
+//
+// Statisch, want dit is een uitspraak over de formule en niet over één render: als `kracht` het
+// antwoord van de mens niet leest, kan geen enkel antwoord de straal, de ontsteking of de volgorde
+// bewegen. Dat is sterker dan pixels tellen op een canvas dat ademt.
+const bron = await readFile(join(PUBLIC, 'mijn.js'), 'utf8');
+const krachtBody = bron.slice(bron.indexOf('function kracht(pat)'));
+stap(!krachtBody.slice(0, krachtBody.indexOf('\n  }')).includes('herkenning'),
+  'de zekerheid van een waarneming leest het antwoord van de mens niet');
+
+// En de betekenis van de drie antwoorden, zoals hij ze te zien krijgt.
+const BETEKENIS = {
+  ja: 'We zien hetzelfde.',
+  deels: 'We kijken anders naar hetzelfde.',
+  nee: 'Onze perspectieven verschillen.',
+};
+for (const antwoord of ['ja', 'deels', 'nee']) {
+  // eslint-disable-next-line no-await-in-loop
+  await page.click(`[data-antwoord="${antwoord}"]`);
+  // eslint-disable-next-line no-await-in-loop
+  await page.waitForTimeout(500);
+  // eslint-disable-next-line no-await-in-loop
+  const blad = await page.evaluate(() => document.getElementById('bewijs').innerText);
+  stap(blad.includes(BETEKENIS[antwoord]), `"${antwoord}" krijgt een betekenis, geen sterkte`, BETEKENIS[antwoord]);
+  stap(!/licht wordt sterker|neemt iets af|komen los|onzeker/.test(blad),
+    `en "${antwoord}" laat de waarneming staan`);
+  stap(blad.includes(ZIN), `de uitspraak overleeft "${antwoord}" woordelijk`);
+  stap(GROND.every((g) => blad.includes(g)), `en het bewijs ook`);
+  stap(/lens/i.test(blad), `en de bron ook`);
+  // eslint-disable-next-line no-await-in-loop
+  const vervolg = await page.evaluate(() => {
+    const el = document.getElementById('bw-intentie');
+    return Boolean(el) && !el.classList.contains('hidden');
+  });
+  stap(vervolg, `en de vervolgvraag blijft staan bij "${antwoord}"`);
+}
 
 stap(fouten.length === 0, 'geen console errors', fouten.length ? fouten[0] : 'nul');
 

@@ -122,10 +122,25 @@
     }
   }
 
-  // De bewijsdrempel waarboven violet ontsteekt hangt af van het SOORT uitspraak, niet van een
-  // vast getal (canon 8.1): "een tegenstrijdigheid heeft aan twee gegronde signalen genoeg, een
-  // patroon heeft er veel meer nodig". Onbekend ontsteekt nooit; onzekerheid blijft kleurloos.
-  const DREMPEL = { tension: 2, reveal: 4, consistency: 5, non_reveal: 5, unknown: Infinity };
+  // Wat een uitspraak aan grond NODIG HEEFT OM TE BESTAAN. Geen kwaliteitscijfer en geen score:
+  // per soort uitspraak een andere logica, omdat de uitspraken iets anders beweren.
+  //
+  //   structurele uitspraken, waar de grond de uitspraak IS
+  //     tension    2  een tegenstrijdigheid heeft er per definitie twee, één aan elke kant
+  //     reveal     1  de onthulling van de Lens wordt AFGELEID uit haar citaten en bestaat niet
+  //                   zonder. Vragen om een extra regel is vragen om bevestiging die dit soort
+  //                   uitspraak niet kent: er is geen onafhankelijke tweede bron die de eerste
+  //                   kan bevestigen, het is dezelfde blik op dezelfde plek. Stond op 4, en dat
+  //                   liet Maculis zijn eigen onthulling tegenspreken op het eerste scherm
+  //
+  //   breedte-uitspraken, waar het aantal wél iets betekent
+  //     non_reveal 5  een afwezigheid mag je pas beweren als je genoeg plekken hebt bekeken
+  //     consistency 5 één voorbeeld is een anekdote, een lijn heeft breedte nodig
+  //
+  //   en de uitspraak die zichzelf uitspreekt
+  //     unknown  ∞    "hier is te weinig om iets te zeggen" IS de uitspraak, niet een tekort
+  //                   eronder. Alleen deze houding zegt dat, en alleen als de uitspraak zelf.
+  const DREMPEL = { tension: 2, reveal: 1, consistency: 5, non_reveal: 5, unknown: Infinity };
   const drempel = (i) => DREMPEL[i && i.stance] ?? 4;
   const bewijs = (i) => Math.max(1, Number(i && i.evidence_count) || 0);
   // Dimensie B, op één plek gedefinieerd. Stond eerder op drie plekken net iets anders, wat de
@@ -276,15 +291,18 @@
     };
   }
 
-  // Hoeveel bewijs draagt dit patroon, ten opzichte van zijn eigen drempel. Menselijke herkenning
-  // telt mee: zonder de mens blijft een patroon een vermoeden.
+  // Hoeveel grond draagt dit patroon, ten opzichte van wat zijn soort uitspraak nodig heeft.
+  //
+  // HET LICHT VOLGT DE GROND, NOOIT DE MENING. Hier stond eerder een vermenigvuldiging met het
+  // antwoord op "Herken je dit?": ja maakte sterker, deels zwakker, nee bijna onzichtbaar. Dat
+  // liet een reactie de zekerheid van een waarneming veranderen, en daarmee trok Maculis zijn
+  // eigen waarneming in zodra iemand het er niet mee eens was. Drie citaten van een website komen
+  // niet los omdat iemand ze anders leest.
+  //
+  // Een reactie verandert nooit de bron, de waarneming of het bewijs. Wat een reactie wél doet,
+  // staat in uitkomstTekst: ze zet een tweede perspectief naast het eerste.
   function kracht(pat) {
-    let k2 = pat.n / (drempel(pat.ins) === Infinity ? Infinity : Math.max(drempel(pat.ins), 1));
-    const a = herkenning[pat.ins.id];
-    if (a === 'ja') k2 *= 1.35;
-    if (a === 'deels') k2 *= 0.92;
-    if (a === 'nee') k2 *= 0.42;
-    return k2;
+    return pat.n / (drempel(pat.ins) === Infinity ? Infinity : Math.max(drempel(pat.ins), 1));
   }
   const ontstoken = (pat) => kracht(pat) >= 1;
   // Canon 7: de straal is een functie van het aantal onafhankelijke signalen, niet van de opmaak.
@@ -570,10 +588,12 @@
     $('zeg-aanhef').textContent = houdingLabel(i.stance);
     $('zeg-titel').innerHTML = accent(i.title);
     const n = bewijs(i);
-    $('zeg-rust').innerHTML = ontstoken(pat)
-      ? `Rust op <b>${n}</b> ${n === 1 ? 'waarneming' : 'waarnemingen'}.`
-        + (pat.nieuw ? ' Sinds je vorige bezoek is er iets bijgekomen.' : '')
-      : 'Hier is nog <b>te weinig bewijs</b> om iets te zeggen.';
+    // Een inzicht dat Maculis uitspreekt, spreekt Maculis niet in dezelfde adem tegen. Alleen de
+    // houding "unknown" zegt dat er te weinig is, en die zegt het als de uitspraak zelf.
+    $('zeg-rust').innerHTML = drempel(i) === Infinity
+      ? 'Hier is nog <b>te weinig bewijs</b> om iets te zeggen.'
+      : `Rust op <b>${n}</b> ${n === 1 ? 'waarneming' : 'waarnemingen'}.`
+        + (pat.nieuw ? ' Sinds je vorige bezoek is er iets bijgekomen.' : '');
     $('zeg').classList.add('in');
   }
 
@@ -774,7 +794,13 @@
   // steviger worden vastgelegd dan het antwoord waar hij bij hoort. Het volgt dezelfde grens als
   // het inzicht zelf, en de tekst zegt precies waar het blijft.
   // ============================================================================================
-  const TOEL_VRAAG = { deels: 'Wat klopt er wel en wat niet?', nee: 'Wat zien wij verkeerd?' };
+  // Geen van beide vraagt om een correctie op ons. Ze vragen naar het perspectief dat wij niet
+  // hadden. "Wat zien wij verkeerd?" stond hier eerder, en dat maakt van een ander perspectief
+  // een fout van Maculis.
+  const TOEL_VRAAG = {
+    deels: 'Wat klopt er wel, en wat ziet er van binnenuit anders uit?',
+    nee: 'Hoe ziet dit er van binnenuit uit?',
+  };
 
   function toonVraag(pat) {
     const el = $('bw-vraag');
@@ -787,7 +813,7 @@
       b.classList.toggle('primair', aan);
       b.setAttribute('aria-pressed', aan ? 'true' : 'false');
     });
-    $('bw-uitkomst').innerHTML = uitkomstTekst(gekozen, i);
+    $('bw-uitkomst').innerHTML = uitkomstTekst(gekozen);
 
     // Deels en Nee zijn zonder toelichting arm. Het veld staat er dan meteen open, en blijft leeg
     // mogen blijven: deels antwoorden en verder niets zeggen is een eerlijke uitkomst.
@@ -808,11 +834,18 @@
   // route naar dezelfde vraag als het grensblok eronder, en vroeg de lezer te herhalen wat ze net
   // hadden ingevuld. De deelbeslissing woont op precies één plek.
   const BLIJFT = ' Je antwoord blijft bij jou.';
-  function uitkomstTekst(a, i) {
-    if (a === 'ja') return '<b>Bevestigd door jou.</b> Het patroon komt tot rust en het licht wordt sterker.' + esc(BLIJFT);
-    if (a === 'deels') return '<b>Deels herkend.</b> Maculis houdt het inzicht aan en het licht neemt iets af.' + esc(BLIJFT);
-    if (a === 'nee') return '<b>Niet herkend.</b> Het patroon wordt weer onzeker: de waarnemingen komen los en gaan opnieuw bewegen.' + esc(BLIJFT);
-    return 'Jouw antwoord verandert wat het veld laat zien. Het blijft bij jou.';
+  // Wat een antwoord BETEKENT, niet wat het met de zekerheid doet. Alle drie zijn waardevolle
+  // routes en geen van drieën is fout. Hier stond eerder dat het licht sterker werd, iets afnam,
+  // of dat de waarnemingen loskwamen; dat maakte van een mening een correctie op het bewijs.
+  //
+  // Verschil is de opbrengst, niet het probleem. Van buitenaf lijkt iets een beperking, van
+  // binnenuit blijkt het soms een bewuste keuze. Beide zijn waar binnen hun perspectief, en pas
+  // naast elkaar zijn ze de werkelijkheid.
+  function uitkomstTekst(a) {
+    if (a === 'ja') return '<b>We zien hetzelfde.</b> Wat wij van buitenaf zagen en wat jij weet, vallen samen.' + esc(BLIJFT);
+    if (a === 'deels') return '<b>We kijken anders naar hetzelfde.</b> Wat wij van buitenaf zagen blijft staan. Wat jij van binnenuit weet, komt ernaast.' + esc(BLIJFT);
+    if (a === 'nee') return '<b>Onze perspectieven verschillen.</b> Dat is informatie, geen fout. Wij houden vast wat we zagen, jij houdt vast wat jij weet.' + esc(BLIJFT);
+    return 'Jouw antwoord komt naast wat wij zagen te staan. Het verandert niet wat wij zagen, en het blijft bij jou.';
   }
 
   // ============================================================================================
@@ -831,8 +864,11 @@
   function intentieRelevant(i) {
     if (!i) return false;
     if (drempel(i) === Infinity) return false;
-    const a = herkenning[i.id];
-    if (a !== 'ja' && a !== 'deels') return false;
+    // Elk antwoord houdt de vraag open, ook nee. Die eis stond hier eerder wel, met als reden dat
+    // een patroon dat iemand niet herkent voor hem niet bestaat. Dat klopte niet: juist daar
+    // verschillen twee perspectieven op dezelfde werkelijkheid, en dat is het gesprek waard. De
+    // deur ging dicht op het moment dat het interessant werd.
+    if (!herkenning[i.id]) return false;
     return i.stance === 'tension' || i.stance === 'reveal';
   }
 
@@ -1063,9 +1099,9 @@
         <span class="pt-titel"></span>
         <span class="pt-meta"></span>`;
       b.querySelector('.pt-titel').textContent = i.title;
-      b.querySelector('.pt-meta').textContent = ontstoken(pat)
-        ? `${n} ${n === 1 ? 'waarneming' : 'waarnemingen'}${pat.nieuw ? ', nieuw sinds je vorige bezoek' : ''}`
-        : 'Te weinig bewijs om iets te zeggen';
+      b.querySelector('.pt-meta').textContent = drempel(i) === Infinity
+        ? 'Te weinig bewijs om iets te zeggen'
+        : `${n} ${n === 1 ? 'waarneming' : 'waarnemingen'}${pat.nieuw ? ', nieuw sinds je vorige bezoek' : ''}`;
       b.addEventListener('click', () => openBewijs(k));
       li.appendChild(b); ul.appendChild(li);
     });

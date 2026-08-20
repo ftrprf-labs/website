@@ -32,21 +32,29 @@ export const INTENTIES = new Set(['weten', 'zelf', 'samen']);
 // De vraag verschijnt niet bij elk patroon. Vier voorwaarden, alle vier afgeleid uit wat er al
 // staat, zodat dit geen trechter wordt maar een vraag op het enige moment waarop hij betekent.
 //
-//   1. er ligt genoeg bewijs onder (unknown valt af, die kent geen drempel);
-//   2. er is een antwoord op "Herken je dit?";
-//   3. dat antwoord is ja of deels. Bij nee bestaat het patroon voor deze mens niet, dus er valt
-//      niets aan te veranderen; daar hoort het correctieveld en niet deze vraag;
-//   4. de houding is een spanning of een opvallendheid. "Hier zien we consistentie" is goed nieuws,
+//   1. er ligt grond onder (unknown valt af, want die houding IS "hier is te weinig om iets te
+//      zeggen" en kent daarom geen drempel);
+//   2. er is een antwoord op "Herken je dit?", welk antwoord dan ook;
+//   3. de houding is een spanning of een opvallendheid. "Hier zien we consistentie" is goed nieuws,
 //      en vragen of je daar iets aan wilt veranderen is een categoriefout.
 //
+// Hier stond eerder een vierde voorwaarde: het antwoord moest ja of deels zijn, want bij nee zou
+// het patroon voor deze mens niet bestaan. Dat klopte niet. Bij nee verschillen twee perspectieven
+// op dezelfde werkelijkheid, en dat is precies het moment waarop een vraag betekenis heeft. De
+// vraag ging dicht op het moment dat het interessant werd.
+//
+// Over de getallen: dit is geen score maar wat een soort uitspraak nodig heeft om te bestaan. Zie
+// de toelichting bij DREMPEL in public/mijn.js. reveal stond op 4 en staat op 1, omdat de
+// onthulling van de Lens uit haar eigen citaten wordt afgeleid en dus niet zonder kan bestaan.
+//
 // Deze regel staat hier én in de front end. Hier is hij de grens, daar de weergave.
-export const DREMPEL = { tension: 2, reveal: 4, consistency: 5, non_reveal: 5, unknown: Infinity };
+export const DREMPEL = { tension: 2, reveal: 1, consistency: 5, non_reveal: 5, unknown: Infinity };
 export function vraagIsRelevant(insight) {
   if (!insight) return false;
   const drempel = DREMPEL[insight.stance] ?? 4;
   if (!Number.isFinite(drempel)) return false;
   if (Number(insight.evidence_count || 0) < 1) return false;
-  if (insight.recognition !== 'ja' && insight.recognition !== 'deels') return false;
+  if (!insight.recognition) return false;
   return insight.stance === 'tension' || insight.stance === 'reveal';
 }
 
