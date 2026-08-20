@@ -38,12 +38,25 @@ const EVENT_LABEL = {
   consent_recorded: 'Toestemming vastgelegd',
   consent_changed: 'Toestemming gewijzigd',
   published_to_maculis: 'Gepubliceerd naar Maculis',
+  publish_to_maculis_failed: 'Publiceren naar Maculis mislukt',
   pass_the_lens_introduction: 'Aangedragen via Pass the Lens',
 };
 const CHANNEL_LABEL = { whatsapp: 'WhatsApp', email: 'E-mail' };
 const RESULT_LABEL = {
   success: 'Succesvol', failed: 'Mislukt', skipped: 'Overgeslagen', blocked: 'Geblokkeerd',
   opted_in: 'Toestemming gegeven', opted_out: 'Geen toestemming', unknown: 'Onbekend',
+};
+// WAAROM iets mislukte, in gewone woorden en met de handeling erin. Een beheerder die "no_data_dir"
+// leest weet niet wat hij moet doen; wie leest dat Maculis geen opslag heeft, weet het wel.
+const REASON_LABEL = {
+  not_configured: 'sync-sleutel ontbreekt in de omgeving',
+  no_data_dir: 'Maculis heeft geen opslag ingesteld, dus de naam kon daar niet worden bewaard',
+  forbidden: 'Maculis weigerde de sync-sleutel',
+  network: 'Maculis was niet bereikbaar',
+  http: 'Maculis gaf een onverwachte status terug',
+  empty: 'geen tester om te publiceren',
+  exception: 'onverwachte fout tijdens het publiceren',
+  unknown: 'onbekende reden',
 };
 const SOURCE_LABEL = {
   manual: 'Handmatig', csv: 'CSV-import', xlsx: 'Excel-import', import: 'Import',
@@ -1115,6 +1128,7 @@ async function openHistory(id) {
         if (e.channel) meta.push(CHANNEL_LABEL[e.channel] || e.channel);
         if (e.result) meta.push(RESULT_LABEL[e.result] || e.result);
         if (e.source) meta.push(SOURCE_LABEL[e.source] || e.source);
+        if (e.reason) meta.push(REASON_LABEL[e.reason] || e.reason);
         return `<div class="tl-item tl-${esc(e.result || 'info')}">
           <div class="tl-time">${esc(fmtTs(e.at))}</div>
           <div class="tl-body">

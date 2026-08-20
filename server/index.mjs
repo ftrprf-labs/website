@@ -141,11 +141,25 @@ function publicContext(record) {
 // Maculis is unreachable, the invite proceeds and the opening falls back to
 // generic. Only counts/outcomes are recorded — never PII or the payload.
 async function autoPublishParticipant(rec) {
-  if (!rec || !config.maculisSyncKey) return; // sync not configured → silent no-op
+  if (!rec) return;
+  // EEN MISLUKTE SYNC VERDWIJNT NOOIT MEER STIL. Hier stond een lege catch en een gebeurtenis die
+  // alleen bij succes werd geschreven. Gevolg: gaf Maculis 503 `no_data_dir` terug, dan ging de
+  // tester zonder naam de Journey in en was daar nergens een spoor van te vinden. De uitnodiging
+  // mag nooit falen omdat de sync faalt, maar stil falen is iets anders dan doorgaan.
+  if (!config.maculisSyncKey) {
+    store.addEvent(rec.id, 'publish_to_maculis_failed', { result: 'failed', reason: 'not_configured' });
+    return;
+  }
+  let result;
   try {
-    const result = await publishToMaculis([rec]);
-    if (result && result.ok) store.recordEventOnce(rec.id, 'published_to_maculis', { result: 'success' });
-  } catch { /* best-effort: an invite must never fail because sync failed */ }
+    result = await publishToMaculis([rec]);
+  } catch {
+    store.addEvent(rec.id, 'publish_to_maculis_failed', { result: 'failed', reason: 'exception' });
+    return;
+  }
+  if (result && result.ok) { store.recordEventOnce(rec.id, 'published_to_maculis', { result: 'success' }); return; }
+  // Alleen de code, nooit het bericht: dat draagt de host en dat hoort niet in de geschiedenis.
+  store.addEvent(rec.id, 'publish_to_maculis_failed', { result: 'failed', reason: (result && result.reason) || 'unknown' });
 }
 
 // Pull real Maculis session facts and apply them to the store: monotone lifecycle

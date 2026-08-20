@@ -51,6 +51,11 @@ const EVENTS = [
   'consent_recorded',
   'consent_changed',
   'published_to_maculis',
+  // De sync naar Maculis MISLUKTE. Bestond niet: publishToMaculis gaf een nette reden terug
+  // (no_data_dir, not_configured, forbidden, network, http) en die werd weggegooid, waardoor een
+  // tester zonder naam de Journey in ging zonder dat daar ergens een spoor van was. Herhaalbaar,
+  // want elke poging is een eigen gebeurtenis.
+  'publish_to_maculis_failed',
   // ADR-0003 D1: the tester answered "Ja, bewaar dit" at the end of the Lens. This is the
   // permission to PREPARE a Mijn Maculis environment. It is never a permission to contact them.
   'keep_consent_recorded',
@@ -65,13 +70,16 @@ const EVENTS = [
 
 // A single history entry: { at, event, channel?, result? }. No PII, no bodies,
 // no links, no tokens (brief §2, §18) — only the minimal facts of an event.
-function historyEntry(event, { channel = null, result = null, at = null, source = null } = {}) {
+function historyEntry(event, { channel = null, result = null, at = null, source = null, reason = null } = {}) {
   const entry = { at: at || new Date().toISOString(), event };
   if (channel) entry.channel = channel;
   if (result) entry.result = result;
   // Relevant provenance/context for the event (brief §17) — e.g. the intake
   // source for a consent event. Never a token, secret or PII.
   if (source) entry.source = source;
+  // WAAROM iets mislukte, als vaste code en nooit als vrije tekst: `no_data_dir`, `forbidden`,
+  // `network`. Een code is te vertalen en draagt geen host, geen sleutel en geen persoonsgegeven.
+  if (reason) entry.reason = reason;
   return entry;
 }
 
