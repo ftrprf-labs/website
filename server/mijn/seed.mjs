@@ -19,6 +19,11 @@ export const PREVIEW_USER = { label: 'Sanne de Vries', role: 'Klantadmin' };
 // ooit werkelijk een melding uitgaan vanaf de preview, dan komt die bij ons terecht en nooit bij
 // een buitenstaander.
 export const PREVIEW_CONTACT = { email: 'mijn-maculis-preview@maculis.nl', firstName: 'Sanne', lastName: 'de Vries (preview)' };
+// Een tweede persoon bij dezelfde organisatie. Zonder hem is niet te beoordelen wat er nu juist
+// verandert: dat twee mensen dezelfde inzichten zien maar niet elkaars gesprekken en antwoorden.
+export const PREVIEW_USER_2 = { label: 'Piet Jansen', role: 'Klantadmin' };
+export const PREVIEW_CONTACT_2 = { email: 'mijn-maculis-preview-2@maculis.nl', firstName: 'Piet', lastName: 'Jansen (preview)' };
+export function previewToken2() { return `${previewToken()}-piet`; }
 
 // A stable, non-secret preview token so the preview link is reproducible. Only ever used for a
 // preview grant (is_preview=true). Overridable via MIJN_PREVIEW_TOKEN.
@@ -263,8 +268,8 @@ async function ensurePreviewOrg(_client, tenantId) {
 // De contactpersoon achter de previewtoegang. Zonder contact is er geen ontvanger voor de melding
 // dat er een antwoord klaarstaat en geen subject voor de consentpoort, dus dan gebeurt er niets.
 // Idempotent op identity_key, precies zoals elk ander contact in de laag.
-async function ensurePreviewContact(tenantId, organizationId) {
-  const key = `email:${PREVIEW_CONTACT.email}`;
+async function ensurePreviewContact(tenantId, organizationId, wie = PREVIEW_CONTACT) {
+  const key = `email:${wie.email}`;
   const bestaand = (await query('select id from contact where identity_key=$1', [key])).rows[0];
   if (bestaand) {
     await query('update contact set organization_id=$2, updated_at=now() where id=$1', [bestaand.id, organizationId]);
@@ -273,7 +278,7 @@ async function ensurePreviewContact(tenantId, organizationId) {
   const ins = (await query(
     `insert into contact(tenant_id, organization_id, first_name, last_name, email, identity_key, role)
      values ($1,$2,$3,$4,$5,$6,'Klantadmin') returning id`,
-    [tenantId, organizationId, PREVIEW_CONTACT.firstName, PREVIEW_CONTACT.lastName, PREVIEW_CONTACT.email, key])).rows[0];
+    [tenantId, organizationId, wie.firstName, wie.lastName, wie.email, key])).rows[0];
   return ins.id;
 }
 
@@ -377,9 +382,13 @@ export async function seedPreviewCore({ tenantId = null } = {}) {
       [tid, orgId, c.kind, c.title, c.detail, c.status, c.due_at, c.customer_visible, JSON.stringify(c.source_ref || {})]);
   }
 
-  // Grant preview access (idempotent on the token hash), tied to the contact it belongs to.
+  // Grant preview access (idempotent on the token hash), tied to the contact it belongs to. Twee
+  // personen bij dezelfde organisatie, elk met een eigen identiteit en een eigen toegang, zodat de
+  // scheiding tussen gedeelde werkelijkheid en persoonlijke aandacht te beoordelen is.
   const contactId = await ensurePreviewContact(tid, orgId);
   const access = await createAccess(tid, orgId, { ...PREVIEW_USER, isPreview: true, token: previewToken(), contactId });
+  const contactId2 = await ensurePreviewContact(tid, orgId, PREVIEW_CONTACT_2);
+  const access2 = await createAccess(tid, orgId, { ...PREVIEW_USER_2, isPreview: true, token: previewToken2(), contactId: contactId2 });
 
   return {
     tenantId: tid,
@@ -388,6 +397,7 @@ export async function seedPreviewCore({ tenantId = null } = {}) {
     contactId,
     token: access.token,
     link: `/mijn.html?t=${encodeURIComponent(access.token)}`,
+    tweede: { label: PREVIEW_USER_2.label, contactId: contactId2, link: `/mijn.html?t=${encodeURIComponent(access2.token)}` },
   };
 }
 

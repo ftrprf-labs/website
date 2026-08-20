@@ -145,11 +145,25 @@ function publicContext(record) {
 // Maculis is unreachable, the invite proceeds and the opening falls back to
 // generic. Only counts/outcomes are recorded — never PII or the payload.
 async function autoPublishParticipant(rec) {
-  if (!rec || !config.maculisSyncKey) return; // sync not configured → silent no-op
+  if (!rec) return;
+  // EEN MISLUKTE SYNC VERDWIJNT NOOIT MEER STIL. Hier stond een lege catch en een gebeurtenis die
+  // alleen bij succes werd geschreven. Gevolg: gaf Maculis 503 `no_data_dir` terug, dan ging de
+  // tester zonder naam de Journey in en was daar nergens een spoor van te vinden. De uitnodiging
+  // mag nooit falen omdat de sync faalt, maar stil falen is iets anders dan doorgaan.
+  if (!config.maculisSyncKey) {
+    store.addEvent(rec.id, 'publish_to_maculis_failed', { result: 'failed', reason: 'not_configured' });
+    return;
+  }
+  let result;
   try {
-    const result = await publishToMaculis([rec]);
-    if (result && result.ok) store.recordEventOnce(rec.id, 'published_to_maculis', { result: 'success' });
-  } catch { /* best-effort: an invite must never fail because sync failed */ }
+    result = await publishToMaculis([rec]);
+  } catch {
+    store.addEvent(rec.id, 'publish_to_maculis_failed', { result: 'failed', reason: 'exception' });
+    return;
+  }
+  if (result && result.ok) { store.recordEventOnce(rec.id, 'published_to_maculis', { result: 'success' }); return; }
+  // Alleen de code, nooit het bericht: dat draagt de host en dat hoort niet in de geschiedenis.
+  store.addEvent(rec.id, 'publish_to_maculis_failed', { result: 'failed', reason: (result && result.reason) || 'unknown' });
 }
 
 // Pull real Maculis session facts and apply them to the store: monotone lifecycle
@@ -158,14 +172,32 @@ async function autoPublishParticipant(rec) {
 // status is refreshed from real events on every read and never sticks on a stale DRAFT/SENT.
 // OPENED comes from a real session_started (link actually opened); COMPLETED from a real
 // session_completed. On a pull failure the store keeps its last known status (fail-safe).
+// Waarom de laatste poging mislukte, zodat een lege Cockpit een reden heeft in plaats van stilte.
+// Alleen bij verandering gelogd: een defecte sleutel is één regel en geen regen van regels, en een
+// herstel is zichtbaar in plaats van dat het geruis gewoon ophoudt. Nooit een host of een sleutel.
+let laatsteSyncReden = null;
+function meldSync(reden) {
+  if (reden === laatsteSyncReden) return;
+  laatsteSyncReden = reden;
+  if (reden) console.log(`  [comm] lifecycle-sync overgeslagen: ${reden}`);
+  else console.log('  [comm] lifecycle-sync weer gelukt');
+}
+export function laatsteSyncStatus() {
+  return laatsteSyncReden ? { ok: false, reason: laatsteSyncReden } : { ok: true };
+}
+
 async function syncLifecycleFromMaculis() {
   const pull = await pullSessions();
-  if (!pull.ok) return { ok: false, reason: pull.reason, byToken: new Map() };
+  if (!pull.ok) { meldSync(pull.reason); return { ok: false, reason: pull.reason, byToken: new Map() }; }
+  meldSync(null);
   const byToken = deriveByToken(pull.sessions);
   for (const inv of store.listInvitations()) {
     const d = byToken.get(inv.token);
     if (!d) continue;
     store.applySessionStatus(inv.id, d.started, d.completed);
+    // ADR-0003 D2: "bewaren" is een eigen toestemming naast "benaderen" en wordt hier vastgelegd
+    // zodra hij uit een echt journey-antwoord blijkt. Idempotent; een tweede signaal doet niets.
+    if (d.keep) store.setKeepConsent(inv.id, d.keep_at || null);
     if (d.started) store.recordEventOnce(inv.id, 'journey_started', { at: d.started_at || null });
     if (d.eval_status !== 'NOT_STARTED') store.recordEventOnce(inv.id, 'evaluation_started', { at: d.started_at || null });
     if (d.eval_status === 'COMPLETED') store.recordEventOnce(inv.id, 'evaluation_completed', { at: d.completed_at || d.started_at || null });
@@ -173,6 +205,30 @@ async function syncLifecycleFromMaculis() {
       const before = store.getInvitation(inv.id);
       if (before && before.consent_status !== 'OPTED_IN') {
         store.setConsent(inv.id, 'OPTED_IN', { source: 'pass_the_lens', version: d.consent_version || null, at: d.consent_at || undefined });
+      }
+    }
+    // ADR-0003 D4: afgerond plus bewaren betekent dat de kamer wordt klaargezet. Automatisch, want
+    // afleidbaar, omkeerbaar en intern. Er gaat niets naar buiten; dat blijft één menselijke klik.
+    //
+    // Eén keer proberen per tester, gemeten aan het history-event, zodat dit niet bij elke
+    // lijstweergave opnieuw werk doet. Mislukt het, dan is er geen event en probeert de volgende
+    // verversing het opnieuw: een mislukte voorbereiding mag een echte vraag nooit laten verdwijnen.
+    if (commEnabled() && d.completed && d.keep) {
+      const nu = store.getInvitation(inv.id);
+      const alGedaan = nu && Array.isArray(nu.history) && nu.history.some((h) => h.event === 'mijn_room_prepared');
+      if (!alGedaan) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const { bereidKamerVoor } = await import('./mijn/voorbereiden.mjs');
+          // eslint-disable-next-line no-await-in-loop
+          const res = await bereidKamerVoor(nu, d);
+          // Een kamer die op contacttoestemming wacht is nog niet af: komt die toestemming later
+          // alsnog, dan moet de volgende verversing hem naar `klaargezet` kunnen tillen. Daarom
+          // wordt het event pas gezet als de voorbereiding werkelijk klaar is.
+          if (res && res.ok && res.status !== 'wacht_op_contact') {
+            store.recordEventOnce(inv.id, 'mijn_room_prepared', { result: res.status });
+          }
+        } catch { /* best effort: de tester blijft gewoon AFGEROND en niets is half zichtbaar */ }
       }
     }
   }
@@ -246,7 +302,7 @@ async function handleApi(req, res, pathname) {
   // other comm routes gate on the admin session inside handleComm. Additive — never touches the
   // existing Invitation Manager / First Five routes.
   if (pathname.startsWith('/api/comm/')) {
-    const handled = await handleComm(req, res, { pathname, method, isAuthed });
+    const handled = await handleComm(req, res, { pathname, method, isAuthed, syncLifecycle: syncLifecycleFromMaculis });
     if (handled) return;
   }
 
@@ -784,6 +840,7 @@ server.listen(config.port, bindHost, () => {
             await assertNoRealCustomers(tid);
             const seeded = await seedPreviewCore({ tenantId: tid });
             console.log(`  Mijn Maculis: preview geseed (${seeded.organizationName}) → ${seeded.link}`);
+            if (seeded.tweede) console.log(`  Mijn Maculis: tweede previewpersoon (${seeded.tweede.label}) → ${seeded.tweede.link}`);
             await previewSelfCheck({ tenantId: tid, organizationId: seeded.organizationId });
           } catch (e) { console.log(`  Mijn Maculis: preview seed overgeslagen (${e.message})`); }
         }

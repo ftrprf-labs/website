@@ -225,6 +225,24 @@ body.mijn {
 .qa-blok p { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--ink); }
 .qa-blok.onbekend p { color: var(--ink2); }
 
+/* de tweede stem: wat jij toevoegt, naast wat wij zagen. Bewust dezelfde rust als het bewijs
+   erboven, en bewust geen kader eromheen: het is geen opmerking bij een rapport. */
+.stem { display: flex; flex-direction: column; gap: var(--space-2); }
+.stem-bron { margin: 0; font-size: 12.5px; color: var(--ink2); }
+.stem-lijst { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.stem-item { border-left: 1px solid var(--lijn); padding-left: var(--space-4); }
+.stem-wanneer { display: block; font-size: 12px; color: var(--ink2); margin-bottom: var(--space-1); }
+.stem-antwoord { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--ink); }
+.stem-woorden { margin: var(--space-2) 0 0; font-size: 13.5px; line-height: 1.6; color: var(--ink); font-style: italic; }
+
+/* de openingsregel van Maculis boven het lege veld. Van Maculis, dus niet cursief zoals de woorden
+   van de ondernemer, en nooit in het invoerveld zelf. */
+.praat-opening { margin: 0 0 var(--space-3); font-size: 13.5px; line-height: 1.6; color: var(--ink2); }
+
+/* de tweede stem op het landingsscherm. Rustiger dan de grond erboven: het is een aanvulling,
+   geen tweede bewering. */
+.zeg-jij { margin: var(--space-2) 0 0; font-size: 13px; color: var(--ink2); }
+
 /* ontwikkeling door de tijd */
 .dev { border: 1px solid var(--lijn); border-radius: var(--radius-md); overflow: hidden; }
 .dev > summary { list-style: none; cursor: pointer; padding: var(--space-3) var(--space-4); display: flex; align-items: center; gap: var(--space-3); }
@@ -253,11 +271,13 @@ body.mijn {
 .grens-punt.gedeeld { background: var(--wordt); box-shadow: 0 0 0 3px rgba(138,121,224,.16); }
 .grens-tekst { margin: 0; font-size: 12.5px; color: var(--ink2); line-height: 1.6; }
 .grens-acties { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+.grens-wie { margin: 0; padding-top: var(--space-3); font-size: 12px; line-height: 1.6; color: var(--ink3); }
 
 /* toelichting bij Deels en Nee: het veld staat meteen open en mag leeg blijven */
+.intentie { display: flex; flex-direction: column; gap: var(--space-3);
+  padding-top: var(--space-4); border-top: 1px solid var(--lijn); }
 .vraag-toel { display: flex; flex-direction: column; gap: var(--space-2); }
 .vraag-toel-vraag { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: .98rem; color: var(--ink2); }
-.vraag-toel-acties { display: flex; }
 
 /* Eén invoerveld, overal hetzelfde. Eén hairline, geen schaduw (canon 12). */
 .veldtekst {
@@ -273,7 +293,10 @@ body.mijn {
    Geen chat en geen supportkanaal: een uitnodiging, en daaronder wat er al
    staat. De ingang is tertiair, want het veld en het bewijs gaan voor. */
 .praat { display: flex; flex-direction: column; gap: var(--space-4);
-  padding-top: var(--space-4); border-top: 1px solid var(--lijn); }
+  padding-top: var(--space-4); border-top: 1px solid var(--lijn); align-items: flex-start; }
+.praat > * { align-self: stretch; }
+/* De uitnodiging is de primaire handeling in dit blad, maar geen balk over de volle breedte. */
+.praat > .praat-ingang { align-self: flex-start; }
 .praat-vorm { display: flex; flex-direction: column; gap: var(--space-3); }
 .praat-openers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .praat-opener {
@@ -285,11 +308,8 @@ body.mijn {
 .praat-opener:hover { color: var(--ink); border-left-color: var(--copper-500); }
 .praat-label { font-family: var(--sans); font-size: var(--type-label); font-weight: 600;
   letter-spacing: .16em; text-transform: uppercase; color: var(--ink3); }
+.praat-lead { margin: 0; font-size: 13px; line-height: 1.6; color: var(--ink2); }
 .praat-context { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--ink2); }
-.praat-grens { display: flex; gap: var(--space-3); flex-wrap: wrap; }
-.praat-weeg { display: flex; align-items: flex-start; gap: var(--space-3); font-size: 13px; color: var(--ink); cursor: pointer; }
-.praat-weeg input { margin: 3px 0 0; accent-color: var(--copper-500); flex: none; }
-.praat-weeg-uit { margin: 0; font-size: 12px; line-height: 1.6; color: var(--ink3); }
 .praat-acties { display: flex; gap: var(--space-3); flex-wrap: wrap; }
 
 /* de draad zelf: wie het zei, wat er staat, wanneer */
@@ -409,15 +429,51 @@ body.mijn {
   .zeg-titel { font-size: clamp(1.35rem, 6.4vw, 1.9rem); }
   .merk { top: 14px; }
   .merk-naam { font-size: 11.5px; }
-  .rand { top: auto; bottom: auto; left: 16px; right: 16px; top: 58px; justify-content: flex-start; }
-  .rand.wijkt { transform: none; }
-  /* de bediening wikkelt op een telefoon naar twee rijen; de groet begint daaronder */
-  .onder { top: 146px; bottom: auto; left: 16px; right: 16px; max-width: none; gap: 4px; }
-  body.blad-open .onder { opacity: 0; }
-  .blad { width: 100%; top: auto; bottom: 0; height: min(88vh, 760px);
+  /* De periferie op een telefoon: vier bestemmingen in twee kolommen, en Opnieuw eronder.
+     Vier plus een, want Opnieuw opent geen blad maar laat het veld opnieuw opbouwen. Op deze
+     manier is dat ook wat je ziet, in plaats van een vijfde knop die aan het eind van een
+     rafelige stapel hangt.
+     De kolommen meten op inhoud, niet op de volle breedte: het blok blijft daarmee een
+     gecomponeerd hoekje van ongeveer 254px en wordt geen balk van rand tot rand. */
+  .rand {
+    top: 58px; bottom: auto; left: 16px; right: 16px;
+    display: grid; grid-template-columns: auto auto; gap: var(--space-2); justify-content: start;
+  }
+  /* Zonder oppervlak bestaat een knop hier alleen als tekst, en tekst op het veld leest als een
+     bijschrift. In dit nachtregime komt diepte uit luminantie en gloed, niet uit een harde lijn,
+     dus dragen drie zachte signalen het samen: een verhoogd vlak, de gedefinieerde rand en de
+     diffuse schaduw. Alle drie bestaande tokens; er komt geen nieuwe waarde bij. */
+  .rand .knop {
+    width: 100%; min-height: 44px; padding: 11px var(--space-4); text-align: left;
+    background: var(--hoog); border-color: var(--lijn2); color: var(--ink);
+    box-shadow: var(--shadow-diffuse);
+  }
+  .rand .knop[aria-pressed="true"] { border-color: var(--copper-500); box-shadow: var(--shadow-diffuse), inset 0 0 0 1px var(--copper-500); }
+  /* Opnieuw is een handeling en geen bestemming: eigen regel, links op dezelfde kolom, en een
+     stap stiller. Wel dezelfde hoogte, want een duim maakt geen onderscheid. */
+  #btn-opnieuw {
+    grid-column: 1 / -1; justify-self: start; width: auto;
+    background: var(--paneel); border-color: var(--lijn); color: var(--ink2); box-shadow: none;
+  }
+  /* Op een telefoon schuift de periferie niet opzij maar weg. De strook die boven het blad
+     overblijft is het enige wat de klant nog van het veld ziet, en daar hoort veld te staan en
+     geen menu. Terug kan via "Terug naar het veld", dat bovenaan het blad staat. */
+  .rand.wijkt { transform: translateY(-10px); opacity: 0; visibility: hidden; pointer-events: none; }
+  /* De bediening beslaat drie regels van 44px met 8px ertussen, vanaf 58px. De groet begint
+     daaronder. De compositie van het veld zet zichzelf hierop: meet() leest de werkelijke
+     onderkant van de HUD en reserveert die, dus dit getal verschuift het veld en botst er niet
+     mee. */
+  .onder { top: 212px; bottom: auto; left: 16px; right: 16px; max-width: none; gap: 4px; }
+  body.blad-open .onder { opacity: 0; visibility: hidden; }
+  /* Het blad laat ruim een kwart van het scherm veld staan. dvh en niet vh, want de adresbalk
+     van Safari verandert van hoogte en vh rekent met de grootste stand: met vh zou het blad in
+     de kleinste stand alsnog de hele strook opeten. De vh-regel blijft als terugval staan. */
+  .blad { width: 100%; top: auto; bottom: 0; height: min(72vh, 700px); height: min(72dvh, 700px);
     border-left: 0; border-top: 1px solid var(--lijn);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0; transform: translateY(101%); }
   .blad.in { transform: none; }
+  /* de onderrand van een bodemvel raakt de rand van het toestel, dus de veilige zone erbij */
+  .blad-body { padding-bottom: calc(clamp(24px,3vw,40px) + env(safe-area-inset-bottom)); }
   .confirm-actions { flex-direction: column-reverse; }
   .confirm-actions .knop { width: 100%; }
 }

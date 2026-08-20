@@ -356,3 +356,121 @@ test('buildWhatsApp yields a wa.me deep link with encoded text', () => {
   assert.ok(noNum.url.startsWith('https://wa.me/?text='));
   assert.equal(noNum.hasNumber, false);
 });
+
+// Een mislukte sync naar Maculis mag nooit stil verdwijnen.
+//
+// Dit was echt kapot en het kostte een hele testdag. autoPublishParticipant ving elke fout in een
+// lege catch en schreef alleen bij succes een gebeurtenis. Gaf Maculis 503 `no_data_dir` terug, dan
+// ging de tester zonder naam de Journey in en was daar nergens een spoor van. Twee helften, en
+// allebei moeten ze waar blijven: publishToMaculis moet de oorzaak benoemen, en de geschiedenis moet
+// hem kunnen dragen.
+test('publishToMaculis benoemt de oorzaak, en de geschiedenis draagt hem', async () => {
+  const { config } = await import('../server/config.mjs');
+  const { publishToMaculis } = await import('../server/maculis-sync.mjs');
+  const http = await import('node:http');
+
+  const prevKey = config.maculisSyncKey, prevHost = config.maculisHost;
+  const rec = { token: 'T-1', first_name: 'Ludwig', company_name: 'OCEA', domain: 'ocea.nl' };
+  try {
+    // 1. geen sleutel → dat is een oorzaak, geen stilte
+    config.maculisSyncKey = '';
+    assert.equal((await publishToMaculis([rec])).reason, 'not_configured');
+
+    config.maculisSyncKey = 'test-sync-key';
+
+    // 2. Maculis zonder opslag antwoordt 503. Dat is precies het geval dat maandenlang onzichtbaar
+    //    bleef, en de reden moet er woordelijk uit komen.
+    const server = http.createServer((req, res) => {
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ stored: false, reason: 'no_data_dir' }));
+    });
+    await new Promise((r) => server.listen(0, '127.0.0.1', r));
+    config.maculisHost = `http://127.0.0.1:${server.address().port}`;
+    const uit = await publishToMaculis([rec]);
+    assert.equal(uit.ok, false);
+    assert.equal(uit.reason, 'no_data_dir');
+    assert.equal(uit.status, 503);
+    server.close();
+
+    // 3. onbereikbaar → een netwerkreden, en het bericht draagt alleen de host
+    config.maculisHost = 'http://127.0.0.1:1';
+    const weg = await publishToMaculis([rec]);
+    assert.equal(weg.reason, 'network');
+    assert.equal(/Ludwig|OCEA|T-1/.test(weg.message || ''), false, 'geen persoonsgegeven in de reden');
+  } finally {
+    config.maculisSyncKey = prevKey; config.maculisHost = prevHost;
+  }
+});
+
+test('de geschiedenis legt een mislukte publicatie vast, met reden en herhaalbaar', async () => {
+  const store = await import('../server/store.mjs');
+  const { config } = await import('../server/config.mjs');
+  const { mkdtempSync } = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'im-sync-'));
+  const prevDb = config.dbFile, prevDir = config.dataDir;
+  config.dataDir = dir; config.dbFile = path.join(dir, 'db.json');
+  store._resetForTests();
+  try {
+    const inv = store.createInvitation({ first_name: 'test', email: 'a@b.example', source: 'manual' });
+
+    const na1 = store.addEvent(inv.id, 'publish_to_maculis_failed', { result: 'failed', reason: 'no_data_dir' });
+    const laatste = na1.history[na1.history.length - 1];
+    assert.equal(laatste.event, 'publish_to_maculis_failed');
+    assert.equal(laatste.result, 'failed');
+    assert.equal(laatste.reason, 'no_data_dir', 'de oorzaak staat erbij, niet alleen dat het misging');
+
+    // Elke poging is een eigen gebeurtenis: twee keer proberen is twee keer zichtbaar.
+    const na2 = store.addEvent(inv.id, 'publish_to_maculis_failed', { result: 'failed', reason: 'forbidden' });
+    const mislukt = na2.history.filter((h) => h.event === 'publish_to_maculis_failed');
+    assert.equal(mislukt.length, 2);
+    assert.deepEqual(mislukt.map((h) => h.reason), ['no_data_dir', 'forbidden']);
+
+    // En succes daarna blijft mogelijk: het is een ANDERE gebeurtenis, dus recordEventOnce blokkeert
+    // hem niet. Dat is precies waarom mislukken een eigen naam heeft gekregen.
+    const na3 = store.recordEventOnce(inv.id, 'published_to_maculis', { result: 'success' });
+    assert.ok(na3.history.some((h) => h.event === 'published_to_maculis' && h.result === 'success'));
+  } finally {
+    config.dbFile = prevDb; config.dataDir = prevDir; store._resetForTests();
+  }
+});
+
+// De Cockpit mag niet hangen aan een trage Lens, en een mislukte pull moet een naam hebben.
+//
+// Zonder grens houdt een slapende Lens de eerste pagina vast die een medewerker onder tijdsdruk
+// opent. En zonder onderscheid tussen "te laat" en "onbereikbaar" weet niemand waar hij moet kijken.
+test('pullSessions geeft op tijd op, en benoemt waarom', async () => {
+  const { config } = await import('../server/config.mjs');
+  const { pullSessions } = await import('../server/maculis-sessions.mjs');
+  const http = await import('node:http');
+
+  const prevKey = config.maculisExportKey, prevHost = config.maculisHost;
+  try {
+    // 1. zonder sleutel is er niets te halen, en dat is een reden en geen stilte
+    config.maculisExportKey = '';
+    assert.equal((await pullSessions()).reason, 'not_configured');
+
+    config.maculisExportKey = 'test-export-key';
+
+    // 2. onbereikbaar heet netwerk
+    config.maculisHost = 'http://127.0.0.1:1';
+    assert.equal((await pullSessions()).reason, 'network');
+
+    // 3. een server die wél opneemt maar niet antwoordt, heet timeout. Hij mag de aanroeper niet
+    //    vasthouden: acht seconden is de grens, dus binnen tien is dit terug.
+    const traag = http.createServer(() => { /* nooit antwoorden */ });
+    await new Promise((r) => traag.listen(0, '127.0.0.1', r));
+    config.maculisHost = `http://127.0.0.1:${traag.address().port}`;
+    const t0 = Date.now();
+    const uit = await pullSessions();
+    const duur = Date.now() - t0;
+    traag.closeAllConnections?.();
+    traag.close();
+    assert.equal(uit.ok, false);
+    assert.equal(uit.reason, 'timeout', 'te laat is iets anders dan onbereikbaar');
+    assert.ok(duur < 10000, `gaf pas na ${duur} ms op`);
+  } finally {
+    config.maculisExportKey = prevKey; config.maculisHost = prevHost;
+  }
+});

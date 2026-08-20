@@ -303,6 +303,29 @@ vastgelegd dan het antwoord waar hij bij hoort.
 
 ---
 
+## 12a. Teruggenomen op 2026-08-19: beslissing 2, "Laat dit meewegen"
+
+Hoofdstuk 12 blijft staan zoals het is geschreven, want het beschrijft wat er destijds is gebouwd.
+Deze notitie hoort erbij: het vinkje "Laat dit meewegen in wat Maculis van ons weet" bestaat niet
+meer, en er loopt vanaf de klantzijde geen enkele route meer naar `relationship_memory`.
+
+Twee redenen. Voor de lezer was het een derde toestemmingsvraag naast delen en versturen, terwijl
+het in hun hoofd één vraag is: mag Maculis dit weten. En het beloofde meer dan het deed. Het
+geheugen wordt in de contextmotor per contact gelezen, dus wat Sanne liet meewegen bereikte een
+gesprek van Piet nooit, terwijl er "wat Maculis van ons weet" stond. De klant kon het bovendien
+nergens terugzien en nergens intrekken, terwijl de uitlegzin dat wel beloofde.
+
+Wat een uitspraak tot vastgelegd feit maakt, hoort aan de kant waar de bevestiging al leeft: een
+mens bij Maculis, via de bestaande geheugenroutes. Die routes zijn ongemoeid gebleven, net als de
+AI-copilot op de overige kanalen en Pass the Lens.
+
+De deelbeslissing woont vanaf nu op precies één plek, het grensblok van het geopende inzicht. De
+gespreksinvoer draagt geen enkele toestemmingskeuze meer. Er is één regel bij gekomen die zegt wie
+binnen de klantorganisatie het inzicht ziet, want die vraag werd tot nu toe onbedoeld beantwoord
+door de deelstaat.
+
+---
+
 ## 12. Wat er werkelijk is gebouwd
 
 Dit hoofdstuk is geschreven ná de bouw. Hoofdstuk 1 tot en met 11 blijven staan zoals ze waren,

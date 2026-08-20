@@ -43,6 +43,7 @@ export const insights = [
     meaning: 'Dit kan erop wijzen dat het verhaal aan de buitenkant af is, maar intern nog niet door iedereen op dezelfde manier wordt gedragen. Dat is heel gewoon in een groeiende organisatie.',
     basis: 'We zien dit terug in de eerste Lens, op meerdere plekken in hoe jullie naar buiten en naar binnen over jezelf spreken.',
     not_yet_known: 'We weten nog niet of dit verschil bewust is, of dat het vooral een kwestie van taal en herhaling is. Daar hebben we jullie beeld bij nodig.',
+    audience: 'ORGANISATIE',
     source: 'lens', created_at: T.c, updated_at: T.a, shared_at: null,
     developed: true, unshared_development: false, evidence_count: 7,
   },
@@ -54,6 +55,7 @@ export const insights = [
     meaning: 'Het fundament staat. De winst zit in het intern net zo helder maken als het extern al is.',
     basis: 'Een terugkerend patroon in de eerste Lens tussen jullie externe en interne uitingen.',
     not_yet_known: 'Waar precies het verschil ontstaat, willen we samen met jullie scherper krijgen.',
+    audience: 'ORGANISATIE',
     source: 'lens', created_at: T.d, updated_at: T.b, shared_at: T.c,
     developed: true, unshared_development: true, evidence_count: 5,
   },
@@ -65,6 +67,7 @@ export const insights = [
     meaning: 'Dit is een sterke basis. Waar consistentie al bestaat, hoef je niets te repareren, alleen te koesteren en te benutten.',
     basis: 'We zien dit op meerdere plekken in de eerste Lens op dezelfde manier terugkomen.',
     not_yet_known: 'Of deze betrokkenheid overal even sterk is, of vooral bij bepaalde teams, is nog een open vraag.',
+    audience: 'ORGANISATIE',
     source: 'lens', created_at: T.e, updated_at: T.c, shared_at: null,
     developed: false, unshared_development: false, evidence_count: 6,
   },
@@ -76,6 +79,7 @@ export const insights = [
     meaning: 'Een consistente lijn maakt het voor mensen makkelijker om hetzelfde te vertellen en zich er ook echt achter te scharen.',
     basis: 'Terug te zien in de eerste Lens, in de variatie tussen verschillende interne uitingen.',
     not_yet_known: 'Of dit als storend wordt ervaren, of juist als ruimte, weten we nog niet.',
+    audience: 'ORGANISATIE',
     source: 'lens', created_at: T.e, updated_at: T.d, shared_at: null,
     developed: false, unshared_development: false, evidence_count: 4,
   },
@@ -87,6 +91,7 @@ export const insights = [
     meaning: 'Dat géén verschil zichtbaar is, is zelf een waardevol inzicht. Het betekent dat jullie belofte op dit punt klopt met de praktijk.',
     basis: 'We hebben hier in de eerste Lens gericht naar gekeken en geen spanning aangetroffen.',
     not_yet_known: 'Of dit zo blijft naarmate jullie groeien, is iets om in de gaten te houden.',
+    audience: 'ORGANISATIE',
     source: 'lens', created_at: T.f, updated_at: T.e, shared_at: null,
     developed: false, unshared_development: false, evidence_count: 3,
   },
@@ -98,6 +103,7 @@ export const insights = [
     meaning: 'Dit is geen tekort, maar een grens van wat één Lens van buitenaf kan waarnemen.',
     basis: 'De eerste Lens kijkt vooral naar wat zichtbaar is aan de buitenkant. Besluitvorming laat zich daar lastig uit aflezen.',
     not_yet_known: 'Vrijwel alles. Als jullie hier meer zicht op willen, is dit iets om samen te verkennen.',
+    audience: 'ORGANISATIE',
     source: 'lens', created_at: T.f, updated_at: T.f, shared_at: null,
     developed: false, unshared_development: false, evidence_count: 1,
   },
@@ -206,6 +212,8 @@ export function maakStore(startDraden = []) {
     // wat de klant heeft gezegd, zodat een test kan controleren wat er werkelijk is verstuurd
     verstuurd: [],
     herkenningen: [],
+    gedeeld: [],
+    intenties: [],
     lijst() {
       return {
         items: draden.slice().reverse().map(uit),
@@ -230,8 +238,10 @@ export function maakStore(startDraden = []) {
       d.unread = (d.unread || 0) + 1;
       return uit(d);
     },
-    stuur({ insightId = null, text, weegMee = false }) {
-      this.verstuurd.push({ insightId, text, weegMee });
+    stuur({ insightId = null, text, ...rest }) {
+      // `rest` wordt bewust bewaard: zo kan een harness aantonen dat de klantzijde geen enkel
+      // toestemmingsveld meer meestuurt, en niet alleen dat het vinkje van het scherm is.
+      this.verstuurd.push({ insightId, text, extra: rest });
       let d = draden.find((x) => (x.insight_id || null) === (insightId || null));
       if (!d) {
         d = { id: 'draad-' + (++n), subject: titel(insightId), insight_id: insightId || null,
@@ -239,14 +249,43 @@ export function maakStore(startDraden = []) {
         draden.push(d);
       }
       d.messages.push({ id: 'm' + (++n), van: 'jij', naam: 'Sanne de Vries', tekst: text, at: T.a });
-      return { ok: true, conversationId: d.id, weegtMee: Boolean(weegMee), conversation: uit(d) };
+      return { ok: true, conversationId: d.id, conversation: uit(d) };
     },
     // De herkenning hoort bij dit geheugen en niet bij de gedeelde fixture. Anders zou de ene
     // meting de volgende beïnvloeden, en dan meet je je eigen vorige run.
     stand: {},
     metStand(i) {
       const h = this.stand[i.id];
-      return { ...i, recognition: (h && h.answer) || null, recognition_note: (h && h.note) || null };
+      const d = this.deelstand[i.id];
+      return {
+        ...i,
+        recognition: (h && h.answer) || null,
+        recognition_note: (h && h.note) || null,
+        intent: this.intentstand[i.id] || null,
+        ...(d || {}),
+      };
+    },
+    // De intentie is persoonlijk en hoort dus net als de herkenning bij dit geheugen en niet bij de
+    // gedeelde fixture.
+    intentstand: {},
+    intentie(insightId, { intent = null } = {}) {
+      this.intenties.push({ insightId, intent });
+      this.intentstand[insightId] = intent || null;
+      return { ok: true, intent: intent || null };
+    },
+    // De deelstaat, per store en niet in de gedeelde fixture, om dezelfde reden als de herkenning.
+    // Hiermee zijn alle vier de toestanden van het grensblok in één ronde te bereiken: niet
+    // gedeeld, gedeeld, gedeeld met een nieuwere lezing, en niets vastgesteld.
+    deelstand: {},
+    deel(insightId, { update = false } = {}) {
+      this.gedeeld.push({ insightId, update });
+      this.deelstand[insightId] = { sharing: 'SHARED', unshared_development: false, shared_at: T.a };
+      return { ok: true, sharing: 'SHARED', updated: update };
+    },
+    trekIn(insightId) {
+      this.gedeeld.push({ insightId, revoke: true });
+      this.deelstand[insightId] = { sharing: 'PRIVATE', unshared_development: false, shared_at: null };
+      return { ok: true, sharing: 'PRIVATE' };
     },
     herkenning(insightId, { answer = null, note = null } = {}) {
       this.herkenningen.push({ insightId, answer, note });
@@ -296,9 +335,24 @@ export function routeMijn(page, store = null) {
       const d = store && store.open(draad[1]);
       return d ? j({ conversation: d }) : j({}, 404);
     }
+    const intent = p.match(/^\/api\/mijn\/insights\/([^/]+)\/intent$/);
+    if (intent && method === 'POST') {
+      if (!store) return j({ ok: true });
+      const res2 = store.intentie(intent[1], body());
+      return j({ ...res2, ...detail(intent[1], store) });
+    }
     const herken = p.match(/^\/api\/mijn\/insights\/([^/]+)\/recognition$/);
     if (herken && method === 'POST') {
       return store ? j(store.herkenning(herken[1], body())) : j({ ok: true });
+    }
+    const deel = p.match(/^\/api\/mijn\/insights\/([^/]+)\/(share|revoke)$/);
+    if (deel && method === 'POST') {
+      if (!store) return j({ ok: true });
+      const was = store.metStand(insights.find((x) => x.id === deel[1]) || {});
+      const res = deel[2] === 'share'
+        ? store.deel(deel[1], { update: Boolean(was.unshared_development) })
+        : store.trekIn(deel[1]);
+      return j({ ...res, ...detail(deel[1], store) });
     }
     const m = p.match(/^\/api\/mijn\/insights\/([^/]+)$/);
     if (m) { const d = detail(m[1], store); return d ? j(d) : j({}, 404); }

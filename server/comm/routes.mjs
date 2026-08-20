@@ -23,6 +23,7 @@ import { addMemory, confirmMemory, dismissMemory, listMemory } from './memory.mj
 import { channelConsentState, setPreference, listPreferences } from './consent.mjs';
 import { channelStatusBoard, SENDABLE_CHANNELS } from './providers/index.mjs';
 import { receiveChannelInbound, linkConversationToContact } from './channel-inbound.mjs';
+import { kamersDieWachten, kamer, nodigUit, wijsAf } from '../mijn/kamers.mjs';
 
 const UUID = '([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})';
 
@@ -46,7 +47,7 @@ const ipRefOf = (req) => (req.socket && req.socket.remoteAddress ? String(req.so
 // app_user capabilities (§44) plugs in here.
 function capabilities() { return { communication: true, privacy: true, admin: true }; }
 
-export async function handleComm(req, res, { pathname, method, isAuthed }) {
+export async function handleComm(req, res, { pathname, method, isAuthed, syncLifecycle = null }) {
   if (!commEnabled() || !pathname.startsWith('/api/comm/')) return false;
   const u = new URL(req.url, 'http://x');
 
@@ -63,6 +64,48 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
   if (!isAuthed(req)) { json(res, 401, { error: 'Niet ingelogd' }); return true; }
   const caps = capabilities(req);
   const tenantId = await getDefaultTenantId();
+
+  // ---- Mijn Maculis: de kamers die op één beslissing wachten (ADR-0003 D4) --------------------
+  // Eén regel per kamer, met alles wat nodig is om te beslissen en niets meer. Er zit geen join op
+  // de persoonlijke laag in, dus dit pad KAN geen reflectie of intentie tonen.
+  if (pathname === '/api/comm/mijn/kamers' && method === 'GET') {
+    // EERST DE LENS BIJWERKEN, DAN PAS TONEN. De Cockpit toonde een lijst kamers en was de enige
+    // pagina die niet probeerde die lijst actueel te maken: `syncLifecycleFromMaculis` hing alleen
+    // aan de testerlijst. Een afgeronde Journey werd daardoor pas een kamer wanneer iemand toevallig
+    // Testerbeheer opende, en niet wanneer iemand op de plek keek waar de kamer hoort te staan.
+    //
+    // Dezelfde bestaande sync, dezelfde poort, dezelfde afleiding. Er komt geen tweede bron bij: de
+    // Lens blijft de bron van de journey, Postgres blijft de bron van de kamers.
+    //
+    // Faalt de sync, dan blokkeert dat niets. De lijst komt dan uit de database en de reden gaat mee
+    // in het antwoord, zodat een lege Cockpit een verklaring heeft in plaats van stilte.
+    let sync = { ok: true };
+    if (typeof syncLifecycle === 'function') {
+      try {
+        const r = await syncLifecycle();
+        if (r && r.ok === false) sync = { ok: false, reason: r.reason || 'unknown' };
+      } catch { sync = { ok: false, reason: 'exception' }; }
+    }
+    json(res, 200, { kamers: await kamersDieWachten(tenantId), sync });
+    return true;
+  }
+  const kamerActie = pathname.match(new RegExp(`^/api/comm/mijn/kamers/${UUID}/(uitnodigen|afwijzen)$`));
+  if (kamerActie && method === 'POST') {
+    const [, roomId, actie] = kamerActie;
+    if (actie === 'uitnodigen') {
+      // De enige handeling in deze keten die het gebouw verlaat, en daarom de enige met een mens
+      // ervoor. Uitstellen bestaat niet als handeling: dat is de knop niet indrukken.
+      const r = await nodigUit(tenantId, roomId, { ipRef: ipRefOf(req) });
+      json(res, r.ok ? 200 : 400, r.ok
+        ? { ok: true, bezorging: r.bezorging, link: r.link || null, kamer: await kamer(tenantId, roomId) }
+        : { ok: false, error: r.error });
+      return true;
+    }
+    const body = await readJson(req) || {};
+    const r = await wijsAf(tenantId, roomId, body.reden, {});
+    json(res, r.ok ? 200 : 400, r.ok ? { ok: true, kamer: await kamer(tenantId, roomId) } : { ok: false, error: r.error });
+    return true;
+  }
 
   // ---- channel + AI status board (what is LIVE vs MOCK, §48/§81) -----------------------------
   if (pathname === '/api/comm/status' && method === 'GET') {
@@ -194,11 +237,18 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
       `select id, summary, intent, suggested_reply, suggested_actions, status from ai_draft
         where conversation_id=$1 and status='proposed' order by created_at desc limit 1`, [id])).rows[0] || null;
     const consent = conv.contact_id ? await channelConsentState(tenantId, conv.contact_id) : null;
+    // Het hulpdossier bij dit gesprek, wanneer een klant heeft gevraagd het samen op te pakken.
+    // De query blijft in server/mijn/ staan, net als boundaryProof, zodat het klantzijdige model
+    // niet naar de communicatielaag verhuist. Er zit niets persoonlijks in behalve wie het vroeg en
+    // wanneer: het herkenningsantwoord en de toelichting komen hier niet in en worden er ook niet
+    // uit afgeleid (ADR-0002).
+    const { dossierVoorGesprek } = await import('../mijn/hulp.mjs');
+    const hulpdossier = conv.is_privacy ? null : await dossierVoorGesprek(tenantId, id).catch(() => null);
     if (conv.status === 'NEW') await query("update conversation set status='OPEN' where id=$1 and status='NEW'", [id]);
     // A human opened the conversation — this is the ONLY signal that marks it read. Moving the
     // watermark to now() is idempotent (it only advances) and clears the unread/attention state.
     await markConversationRead(tenantId, id, { userId: null });
-    json(res, 200, { conversation: conv, messages, notes, ai_draft: draft, consent });
+    json(res, 200, { conversation: conv, messages, notes, ai_draft: draft, consent, hulpdossier });
     return true;
   }
 
@@ -227,6 +277,13 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
       tenantId, conversationId: replyMatch[1], contactId: conv.contact_id, organizationId: conv.organization_id,
       channel: conv.channel || 'EMAIL', text: body.text, html: body.html, ipRef: ipRefOf(req),
     });
+    // Mijn Maculis-lijn: heeft de klant om hulp gevraagd, dan is dit antwoord het moment waarop een
+    // mens het heeft opgepakt. Het hulpdossier weet dat dan, en de klant hoeft er niet om te vragen.
+    // Bewust ná de uitgaande weg en alleen bij succes: een mislukte verzending is geen oppakken.
+    if (result && result.ok) {
+      const { markeerOpgepakt } = await import('../mijn/hulp.mjs');
+      await markeerOpgepakt(tenantId, replyMatch[1]).catch(() => {});
+    }
     json(res, result.ok ? 200 : 400, result);
     return true;
   }
@@ -304,6 +361,13 @@ export async function handleComm(req, res, { pathname, method, isAuthed }) {
     await query("update comm_draft set status='approved', approved_at=now() where id=$1", [d.id]);
     const result = await sendOnChannel({ tenantId, conversationId: d.conversation_id, contactId: d.contact_id, organizationId: d.organization_id, channel: d.channel, subject: d.subject, text: d.body, draftId: d.id, ipRef: ipRefOf(req) });
     if (!result.ok) await query("update comm_draft set status='draft', approved_at=null where id=$1", [d.id]); // let the user retry
+    // Het ene beslismoment is genomen: hangt er een hulpdossier aan dit gesprek, dan staat het
+    // vanaf nu op opgepakt. Niet automatisch afgerond, want of er werkelijk iets is afgesproken
+    // beslist een mens.
+    if (result.ok) {
+      const { markeerOpgepakt } = await import('../mijn/hulp.mjs');
+      await markeerOpgepakt(tenantId, d.conversation_id).catch(() => {});
+    }
     json(res, result.ok ? 200 : 400, result);
     return true;
   }

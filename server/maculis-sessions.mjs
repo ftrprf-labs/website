@@ -36,20 +36,44 @@ export const EVAL_QUESTIONS = [
 const CORE = ['recognition', 'accuracy', 'novelty'];
 
 // Pull the raw sessions from Maculis. Returns { ok, sessions } or { ok:false, reason }.
+// Hoe lang een pagina mag wachten op de Lens voordat hij toont wat hij zelf al weet. Zonder deze
+// grens hangt een trage of slapende Lens de Cockpit op, en dat is het eerste scherm dat een
+// medewerker onder tijdsdruk opent. Verstrijkt de tijd, dan is dat een reden zoals elke andere:
+// de lijst komt gewoon uit de database en de volgende verversing probeert het opnieuw.
+const PULL_TIMEOUT_MS = 8000;
+
 export async function pullSessions() {
   if (!config.maculisExportKey) return { ok: false, reason: 'not_configured' };
   const url = `${config.maculisHost}/api/session/export?key=${encodeURIComponent(config.maculisExportKey)}`;
   let res;
   try {
-    res = await fetch(url);
-  } catch {
-    return { ok: false, reason: 'network' }; // no host in message → no PII/secret
+    res = await fetch(url, { signal: AbortSignal.timeout(PULL_TIMEOUT_MS) });
+  } catch (e) {
+    // Een afgebroken verzoek is iets anders dan een onbereikbare host, en dat verschil bepaalt waar
+    // je gaat kijken. Geen host en geen sleutel in de reden.
+    const verlopen = e && (e.name === 'TimeoutError' || e.name === 'AbortError');
+    return { ok: false, reason: verlopen ? 'timeout' : 'network' };
   }
   if (res.status === 403) return { ok: false, reason: 'forbidden' };
   let body = null;
   try { body = await res.json(); } catch { /* non-JSON */ }
   if (!res.ok) return { ok: false, reason: `http_${res.status}` };
   return { ok: true, sessions: Array.isArray(body && body.lines) ? body.lines : [] };
+}
+
+// De bewijsregels uit de Lens, opgeschoond en begrensd. Alleen wat de deelnemer werkelijk op zijn
+// scherm zag: het citaat, het bronlabel en de vindplaats. Er wordt hier niets afgeleid, niets
+// samengevat en niets bij verzonnen; een regel zonder citaat bestaat niet.
+function bewijsregels(lijst) {
+  if (!Array.isArray(lijst)) return [];
+  return lijst
+    .map((e) => ({
+      quote: typeof e?.quote === 'string' ? e.quote.trim().slice(0, 400) : '',
+      label: typeof e?.label === 'string' ? e.label.trim().slice(0, 120) : '',
+      url: typeof e?.url === 'string' ? e.url.trim().slice(0, 500) : '',
+    }))
+    .filter((e) => e.quote)
+    .slice(0, 12);
 }
 
 // Group sessions by participant token and derive a compact per-token result.
@@ -62,8 +86,23 @@ export function deriveByToken(sessions) {
     if (!token || typeof token !== 'string') continue;
     let d = byToken.get(token);
     if (!d) {
-      d = { started: true, completed: false, answers: {}, contexts: {}, started_at: null, completed_at: null, consent: null, consent_at: null, consent_version: null };
+      d = { started: true, completed: false, answers: {}, contexts: {}, started_at: null, completed_at: null, consent: null, consent_at: null, consent_version: null,
+        // ADR-0003 D1/D2: "bewaren" is a SEPARATE permission from "benaderen". It is the only
+        // trigger for preparing a Mijn Maculis environment, and it never implies contact.
+        keep: false, keep_at: null,
+        // The reveal EXACTLY as the participant saw it. Carried across verbatim, never rewritten
+        // (amplify, do not author). `evidence_count` is what the Lens counted under it; the
+        // individual quotes are not exported today, see BUILD_LOG.
+        reveal: null };
       byToken.set(token, d);
+    }
+    // The journey also mirrors the presented outcome on the session itself (§J). Prefer the event,
+    // fall back to this, so a session that lost its event trail still yields the right line.
+    if (s.shown && typeof s.shown.reveal_line === 'string' && s.shown.reveal_line.trim() && !d.reveal) {
+      const regels = bewijsregels(s.shown.evidence);
+      d.reveal = { line: s.shown.reveal_line.trim(), family: s.shown.family || null,
+        outcome: s.shown.outcome || null, evidence_count: regels.length,
+        evidence: regels, at: s.received_at || s.updated_at || null };
     }
     if (s.started_at && (!d.started_at || s.started_at < d.started_at)) d.started_at = s.started_at;
     // The journey stamps the consent version it actually showed (maculis-contact-v1).
@@ -83,6 +122,20 @@ export function deriveByToken(sessions) {
       else if (e.name === 'recognition_context' && e.text) d.contexts.recognition_context = String(e.text);
       else if (e.name === 'accuracy_context' && e.text) d.contexts.accuracy_context = String(e.text);
       else if (e.name === 'session_completed') { d.completed = true; d.completed_at = s.received_at || s.updated_at || d.completed_at; }
+      // "Ja, bewaar dit". The permission to prepare an environment, and nothing else. Declining
+      // (`account_handoff_declined`) records nothing: absence of permission is not a permission.
+      else if (e.name === 'account_handoff_accepted') { d.keep = true; d.keep_at = d.keep_at || e.at || s.updated_at || s.received_at || null; }
+      // The reveal line the participant actually read, with the number of evidence items the Lens
+      // showed under it. An event wins over the mirrored `shown` block.
+      else if (e.name === 'reveal_presented' && typeof e.line === 'string' && e.line.trim()) {
+        d.reveal = { line: e.line.trim(), family: e.family || null, outcome: 'REVEAL',
+          evidence_count: Number(e.evidence_count || 0) || 0,
+          // De grond die de deelnemer zelf achter "Waar zie je dat?" heeft gezien. Woordelijk, want
+          // dit is overdracht en geen nieuwe waarneming. Oudere sessies dragen dit niet; dan blijft
+          // de lijst leeg en valt de keten terug op het aantal.
+          evidence: bewijsregels(e.evidence),
+          at: s.received_at || s.updated_at || null };
+      }
       // Consent events carried in the session event trail. Only an affirmative
       // opt-in maps to consent; `inner_circle_declined` ("Nog niet") is a
       // deferral and is intentionally NOT mapped (stays UNKNOWN). We still read

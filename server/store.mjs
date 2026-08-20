@@ -51,6 +51,18 @@ const EVENTS = [
   'consent_recorded',
   'consent_changed',
   'published_to_maculis',
+  // De sync naar Maculis MISLUKTE. Bestond niet: publishToMaculis gaf een nette reden terug
+  // (no_data_dir, not_configured, forbidden, network, http) en die werd weggegooid, waardoor een
+  // tester zonder naam de Journey in ging zonder dat daar ergens een spoor van was. Herhaalbaar,
+  // want elke poging is een eigen gebeurtenis.
+  'publish_to_maculis_failed',
+  // ADR-0003 D1: the tester answered "Ja, bewaar dit" at the end of the Lens. This is the
+  // permission to PREPARE a Mijn Maculis environment. It is never a permission to contact them.
+  'keep_consent_recorded',
+  // ADR-0003 D4: de kamer is automatisch klaargezet. Observatie, nooit een status.
+  'mijn_room_prepared',
+  // ADR-0003 D4: a person at Maculis sent the invitation to the prepared environment.
+  'mijn_maculis_invited',
   // Pass the Lens: an existing tester/relation introduced this person. Observation
   // only; never drives status/consent. The introducer link lives in `introductions`.
   'pass_the_lens_introduction',
@@ -58,13 +70,16 @@ const EVENTS = [
 
 // A single history entry: { at, event, channel?, result? }. No PII, no bodies,
 // no links, no tokens (brief §2, §18) — only the minimal facts of an event.
-function historyEntry(event, { channel = null, result = null, at = null, source = null } = {}) {
+function historyEntry(event, { channel = null, result = null, at = null, source = null, reason = null } = {}) {
   const entry = { at: at || new Date().toISOString(), event };
   if (channel) entry.channel = channel;
   if (result) entry.result = result;
   // Relevant provenance/context for the event (brief §17) — e.g. the intake
   // source for a consent event. Never a token, secret or PII.
   if (source) entry.source = source;
+  // WAAROM iets mislukte, als vaste code en nooit als vrije tekst: `no_data_dir`, `forbidden`,
+  // `network`. Een code is te vertalen en draagt geen host, geen sleutel en geen persoonsgegeven.
+  if (reason) entry.reason = reason;
   return entry;
 }
 
@@ -94,6 +109,10 @@ function emptyRecord() {
     // WHATSAPP/WRITTEN/OTHER). null for legacy free-text-only records. OTHER keeps its
     // short toelichting in consent_note.
     consent_method: null,
+    // ADR-0003 D2. "Bewaren" and "benaderen" are two permissions and never one field:
+    // consent_status carries the CONTACT permission, this pair carries the KEEP permission.
+    keep_consent: false,
+    keep_consent_at: null,
     source: 'manual',
     // Pass the Lens provenance (append-only). Each entry records that an existing
     // tester/relation introduced this person: { at, by_id, by_name, by_company,
@@ -145,6 +164,10 @@ function load() {
       if (r.status && LEGACY_STATUS[r.status]) r.status = LEGACY_STATUS[r.status];
       if (r.consent_status === undefined) r.consent_status = 'UNKNOWN';
       if (r.consent_at === undefined) r.consent_at = null;
+      // ADR-0003 D2: records van vóór dit model dragen geen bewaartoestemming. Fail-closed op
+      // false: afwezigheid van een toestemming is geen toestemming, ook niet met terugwerkende kracht.
+      if (r.keep_consent === undefined) r.keep_consent = false;
+      if (r.keep_consent_at === undefined) r.keep_consent_at = null;
       // History defaults to empty. We do NOT back-fill synthetic events for
       // records that predate history — their past is genuinely unknown.
       if (!Array.isArray(r.history)) r.history = [];
@@ -380,6 +403,22 @@ export function applySessionStatus(id, started, completed) {
   if (started && rank('OPENED') > rank(target)) target = 'OPENED';
   if (completed && rank('COMPLETED') > rank(target)) target = 'COMPLETED';
   if (target !== r.status) return setStatus(id, target);
+  return { ...r };
+}
+
+// The permission to KEEP (ADR-0003 D1/D2), recorded once, from a real journey answer.
+// Deliberately its own function and its own pair of fields: reusing setConsent would fold the
+// permission to prepare into the permission to make contact, and that is the one merge the model
+// forbids. Idempotent: a second identical signal changes nothing and logs nothing.
+export function setKeepConsent(id, at = null) {
+  const r = ready().invitations.find((x) => x.id === id);
+  if (!r) return null;
+  if (r.keep_consent) return { ...r };
+  r.keep_consent = true;
+  r.keep_consent_at = at || new Date().toISOString();
+  if (!Array.isArray(r.history)) r.history = [];
+  r.history.push({ at: r.keep_consent_at, event: 'keep_consent_recorded' });
+  persist();
   return { ...r };
 }
 

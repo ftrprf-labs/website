@@ -172,10 +172,30 @@ async function openConv(id) {
   const d = r.body; const c = d.conversation;
   const msgs = (d.messages || []).map((m) => `<div class="m ${m.direction === 'INBOUND' ? 'in' : 'out'}"><div class="meta">${m.direction === 'INBOUND' ? esc(m.from_address || '') : 'Maculis'} · ${esc(chan(m.channel))} · ${fmt(m.created_at)} ${m.direction === 'OUTBOUND' ? ('<span class="del">' + esc(delivery(m.delivery)) + '</span>') : ''}</div>${esc(m.body_text || '')}</div>`).join('') || '<div class="empty">Geen berichten.</div>';
   const ai = d.ai_draft ? `<div class="aipanel"><h4>Maculis begrijpt dit gesprek</h4><div class="sum">${esc(d.ai_draft.summary || '')}</div><div class="sug" id="sugbar"></div></div>` : '';
-  $('#thread').innerHTML = `<div class="msgs" id="msgs">${msgs}${ai}</div><div class="composer" id="composer"></div>`;
+  const hd = d.hulpdossier ? hulpdossierPaneel(d.hulpdossier) : '';
+  $('#thread').innerHTML = `<div class="msgs" id="msgs">${hd}${msgs}${ai}</div><div class="composer" id="composer"></div>`;
   $('#msgs').scrollTop = 99999;
   if (d.ai_draft) loadSuggestions(id);
   openDraft(id);
+}
+
+// Eén handelbaar voorstel, en niet een reeks losse controles. De medewerker leest de aanleiding,
+// de voorgestelde vervolgstap en de zekerheid, en handelt daarna met het concept dat al in de
+// composer staat. Dat is het ene beslismoment (architectuurprincipe 21).
+function hulpdossierPaneel(h) {
+  const wie = (h.aanvragers || []).map((a) => `${esc(a.naam)} (${fmt(a.at)})`).join(', ');
+  const mislukt = h.voorbereiding === 'mislukt' || h.voorbereiding === 'geen';
+  const rijen = [
+    h.samenvatting ? `<div class="sum">${esc(h.samenvatting)}</div>` : '',
+    mislukt ? `<div class="sum">${esc(`${h.titel}. Rust op ${h.bewijs_aantal} waarnemingen.`)}</div>
+      <div class="aihint">De voorbereiding is niet gelukt. De aanleiding staat er wel, dus je kunt gewoon reageren.</div>` : '',
+    h.voorgestelde_stap ? `<div class="kv"><div class="k">Voorgestelde vervolgstap</div><div>${esc(h.voorgestelde_stap)}</div></div>` : '',
+    h.zekerheid ? `<div class="kv"><div class="k">Zekerheid</div><div>${esc(h.zekerheid)}</div></div>` : '',
+    `<div class="kv"><div class="k">Gevraagd door</div><div>${wie || '—'}</div></div>`,
+    h.gedeeld ? '' : '<div class="aihint">Dit inzicht is niet gedeeld met Maculis. Citeer de volledige lezing niet terug.</div>',
+  ].filter(Boolean).join('');
+  return `<div class="aipanel"><h4>Samen met Maculis</h4>${rijen}
+    <p class="aihint">Het concept staat klaar in de composer. Er is nog niets verstuurd.</p></div>`;
 }
 
 async function loadSuggestions(id) {

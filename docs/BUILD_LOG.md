@@ -5,6 +5,400 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-20 — De grond reist mee, en de eerste ster krijgt drie lagen
+
+**Stand.** De bevinding uit de vorige ronde is opgelost bij de bron. De kamer zegt niet langer dat er
+te weinig bewijs is voor iets wat de ondernemer mét bewijs heeft gezien. Volledige suite 100 van 100,
+alle harnessen groen, de echte end to end **31 van 31**.
+
+**Deze wijziging raakt twee repo's.** `ftrprf-labs/maculis-first-five.` is daarvoor aan de sessie
+toegevoegd; daar staat de wijziging op dezelfde branchnaam.
+
+### Aan de Lenskant: alleen overdracht
+
+`reveal_presented` droeg wel de onthulling maar van het bewijs alleen het aantal. De citaten die de
+deelnemer achter "Waar zie je dat?" zag, reizen nu mee: citaat, bronlabel en vindplaats, begrensd op
+lengte, en alleen regels die werkelijk een citaat hebben. Ook op `session.shown`, zodat een sessie
+die haar eventspoor kwijtraakt hetzelfde oplevert.
+
+Geen nieuwe analyse, geen nieuwe observatie, geen nieuwe bron, en geen enkele wijziging aan wat de
+deelnemer ziet of moet doen.
+
+### Aan de kamerkant: drie lagen, en alleen de eerste twee komen uit de Lens
+
+**1. Uitspraak.** Zijn zin, woordelijk, met eronder waar hij vandaan komt.
+
+**2. Onderbouwing.** Eén bewijsregel per stuk bewijs, in de volgorde waarin hij ze zag, als
+`Over ons: "twintig jaar ervaring in complexe trajecten"`. Niet één regel met een aantal erin: een
+aantal is een bewering over bewijs, een citaat ís het bewijs. De vindplaatsen gaan naar de interne
+herkomst en niet naar de klantzijde, want een URL in die lijst zou een link zijn die de kamer niet
+kan openen.
+
+**3. Verdieping.** "We hebben hier alleen van buitenaf gekeken. Wat we nog niet weten, is hoe dit
+van binnenuit wordt ervaren." Die zin hangt aan het PERSPECTIEF en niet aan de klant. Daarmee is het
+geen bewering over hun organisatie en dus geen authoring, maar een eerlijke uitspraak over onze
+eigen kijkhoek. En het is nadrukkelijk geen aanbod: er staat wat we niet weten, niet wat je zou
+moeten koppelen.
+
+**Terugval blijft.** Sessies van vóór deze wijziging dragen alleen een aantal. Dan noemt de kamer
+het aantal en verzint de citaten niet.
+
+### Wat er visueel gebeurde, en dat was onverwacht mooi
+
+Het veld tekent een patroon als een sterrenbeeld van zijn waarnemingen. Met één bewijsregel was de
+ster één punt. Met drie is het een sterrenbeeld van drie verbonden punten: **de ster is de betekenis,
+de punten eronder zijn waarom die betekenis er is.** Dat is precies het model, en het kwam eruit
+zonder dat er iets aan het veld is veranderd.
+
+En de regel die de vorige ronde de onthulling onderuithaalde is weg. Waar stond "Hier is nog te
+weinig bewijs om iets te zeggen" staat nu "3 onafhankelijke waarnemingen".
+
+### Eén harness gerepareerd
+
+`mijn-gesprek-ui` faalde twee van de drie keer op "het gesprek staat meteen open met de eerste zin er
+al in". Dat bleek geen regressie maar een race die er al stond: de harness wachtte op het bestaan van
+het formulier terwijl de openingszin er pas na het aanmaken van de draad in komt. Aangetoond door
+hem drie keer op de vorige commit te draaien, met dezelfde uitkomst. Hij wacht nu op de inhoud.
+Vier runs op rij groen. Een test die één op drie slaagt is erger dan geen test.
+
+---
+
+## 2026-08-20 — De keten echt gelopen, en wat de eerste kamer laat zien
+
+**Stand.** De hele keten is over HTTP tegen een draaiende server gelopen, niet alleen in unit tests:
+`tools/visual/lens-naar-mijn-e2e.mjs` start de echte server met een nagebootste Journey-export
+ernaast en loopt daarna de weg van de ondernemer en de medewerker. **28 van 28 stappen groen.**
+Volledige suite 100 van 100, alle visuele harnessen groen, plus een nieuwe.
+
+### Uitgaand zonder mailtransport: klaarzetten, niet doen alsof
+
+`nodigUit` kijkt nu naar de werkelijke modus van het e-mailkanaal. Staat er een echt transport, dan
+gaat de uitnodiging per mail. Staat dat er niet, dan wordt er **niets verstuurd en ook niets
+beweerd**: de uitnodiging staat klaar en de link gaat terug naar de mens die op de knop drukte,
+zodat hij hem zelf kan doorgeven. Er is nog steeds precies één menselijke handeling en er verlaat
+niets ongemerkt het gebouw. Dit maakt de keten testbaar op een omgeving zonder mailsleutel, zonder
+ergens een valse "verzonden" te melden.
+
+Daarnaast: zonder publieke basis-URL wordt er geen uitnodiging meer gemaakt. Liever niets dan een
+link die begint met een schuine streep.
+
+### Eén mens, één toegang
+
+Een tweede uitnodiging voor iemand die al toegang heeft, zette er een tweede naast. Dan sluit
+intrekken de ene en laat de andere openstaan, en weet niemand meer hoeveel sleutels er zijn. Het
+verzilveren draait nu de waarde van de bestaande toegang om in plaats van een tweede aan te maken.
+
+### Wat de eerste kamer visueel opleverde
+
+`tools/visual/mijn-eerste-kamer.mjs` is nieuw en meet de toestand die de bestaande harness juist
+NIET dekt: één organisatie, één gebied, één uitspraak, bron Lens. De bestaande harness draait op zes
+patronen en meet daarmee een volle kamer. Vier dingen kwamen daar uit, en drie zijn gerepareerd.
+
+**De uitspraak stond er twee keer.** Groot als titel, en er direct onder nog eens als waarneming.
+Bij een inzicht dat rechtstreeks uit de Lens komt, is de uitspraak de waarneming. De lead blijft nu
+leeg wanneer die twee gelijk zijn.
+
+**Twee lege modules met een kop erop.** "Wat betekent dit mogelijk?" en "Wat weten we nog niet?"
+toonden allebei "Dit hebben we nog niet opgeschreven." Een vraag zonder antwoord wordt nu
+weggelaten in plaats van met een plaatshouder gevuld (ADR-0003 D6).
+
+**De bron werd nergens genoemd**, terwijl ADR-0003 D3 dat eist. Waar de lead leeg zou blijven staat
+nu de herkomst: "Bron: Maculis Lens. Dit is wat Maculis vanuit het perspectief van buitenaf zag."
+
+**De eerste keer sprong hij het bewijsblad in**, en miste daarmee de begroeting. Dat maakte de kamer
+een dossier in plaats van een vervolg. Hij landt nu op het veld, waar zijn naam, zijn organisatie én
+zijn eigen zin al staan, en het bewijs is één tik weg.
+
+### En één bevinding die NIET is gerepareerd, met opzet
+
+Onder zijn eigen onthulling staat: **"Hier is nog te weinig bewijs om iets te zeggen."** In het
+bewijsblad staat het nog scherper: "1 waarneming. Te weinig om iets te zeggen, en dat zeggen we dan
+ook."
+
+Dat is technisch waar, want er is één klantzijdige bewijsregel. Maar de Lens liet hem er drie zien
+en toonde de onthulling met vertrouwen. De kamer haalt daarmee, in de eerste seconden, precies dat
+vertrouwen onderuit.
+
+Dit is niet met copy op te lossen en het is ook geen reden om de bewijsdrempel te verlagen. Het is
+het bewijs dat de geparkeerde beslissing genomen moet worden: **het event `reveal_presented` moet de
+citaten meesturen die de Lens tóch al aan de ondernemer toonde.** Zolang dat niet gebeurt, vertelt de
+kamer hem dat er te weinig grond is voor iets wat hij zelf met bewijs onderbouwd heeft gezien.
+
+---
+
+## 2026-08-20 — Van de Lens naar Mijn Maculis: de V1-keten
+
+**Stand.** De keten loopt end to end in code en in tests: Lens afgerond, toestemming bewaren, kamer
+voorbereid, uitnodiging klaargezet, menselijke verstuuractie, ondernemer binnen, eerste ster
+zichtbaar, en terugkomen zonder dat een verlopen link iets weghaalt. Volledige suite 100 van 100,
+mobiele acceptatie, gesprek-UI, affordance en de mobiele copycontrole allemaal groen.
+
+Grondslag: ADR-0003 (de overgang vraagt geen onboarding), ADR-0004 (Mijn Maculis is de
+relatiecontext, de Lens is één ingang), `PROD-RELATIONSHIP-MODEL` en het V1-acceptatiekader.
+
+### Wat is toegevoegd, en waarom precies dat
+
+**Bewaartoestemming afleiden** (`maculis-sessions.mjs`, `store.mjs`, `index.mjs`). De sessie droeg
+`account_handoff_accepted` allang mee, maar er werd alleen naar de contacttoestemming gekeken. Dit
+is de enige trigger van de hele keten (ADR-0003 D1) en hij krijgt een eigen paar velden naast
+`consent_status`. Samenvoegen zou de toestemming om voor te bereiden vouwen in de toestemming om te
+benaderen, en dat is de ene samenvoeging die het model verbiedt (D2).
+
+**De voorbereider** (`mijn/voorbereiden.mjs`). Organisatie en persoon komen uit de herkenning die er
+al was en al ontdubbelt. Het inzicht is de zin uit `reveal_presented`, woordelijk. Er wordt niets
+opnieuw geanalyseerd, niets samengevat en niets afgeleid uit zijn antwoorden. Idempotent op
+(organisatie, bron, titel), want de aanroeper draait bij elke lijstweergave.
+
+**De drie assen** (migratie 012, `mijn/woordenschat.mjs`). Gebied en perspectief als kolommen en
+niet als tabellen: de namen zijn voor elke organisatie dezelfde, en een tabel zou suggereren dat een
+organisatie eigen gebieden heeft. De bron zat al in `customer_insight.source`.
+
+**Herkomst van een reflectie** (migratie 012). `insight_recognition` bevat vanaf nu twee soorten met
+verschillende regels: een antwoord uit de Lens had Maculis aantoonbaar al, een antwoord uit de kamer
+is van de persoon. Zonder markering leest een latere functie de tabel en trekt de verkeerde
+conclusie. Default `mijn`, dus fail-closed op persoonlijk.
+
+**De kamer** (migratie 012, `mijn_room`). Een eigen levensloop naast die van de tester, want ze gaan
+over verschillende dingen. Een verlopen uitnodiging zet een kamer nooit terug.
+
+**Uitnodiging en terugkeer** (`mijn/uitnodiging.mjs`). De tabellen lagen er sinds migratie 010 en
+werden nergens gebruikt. De uitnodiging is de deurbel, de toegang is de sleutel: een verlopen of
+gebruikte uitnodiging haalt geen toegang weg. Alleen hashes worden bewaard.
+
+**Eén regel in de Cockpit** (`mijn/kamers.mjs`, `comm.js`). Uitnodigen of afwijzen. Geen knop om de
+tekst te wijzigen, want wat in zijn kamer staat moet zijn wat hij zag. De module noemt de
+persoonlijke tabellen zelfs niet bij naam, en een test bewaakt dat.
+
+**De kamer bij één patroon** (`mijn.js`). Bestemmingen die nergens heen gaan worden verborgen en niet
+uitgeschakeld: een grijze knop is nog steeds een belofte van iets dat er niet is. En de eerste keer
+landt hij op zijn eigen zin, niet op de kaart.
+
+### Twee dingen die eerlijk moeten worden opgeschreven
+
+**Het bewijs onder het eerste inzicht is een aantal en geen citaten.** De Lens toont achter "Waar zie
+je dat?" letterlijke citaten met bron, maar het event `reveal_presented` draagt alleen
+`evidence_count` mee. De kamer zegt daarom hoeveel aanwijzingen Maculis vond en verzint de citaten
+niet. De schone oplossing is één extra veld op dat event aan Journeykant; die repo valt buiten de
+GitHub-scope van deze sessie, dus dat is een aparte stap.
+
+**Antwoorden op "Klopt dit?" en "Had je dit zelf al zo gezien?" reizen niet mee.** De kamer stelt één
+vraag, "Herken je dit?", en die krijgt het antwoord uit de Lens. Voor de andere twee een plek maken
+zou een nieuw scherm zijn, en dat verbiedt ADR-0003 D6. Ze blijven zichtbaar in de
+evaluatieweergave van Testerbeheer.
+
+### Eén reparatie onderweg
+
+`tests/mijn-toegang.test.mjs` laat migratie 010 opnieuw draaien door de tabellen te droppen. Migratie
+012 hangt aan een van die tabellen, dus die moet mee terug, anders blijft `insight_recognition.origin`
+weg terwijl 012 als toegepast geregistreerd staat. Beide migraties zijn volledig herhaalbaar.
+
+### Wat nog niet werkt buiten de code
+
+De Journey-preview heeft `MACULIS_DATA_DIR=/var/data` en geen disk, dus de sessie-export levert 200
+met een lege lijst en er komt niets binnen. Zolang dat zo is, kan de keten niet live worden gemeten.
+
+---
+
+## 2026-08-19 — Twee losse correcties na fase 1, geaccepteerd (preview)
+
+**Stand.** `415afee` en `860ed48` op `claude/mijn-maculis-visual-dna-94ut9s` zijn door de opdracht-
+gever geaccepteerd en gelden als de actuele stand. Fase 2, dus uitnodiging, activatie, sessie en
+intrekking, is uitdrukkelijk nog niet gestart. Twee bewust kleine wijzigingen, apart gecommit zodat
+hun bewijs en bedoeling los van elkaar herleidbaar blijven.
+
+### `415afee` — de comm-ai testfout, uitsluitend in de testopzet
+
+De DB-test in `tests/comm-ai.test.mjs` zette `RESEND_WEBHOOK_SECRET` in de body van de test. Dat is
+te laat: `server/config.mjs` leest die variabele eenmalig bij het laden van de module, en de
+statische imports bovenaan het testbestand laden config al. De secret stond daardoor leeg,
+`signWebhook` tekende met `''`, `verifyWebhook` antwoordde `no_secret`, de webhook eindigde op 401,
+er ontstond geen gesprek en `runCopilot` gaf terecht `{ ok: false, reason: 'no_conversation' }`.
+
+Aantoonbaar geen regressie van fase 0 of 1: de test faalt identiek op `7002853` van 15 augustus, de
+commit die zowel de statische import als de te late toewijzing introduceerde. Hij heeft dus nooit
+geslaagd zonder die omgevingsvariabele.
+
+De volgorde wordt nu afgedwongen door `tests/helpers/webhook-secret.mjs`, dat als allereerste import
+staat. ESM voert modules uit in importvolgorde, dus de variabele staat er voordat config wordt
+geladen. Een secret uit de omgeving wint nog steeds. **Geen productcode aangeraakt**: de 401 bij een
+ontbrekende secret is correct gedrag en blijft staan. De volledige suite was direct na deze
+wijziging 91 van 91.
+
+### `860ed48` — de deelstaat gaat over Maculis, niet over je collega
+
+"Alleen voor jou" stond voor `sharing != SHARED`, dus voor dimensie B, maar het beloofde iets over
+dimensie A. Zolang er één mens per klant was viel dat niet op; vanaf fase 1 zitten Sanne en Piet
+naast elkaar en is die belofte onwaar. Precies de twee dimensies die migratie 010 uit elkaar haalde,
+raakten in de zichtbare tekst weer op één hoop. Dit is het geparkeerde punt uit de fase 1-notitie
+hieronder, en het is hiermee opgelost.
+
+Vijf plekken, allemaal uitsluitend dimensie B, dus uitsluitend de vraag of Maculis het inzicht mag
+zien en gebruiken:
+
+| Plek | Nu |
+|---|---|
+| staat in het bewijsblad | `Gedeeld met Maculis` / `Niet gedeeld met Maculis` |
+| merkje in Alle patronen | hetzelfde volledige paar |
+| uitleg bij niet gedeeld | "Maculis gebruikt dit inzicht niet zolang het niet gedeeld is. Delen is een aparte keuze, en je kunt hem later weer intrekken." |
+| bevestiging bij intrekken | "… Het blijft in Mijn Maculis gewoon zichtbaar." |
+| blok in Samenwerking | "Maculis gebruikt alleen inzichten die je hebt gedeeld. Wat niet gedeeld is, blijft buiten onze samenwerking, en je kunt een gedeeld inzicht op elk moment weer intrekken." |
+
+"Je antwoord blijft bij jou" bij de herkenningsvraag blijft staan. Dat gaat niet over het inzicht
+maar over de persoonlijke laag, en daar is "bij jou" sinds fase 1 gewoon waar.
+
+**Gemeten, niet preventief ingekort.** `tools/visual/mijn-copy-mobiel.mjs` meet op 393x660, 390x844
+en 430x932, in beide staten: het merkje is 19,2px hoog bij een regelhoogte van 19,2px, dus het
+breekt nergens binnen zichzelf af; het is 147,7px breed voluit tegen 125,7px voor de gedeelde
+variant; het overlapt de houdingspil nergens en niets schuift horizontaal. Op 393 en 390 valt het
+merkje bij 2 van de 6 patronen naar een tweede regel onder de pil, bij de twee langste
+houdingslabels. De kop is een wrap-flex, dus dat is wat die hoort te doen, en het blijft links
+uitgelijnd en rustig. Met het korte paar zou het 0 van 6 zijn. Dat is geen aantoonbaar niet passen,
+dus het volledige paar blijft staan.
+
+**Vastgelegd.** Drie tests in `tests/mijn-toegang.test.mjs`, zonder database: de exacte eindteksten,
+een verbodslijst met "Alleen voor jou", "blijft van jou tot", "Inzichten zijn van jou" en "voor jou
+zichtbaar", dat `PRIVATE`, `AGGREGATED` en `ORGANISATIE` nooit zichtbaar worden, en dat de belofte
+bij de herkenningsvraag blijft staan. Zo raken dimensie A en dimensie B later niet opnieuw stilletjes
+door elkaar.
+
+### Bewijs en previewstatus
+
+Volledige suite **94 van 94 groen**, nul rood, nul overgeslagen. Dat is de 91 van hierboven plus de
+drie nieuwe copytests. De privacygrenzen tussen Sanne en Piet draaien mee en zijn groen, inclusief de
+zes regressies en de `deepEqual` die aantoont dat een handeling van Piet niets aan Sanne verandert.
+Audit, gesprek-UI, mobiele acceptatie en affordance ALLES GROEN.
+
+Uitsluitend naar de harmonisatiepreview, niets gemerged en niets naar productie. Render heeft
+automatisch gedeployd: deploy `dep-da2pquoae00c73c68pp0` op commit `860ed48` staat op live.
+
+**Nog visueel te controleren door de opdrachtgever.** De preview zelf is vanuit de bouwomgeving niet
+op te halen: het netwerkbeleid van die omgeving beantwoordt een CONNECT naar `onrender.com` met een
+403. Het bewijs dat de nieuwe copy draait is daarom de deploystatus van Render op exact `860ed48`,
+en niet een eigen ophaalactie. De visuele eindcontrole op het toestel staat dus nog open, op
+`/mijn.html?t=preview-mijn-maculis-de-voorbeeld-groep-0001` en dezelfde link met `-piet` erachter.
+
+**Blijft geparkeerd.** Het opruimen van de ongebruikte `customer_insight.recognition*` kolommen, het
+ontdubbelen van "Waarop dit rust" en "Waar baseren we dit op?", en het terugkoppelen van Samenwerking
+naar de patronen. Alle drie wachten op een eigen GO.
+
+---
+
+## 2026-08-19 — Mijn Maculis fase 1: gedeelde werkelijkheid, persoonlijke aandacht (preview)
+
+**Wat.** Twee mensen bij één organisatie zien vanaf nu dezelfde inzichten, maar niet elkaars
+gesprekken en antwoorden. Daarvoor moesten twee privacyvragen uit elkaar die er tot nu toe als één
+uitzagen. Dimensie A, wie binnen de klantorganisatie een inzicht mag zien, leest `customer_insight.audience`
+en wordt expliciet gecontroleerd. Dimensie B, of Maculis de inhoud mag zien en gebruiken, blijft
+`customer_insight.sharing` en verandert geen letter. Ze mogen nooit hetzelfde veld en nooit dezelfde
+autorisatiebeslissing worden.
+
+**Een privacyfout hersteld.** Bij de communicatielaag waren `recognition` en `recognition_note`
+toegevoegd aan `sharedContextForOrg`, met de redenering dat het antwoord op een gedeeld inzicht
+precies is wat Maculis vroeg. Dat was fout. Het koppelt een persoonlijke keuze aan een handeling van
+iemand anders: antwoordt Sanne "Nee" op een ongedeeld inzicht en deelt Piet dat later, dan zou haar
+antwoord alsnog naar de Cockpit stromen. De persoonlijke laag reist nu nooit mee met `sharing`.
+
+**Gesprekscontext als eigen handeling.** Praten over een nog niet gedeeld inzicht mag, en dat is iets
+anders dan het delen. Het onderwerp van de draad is neutraal geworden, want dat is organisatiebrede
+metadata die ook in het attentiemodel meekomt. Wat Maculis meekrijgt om de vraag te begrijpen staat
+als momentopname in `insight_context_share`: de uitspraak zoals Maculis die zelf schreef en de
+houding, per gesprek. Niet de lezing eronder, niet het bewijs, nooit de persoonlijke laag. Versturen
+ís de keuze, en dat staat er vooraf. `sharing` blijft onaangeraakt en `sharedContextForOrg` leest
+deze tabel niet.
+
+**Verder.** Gesprekken, herkenning en de leesstatus zijn persoonsgebonden, fail-closed: zonder
+contact is de persoonlijke laag leeg en kan er niet geschreven worden. De preview heeft een tweede
+persoon, Piet Jansen, bij dezelfde organisatie.
+
+**Bewijs.** `tests/mijn-toegang.test.mjs` doet de zes gevraagde regressies end to end door de echte
+routes, plus dat `audience` werkelijk gecontroleerd wordt en dat een handeling van Piet niets aan
+Sanne verandert (`deepEqual` over haar herkenning, haar draad en haar gedeelde context, vóór en na).
+Volledige suite 90 van 91; de ene rode is de bekende comm-ai copilot. Audit, motion, affordance,
+gesprek en de mobiele acceptatie ALLES GROEN.
+
+**Geparkeerd.** De copy "Alleen voor jou" is nu op twee manieren onnauwkeurig en blijft bewust staan
+tot daar een eigen ronde voor komt. Opruimen van de ongebruikte `customer_insight.recognition*`
+kolommen is schuld.
+
+---
+
+## 2026-08-19 — Mijn Maculis: de mobiele compositie van Het Veld (preview)
+
+**Wat.** Op een telefoon liepen de waarnemingen dwars door de leesbare HUD-tekst, terwijl er onderin
+ruimte onbenut bleef. Oorzaak: `meet()` centreerde het veld op `(H − 236) / 2`. Die 236 reserveert
+de uitspraak onderaan, maar bovenaan werd niets gereserveerd. Op desktop hoeft dat niet, want daar
+staat de HUD in verre hoeken. Op een telefoon is de HUD een band dwars over de bovenkant, gemeten
+van 14 tot 218px, en het veldmidden landde daar middenin.
+
+- Boven wordt nu gereserveerd wat er werkelijk staat, gemeten en niet vastgezet, en opnieuw gemeten
+  zodra de regels onder de groet er staan.
+- Onder wordt alleen het dekkende deel van de uitspraak gereserveerd. Zij ligt als een verloop over
+  het veld (`0deg, var(--bg) 58%, transparent`), dus de bovenste 42 procent is bewust doorzichtig en
+  daar mag het veld doorheen lopen. Gemeten is de uitspraak 230 tot 245px hoog, waarvan 133 tot
+  142px dekkend; de vloer staat op 150px zodat de compositie stabiel is vanaf het eerste beeld.
+- Het veld wordt in de overgebleven band gecentreerd en daarop geschaald. Op 390x844 en 430x932
+  blijft de straal exact gelijk en verhuist het veld alleen; op een korte in-app browser krimpt het,
+  want daar is niet meer ruimte.
+- Het trefvlak van een patroon schaalt op mobiel mee omlaag met het veld. Zonder dat overlapten de
+  vaste 46px-vlakken van buurpatronen elkaar zodra het veld kleiner werd, en raakte je met één tik
+  het verkeerde patroon. Alleen kleiner, nooit groter, en alleen op een telefoon.
+
+**Gemeten, kernen in rust.** 393x660: midden 223 naar 378. 390x844: midden 315 naar 473, halve
+hoogte 113 en 113. 430x932: midden 360 naar 518, halve hoogte 124 en 124. Helderste veldpixel
+bovenop leesbare tekst, gewogen met alfa: 192 naar 2 (390x844), 192 naar 3 (393x660), 10 naar 1
+(430x932).
+
+**Bewijs.** `tools/visual/mijn-mobiel.mjs` dwingt dit nu hard af, op drie viewports, in rust én over
+de hele opbouwcyclus, plus dat elk patroon zijn eigen trefvlak houdt. Terugdraaien van de fix maakt
+die harness rood, dus hij meet werkelijk iets. Audit, motion, affordance en de gesprekstest
+ALLES GROEN.
+
+**Twee bevindingen over de harness zelf.** De opname van het `praat`-scherm hing af van waar de klik
+op de ingang het blad toevallig heen schoof; dat is nu vastgezet. En de plaatsing van de uitspraak
+op een breed scherm wisselt 4px tussen runs, ook zonder codewijziging: gemeten 348 en 352 over acht
+runs op de oude code. Byte-identieke opnames zijn voor een levend canvas dus niet haalbaar; de
+vergelijking blijft daardoor een beoordeling en geen poort.
+
+---
+
+## 2026-08-19 — Mijn Maculis: de mobiele presentatie van een inzicht (preview)
+
+**Wat.** Op een telefoon dekte het bewijsblad het hele veld af: het blad was 88vh en de 101px die
+overbleef werd bezet door de navigatie, die er zelfs overheen liep. Het patroon dat je zojuist
+aantikte was daardoor onzichtbaar, en daarmee viel de belofte weg dat dit inzicht uit dit patroon
+komt. Vier ingrepen, allemaal in de mobiele media query op één na.
+
+- De periferie wijkt nu ook op mobiel zodra een blad opent. De strook boven het blad is veld en
+  geen menu. Terug kan via "Terug naar het veld" of door lege veldruimte aan te tikken.
+- Het blad is `min(72dvh, 700px)` in plaats van `min(88vh, 760px)`, met de vh-regel als terugval.
+  `dvh` en niet `vh`, want de adresbalk van Safari verandert van hoogte en `vh` rekent met de
+  grootste stand. Gemeten: 28 procent van het scherm blijft veld, op beide iPhone-formaten.
+- De camera mikt het geopende patroon in die strook in plaats van in het midden van het canvas,
+  met een zoom die zich naar de hoogte van de strook voegt. Onder `prefers-reduced-motion` draait
+  er geen lus, dus daar springt de camera er ineens heen en tekent één keer: canon 8.5 vraagt de
+  eindtoestand, niet stilstand. Dat laatste alleen op mobiel, want op een breed scherm staat het
+  veld gewoon naast het blad en valt er niets te herstellen.
+- Elk blad begint bovenaan. Zonder dat erfde een nieuw patroon de scrollpositie van het vorige:
+  gemeten stond de titel dan 311px boven de rand van het scherm.
+- De onderrand van het blad rekent met `env(safe-area-inset-bottom)`.
+
+**Twee correcties uit de UX-doorloop, in dezelfde ronde.** "Praat hierover met Maculis" is de
+primaire handeling in het bewijsblad geworden en "Deel dit met Maculis" is secundair. De betekenis
+en de privacygrenzen van beide veranderen niet: praten is nog steeds iets anders dan delen, met
+dezelfde bevestiging en dezelfde grens. Zodra de invoer open staat treedt de uitnodiging terug,
+zodat er nooit twee primaire knoppen tegelijk staan. Daarnaast verdwijnt het label
+`TE WEINIG BEWIJS` uit het veld: onder de drempel krijgt een constellatie geen naam meer, precies
+zoals canon 8 zegt dat een naam pas verschijnt als het patroon echt is. De eerlijke behandeling in
+het bewijsblad blijft volledig staan, inclusief "Te weinig om iets te zeggen, en dat zeggen we dan
+ook."
+
+**Bewijs.** `tools/visual/mijn-mobiel.mjs` is nieuw en meet dit op 390x844 en 430x932: ALLES GROEN,
+inclusief draaien en terugdraaien. Audit, motion, affordance en de gesprekstest onveranderd ALLES
+GROEN. Alleen `public/mijn.css` en `public/mijn.js` zijn aangeraakt; Cockpit, Website, Lens en
+Testerbeheer zijn niet aangeraakt. Op desktop veranderen alleen de twee bewust gevraagde dingen.
+
+---
+
 ## 2026-08-19 — Integratie Cockpit en Mijn Maculis: een spoor afgerond, geaccepteerd, nog geen Production GO
 
 **Status: geaccepteerd op de integratiepreview. Nog GEEN Production GO en niets naar de

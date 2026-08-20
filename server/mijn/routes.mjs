@@ -11,6 +11,7 @@ import { resolveAccess } from './access.mjs';
 import { customerOverview, customerInsights, customerInsightDetail, collaboration } from './insights.mjs';
 import { shareInsight, revokeInsight } from './sharing.mjs';
 import { stuurBericht, draden, draadVoorKlant, ongelezen, zetHerkenning } from './gesprek.mjs';
+import { verzilverUitnodiging, gebruikInloglink } from './uitnodiging.mjs';
 
 const UUID = '([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})';
 
@@ -43,11 +44,37 @@ export async function handleMijn(req, res, { pathname, method }) {
   if (!commEnabled()) { json(res, 503, { error: 'Mijn Maculis is nog niet geactiveerd.' }); return true; }
 
   const url = new URL(req.url, 'http://x');
+
+  // ---- de twee routes die GEEN toegang vooronderstellen, want ze maken hem juist -----------------
+  // ADR-0003 D5: geen registratie en geen wachtwoord. De ondernemer wisselt een eenmalige waarde in
+  // voor de duurzame toegang. De waarde staat in de body en nooit in de URL, zodat hij niet in een
+  // requestlog, een history-item of een bladwijzer achterblijft.
+  //
+  // De foutredenen zijn grof en de statuscode is altijd 400: uit het verschil tussen "bestaat niet",
+  // "al gebruikt" en "verlopen" mag niemand kunnen afleiden of een waarde ooit geldig was.
+  if (pathname === '/api/mijn/toegang/uitnodiging' && method === 'POST') {
+    const body = await readJson(req) || {};
+    const r = await verzilverUitnodiging(body.code);
+    if (!r.ok) { json(res, 400, { ok: false, error: r.error }); return true; }
+    json(res, 200, { ok: true, token: r.token });
+    return true;
+  }
+  if (pathname === '/api/mijn/toegang/inloglink' && method === 'POST') {
+    const body = await readJson(req) || {};
+    const r = await gebruikInloglink(body.code);
+    if (!r.ok) { json(res, 400, { ok: false, error: r.error }); return true; }
+    json(res, 200, { ok: true, token: r.token });
+    return true;
+  }
+
   const token = presentedToken(req, url);
   const access = token ? await resolveAccess(token) : null;
   if (!access) { json(res, 401, { error: 'Geen geldige toegang tot Mijn Maculis.' }); return true; }
 
   const { tenantId, organizationId } = access;
+  // De persoon achter deze toegang. Alles wat persoonlijk is, hangt hieraan; ontbreekt hij, dan is
+  // de persoonlijke laag leeg in plaats van organisatiebreed.
+  const contactId = access.contactId || null;
 
   // Session / identity for the landing (who am I, which organization is this).
   if (pathname === '/api/mijn/session' && method === 'GET') {
@@ -61,13 +88,13 @@ export async function handleMijn(req, res, { pathname, method }) {
 
   // Overzicht.
   if (pathname === '/api/mijn/overview' && method === 'GET') {
-    json(res, 200, await customerOverview(tenantId, organizationId));
+    json(res, 200, await customerOverview(tenantId, organizationId, contactId));
     return true;
   }
 
   // De Spiegel — insight list.
   if (pathname === '/api/mijn/insights' && method === 'GET') {
-    json(res, 200, { insights: await customerInsights(tenantId, organizationId) });
+    json(res, 200, { insights: await customerInsights(tenantId, organizationId, contactId) });
     return true;
   }
 
@@ -75,7 +102,7 @@ export async function handleMijn(req, res, { pathname, method }) {
   // Returns the current reading (insight.*) plus its human development timeline.
   const detailMatch = pathname.match(new RegExp(`^/api/mijn/insights/${UUID}$`));
   if (detailMatch && method === 'GET') {
-    const detail = await customerInsightDetail(tenantId, organizationId, detailMatch[1]);
+    const detail = await customerInsightDetail(tenantId, organizationId, detailMatch[1], contactId);
     if (!detail) { json(res, 404, { error: 'Inzicht niet gevonden.' }); return true; }
     json(res, 200, detail);
     return true;
@@ -88,7 +115,7 @@ export async function handleMijn(req, res, { pathname, method }) {
   if (shareMatch && method === 'POST') {
     const result = await shareInsight(tenantId, organizationId, shareMatch[1], { actorLabel: access.label, actorAccessId: access.accessId });
     if (!result.ok) { json(res, result.error === 'not_found' ? 404 : 400, result); return true; }
-    const detail = await customerInsightDetail(tenantId, organizationId, shareMatch[1]);
+    const detail = await customerInsightDetail(tenantId, organizationId, shareMatch[1], contactId);
     json(res, 200, { ok: true, sharing: 'SHARED', updated: Boolean(result.updated), ...detail });
     return true;
   }
@@ -99,7 +126,7 @@ export async function handleMijn(req, res, { pathname, method }) {
   if (revokeMatch && method === 'POST') {
     const result = await revokeInsight(tenantId, organizationId, revokeMatch[1], { actorLabel: access.label, actorAccessId: access.accessId });
     if (!result.ok) { json(res, result.error === 'not_found' ? 404 : 400, result); return true; }
-    const detail = await customerInsightDetail(tenantId, organizationId, revokeMatch[1]);
+    const detail = await customerInsightDetail(tenantId, organizationId, revokeMatch[1], contactId);
     json(res, 200, { ok: true, sharing: 'PRIVATE', ...detail });
     return true;
   }
@@ -111,22 +138,22 @@ export async function handleMijn(req, res, { pathname, method }) {
 
   // De rustige lijst met gesprekken. Geen postvak: alleen draden en hun onderwerp.
   if (pathname === '/api/mijn/conversations' && method === 'GET') {
-    json(res, 200, { items: await draden(tenantId, organizationId), unread: await ongelezen(tenantId, organizationId) });
+    json(res, 200, { items: await draden(tenantId, organizationId, contactId), unread: await ongelezen(tenantId, organizationId, contactId) });
     return true;
   }
 
-  // Iets zeggen. Met of zonder patroon, en alleen met `weegMee` komt er daarnaast een voorstel
-  // voor het organisatiebeeld binnen. Zonder dat vinkje is dit uitsluitend een gesprek.
+  // Iets zeggen. Met of zonder patroon. Dit is uitsluitend een gesprek: er is aan klantzijde geen
+  // enkele route meer naar het relatiegeheugen, en `weegMee` in een body wordt genegeerd omdat de
+  // parameter niet meer bestaat.
   if (pathname === '/api/mijn/conversations' && method === 'POST') {
     const body = await readJson(req);
     if (!body) { json(res, 400, { error: 'Ongeldig verzoek.' }); return true; }
     const result = await stuurBericht(tenantId, organizationId, {
       accessId: access.accessId,
-      contactId: access.contactId || null,
+      contactId,
       insightId: body.insightId || null,
       conversationId: body.conversationId || null,
       text: body.text,
-      weegMee: body.weegMee === true,
     });
     if (!result.ok) { json(res, result.error === 'not_found' ? 404 : 400, result); return true; }
     json(res, 200, result);
@@ -136,7 +163,7 @@ export async function handleMijn(req, res, { pathname, method }) {
   // Eén draad openen. Dit verzet alleen het klantwatermerk, nooit dat van Maculis.
   const draadMatch = pathname.match(new RegExp(`^/api/mijn/conversations/${UUID}$`));
   if (draadMatch && method === 'GET') {
-    const draad = await draadVoorKlant(tenantId, organizationId, draadMatch[1]);
+    const draad = await draadVoorKlant(tenantId, organizationId, contactId, draadMatch[1]);
     if (!draad) { json(res, 404, { error: 'Gesprek niet gevonden.' }); return true; }
     json(res, 200, { conversation: draad });
     return true;
@@ -148,10 +175,32 @@ export async function handleMijn(req, res, { pathname, method }) {
     const body = await readJson(req);
     if (!body) { json(res, 400, { error: 'Ongeldig verzoek.' }); return true; }
     const result = await zetHerkenning(tenantId, organizationId, herkenMatch[1], {
-      answer: body.answer || null, note: body.note || null, accessId: access.accessId,
+      answer: body.answer || null, note: body.note || null, accessId: access.accessId, contactId,
     });
     if (!result.ok) { json(res, 404, result); return true; }
     json(res, 200, result);
+    return true;
+  }
+
+  // "Wil je hier iets mee?" Eén vraag, drie antwoorden, en bij "samen" is deze klik de laatste
+  // noodzakelijke handeling van de klant: daarna stelt Maculis het hulpdossier samen, schrijft het
+  // een conceptantwoord en zet het een interne taak klaar. Er gaat niets naar buiten; dat blijft
+  // één menselijk besluit in de Cockpit.
+  //
+  // Het hulpdossier heeft met opzet GEEN klantzijdig leespad. Er is hier dus alleen een POST, en
+  // geen enkele route onder /api/mijn/ geeft een dossier terug. Dat is wat voorkomt dat het signaal
+  // van de een zichtbaar wordt voor de ander.
+  const intentMatch = pathname.match(new RegExp(`^/api/mijn/insights/${UUID}/intent$`));
+  if (intentMatch && method === 'POST') {
+    const body = await readJson(req);
+    if (!body) { json(res, 400, { error: 'Ongeldig verzoek.' }); return true; }
+    const { zetIntentie } = await import('./intentie.mjs');
+    const result = await zetIntentie(tenantId, organizationId, intentMatch[1], {
+      intent: body.intent || null, accessId: access.accessId, contactId,
+    });
+    if (!result.ok) { json(res, result.error === 'not_found' ? 404 : 400, result); return true; }
+    const detail = await customerInsightDetail(tenantId, organizationId, intentMatch[1], contactId);
+    json(res, 200, { ok: true, intent: result.intent, ...detail });
     return true;
   }
 

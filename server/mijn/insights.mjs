@@ -32,9 +32,9 @@ function nextStep(items) {
 // Overzicht: "Waar vraagt onze organisatie om aandacht?" — a calm, few-elements summary, never a
 // statistics dashboard. One attention insight, a few recent insights, the collaboration at a glance
 // and the next shared step.
-export async function customerOverview(tenantId, organizationId) {
+export async function customerOverview(tenantId, organizationId, contactId = null) {
   const [insights, collab, sharedCount, lastShare] = await Promise.all([
-    visibleInsights(tenantId, organizationId),
+    visibleInsights(tenantId, organizationId, contactId),
     collaboration(tenantId, organizationId),
     sharedInsightCount(tenantId, organizationId),
     query(
@@ -63,8 +63,8 @@ export async function customerOverview(tenantId, organizationId) {
 }
 
 // De Spiegel: the full list of insights the customer may see (PRIVATE + SHARED, own org only).
-export async function customerInsights(tenantId, organizationId) {
-  return visibleInsights(tenantId, organizationId);
+export async function customerInsights(tenantId, organizationId, contactId = null) {
+  return visibleInsights(tenantId, organizationId, contactId);
 }
 
 // Human stance labels (§10 epistemic integrity, in customer language). No technical badges.
@@ -118,13 +118,23 @@ export async function insightEvidence(tenantId, organizationId, insightId) {
 // customer never has to look elsewhere for what they said about this insight. Opening the insight
 // does not mark the thread as read: that happens only when the customer actually opens the
 // conversation, so an answer cannot silently be counted as seen.
-export async function customerInsightDetail(tenantId, organizationId, insightId) {
-  const insight = await insightForCustomer(tenantId, organizationId, insightId);
+export async function customerInsightDetail(tenantId, organizationId, insightId, contactId = null) {
+  const insight = await insightForCustomer(tenantId, organizationId, insightId, contactId);
   if (!insight) return null;
   const [development, evidence, conversation] = await Promise.all([
     insightDevelopment(tenantId, organizationId, insightId),
     insightEvidence(tenantId, organizationId, insightId),
-    draadOverInzicht(tenantId, organizationId, insightId),
+    draadOverInzicht(tenantId, organizationId, contactId, insightId),
   ]);
-  return { insight, development, evidence, conversation };
+  // TWEE STEMMEN, OP VOLGORDE VAN TIJD. Wat hij tijdens de Lens zei en wat hij later in de kamer
+  // toevoegde, allebei met hun eigen moment. Ze vervangen elkaar niet en ze worden niet opgeteld.
+  // Beide zijn van hem, dus beide horen alleen thuis in zijn eigen leespad en nooit in de Cockpit.
+  const stemmen = [];
+  if (insight.lens_answer) {
+    stemmen.push({ origin: 'lens', answer: insight.lens_answer, note: null, at: insight.lens_answer_at });
+  }
+  if (insight.mijn_answer) {
+    stemmen.push({ origin: 'mijn', answer: insight.mijn_answer, note: insight.mijn_note, at: insight.mijn_at });
+  }
+  return { insight, development, evidence, conversation, stemmen };
 }

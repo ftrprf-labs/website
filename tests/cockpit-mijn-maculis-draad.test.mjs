@@ -184,21 +184,37 @@ test('4. praten is niet onthouden: zonder het vinkje ontstaat er geen enkel gehe
     } finally { await closePool(); }
   });
 
-test('5. mét het vinkje ontstaat het langs de bedoelde route: voorstel van de klant, geen feit',
+// 5. TERUGGENOMEN OP DE MIJN MACULIS-LIJN, EN DAT IS EEN BESLUIT.
+//
+// Deze test verwachtte dat een vinkje "Laat dit meewegen" vanaf de klantzijde een voorstel in
+// `relationship_memory` schreef, met source='customer'. Die route bestaat niet meer, en niet per
+// ongeluk: zie de toelichting bovenaan `server/mijn/gesprek.mjs`. Voor de lezer was het een derde
+// toestemmingsvraag naast delen en versturen, terwijl het in hun hoofd één vraag is. En het beloofde
+// meer dan het deed: het geheugen wordt per contact gelezen, dus het bereikte een gesprek van een
+// collega nooit, terwijl er "wat Maculis van ons weet" stond, en de klant kon het nergens
+// terugzien of intrekken.
+//
+// Wat een uitspraak tot vastgelegd feit maakt, hoort aan de kant waar de bevestiging al leeft: een
+// mens bij Maculis, via de bestaande geheugenroutes. De test blijft daarom staan, omgekeerd, als
+// grens: er loopt vanaf de klantzijde GEEN enkele route naar het organisatiegeheugen, ook niet
+// wanneer iemand een oud veld meestuurt.
+test('5. er loopt vanaf de klantzijde geen enkele route naar het organisatiegeheugen',
   { skip: SKIP }, async () => {
     const { closePool } = await import('../server/comm/db.mjs');
     try {
       const env = await omgeving();
       const { stuurBericht } = await import('../server/mijn/gesprek.mjs');
+      // Met het oude veld er expliciet bij: een genegeerd veld is de bedoeling, geen toeval.
       await stuurBericht(env.tenantId, env.organizationId, {
         contactId: env.contactId, insightId: env.insightId, text: 'Wij werken sinds kort met twee merken.', weegMee: true });
 
-      const rows = (await env.query(
-        'select kind, source, confidence, content, source_ref from relationship_memory')).rows;
-      assert.equal(rows.length, 1, 'precies één voorstel');
-      assert.equal(rows[0].source, 'customer', 'herkomst is de klant zelf, niet de AI');
-      assert.equal(rows[0].confidence, 'proposed', 'een voorstel, dat een mens nog bevestigt');
-      assert.equal(rows[0].source_ref.type, 'mijn_maculis_message', 'herleidbaar tot het bericht');
+      const n = Number((await env.query('select count(*)::int n from relationship_memory')).rows[0].n);
+      assert.equal(n, 0, 'geen feit, geen voorstel, geen geheugen, ook niet met het oude vinkje');
+
+      // Het bericht zelf bestaat wel: het is een bericht, geen kennis.
+      const m = Number((await env.query(
+        "select count(*)::int n from message where direction='INBOUND' and body_text like 'Wij werken sinds kort%'")).rows[0].n);
+      assert.equal(m, 1, 'het bericht blijft onderdeel van de gesprekshistorie');
     } finally { await closePool(); }
   });
 

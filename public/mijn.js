@@ -21,10 +21,39 @@
   // ---- toegang -------------------------------------------------------------------------------
   const url = new URL(location.href);
   let token = url.searchParams.get('t') || sessionStorage.getItem('mijn_token') || '';
+  // De naam van de klantorganisatie. Dimensie A wordt in het bewijsblad uitgesproken, dus die
+  // naam moet daar bereikbaar zijn en niet alleen bij het inloggen.
+  let orgNaam = '';
   if (url.searchParams.get('t')) {
     sessionStorage.setItem('mijn_token', token);
     url.searchParams.delete('t');
     history.replaceState(null, '', url.pathname + (url.hash || ''));
+  }
+
+  // Een eenmalige waarde uit een uitnodiging (?u=) of een inloglink (?l=). Die wisselen we in voor
+  // de duurzame toegang en dan is hij op. De waarde gaat via de body en niet via de header, want op
+  // dit moment is er nog geen toegang; hij verdwijnt meteen uit de adresbalk zodat hij niet in de
+  // geschiedenis of in een bladwijzer achterblijft.
+  const eenmalig = url.searchParams.get('u') ? { code: url.searchParams.get('u'), pad: 'uitnodiging' }
+    : url.searchParams.get('l') ? { code: url.searchParams.get('l'), pad: 'inloglink' } : null;
+  if (eenmalig) {
+    url.searchParams.delete('u');
+    url.searchParams.delete('l');
+    history.replaceState(null, '', url.pathname + (url.hash || ''));
+  }
+
+  async function wisselIn(e) {
+    try {
+      const res = await fetch(`/api/mijn/toegang/${e.pad}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: e.code }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok || !data.token) return data.error || 'invalid';
+      token = data.token;
+      sessionStorage.setItem('mijn_token', token);
+      return null;
+    } catch { return 'network'; }
   }
 
   const $ = (id) => document.getElementById(id);
@@ -93,12 +122,30 @@
     }
   }
 
-  // De bewijsdrempel waarboven violet ontsteekt hangt af van het SOORT uitspraak, niet van een
-  // vast getal (canon 8.1): "een tegenstrijdigheid heeft aan twee gegronde signalen genoeg, een
-  // patroon heeft er veel meer nodig". Onbekend ontsteekt nooit; onzekerheid blijft kleurloos.
-  const DREMPEL = { tension: 2, reveal: 4, consistency: 5, non_reveal: 5, unknown: Infinity };
+  // Wat een uitspraak aan grond NODIG HEEFT OM TE BESTAAN. Geen kwaliteitscijfer en geen score:
+  // per soort uitspraak een andere logica, omdat de uitspraken iets anders beweren.
+  //
+  //   structurele uitspraken, waar de grond de uitspraak IS
+  //     tension    2  een tegenstrijdigheid heeft er per definitie twee, één aan elke kant
+  //     reveal     1  de onthulling van de Lens wordt AFGELEID uit haar citaten en bestaat niet
+  //                   zonder. Vragen om een extra regel is vragen om bevestiging die dit soort
+  //                   uitspraak niet kent: er is geen onafhankelijke tweede bron die de eerste
+  //                   kan bevestigen, het is dezelfde blik op dezelfde plek. Stond op 4, en dat
+  //                   liet Maculis zijn eigen onthulling tegenspreken op het eerste scherm
+  //
+  //   breedte-uitspraken, waar het aantal wél iets betekent
+  //     non_reveal 5  een afwezigheid mag je pas beweren als je genoeg plekken hebt bekeken
+  //     consistency 5 één voorbeeld is een anekdote, een lijn heeft breedte nodig
+  //
+  //   en de uitspraak die zichzelf uitspreekt
+  //     unknown  ∞    "hier is te weinig om iets te zeggen" IS de uitspraak, niet een tekort
+  //                   eronder. Alleen deze houding zegt dat, en alleen als de uitspraak zelf.
+  const DREMPEL = { tension: 2, reveal: 1, consistency: 5, non_reveal: 5, unknown: Infinity };
   const drempel = (i) => DREMPEL[i && i.stance] ?? 4;
   const bewijs = (i) => Math.max(1, Number(i && i.evidence_count) || 0);
+  // Dimensie B, op één plek gedefinieerd. Stond eerder op drie plekken net iets anders, wat de
+  // enige manier is waarop een deelstaat stilletjes uiteen kan lopen.
+  const vrijgegeven = (i) => Boolean(i) && (i.sharing === 'SHARED' || i.sharing === 'AGGREGATED');
 
   // ============================================================================================
   // 1. HET VELD
@@ -106,6 +153,11 @@
   const cv = $('veld');
   const ctx = cv ? cv.getContext('2d') : null;
   let W = 0, H = 0, SCHAAL = 1, CX = 0, CY = 0;
+  // Adem tussen de HUD-tekst en de eerste waarneming, en de vloer onder de ruimte die de uitspraak
+  // dekkend nodig heeft. Gemeten op een telefoon is de uitspraak 230 tot 245px hoog, waarvan 133
+  // tot 142px dekkend; 150 dekt dat met marge en houdt de compositie stabiel vanaf het eerste
+  // beeld, ook wanneer de uitspraak er nog niet is. Groeit hij ooit verder, dan wint de meting.
+  const LUCHT = 14, ZEG_DEKKEND = 150, BAND_MIN = 150;
   let patronen = [], signalen = [], kernen = [];
   let klok = 0, t0 = 0, p = 0, raf = null;
   let cam = { x: 0, y: 0, z: 1 }, camDoel = { x: 0, y: 0, z: 1 };
@@ -128,9 +180,41 @@
     cv.height = Math.max(1, Math.round(r.height * d));
     ctx.setTransform(d, 0, 0, d, 0, 0);
     W = r.width; H = r.height;
-    SCHAAL = (W <= 760) ? Math.min(W / 1.95, (H - 236) / 1.95) : Math.min(W / 2.35, H / 1.85);
     CX = W * 0.5;
-    CY = (W <= 760) ? (H - 236) * 0.5 : H * 0.5;
+    if (W > 760) {
+      // Breed scherm: de HUD staat in verre hoeken, het veld staat gewoon in het midden.
+      SCHAAL = Math.min(W / 2.35, H / 1.85);
+      CY = H * 0.5;
+      return;
+    }
+
+    // Op een telefoon is de HUD geen hoekversiering maar een band dwars over de bovenkant: het
+    // merk, een navigatie die naar twee rijen wikkelt, en de groet met de regels eronder. Die band
+    // moet net zo goed gereserveerd worden als de uitspraak onderaan, anders komen de waarnemingen
+    // achter leesbare tekst te staan. `vrijVoorTekst` houdt alleen de LABELS uit die zone; de
+    // punten en verbindingen zelf worden nooit onderdrukt, en dat hoeft ook niet zolang ze er
+    // gewoon niet komen.
+    //
+    // Boven reserveren we wat er werkelijk staat, gemeten en niet vastgezet: de regel over het
+    // vorige bezoek breekt af bij langere teksten en de band groeit dan mee.
+    let boven = 0;
+    for (const sel of ['.merk', '.rand', '.onder']) {
+      const el = document.querySelector(sel);
+      if (el) boven = Math.max(boven, el.getBoundingClientRect().bottom + LUCHT);
+    }
+
+    // Onder reserveren we alleen het DEKKENDE deel van de uitspraak. Zij ligt op mobiel als een
+    // verloop over het veld (`linear-gradient(0deg, var(--bg) 58%, transparent)`), dus de bovenste
+    // 42 procent is bewust doorzichtig en daar mag het veld doorheen lopen. Dat is precies het
+    // verschil met de tekst bovenaan: die heeft geen sluier en moet vrij blijven.
+    const zeg = document.querySelector('.zeg');
+    const dekkend = Math.max(ZEG_DEKKEND, (zeg ? zeg.getBoundingClientRect().height : 0) * 0.58);
+
+    // De band die overblijft. Het veld verhuist daarheen; het krimpt alleen wanneer de band
+    // werkelijk smaller is dan de breedte toestaat, dus op een korte in-app browser.
+    const band = Math.max(BAND_MIN, (H - dekkend) - boven);
+    SCHAAL = Math.min(W / 1.95, band / 1.95);
+    CY = boven + band * 0.5;
   }
 
   // De compositie volgt de inhoud. Patronen worden geordend op rol, zodat wat over hetzelfde
@@ -207,15 +291,18 @@
     };
   }
 
-  // Hoeveel bewijs draagt dit patroon, ten opzichte van zijn eigen drempel. Menselijke herkenning
-  // telt mee: zonder de mens blijft een patroon een vermoeden.
+  // Hoeveel grond draagt dit patroon, ten opzichte van wat zijn soort uitspraak nodig heeft.
+  //
+  // HET LICHT VOLGT DE GROND, NOOIT DE MENING. Hier stond eerder een vermenigvuldiging met het
+  // antwoord op "Herken je dit?": ja maakte sterker, deels zwakker, nee bijna onzichtbaar. Dat
+  // liet een reactie de zekerheid van een waarneming veranderen, en daarmee trok Maculis zijn
+  // eigen waarneming in zodra iemand het er niet mee eens was. Drie citaten van een website komen
+  // niet los omdat iemand ze anders leest.
+  //
+  // Een reactie verandert nooit de bron, de waarneming of het bewijs. Wat een reactie wél doet,
+  // staat in uitkomstTekst: ze zet een tweede perspectief naast het eerste.
   function kracht(pat) {
-    let k2 = pat.n / (drempel(pat.ins) === Infinity ? Infinity : Math.max(drempel(pat.ins), 1));
-    const a = herkenning[pat.ins.id];
-    if (a === 'ja') k2 *= 1.35;
-    if (a === 'deels') k2 *= 0.92;
-    if (a === 'nee') k2 *= 0.42;
-    return k2;
+    return pat.n / (drempel(pat.ins) === Infinity ? Infinity : Math.max(drempel(pat.ins), 1));
   }
   const ontstoken = (pat) => kracht(pat) >= 1;
   // Canon 7: de straal is een functie van het aantal onafhankelijke signalen, niet van de opmaak.
@@ -253,6 +340,10 @@
     hudZones = ['.merk', '.rand', '.onder'].map((sel) => {
       const el = document.querySelector(sel);
       if (!el || el.offsetParent === null) return null;
+      // Wat is weggeweken blokkeert niets meer. Zonder dit zou de naam van het patroon op een
+      // telefoon worden onderdrukt door een balk die er niet meer staat.
+      const st = getComputedStyle(el);
+      if (st.visibility === 'hidden' || Number(st.opacity) === 0) return null;
       const r = el.getBoundingClientRect();
       return { x: r.left - 12, y: r.top - 10, w: r.width + 24, h: r.height + 20 };
     }).filter(Boolean);
@@ -311,7 +402,7 @@
       const isKern = kern.pat === hoofdrol;
 
       // Van jou alleen: een zandmerkteken op de kern. Het oppervlak draagt het, niet een badge.
-      if (pat.ins.sharing !== 'SHARED' && pat.ins.sharing !== 'AGGREGATED' && ign > 0 && ontstoken(pat)) {
+      if (!vrijgegeven(pat.ins) && ign > 0 && ontstoken(pat)) {
         const pr = cl(straal * 1.15, 13 * cam.z, 30 * cam.z);
         ctx.strokeStyle = `rgba(${ZAND},${(0.26 * ign * dim).toFixed(4)})`;
         ctx.lineWidth = 1;
@@ -331,18 +422,21 @@
         }
       }
 
-      // De naam verschijnt pas als het patroon echt is. Wat te weinig bewijs heeft krijgt geen
-      // naam maar wel een eerlijke tekst: Maculis kleurt niet wat het niet weet.
+      // De naam verschijnt pas als het patroon echt is, en anders helemaal niet. Een label dat de
+      // staat benoemt in plaats van het onderwerp ("te weinig bewijs") is geen naam: het is twee
+      // keer hetzelfde woord op verschillende plekken, en het leest als een storing terwijl het
+      // eerlijkheid is. Onder de drempel blijft de constellatie dus naamloos staan. Wie er toch
+      // heen wil komt er via "Wat zie ik niet?" of via Alle patronen, en daar staat de echte
+      // titel wél, met de eerlijke tekst in het bewijsblad eronder.
       const la = cl((p - 0.58) / 0.26) * dim;
-      if (la > 0) {
-        const noem = ontstoken(pat);
+      if (la > 0 && ontstoken(pat)) {
+        const noem = true;
         ctx.font = `600 10px ${getComputedStyle(document.body).fontFamily}`;
         ctx.textAlign = 'center';
         ctx.letterSpacing = '1.6px';
-        ctx.fillStyle = (noem && isKern) ? `rgba(169,155,236,${(0.88 * la).toFixed(3)})`
-          : noem ? `rgba(168,154,134,${(0.62 * la).toFixed(3)})`
-            : `rgba(139,131,119,${(0.66 * la).toFixed(3)})`;
-        const tekst = noem ? kort(pat.ins.title).toUpperCase() : 'TE WEINIG BEWIJS';
+        ctx.fillStyle = isKern ? `rgba(169,155,236,${(0.88 * la).toFixed(3)})`
+          : `rgba(168,154,134,${(0.62 * la).toFixed(3)})`;
+        const tekst = kort(pat.ins.title).toUpperCase();
         const half = ctx.measureText(tekst).width * 0.5 + 10;
         const off = Math.max(straal, pat.straal * SCHAAL * cam.z * 0.95, 18) + 26;
         const lx = cl(kx, half, Math.max(half, W - half));
@@ -494,11 +588,29 @@
     $('zeg-aanhef').textContent = houdingLabel(i.stance);
     $('zeg-titel').innerHTML = accent(i.title);
     const n = bewijs(i);
-    $('zeg-rust').innerHTML = ontstoken(pat)
-      ? `Rust op <b>${n}</b> ${n === 1 ? 'waarneming' : 'waarnemingen'}.`
-        + (pat.nieuw ? ' Sinds je vorige bezoek is er iets bijgekomen.' : '')
-      : 'Hier is nog <b>te weinig bewijs</b> om iets te zeggen.';
+    // Een inzicht dat Maculis uitspreekt, spreekt Maculis niet in dezelfde adem tegen. Alleen de
+    // houding "unknown" zegt dat er te weinig is, en die zegt het als de uitspraak zelf.
+    $('zeg-rust').innerHTML = drempel(i) === Infinity
+      ? 'Hier is nog <b>te weinig bewijs</b> om iets te zeggen.'
+      : `Rust op <b>${n}</b> ${n === 1 ? 'waarneming' : 'waarnemingen'}.`
+        + (pat.nieuw ? ' Sinds je vorige bezoek is er iets bijgekomen.' : '');
+    toonEigenBijdrage(i);
     $('zeg').classList.add('in');
+  }
+
+  // WAT JIJ TOEVOEGDE, ZONDER ERNAAR TE ZOEKEN. Eén regel, in zijn eigen taal, naast wat wij zagen.
+  // Zijn woorden zelf blijven in het blad: die horen bij het bewijs waar ze over gaan, en niet op
+  // een overzichtsscherm waar iemand anders overheen kan kijken.
+  const EIGEN_BIJDRAGE = {
+    ja: 'Jij herkende dit.',
+    deels: 'Jij herkende dit deels.',
+    nee: 'Jij ziet dit anders.',
+  };
+  function toonEigenBijdrage(i) {
+    const el2 = $('zeg-jij');
+    const zin = EIGEN_BIJDRAGE[herkenning[i.id]];
+    el2.textContent = zin || '';
+    el2.classList.toggle('hidden', !zin);
   }
 
   // De cursieve nadruk valt op het woord dat het inzicht draagt (canon 4.2), en dat is de
@@ -517,6 +629,37 @@
   // 4. HET BEWIJS KOMT UIT HET VELD
   // ============================================================================================
   const bladen = ['bewijs', 'patronen', 'samen', 'gesprekken'];
+
+  // Welke bestemming in de periferie heeft dit blad geopend. De knop draagt zolang
+  // aria-pressed="true", wat in de basisstijl al een koperen rand betekent. Vier van de vijf
+  // controls zijn een bestemming; Opnieuw is een handeling en wordt daarom nooit actief.
+  //
+  // Op een telefoon wijkt de periferie zodra een blad opent, dus deze staat is er op het moment
+  // van kiezen en bij de terugkeer, en niet permanent. Dat is de afgesproken compositie: de strook
+  // boven het blad is veld en geen menu, en terug gaat via "Terug naar het veld".
+  const BESTEMMINGEN = ['btn-patronen', 'btn-blind', 'btn-samen', 'btn-gesprekken'];
+
+  // Verberg wat nergens heen gaat. Niet uitschakelen maar weglaten: een grijze knop is nog steeds
+  // een belofte van iets dat er niet is.
+  //
+  //   alle patronen   zinloos bij één patroon, want dat is het veld zelf
+  //   wat zie ik niet zinloos bij één patroon, want dat opent hetzelfde inzicht
+  //   samenwerking    leeg tot er werkelijke afspraken zijn
+  //   gesprekken      leeg tot er een draad is. Hij ontstaat vanzelf zodra hij er een begint
+  function stemBestemmingenAf(draden) {
+    const toon = (id, ja) => { const b = document.getElementById(id); if (b) b.classList.toggle('hidden', !ja); };
+    toon('btn-patronen', patronen.length > 1);
+    toon('btn-blind', patronen.length > 1);
+    toon('btn-samen', Array.isArray(samenwerking) && samenwerking.length > 0);
+    toon('btn-gesprekken', Array.isArray(draden) && draden.length > 0);
+  }
+  function zetActief(knopId) {
+    BESTEMMINGEN.forEach((id) => {
+      const b = $(id);
+      if (b) b.setAttribute('aria-pressed', id === knopId ? 'true' : 'false');
+    });
+  }
+
   function sluitBladen(behalve) {
     bladen.forEach((id) => {
       const el = $(id);
@@ -529,17 +672,37 @@
       document.body.classList.remove('blad-open');
       $('zeg').classList.remove('wijkt');
       document.querySelector('.rand').classList.remove('wijkt');
+      zetActief(null);
     }
   }
   function openBlad(id) {
     sluitBladen(id);
     const el = $(id);
+    // Elk blad begint bovenaan. Zonder dit erft een nieuw patroon de scrollpositie van het vorige
+    // en land je midden in de bronnenlijst van iets wat je nog niet hebt gezien.
+    const body = el.querySelector('.blad-body');
+    if (body) body.scrollTop = 0;
     el.inert = false;
     el.setAttribute('aria-hidden', 'false');
     el.classList.add('in');
     document.body.classList.add('blad-open');
     $('zeg').classList.add('wijkt');
     document.querySelector('.rand').classList.add('wijkt');
+  }
+
+  // De lead onder de titel. Leeg wanneer de waarneming letterlijk de uitspraak is, want dan zou hij
+  // dezelfde zin twee keer onder elkaar zetten. Leeg wanneer er niets is, want een plaatshouder is
+  // een lege module. In beide gevallen valt het blok gewoon weg.
+  const gelijk = (a, b) => String(a || '').trim() === String(b || '').trim();
+  // Waar een inzicht vandaan komt, in gewone taal en als mededeling. Niet als knop, want er valt
+  // niets te kiezen: het is een feit over de uitspraak (ADR-0003 D3).
+  const BRONZIN = { lens: 'Bron: Maculis Lens. Dit is wat Maculis vanuit het perspectief van buitenaf zag.' };
+  function leadTekst(i) {
+    if (!i) return '';
+    if (i.observation && !gelijk(i.observation, i.title)) return i.observation;
+    // Zou de lead leeg blijven, dan staat daar de herkomst. Zo is de plek onder de uitspraak nooit
+    // leeg en weet hij altijd wie dit heeft gezegd.
+    return BRONZIN[i.source] || '';
   }
 
   async function openBewijs(patIndex) {
@@ -550,22 +713,26 @@
     modus = 'bewijs';
     zegAnker = patIndex;
     // de camera brengt dit patroon naar voren; de rest treedt terug
-    camDoel.x = pat.x + (window.innerWidth > 760 ? 0.22 : 0);
-    camDoel.y = pat.y + (window.innerWidth > 760 ? 0 : -0.16);
-    camDoel.z = 1.7;
     openBlad('bewijs');
+    richtCamera(pat);
 
     const i = pat.ins;
     $('bw-aanhef').textContent = houdingLabel(i.stance);
     $('bw-titel').innerHTML = accent(i.title);
-    $('bw-lead').textContent = i.observation || 'Dit hebben we nog niet opgeschreven.';
+    // Bij een inzicht dat rechtstreeks uit de Lens komt, is de uitspraak zelf de waarneming. Die
+    // dan nog een keer eronder herhalen leest als een fout, dus dan blijft de lead leeg.
+    $('bw-lead').textContent = leadTekst(i);
     $('bw-getal').textContent = String(bewijs(i));
     $('bw-bronnen').innerHTML = '<li class="leeg">Eén moment.</li>';
     $('bw-sterkte').textContent = '';
     $('bw-dev').classList.add('hidden');
+    $('bw-stem').classList.add('hidden');
     toonVraag(pat);
+    toonIntentie(pat);
     toonGrens(pat);
-    $('bw-praat').innerHTML = '';
+    // De gespreksingang is geen gevolg van de detailaanroep, dus hij wacht er ook niet op.
+    praatOpen = false;
+    toonPraat(pat, null);
 
     const { status, data } = await api('/api/mijn/insights/' + encodeURIComponent(i.id));
     if (status !== 200 || !data.insight) {
@@ -574,11 +741,44 @@
     }
     pat.ins = data.insight;
     herkenning[data.insight.id] = data.insight.recognition || undefined;
+    intentie[data.insight.id] = data.insight.intent || undefined;
     vulBewijs(pat, data.evidence || [], data.development || []);
+    toonStem(data.stemmen || []);
     toonVraag(pat);
+    toonIntentie(pat);
     // Het gesprek over dit patroon staat hier ook, zodat je nooit ergens anders hoeft te zoeken
     // naar wat je hier hebt gezegd.
     toonPraat(pat, data.conversation);
+  }
+
+  // DIT VOEG JIJ TOE. Naast "dit zagen wij", nooit erin. Wat hij tijdens de Lens zei en wat hij
+  // later in de kamer toevoegde staan als twee bijdragen onder elkaar, elk met het moment waarop
+  // hij het zei. Ze vervangen elkaar niet: een latere reflectie wist de eerste niet uit, want dan
+  // zou zichtbaar blijven wat iemand nu vindt en verdwijnen wat hij eerder zag.
+  const STEM_MOMENT = {
+    lens: 'Tijdens de Maculis Lens',
+    mijn: 'Hier, in Mijn Maculis',
+  };
+  const STEM_ANTWOORD = {
+    ja: 'Je herkende dit.',
+    deels: 'Je herkende dit deels.',
+    nee: 'Je herkende dit niet. Jullie kijken hier anders naar.',
+  };
+  let stemmenNu = [];
+  function toonStem(stemmen) {
+    stemmenNu = stemmen;
+    const blok = $('bw-stem');
+    const lijst = $('bw-stem-lijst');
+    lijst.innerHTML = '';
+    if (!stemmen.length) { blok.classList.add('hidden'); return; }
+    blok.classList.remove('hidden');
+    stemmen.forEach((st) => {
+      const li = el('li', 'stem-item');
+      li.appendChild(el('span', 'stem-wanneer', `${STEM_MOMENT[st.origin] || ''}${st.at ? ', ' + fmtDatum(st.at) : ''}`));
+      if (st.answer) li.appendChild(el('p', 'stem-antwoord', STEM_ANTWOORD[st.answer] || ''));
+      if (st.note) li.appendChild(el('p', 'stem-woorden', `"${st.note}"`));
+      lijst.appendChild(li);
+    });
   }
 
   function vulBewijs(pat, evidence, development) {
@@ -611,9 +811,12 @@
       li.appendChild(b); ul.appendChild(li);
     });
 
-    // de vier vragen, achter een rail van 1px (canon 12, insight surface)
-    const q = (label, tekst, mod) =>
-      `<div class="qa-blok${mod ? ' ' + mod : ''}"><h3 class="lab">${label}</h3><p>${esc(tekst || 'Dit hebben we nog niet opgeschreven.')}</p></div>`;
+    // De vier vragen, achter een rail van 1px (canon 12, insight surface). Een vraag zonder antwoord
+    // wordt WEGGELATEN en niet met een plaatshouder gevuld: een kop met "dit hebben we nog niet
+    // opgeschreven" eronder is een lege module, en die tonen we niet (ADR-0003 D6).
+    const q = (label, tekst, mod) => (tekst
+      ? `<div class="qa-blok${mod ? ' ' + mod : ''}"><h3 class="lab">${label}</h3><p>${esc(tekst)}</p></div>`
+      : '');
     $('bw-qa').innerHTML =
       q('Wat betekent dit mogelijk?', i.meaning) +
       q('Waar baseren we dit op?', i.basis) +
@@ -639,7 +842,13 @@
   // steviger worden vastgelegd dan het antwoord waar hij bij hoort. Het volgt dezelfde grens als
   // het inzicht zelf, en de tekst zegt precies waar het blijft.
   // ============================================================================================
-  const TOEL_VRAAG = { deels: 'Wat klopt er wel en wat niet?', nee: 'Wat zien wij verkeerd?' };
+  // Geen van beide vraagt om een correctie op ons. Ze vragen naar het perspectief dat wij niet
+  // hadden. "Wat zien wij verkeerd?" stond hier eerder, en dat maakt van een ander perspectief
+  // een fout van Maculis.
+  const TOEL_VRAAG = {
+    deels: 'Wat klopt er wel, en wat ziet er van binnenuit anders uit?',
+    nee: 'Hoe ziet dit er van binnenuit uit?',
+  };
 
   function toonVraag(pat) {
     const el = $('bw-vraag');
@@ -652,7 +861,7 @@
       b.classList.toggle('primair', aan);
       b.setAttribute('aria-pressed', aan ? 'true' : 'false');
     });
-    $('bw-uitkomst').innerHTML = uitkomstTekst(gekozen, i);
+    $('bw-uitkomst').innerHTML = uitkomstTekst(gekozen);
 
     // Deels en Nee zijn zonder toelichting arm. Het veld staat er dan meteen open, en blijft leeg
     // mogen blijven: deels antwoorden en verder niets zeggen is een eerlijke uitkomst.
@@ -665,19 +874,97 @@
     }
   }
 
-  // Waar het antwoord blijft is onderdeel van het antwoord. Bij een gedeeld inzicht ziet Maculis
-  // het; bij een inzicht dat nog van jou alleen is, niet. Dat staat er, elke keer.
-  function bestemming(i) {
-    return i && i.sharing === 'SHARED'
-      ? ' Maculis ziet je antwoord bij dit gedeelde inzicht.'
-      : ' Zolang dit inzicht van jou alleen is, blijft je antwoord ook bij jou.';
+  // Waar het antwoord blijft is onderdeel van het antwoord, en het antwoord is van jou. Het reist
+  // nooit mee met het delen van een inzicht en het wordt niet zichtbaar doordat een collega iets
+  // deelt. Dat geldt altijd, dus staat er ook altijd hetzelfde.
+  //
+  // Wat hier NIET meer staat: een verwijzing naar het gesprek. Die maakte van deze zin een vierde
+  // route naar dezelfde vraag als het grensblok eronder, en vroeg de lezer te herhalen wat ze net
+  // hadden ingevuld. De deelbeslissing woont op precies één plek.
+  const BLIJFT = ' Je antwoord blijft bij jou.';
+  // Wat een antwoord BETEKENT, niet wat het met de zekerheid doet. Alle drie zijn waardevolle
+  // routes en geen van drieën is fout. Hier stond eerder dat het licht sterker werd, iets afnam,
+  // of dat de waarnemingen loskwamen; dat maakte van een mening een correctie op het bewijs.
+  //
+  // Verschil is de opbrengst, niet het probleem. Van buitenaf lijkt iets een beperking, van
+  // binnenuit blijkt het soms een bewuste keuze. Beide zijn waar binnen hun perspectief, en pas
+  // naast elkaar zijn ze de werkelijkheid.
+  function uitkomstTekst(a) {
+    if (a === 'ja') return '<b>We zien hetzelfde.</b> Wat wij van buitenaf zagen en wat jij weet, vallen samen.' + esc(BLIJFT);
+    if (a === 'deels') return '<b>We kijken anders naar hetzelfde.</b> Wat wij van buitenaf zagen blijft staan. Wat jij van binnenuit weet, komt ernaast.' + esc(BLIJFT);
+    if (a === 'nee') return '<b>Onze perspectieven verschillen.</b> Dat is informatie, geen fout. Wij houden vast wat we zagen, jij houdt vast wat jij weet.' + esc(BLIJFT);
+    return 'Jouw antwoord komt naast wat wij zagen te staan. Het verandert niet wat wij zagen, en het blijft bij jou.';
   }
-  function uitkomstTekst(a, i) {
-    if (a === 'ja') return '<b>Bevestigd door jou.</b> Het patroon komt tot rust en het licht wordt sterker.' + esc(bestemming(i));
-    if (a === 'deels') return '<b>Deels herkend.</b> Maculis houdt het inzicht aan en het licht neemt iets af.' + esc(bestemming(i));
-    if (a === 'nee') return '<b>Niet herkend.</b> Het patroon wordt weer onzeker: de waarnemingen komen los en gaan opnieuw bewegen.' + esc(bestemming(i));
-    return 'Jouw antwoord verandert wat het veld laat zien. Er wordt niets gedeeld zonder dat jij het deelt.';
+
+  // ============================================================================================
+  // 5b. WIL JE HIER IETS MEE?
+  //
+  // De enige vraag in deze reis die niet uit context af te leiden is. Herkenning zegt of iets waar
+  // is; deze zegt of iemand er iets mee wil. Eén vraag, drie antwoorden, en daarmee is de klant
+  // klaar: bij "Samen met Maculis" neemt Maculis het voorbereidende werk over.
+  //
+  // Hij verschijnt niet bij elk patroon. Vier voorwaarden, alle vier afgeleid uit wat er al staat,
+  // zodat dit een vraag blijft op het enige moment waarop hij ergens over gaat, en geen trechter
+  // wordt. Dezelfde regel staat aan serverzijde in intentie.mjs; daar is hij de grens, hier de
+  // weergave.
+  // ============================================================================================
+  const intentie = {};
+  function intentieRelevant(i) {
+    if (!i) return false;
+    if (drempel(i) === Infinity) return false;
+    // Elk antwoord houdt de vraag open, ook nee. Die eis stond hier eerder wel, met als reden dat
+    // een patroon dat iemand niet herkent voor hem niet bestaat. Dat klopte niet: juist daar
+    // verschillen twee perspectieven op dezelfde werkelijkheid, en dat is het gesprek waard. De
+    // deur ging dicht op het moment dat het interessant werd.
+    if (!herkenning[i.id]) return false;
+    return i.stance === 'tension' || i.stance === 'reveal';
   }
+
+  const INTENTIE_UIT = {
+    weten: 'Goed om te weten. We laten dit rusten tot jullie er zelf op terugkomen.',
+    zelf: 'Genoteerd. We volgen dit mee en zien het terug in wat er verandert.',
+    samen: 'We kijken wat hier de beste vervolgstap is en komen bij je terug.',
+  };
+
+  function toonIntentie(pat) {
+    const el = $('bw-intentie');
+    const i = pat.ins;
+    const toon = intentieRelevant(i);
+    el.classList.toggle('hidden', !toon);
+    if (!toon) return;
+    const gekozen = intentie[i.id];
+    el.querySelectorAll('[data-intentie]').forEach((b) => {
+      const aan = b.getAttribute('data-intentie') === gekozen;
+      b.classList.toggle('primair', false);   // geen van de drie is luider dan de andere
+      b.setAttribute('aria-pressed', aan ? 'true' : 'false');
+    });
+    $('bw-intentie-uit').textContent = gekozen ? INTENTIE_UIT[gekozen] : '';
+  }
+
+  async function bewaarIntentie(pat, keuze) {
+    const i = pat.ins;
+    intentie[i.id] = keuze || undefined;
+    i.intent = keuze || null;
+    toonIntentie(pat);
+    const { status, data } = await api(`/api/mijn/insights/${encodeURIComponent(i.id)}/intent`, {
+      method: 'POST', body: { intent: keuze || null },
+    });
+    if (status !== 200) { toast('Je keuze kon niet worden bewaard.'); return; }
+    if (data.insight) { pat.ins = data.insight; intentie[i.id] = data.insight.intent || undefined; }
+    toonIntentie(pat);
+    // Bij "Samen met Maculis" staat het gesprek meteen open met een zin erin. Sturen mag, hoeft
+    // niet: het signaal was compleet bij de klik.
+    if (keuze === 'samen') openPraat(pat, OPENER_SAMEN);
+  }
+
+  document.querySelectorAll('[data-intentie]').forEach((b) => {
+    b.addEventListener('click', () => {
+      if (focus === null) return;
+      const pat = patronen[focus];
+      const k = b.getAttribute('data-intentie');
+      bewaarIntentie(pat, intentie[pat.ins.id] === k ? null : k);
+    });
+  });
 
   // Het antwoord bewaren. Het inzicht in het geheugen wordt meteen bijgewerkt, zodat het veld en
   // de teksten hetzelfde zeggen als de server.
@@ -686,7 +973,15 @@
     herkenning[i.id] = antwoord || undefined;
     i.recognition = antwoord || null;
     i.recognition_note = antwoord ? (toelichting || null) : null;
+    // Zijn nieuwe reflectie komt NAAST wat hij tijdens de Lens zei, nooit eroverheen. Dat is aan
+    // serverzijde de tweede rij met een eigen origin, en hier de tweede regel onder "Dit voeg jij
+    // toe". Een antwoord intrekken haalt alleen zijn eigen regel weg.
+    const rest = stemmenNu.filter((st) => st.origin !== 'mijn');
+    toonStem(antwoord
+      ? rest.concat([{ origin: 'mijn', answer: antwoord, note: toelichting || null, at: new Date().toISOString() }])
+      : rest);
     toonVraag(pat);
+    toonIntentie(pat);
     toonUitspraak();
     vulPatronen();
     const { status } = await api(`/api/mijn/insights/${encodeURIComponent(i.id)}/recognition`, {
@@ -704,37 +999,71 @@
       bewaarHerkenning(pat, nieuw, nieuw ? pat.ins.recognition_note : null);
     });
   });
-  $('bw-toel-bewaar').addEventListener('click', () => {
+  // De toelichting bewaart zichzelf zodra je het veld verlaat, net zoals Ja, Deels en Nee dat al
+  // deden. Een aparte Bewaren-knop was de enige handmatige opslag in een kamer die verder alles
+  // meteen vasthoudt, en dus de enige plek waar je je kon afvragen of het er wel in stond.
+  // Alleen schrijven wanneer er werkelijk iets veranderd is; anders zou elke blik op het veld een
+  // schrijfactie en een bevestiging opleveren.
+  function bewaarToelichting() {
     if (focus === null) return;
     const pat = patronen[focus];
-    bewaarHerkenning(pat, herkenning[pat.ins.id] || null, $('bw-toel-tekst').value.trim());
+    const antwoord = herkenning[pat.ins.id] || null;
+    if (!antwoord) return;
+    const nieuwe = $('bw-toel-tekst').value.trim();
+    if (nieuwe === (pat.ins.recognition_note || '')) return;
+    bewaarHerkenning(pat, antwoord, nieuwe);
     toast('Bewaard');
-  });
+  }
+  $('bw-toel-tekst').addEventListener('blur', bewaarToelichting);
 
   // ============================================================================================
   // 6. DE GRENS: PRIVÉ EN GEDEELD
   // ============================================================================================
   function toonGrens(pat) {
     const i = pat.ins;
-    const isGedeeld = i.sharing === 'SHARED';
+    const isGedeeld = vrijgegeven(i);
     const blind = drempel(i) === Infinity;
+    const nieuweLezing = isGedeeld && Boolean(i.unshared_development);
     $('bw-grens-punt').className = 'grens-punt' + (isGedeeld ? ' gedeeld' : '');
-    $('bw-staat').textContent = isGedeeld ? 'Gedeeld met Maculis' : 'Alleen voor jou';
+    $('bw-staat').textContent = isGedeeld ? 'Gedeeld met Maculis' : 'Niet gedeeld met Maculis';
     $('bw-grens-tekst').textContent = blind
       ? 'Hier valt nog niets te delen, want er is nog niets vastgesteld.'
-      : isGedeeld
-        ? 'Maculis mag dit inzicht gebruiken in jullie samenwerking en in relevante gesprekken. Je kunt dat op elk moment intrekken.'
-        : 'Dit inzicht blijft van jou tot je het zelf deelt. Maculis gebruikt het tot dan niet.';
+      : nieuweLezing
+        ? 'Er is een nieuwere lezing die je nog niet hebt gedeeld. Maculis werkt zolang met de lezing die je eerder deelde. Je kunt het delen op elk moment intrekken.'
+        : isGedeeld
+          ? 'Maculis mag dit inzicht gebruiken in jullie samenwerking en in relevante gesprekken. Je kunt dat op elk moment intrekken.'
+          : 'Maculis gebruikt dit inzicht niet zolang het niet gedeeld is. Delen is een aparte keuze, en je kunt hem later weer intrekken.';
+
+    // Dimensie A, en niets anders. Dit gaat over wie binnen de klantorganisatie het inzicht ziet,
+    // niet over wat Maculis mag. Het staat er altijd, ook wanneer er nog niets te delen valt, want
+    // de vraag "kan mijn collega dit zien" hangt niet aan de deelstaat.
+    $('bw-grens-wie').textContent = (orgNaam
+      ? `Iedereen binnen ${orgNaam} met toegang tot Mijn Maculis ziet dit inzicht.`
+      : 'Iedereen bij jullie met toegang tot Mijn Maculis ziet dit inzicht.')
+      + ' Je antwoord en je gesprek zijn van jou.';
+
     const acties = $('bw-grens-acties');
     acties.innerHTML = '';
     if (blind) return;
-    if (i.unshared_development) {
-      acties.appendChild(maakKnop('Deel de nieuwe ontwikkeling', 'primair', () => bevestig(i, 'share-update')));
-      acties.appendChild(maakKnop('Delen intrekken', '', () => bevestig(i, 'revoke')));
+    // Delen is beschikbaar en volledig ongewijzigd van betekenis, maar het is niet langer de
+    // luidste handeling in dit blad. Op het moment dat je een inzicht net begrijpt is de
+    // natuurlijke volgende stap reageren, niet iets weggeven. De primaire plek gaat daarom naar
+    // "Praat hierover met Maculis". Praten is en blijft iets anders dan delen: de grens, de
+    // bevestiging en wat Maculis meekrijgt veranderen hier niet.
+    // Ten hoogste één control die de deelstaat verruimt, en ten hoogste één die hem beperkt. Beide
+    // staan uitsluitend hier. De gespreksinvoer draagt er nooit een.
+    //
+    // Geen van deze knoppen is primair. Canon 12 laat één koperen knop per blad toe, en die plek
+    // is eerder bewust naar "Praat hierover met Maculis" gegaan: op het moment dat je een inzicht
+    // net begrijpt is de natuurlijke volgende stap reageren, niet iets weggeven. Delen is volledig
+    // beschikbaar en volledig ongewijzigd van betekenis, alleen niet de luidste handeling.
+    if (nieuweLezing) {
+      acties.appendChild(maakKnop('Deel de nieuwe lezing', '', () => bevestig(i, 'share-update')));
+      acties.appendChild(maakKnop('Delen intrekken', 'tekst', () => bevestig(i, 'revoke')));
     } else if (isGedeeld) {
-      acties.appendChild(maakKnop('Delen intrekken', '', () => bevestig(i, 'revoke')));
+      acties.appendChild(maakKnop('Delen intrekken', 'tekst', () => bevestig(i, 'revoke')));
     } else {
-      acties.appendChild(maakKnop('Deel dit met Maculis', 'primair', () => bevestig(i, 'share')));
+      acties.appendChild(maakKnop('Deel dit met Maculis', '', () => bevestig(i, 'share')));
     }
   }
   function maakKnop(tekst, extra, fn) {
@@ -753,12 +1082,12 @@
       $('confirm-body').textContent = 'Als je dit deelt, kan Maculis dit inzicht gebruiken in jullie samenwerking en in relevante gesprekken. Je kunt het later weer intrekken.';
       confirmOk.textContent = 'Deel dit met Maculis';
     } else if (actie === 'share-update') {
-      $('confirm-title').textContent = 'Nieuwe ontwikkeling delen';
-      $('confirm-body').textContent = 'Je werkt de eerder gedeelde lezing bij met de huidige ontwikkeling. Vanaf dat moment gebruikt Maculis de nieuwe lezing. Er wordt niets automatisch gedeeld.';
-      confirmOk.textContent = 'Nieuwe ontwikkeling delen';
+      $('confirm-title').textContent = 'Nieuwe lezing delen';
+      $('confirm-body').textContent = 'Je werkt de eerder gedeelde lezing bij met de huidige. Vanaf dat moment gebruikt Maculis de nieuwe lezing. Er wordt niets automatisch gedeeld.';
+      confirmOk.textContent = 'Deel de nieuwe lezing';
     } else {
       $('confirm-title').textContent = 'Delen intrekken';
-      $('confirm-body').textContent = 'Maculis gebruikt dit inzicht daarna niet langer in jullie samenwerking. Het blijft wel voor jou zichtbaar.';
+      $('confirm-body').textContent = 'Maculis gebruikt dit inzicht daarna niet langer in jullie samenwerking. Het blijft in Mijn Maculis gewoon zichtbaar.';
       confirmOk.textContent = 'Intrekken';
     }
     confirmEl.classList.remove('hidden');
@@ -776,7 +1105,7 @@
     confirmOk.disabled = false;
     sluitConfirm();
     if (status !== 200) { toast('Er ging iets mis. Probeer het opnieuw.'); return; }
-    toast(actie === 'revoke' ? 'Delen ingetrokken' : actie === 'share-update' ? 'Nieuwe ontwikkeling gedeeld' : 'Gedeeld met Maculis');
+    toast(actie === 'revoke' ? 'Delen ingetrokken' : actie === 'share-update' ? 'Nieuwe lezing gedeeld' : 'Gedeeld met Maculis');
     const pat = patronen.find((q) => q.ins.id === insight.id);
     if (pat && data.insight) {
       pat.ins = data.insight;
@@ -811,7 +1140,7 @@
     }
     patronen.forEach((pat, k) => {
       const i = pat.ins;
-      const isGedeeld = i.sharing === 'SHARED' || i.sharing === 'AGGREGATED';
+      const isGedeeld = vrijgegeven(i);
       const n = bewijs(i);
       const li = document.createElement('li');
       const b = document.createElement('button');
@@ -820,14 +1149,14 @@
       b.innerHTML = `
         <span class="pt-kop">
           <span class="pil op-${rol(i)}"><span class="stip" aria-hidden="true"></span>${esc(houdingLabel(i.stance))}</span>
-          <span class="merkje${isGedeeld ? ' gedeeld' : ''}"><span class="stip" aria-hidden="true"></span>${isGedeeld ? 'Gedeeld' : 'Alleen voor jou'}</span>
+          <span class="merkje${isGedeeld ? ' gedeeld' : ''}"><span class="stip" aria-hidden="true"></span>${isGedeeld ? 'Gedeeld met Maculis' : 'Niet gedeeld met Maculis'}</span>
         </span>
         <span class="pt-titel"></span>
         <span class="pt-meta"></span>`;
       b.querySelector('.pt-titel').textContent = i.title;
-      b.querySelector('.pt-meta').textContent = ontstoken(pat)
-        ? `${n} ${n === 1 ? 'waarneming' : 'waarnemingen'}${pat.nieuw ? ', nieuw sinds je vorige bezoek' : ''}`
-        : 'Te weinig bewijs om iets te zeggen';
+      b.querySelector('.pt-meta').textContent = drempel(i) === Infinity
+        ? 'Te weinig bewijs om iets te zeggen'
+        : `${n} ${n === 1 ? 'waarneming' : 'waarnemingen'}${pat.nieuw ? ', nieuw sinds je vorige bezoek' : ''}`;
       b.addEventListener('click', () => openBewijs(k));
       li.appendChild(b); ul.appendChild(li);
     });
@@ -857,8 +1186,16 @@
   // Een los punt is een waarneming, geen onderwerp. Het is voor de klant niet afzonderlijk
   // ontcijferbaar en mag dat dus ook niet suggereren: geen tooltip, geen cursor, geen klik.
   // Betekenis ontstaat pas in het patroon, en alleen het patroon is aanwijsbaar.
+  // Het trefvlak van een patroon. 46px is de maat bij de gewone schaal van het veld. Wordt het veld
+  // op een korte in-app browser kleiner, dan moet het trefvlak mee krimpen: anders overlappen de
+  // vlakken van buurpatronen elkaar en raak je met één tik het verkeerde patroon. Alleen kleiner,
+  // nooit groter, en alleen op een telefoon, zodat een breed scherm precies blijft zoals het was.
+  function trefvlak() {
+    if (W > 760) return 46;
+    return Math.max(26, 46 * Math.min(1, SCHAAL / 200));
+  }
   function raakKern(mx, my) {
-    let beste = -1, best = 46;
+    let beste = -1, best = trefvlak();
     patronen.forEach((q, i) => {
       const d = Math.hypot(sx(q.x) - mx, sy(q.y) - my);
       if (d < best) { best = d; beste = i; }
@@ -879,10 +1216,49 @@
     });
   }
 
+  // Waar de camera heen gaat als één patroon naar voren treedt.
+  //
+  // Op een breed scherm staat het blad rechts, dus het patroon schuift naar links en verder is er
+  // niets aan de hand. Op een telefoon ligt het blad ONDER het patroon en dekt het het grootste
+  // deel van het scherm af. Alleen ruimte overlaten is daar niet genoeg: als het patroon dat je
+  // zojuist aantikte achter het blad verdwijnt, is de band tussen aanraking en toelichting stuk,
+  // en dan lees je een document in plaats van dat je naar iets kijkt. Daarom rekent hij op mobiel
+  // met de werkelijke hoogte van het blad, zodat de kern in de strook staat die overblijft, en
+  // zoomt hij niet verder in dan die strook kan dragen.
+  function richtCamera(pat) {
+    if (window.innerWidth > 760) {
+      camDoel.x = pat.x + 0.22;
+      camDoel.y = pat.y;
+      camDoel.z = 1.7;
+      return;
+    }
+    const blad = $('bewijs').getBoundingClientRect().height || H * 0.72;
+    const strook = Math.max(120, H - blad);
+    const straal = Math.max(pat.straal, 0.05);
+    camDoel.z = cl((strook * 0.66) / (2 * straal * SCHAAL), 1, 1.7);
+    camDoel.x = pat.x;
+    // sy(pat.y) moet uitkomen op het midden van de strook: CY + (pat.y - camY) * SCHAAL * z = doel
+    camDoel.y = pat.y - (strook * 0.5 - CY) / (SCHAAL * camDoel.z);
+    zetCamera();
+  }
+
+  // Onder prefers-reduced-motion draait er geen lus, dus de camera zou nooit aankomen. Canon 8.5
+  // vraagt daar de EINDTOESTAND, niet stilstand: dus springt hij er ineens heen en tekent één keer.
+  // Alleen op een telefoon, want daar dekt het blad het veld af en gaat de band tussen aanraking en
+  // toelichting anders verloren. Op een breed scherm staat het veld gewoon naast het blad en is er
+  // niets te herstellen, dus daar blijft alles precies zoals het was.
+  function zetCamera() {
+    if (!reduce || window.innerWidth > 760) return;
+    cam = { x: camDoel.x, y: camDoel.y, z: camDoel.z };
+    teken();
+    plaatsUitspraak();
+  }
+
   function terug() {
     focus = null;
     if (modus === 'bewijs') modus = 'rust';
     camDoel = { x: 0, y: 0, z: 1 };
+    zetCamera();
     sluitBladen(null);
     zegAnker = patronen.findIndex((q) => q.leidend);
     if (zegAnker < 0) zegAnker = 0;
@@ -894,22 +1270,27 @@
   $('btn-sluit').addEventListener('click', terug);
   $('btn-patronen-sluit').addEventListener('click', terug);
   $('btn-samen-sluit').addEventListener('click', terug);
-  $('btn-patronen').addEventListener('click', () => { meteenKlaar(); vulPatronen(); openBlad('patronen'); });
-  $('btn-samen').addEventListener('click', () => { meteenKlaar(); openBlad('samen'); });
+  $('btn-patronen').addEventListener('click', () => { meteenKlaar(); vulPatronen(); openBlad('patronen'); zetActief('btn-patronen'); });
+  $('btn-samen').addEventListener('click', () => { meteenKlaar(); openBlad('samen'); zetActief('btn-samen'); });
   $('btn-opnieuw').addEventListener('click', () => { herstart(); });
   // Wat zie ik niet: geen tekstje maar een plek. De camera gaat naar het patroon met het minste bewijs.
   $('btn-blind').addEventListener('click', () => {
     meteenKlaar();
     let zwak = -1, laagst = Infinity;
     patronen.forEach((q, i) => { const k = kracht(q); if (k < laagst) { laagst = k; zwak = i; } });
-    if (zwak >= 0) openBewijs(zwak);
+    if (zwak >= 0) { openBewijs(zwak); zetActief('btn-blind'); }
   });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!confirmEl.classList.contains('hidden')) sluitConfirm();
     else if (document.body.classList.contains('blad-open')) terug();
   });
-  window.addEventListener('resize', () => { meet(); });
+  window.addEventListener('resize', () => {
+    meet();
+    // Draaien of een adresbalk die inklapt verandert de strook. Het geopende patroon moet er
+    // daarna nog steeds in staan.
+    if (modus === 'bewijs' && focus !== null && patronen[focus]) richtCamera(patronen[focus]);
+  });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { if (raf) cancelAnimationFrame(raf); raf = null; }
     else if (!raf && !reduce) { t0 = nu() - p * DUUR; lus(); }
@@ -937,15 +1318,21 @@
   //      dat er letterlijk, met een aparte knop ernaast voor wie het er wél bij wil doen.
   //   3. Het vinkje staat uit. Wie niets aanvinkt, praat gewoon.
   // ============================================================================================
+  // MACULIS SPREEKT NAMENS ZICHZELF, JIJ SPREEKT NAMENS JEZELF.
+  //
+  // Hier stonden kant en klare zinnen in ZIJN stem: "Dit herken ik deels, maar bij ons speelt nog
+  // iets anders", "Er is bij ons iets veranderd". Eén klik zette ze in het veld dat "Je eigen
+  // woorden" heet, en dan waren die woorden niet van hem. Nu zijn het vragen van Maculis. Ze zetten
+  // de cursor in een leeg veld en schrijven niets voor.
   const OPENERS_PATROON = [
-    'Dit herken ik deels, maar bij ons speelt nog iets anders',
-    'Waar baseren jullie dit precies op?',
-    'Wat zouden jullie hiermee doen?',
+    'Welke vraag roept dit bij jullie op?',
+    'Wat zie jij hier dat wij van buitenaf niet konden zien?',
+    'Wat zouden jullie willen dat wij hiermee doen?',
   ];
   const OPENERS_LOS = [
-    'Er is bij ons iets veranderd',
-    'Ik heb een vraag over wat jullie zien',
-    'Jullie missen iets',
+    'Wat is er bij jullie veranderd?',
+    'Waar wil je ons naar laten kijken?',
+    'Wat missen wij?',
   ];
 
   let gesprekOngelezen = 0;
@@ -976,31 +1363,40 @@
     return wrap;
   }
 
-  // Wat Maculis met dit bericht meekrijgt. Bij een gedeeld patroon is dat eenvoudig. Bij een
-  // patroon dat nog van jou alleen is, is het een grens, en die wordt hier benoemd en niet
-  // weggeschreven.
+  // Wat Maculis met dit bericht meekrijgt. Eén regel, in alle drie de varianten, en in alle drie
+  // met dezelfde belofte over de persoonlijke laag, want die geldt altijd. Dat de lezer weet wat er
+  // meegaat vóórdat hij verstuurt, is de reden dat deze regel bestaat.
   function contextTekst(insight) {
-    if (!insight) return 'Je stuurt dit mee: je bericht en wie je bent. Er hoort geen patroon bij, dus we lezen het als iets nieuws.';
-    if (insight.sharing === 'SHARED') {
-      return 'Je stuurt dit mee: dit patroon, het bewijs eronder en wie je bent. Dit inzicht is al gedeeld, dus Maculis kan er volledig op ingaan.';
+    if (!insight) return 'Er hoort geen patroon bij, dus we lezen dit als iets nieuws.';
+    if (vrijgegeven(insight)) {
+      return 'We sturen dit patroon mee. Het is gedeeld, dus we kunnen er volledig op ingaan. Je antwoord op onze vraag en je toelichting blijven bij jou.';
     }
-    return 'Dit inzicht is nog van jou alleen. Maculis ziet je bericht en waar het over gaat, maar niet de lezing eronder, niet het bewijs en niet je antwoord op onze vraag. Wil je dat er wel bij, deel het inzicht dan.';
+    return 'We sturen de uitspraak van dit patroon mee, zodat we weten waar je vraag over gaat. Je antwoord op onze vraag en je toelichting blijven bij jou, en het inzicht blijft ongedeeld.';
   }
 
   // De invoer. Eén tekstveld dat meegroeit, drie openingen die het veld vullen in plaats van iets
-  // te versturen, één vinkje dat uit staat, en de verzendknop eronder.
-  function maakComposer(insight, klaar) {
+  // te versturen, één regel die zegt wat er meegaat, en de verzendknop eronder.
+  //
+  // Hier staat GEEN toestemmingskeuze. Geen vinkje, geen deelknop. Praten en delen zijn twee
+  // dingen, en de deelbeslissing woont in het grensblok erboven. Dat was niet altijd zo: de
+  // deelknop stond hier ook, met net andere woorden, en daarnaast een vinkje dat een derde vraag
+  // leek te stellen. Voor de lezer waren dat drie keer dezelfde vraag.
+  function maakComposer(insight, klaar, { kop = true, opening = null } = {}) {
     const wrap = el('div', 'praat-vorm');
-    const prive = Boolean(insight) && insight.sharing !== 'SHARED' && insight.sharing !== 'AGGREGATED';
 
-    wrap.appendChild(el('p', 'lab', insight ? 'Praat hierover met Maculis' : 'Iets vertellen'));
+    if (kop) wrap.appendChild(el('p', 'lab', insight ? 'Praat hierover met Maculis' : 'Iets vertellen'));
+    // De openingsregel is van MACULIS en staat boven het veld, niet erin. Hier stond eerder een zin
+    // in zijn stem, voorgevuld en klaar om te versturen: "Hier willen we graag met jullie naar
+    // kijken." Dat is Maculis die namens de ondernemer spreekt, en dat mag niet.
+    if (opening) wrap.appendChild(el('p', 'praat-opening', opening));
 
     const openers = el('ul', 'praat-openers');
     (insight ? OPENERS_PATROON : OPENERS_LOS).forEach((o) => {
       const li = document.createElement('li');
       const b = el('button', 'praat-opener', o);
       b.type = 'button';
-      b.addEventListener('click', () => { tekst.value = o; tekst.focus(); groei(); });
+      // Aanklikken zet de cursor in het lege veld. Wat er komt te staan, schrijft hij zelf.
+      b.addEventListener('click', () => { tekst.focus(); });
       li.appendChild(b); openers.appendChild(li);
     });
     wrap.appendChild(openers);
@@ -1012,24 +1408,12 @@
     label.setAttribute('for', tekst.id);
     const groei = () => { tekst.style.height = 'auto'; tekst.style.height = Math.min(tekst.scrollHeight, 260) + 'px'; };
     tekst.addEventListener('input', groei);
+    // Wie op "Samen met Maculis" klikte, hoeft niets te typen: het signaal was compleet bij de klik.
+    // Het veld blijft leeg, want alles wat hier staat is van hem.
     wrap.appendChild(label);
     wrap.appendChild(tekst);
 
     wrap.appendChild(el('p', 'praat-context', contextTekst(insight)));
-    if (prive) {
-      const acties = el('div', 'praat-grens');
-      acties.appendChild(maakKnop('Deel dit inzicht met Maculis', '', () => bevestig(insight, 'share')));
-      wrap.appendChild(acties);
-    }
-
-    // Niveau 2. Uit, altijd. Wie niets aanvinkt, praat gewoon.
-    const weegLabel = el('label', 'praat-weeg');
-    const weeg = document.createElement('input');
-    weeg.type = 'checkbox'; weeg.checked = false;
-    weegLabel.appendChild(weeg);
-    weegLabel.appendChild(el('span', null, 'Laat dit meewegen in wat Maculis van ons weet'));
-    wrap.appendChild(weegLabel);
-    wrap.appendChild(el('p', 'praat-weeg-uit', 'Wij nemen dit dan mee in hoe we naar jullie organisatie kijken. Je kunt dat later weer intrekken.'));
 
     const rij = el('div', 'praat-acties');
     const stuur = el('button', 'knop primair', 'Versturen');
@@ -1043,14 +1427,12 @@
       stuur.disabled = true;
       const { status, data } = await api('/api/mijn/conversations', {
         method: 'POST',
-        body: { insightId: insight ? insight.id : null, text: inhoud, weegMee: weeg.checked },
+        body: { insightId: insight ? insight.id : null, text: inhoud },
       });
       stuur.disabled = false;
       if (status !== 200 || !data.ok) { toast('Je bericht kon niet worden verstuurd.'); return; }
-      tekst.value = ''; weeg.checked = false; groei();
-      toast(data.weegtMee
-        ? 'Verstuurd. We nemen dit mee. Je ziet het terug zodra we het samen hebben vastgelegd.'
-        : 'Verstuurd. Iemand van ons leest dit en reageert hier.');
+      tekst.value = ''; groei();
+      toast('Verstuurd. Iemand van ons leest dit en reageert hier.');
       if (klaar) klaar(data.conversation);
       vernieuwGesprekken();
     });
@@ -1058,22 +1440,49 @@
     return wrap;
   }
 
-  // Het gesprek in het bewijsblad: één ingang, en daaronder wat er al staat.
-  function toonPraat(pat, draad) {
-    const houder = $('bw-praat');
-    houder.innerHTML = '';
-    const i = pat.ins;
-    let open = false;
+  // Het gesprek in het bewijsblad: een uitnodiging, één ingang, en daaronder wat er al staat.
+  //
+  // Deze ingang hoort er ALTIJD te staan, bij een gedeeld inzicht net zo goed als bij een niet
+  // gedeeld inzicht. Hij hing eerder aan de detailaanroep: `openBewijs` maakte dit blok eerst leeg
+  // en vulde het pas na het antwoord van de server. Op een warme verbinding valt dat niet op, maar
+  // op een koude instantie stond het bewijsblad seconden lang zonder gespreksingang, en mislukte
+  // die aanroep, dan verscheen hij helemaal niet. Vanaf nu wordt hij meteen getekend, met de draad
+  // als enige dat later invalt.
+  let praatOpen = false;
+  let praatDraad = null;
+  // Een vraag van Maculis, niet een zin van hem. Zie maakComposer.
+  const OPENER_SAMEN = 'Goed. Wil je hier samen verder naar kijken? Vertel wat je hierover denkt, in je eigen woorden.';
 
-    const ingang = maakKnop('Praat hierover met Maculis', 'tekst praat-ingang', () => {
-      open = !open;
+  // Het gesprek openen vanuit een andere handeling, met de eerste zin er al in.
+  function openPraat(pat, opening) {
+    praatOpen = true;
+    toonPraat(pat, praatDraad, opening);
+    const vorm = $('bw-praat').querySelector('.praat-vorm');
+    if (vorm) vorm.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' });
+  }
+
+  function toonPraat(pat, draad, opening = null) {
+    const houder = $('bw-praat');
+    const i = pat.ins;
+    praatDraad = draad;
+
+    const ingang = maakKnop('Praat hierover met Maculis', 'primair praat-ingang', () => {
+      praatOpen = !praatOpen;
       teken2();
     });
     function teken2() {
+      // Zolang de invoer dicht is, is de uitnodiging de primaire handeling. Zodra je aan het
+      // schrijven bent, is Versturen dat, en treedt de ingang terug: nooit twee tegelijk.
+      ingang.className = 'knop praat-ingang' + (praatOpen ? ' tekst' : ' primair');
       houder.innerHTML = '';
+      houder.appendChild(el('p', 'lab', 'Praat hierover met Maculis'));
+      houder.appendChild(el('p', 'praat-lead', 'Wil je iets vragen, aanvullen of bespreken over wat je hier ziet?'));
       houder.appendChild(ingang);
-      if (open) {
-        houder.appendChild(maakComposer(i, (nieuw) => { open = false; teken2(); toonPraat(pat, nieuw); }));
+      if (praatOpen) {
+        // De kop staat hierboven al; de invoer herhaalt hem niet.
+        houder.appendChild(maakComposer(i, (nieuw) => { praatOpen = false; toonPraat(pat, nieuw); },
+          { kop: false, opening }));
+        opening = null;   // alleen bij het openen, niet bij elke hertekening
       }
       houder.appendChild(maakDraad(draad));
     }
@@ -1143,13 +1552,31 @@
     openBlad('gesprekken');
     vulGesprekken(await vernieuwGesprekken());
   }
-  $('btn-gesprekken').addEventListener('click', openGesprekken);
+  $('btn-gesprekken').addEventListener('click', () => { openGesprekken(); zetActief('btn-gesprekken'); });
   $('btn-gesprekken-sluit').addEventListener('click', terug);
 
   // ============================================================================================
   // 10. BOOT
   // ============================================================================================
+  // De teksten bij een uitnodiging die niet meer werkt. Een verlopen of gebruikte link haalt geen
+  // toegang weg: de kamer staat er nog, hij heeft alleen een nieuwe manier nodig om binnen te komen.
+  const INWISSEL_FOUT = {
+    used: 'Deze uitnodiging is al gebruikt. Je toegang blijft bestaan. Vraag Maculis om een nieuwe inloglink.',
+    expired: 'Deze uitnodiging is verlopen. Je kamer staat er nog. Vraag Maculis om een nieuwe inloglink.',
+    invalid: 'Deze link werkt niet meer. Vraag Maculis om een nieuwe.',
+    no_access: 'Er is nog geen toegang aan dit adres gekoppeld. Vraag Maculis om een uitnodiging.',
+    network: 'Mijn Maculis kon niet worden bereikt. Probeer het zo nog eens.',
+  };
+
   async function boot() {
+    if (eenmalig) {
+      const fout = await wisselIn(eenmalig);
+      if (fout) {
+        gateMsg.textContent = INWISSEL_FOUT[fout] || INWISSEL_FOUT.invalid;
+        gateMsg.classList.add('error');
+        return;
+      }
+    }
     if (!token) {
       gateMsg.textContent = 'Deze link is niet meer geldig. Vraag Maculis om een nieuwe toegang.';
       gateMsg.classList.add('error');
@@ -1165,6 +1592,7 @@
       return;
     }
     const org = sessie.data.organization || '';
+    orgNaam = org;
     const naam = ((sessie.data.user && sessie.data.user.label) || '').split(/\s+/)[0] || '';
     $('org-naam').textContent = org;
     $('groet').textContent = naam ? `Goedendag, ${naam}.` : 'Goedendag.';
@@ -1221,8 +1649,22 @@
 
     // De cyclus loopt één keer en blijft daarna staan. Reduced motion toont die eindtoestand
     // direct, dus zonder cyclus en zonder lopende animatie.
+    // De regels onder de groet staan er nu pas, en die bepalen mede hoeveel ruimte de HUD inneemt.
+    // Opnieuw meten, anders is de band te ruim berekend en komt het veld alsnog tegen de tekst aan.
+    meet();
+
     // Staat er iets voor je klaar? Een stille stip in de periferie, meer niet.
-    vernieuwGesprekken();
+    const draden = await vernieuwGesprekken();
+
+    // ADR-0003 D6: geen lege module wordt getoond. Een bestemming die nergens heen gaat leest als
+    // "hier hoort iets te staan", en dat is precies het gevoel dat de eerste kamer moet vermijden.
+    // Donkere ruimte in het veld is geen gat; een leeg blad met een kop erop wel.
+    stemBestemmingenAf(draden);
+
+    // Eerder sprong de eerste keer meteen het bewijsblad in. Dat kostte de begroeting: hij landde in
+    // een detail zonder dat er ooit "Welkom terug" had gestaan, en dan leest de kamer als een
+    // dossier in plaats van als een vervolg op wat hij net heeft meegemaakt. Het veld toont zijn
+    // naam, zijn organisatie én zijn eigen zin, dus daar landt hij, en het bewijs is één tik weg.
 
     t0 = nu(); p = 0; modus = 'openen';
     if (reduce) { p = 1; modus = 'rust'; toonUitspraak(); teken(); stadium(); plaatsUitspraak(); }
