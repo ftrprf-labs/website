@@ -24,13 +24,25 @@ const opts = { skip: HAS_DB ? false : 'no DATABASE_URL/COMM_LAYER_ENABLED — ke
 
 // Eén afgeronde Lens, zoals hij uit de sessie-export komt. Precies de velden die deriveByToken
 // oplevert, zodat de test op dezelfde vorm draait als de werkelijkheid.
-function sessie({ keep = true, contact = true, lijn = 'De expertise van OCEA lijkt online minder zichtbaar dan de werkelijkheid.', bewijs = 3 } = {}) {
+// De grond zoals de Lens hem toonde: citaat, bronlabel en vindplaats.
+const BEWIJS = [
+  { quote: 'twintig jaar ervaring in complexe trajecten', label: 'Over ons', url: 'https://ocea-test.nl/over-ons' },
+  { quote: 'wij denken graag mee', label: 'Homepage', url: 'https://ocea-test.nl/' },
+  { quote: 'neem contact op', label: 'Contact', url: 'https://ocea-test.nl/contact' },
+];
+
+function sessie({ keep = true, contact = true, lijn = 'De expertise van OCEA lijkt online minder zichtbaar dan de werkelijkheid.', bewijs = BEWIJS } = {}) {
   return {
     started: true, completed: true, completed_at: new Date().toISOString(),
     keep, keep_at: keep ? new Date().toISOString() : null,
     consent: contact ? 'OPTED_IN' : null,
     answers: { recognition: 'deels' }, contexts: {},
-    reveal: lijn ? { line: lijn, family: 'visibility', outcome: 'REVEAL', evidence_count: bewijs, at: new Date().toISOString() } : null,
+    reveal: lijn ? {
+      line: lijn, family: 'visibility', outcome: 'REVEAL',
+      evidence_count: Array.isArray(bewijs) ? bewijs.length : Number(bewijs || 0),
+      evidence: Array.isArray(bewijs) ? bewijs : [],
+      at: new Date().toISOString(),
+    } : null,
   };
 }
 
@@ -90,17 +102,49 @@ test('lens naar mijn maculis: voorbereiden, uitnodigen, binnenkomen, terugkomen'
     assert.equal(refl[0].answer, 'deels');
     assert.equal(refl[0].origin, 'lens', 'gegeven tijdens de Lens, niet in de kamer');
 
-    // De grond staat er als de Lens hem had, en telt dan ook mee als bewijs.
+    // ---- de drie lagen -----------------------------------------------------------------------
+    // 1. de uitspraak staat hierboven al. 2. de onderbouwing: precies de regels die hij in de Lens
+    // zag, woordelijk, één per stuk bewijs en niet één regel met een aantal erin.
     const bewijs = (await query(
-      'select customer_label from insight_observation where insight_id=$1 and customer_label is not null', [inz[0].id])).rows;
-    assert.equal(bewijs.length, 1, 'één bewijsregel, want de export levert een aantal en geen citaten');
-    assert.match(bewijs[0].customer_label, /3 aanwijzingen/, 'het aantal dat de Lens telde, en niets verzonnens');
+      `select customer_label from insight_observation
+        where insight_id=$1 and customer_label is not null order by created_at asc`, [inz[0].id])).rows;
+    assert.equal(bewijs.length, 3, 'elk stuk bewijs is een eigen regel');
+    assert.equal(bewijs[0].customer_label, 'Over ons: "twintig jaar ervaring in complexe trajecten"');
+    assert.equal(bewijs[1].customer_label, 'Homepage: "wij denken graag mee"');
+    for (const r of bewijs) assert.equal(/aanwijzingen/.test(r.customer_label), false, 'geen telling meer, echte grond');
+
+    // De vindplaatsen blijven intern. Een URL in de bewijslijst zou een link zijn die de kamer niet
+    // kan openen, en herkomst hoort in de interne laag.
+    const prov = inz[0].provenance || {};
+    assert.equal((prov.evidence_refs || []).length, 3, 'de vindplaatsen staan in de interne herkomst');
+    for (const r of bewijs) assert.equal(/https?:/.test(r.customer_label), false, 'en niet in wat de klant leest');
+
+    // 3. de verdieping: welke vraag hierdoor ontstaat. Een uitspraak over ONZE kijkhoek, gelijk voor
+    // elke klant, dus geen bewering over hun organisatie.
+    assert.match(inz[0].not_yet_known || '', /van buitenaf gekeken/, 'de verdieping staat er');
+    assert.match(inz[0].not_yet_known || '', /van binnenuit/, 'en benoemt wat we niet weten');
+    assert.equal(/koppel|upload|verbind/i.test(inz[0].not_yet_known || ''), false, 'het is geen aanbod');
+
+    // Terugval voor oude sessies die alleen een aantal droegen: dan noemen we het aantal en
+    // verzinnen we de citaten niet.
+    await schoon(query);
+    const oud = await bereidKamerVoor(tester({ email: 'oud@test.nl', company_name: 'Oud BV', domain: 'oud-test.nl' }),
+      sessie({ bewijs: 4 }), { tenantId: tid });
+    const oudBewijs = (await query(
+      'select customer_label from insight_observation where insight_id=$1 and customer_label is not null', [oud.insightId])).rows;
+    assert.equal(oudBewijs.length, 1);
+    assert.match(oudBewijs[0].customer_label, /4 aanwijzingen/, 'zonder citaten blijft het bij het aantal');
+    await schoon(query);
+    const r1b = await bereidKamerVoor(tester(), sessie(), { tenantId: tid });
+    assert.equal(r1b.organizationId ? true : false, true);
 
     // ---- T3: opnieuw uitvoeren levert geen dubbels op -----------------------------------------
     for (let i = 0; i < 3; i++) await bereidKamerVoor(tester(), sessie(), { tenantId: tid });
     assert.equal((await query('select count(*)::int n from organization where tenant_id=$1', [tid])).rows[0].n, 1, 'geen tweede organisatie');
     assert.equal((await query('select count(*)::int n from contact where tenant_id=$1', [tid])).rows[0].n, 1, 'geen tweede persoon');
-    assert.equal((await query('select count(*)::int n from customer_insight where organization_id=$1', [r1.organizationId])).rows[0].n, 1, 'geen tweede inzicht');
+    assert.equal((await query('select count(*)::int n from customer_insight where organization_id=$1', [r1b.organizationId])).rows[0].n, 1, 'geen tweede inzicht');
+    assert.equal((await query('select count(*)::int n from insight_observation where insight_id in (select id from customer_insight where organization_id=$1)', [r1b.organizationId])).rows[0].n, 3,
+      'en ook geen dubbele bewijsregels');
     assert.equal((await query('select count(*)::int n from mijn_room where tenant_id=$1', [tid])).rows[0].n, 1, 'geen tweede kamer');
 
     // ---- T4: bewaren zonder benaderen: kamer bestaat, er gaat niets uit -----------------------

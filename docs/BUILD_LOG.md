@@ -5,6 +5,64 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-20 — De grond reist mee, en de eerste ster krijgt drie lagen
+
+**Stand.** De bevinding uit de vorige ronde is opgelost bij de bron. De kamer zegt niet langer dat er
+te weinig bewijs is voor iets wat de ondernemer mét bewijs heeft gezien. Volledige suite 100 van 100,
+alle harnessen groen, de echte end to end **31 van 31**.
+
+**Deze wijziging raakt twee repo's.** `ftrprf-labs/maculis-first-five.` is daarvoor aan de sessie
+toegevoegd; daar staat de wijziging op dezelfde branchnaam.
+
+### Aan de Lenskant: alleen overdracht
+
+`reveal_presented` droeg wel de onthulling maar van het bewijs alleen het aantal. De citaten die de
+deelnemer achter "Waar zie je dat?" zag, reizen nu mee: citaat, bronlabel en vindplaats, begrensd op
+lengte, en alleen regels die werkelijk een citaat hebben. Ook op `session.shown`, zodat een sessie
+die haar eventspoor kwijtraakt hetzelfde oplevert.
+
+Geen nieuwe analyse, geen nieuwe observatie, geen nieuwe bron, en geen enkele wijziging aan wat de
+deelnemer ziet of moet doen.
+
+### Aan de kamerkant: drie lagen, en alleen de eerste twee komen uit de Lens
+
+**1. Uitspraak.** Zijn zin, woordelijk, met eronder waar hij vandaan komt.
+
+**2. Onderbouwing.** Eén bewijsregel per stuk bewijs, in de volgorde waarin hij ze zag, als
+`Over ons: "twintig jaar ervaring in complexe trajecten"`. Niet één regel met een aantal erin: een
+aantal is een bewering over bewijs, een citaat ís het bewijs. De vindplaatsen gaan naar de interne
+herkomst en niet naar de klantzijde, want een URL in die lijst zou een link zijn die de kamer niet
+kan openen.
+
+**3. Verdieping.** "We hebben hier alleen van buitenaf gekeken. Wat we nog niet weten, is hoe dit
+van binnenuit wordt ervaren." Die zin hangt aan het PERSPECTIEF en niet aan de klant. Daarmee is het
+geen bewering over hun organisatie en dus geen authoring, maar een eerlijke uitspraak over onze
+eigen kijkhoek. En het is nadrukkelijk geen aanbod: er staat wat we niet weten, niet wat je zou
+moeten koppelen.
+
+**Terugval blijft.** Sessies van vóór deze wijziging dragen alleen een aantal. Dan noemt de kamer
+het aantal en verzint de citaten niet.
+
+### Wat er visueel gebeurde, en dat was onverwacht mooi
+
+Het veld tekent een patroon als een sterrenbeeld van zijn waarnemingen. Met één bewijsregel was de
+ster één punt. Met drie is het een sterrenbeeld van drie verbonden punten: **de ster is de betekenis,
+de punten eronder zijn waarom die betekenis er is.** Dat is precies het model, en het kwam eruit
+zonder dat er iets aan het veld is veranderd.
+
+En de regel die de vorige ronde de onthulling onderuithaalde is weg. Waar stond "Hier is nog te
+weinig bewijs om iets te zeggen" staat nu "3 onafhankelijke waarnemingen".
+
+### Eén harness gerepareerd
+
+`mijn-gesprek-ui` faalde twee van de drie keer op "het gesprek staat meteen open met de eerste zin er
+al in". Dat bleek geen regressie maar een race die er al stond: de harness wachtte op het bestaan van
+het formulier terwijl de openingszin er pas na het aanmaken van de draad in komt. Aangetoond door
+hem drie keer op de vorige commit te draaien, met dezelfde uitkomst. Hij wacht nu op de inhoud.
+Vier runs op rij groen. Een test die één op drie slaagt is erger dan geen test.
+
+---
+
 ## 2026-08-20 — De keten echt gelopen, en wat de eerste kamer laat zien
 
 **Stand.** De hele keten is over HTTP tegen een draaiende server gelopen, niet alleen in unit tests:

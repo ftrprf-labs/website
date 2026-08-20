@@ -32,7 +32,16 @@ const sessies = {
     contact_consent_version: 'maculis-contact-v1',
     events: [
       { name: 'session_started' },
-      { name: 'reveal_presented', family: 'visibility', line: REVEAL, evidence_count: 3 },
+      { name: 'reveal_presented',
+        family: 'visibility',
+        line: REVEAL,
+        evidence_count: 3,
+        // De grond die de Lens hem achter "Waar zie je dat?" liet zien, woordelijk meegestuurd.
+        evidence: [
+          { quote: 'twintig jaar ervaring in complexe trajecten', label: 'Over ons', url: 'https://ocea-e2e.nl/over-ons' },
+          { quote: 'wij denken graag mee', label: 'Homepage', url: 'https://ocea-e2e.nl/' },
+          { quote: 'neem contact op', label: 'Contact', url: 'https://ocea-e2e.nl/contact' },
+        ] },
       { name: 'recognition_answered', value: 'deels' },
       { name: 'accuracy_answered', value: 'ja' },
       { name: 'novelty_answered', value: 'nieuw' },
@@ -180,8 +189,13 @@ try {
 
   const detail = await api(`/api/mijn/insights/${ins.id}`, { headers: { 'x-mijn-token': mijn } });
   stap(detail.status === 200, 'het inzicht opent');
-  const bewijsregels = (detail.body.evidence || []).length;
-  stap(bewijsregels === 1, 'de grond staat eronder', `${bewijsregels} regel`);
+  const regels = (detail.body.evidence || []).map((e) => e.label);
+  stap(regels.length === 3, 'de grond staat eronder', `${regels.length} regels`);
+  stap(regels.some((r) => r.includes('twintig jaar ervaring in complexe trajecten')),
+    'en het is woordelijk wat hij in de Lens zag');
+  stap(!regels.some((r) => /https?:/.test(r)), 'de vindplaats blijft intern');
+  stap(/van buitenaf gekeken/.test(detail.body.insight.not_yet_known || ''),
+    'de verdieping staat er: wat we nog niet weten');
 
   // ---- hij reageert -----------------------------------------------------------------------------
   const reageer = await api(`/api/mijn/insights/${ins.id}/recognition`, {

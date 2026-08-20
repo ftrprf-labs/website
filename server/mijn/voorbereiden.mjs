@@ -22,18 +22,32 @@ import { query, withTransaction } from '../comm/db.mjs';
 import { getDefaultTenantId } from '../comm/tenant.mjs';
 import { resolveContactTx } from '../comm/repo.mjs';
 import { recordAudit } from '../comm/audit.mjs';
-import { createInsightWithInitialVersion } from './versions.mjs';
-import { V1_GEBIED, V1_PERSPECTIEF, BRON_LENS } from './woordenschat.mjs';
+import { createInsightWithInitialVersion, addObservation } from './versions.mjs';
+import { V1_GEBIED, V1_PERSPECTIEF, BRON_LENS, VERDIEPING } from './woordenschat.mjs';
 
 // De Lens kent uitkomsten, de kamer kent houdingen. Dit is een vertaling en geen gok: `reveal` en
 // `non_reveal` zijn in beide vocabulaires hetzelfde begrip, en de kolom `stance` draagt volgens
 // migratie 006 uitdrukkelijk "the epistemic kind, preserved from the Lens".
 const HOUDING = { REVEAL: 'reveal', SILENCE: 'non_reveal', INSUFFICIENT_EVIDENCE: 'unknown' };
 
-// Waar de uitspraak op rust, in de woorden die we eerlijk kunnen verantwoorden. De losse citaten
-// die de Lens achter "Waar zie je dat?" toonde, staan NIET in de export; alleen hun aantal. We
-// verzinnen ze niet en we doen ook niet alsof ze er niet waren: we noemen het aantal en verder
-// niets. Zodra de export de citaten meestuurt, komt hier de echte grond te staan.
+// DE ONDERBOUWING
+//
+// Wat de Lens achter "Waar zie je dat?" liet zien, komt hier terug: het citaat en waar het stond.
+// Woordelijk, want dit is overdracht en geen nieuwe waarneming. De vindplaats gaat NIET mee naar de
+// klantzijde maar naar de interne herkomst: in de bewijslijst staat één regel, en een URL erin zou
+// een link zijn die de kamer niet kan openen.
+//
+// Eén regel per stuk bewijs, en niet één regel met een aantal erin. Dat verschil is het hele punt:
+// een aantal is een bewering over bewijs, een citaat ís het bewijs.
+function bewijsregel(e) {
+  const citaat = String(e.quote || '').trim();
+  if (!citaat) return null;
+  const bron = String(e.label || '').trim();
+  return bron ? `${bron}: "${citaat}"` : `"${citaat}"`;
+}
+
+// Terugval voor sessies van vóór de overdracht van bewijs. Die dragen alleen een aantal mee. We
+// verzinnen de citaten dan niet en doen ook niet alsof ze er niet waren: we noemen het aantal.
 function grondtekst(aantal) {
   const n = Number(aantal || 0);
   if (n <= 0) return null;
@@ -92,7 +106,12 @@ export async function bereidKamerVoor(record, d, { tenantId = null } = {}) {
   let insightId = bestaand ? bestaand.id : null;
   let nieuwInzicht = false;
   if (!insightId) {
-    const grond = grondtekst(d.reveal.evidence_count);
+    // Drie lagen, en alleen de eerste twee komen uit de Lens. De uitspraak is zijn zin, de
+    // onderbouwing zijn de citaten die hij zag, en de verdieping is een eerlijke uitspraak over
+    // onze eigen kijkhoek: we hebben alleen van buitenaf gekeken. Dat laatste is geen bewering over
+    // hun organisatie en dus geen authoring; het staat vast per perspectief en niet per klant.
+    const regels = Array.isArray(d.reveal.evidence) ? d.reveal.evidence.map(bewijsregel).filter(Boolean) : [];
+    const grond = regels.length ? null : grondtekst(d.reveal.evidence_count);
     const gemaakt = await createInsightWithInitialVersion({
       tenantId: tid,
       organizationId,
@@ -103,19 +122,35 @@ export async function bereidKamerVoor(record, d, { tenantId = null } = {}) {
       // `basis` blijft leeg. De grond staat al als bewijsregel onder "Waarop dit rust"; hem daar
       // ook nog eens als antwoord op "Waar baseren we dit op?" zetten is dezelfde zin twee keer.
       basis: null,
+      notYetKnown: VERDIEPING[V1_PERSPECTIEF] || null,
       sharing: 'SHARED',
       source: BRON_LENS,
       // Interne herkomst. Nooit klantzijdig, en zonder token: alleen wat nodig is om later te
       // kunnen navertellen waaruit dit is ontstaan.
-      provenance: { entrance: 'lens', family: d.reveal.family || null, evidence_count: Number(d.reveal.evidence_count || 0) || 0 },
+      provenance: {
+        entrance: 'lens', family: d.reveal.family || null,
+        evidence_count: Number(d.reveal.evidence_count || 0) || 0,
+        // De vindplaatsen, uitsluitend intern. Nooit klantzijdig teruggegeven (migratie 006).
+        evidence_refs: (Array.isArray(d.reveal.evidence) ? d.reveal.evidence : []).map((e) => e.url).filter(Boolean),
+      },
       status: 'new',
       observedAt: d.reveal.at || d.completed_at || null,
       // De klantzijdige grond. Zonder label telt een waarneming niet mee als bewijs, en dat is
       // precies goed: geen grond, geen bewijsregel.
-      customerLabel: grond,
+      customerLabel: regels.length ? regels[0] : grond,
     });
     insightId = gemaakt.insightId;
     nieuwInzicht = true;
+    // De rest van de grond. `createInsightWithInitialVersion` legt er één neer; de overige regels
+    // komen hier, in dezelfde volgorde als waarin hij ze in de Lens zag.
+    for (const regel of regels.slice(1)) {
+      // eslint-disable-next-line no-await-in-loop
+      await addObservation({
+        tenantId: tid, organizationId, insightId, customerLabel: regel,
+        source: BRON_LENS, stance: HOUDING[d.reveal.outcome || 'REVEAL'] || 'reveal',
+        observedAt: d.reveal.at || d.completed_at || null,
+      });
+    }
     // De twee assen die migratie 012 toevoegde. Eén gebied, één perspectief, allebei uit de
     // gedeelde woordenschat en allebei vast in V1.
     await query('update customer_insight set area=$2, perspective=$3 where id=$1',

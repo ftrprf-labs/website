@@ -52,6 +52,21 @@ export async function pullSessions() {
   return { ok: true, sessions: Array.isArray(body && body.lines) ? body.lines : [] };
 }
 
+// De bewijsregels uit de Lens, opgeschoond en begrensd. Alleen wat de deelnemer werkelijk op zijn
+// scherm zag: het citaat, het bronlabel en de vindplaats. Er wordt hier niets afgeleid, niets
+// samengevat en niets bij verzonnen; een regel zonder citaat bestaat niet.
+function bewijsregels(lijst) {
+  if (!Array.isArray(lijst)) return [];
+  return lijst
+    .map((e) => ({
+      quote: typeof e?.quote === 'string' ? e.quote.trim().slice(0, 400) : '',
+      label: typeof e?.label === 'string' ? e.label.trim().slice(0, 120) : '',
+      url: typeof e?.url === 'string' ? e.url.trim().slice(0, 500) : '',
+    }))
+    .filter((e) => e.quote)
+    .slice(0, 12);
+}
+
 // Group sessions by participant token and derive a compact per-token result.
 // A tester may have several sessions (reopened) — we merge: latest answer wins,
 // started = any session exists, completed = any session_completed event.
@@ -75,8 +90,10 @@ export function deriveByToken(sessions) {
     // The journey also mirrors the presented outcome on the session itself (§J). Prefer the event,
     // fall back to this, so a session that lost its event trail still yields the right line.
     if (s.shown && typeof s.shown.reveal_line === 'string' && s.shown.reveal_line.trim() && !d.reveal) {
+      const regels = bewijsregels(s.shown.evidence);
       d.reveal = { line: s.shown.reveal_line.trim(), family: s.shown.family || null,
-        outcome: s.shown.outcome || null, evidence_count: 0, at: s.received_at || s.updated_at || null };
+        outcome: s.shown.outcome || null, evidence_count: regels.length,
+        evidence: regels, at: s.received_at || s.updated_at || null };
     }
     if (s.started_at && (!d.started_at || s.started_at < d.started_at)) d.started_at = s.started_at;
     // The journey stamps the consent version it actually showed (maculis-contact-v1).
@@ -103,7 +120,12 @@ export function deriveByToken(sessions) {
       // showed under it. An event wins over the mirrored `shown` block.
       else if (e.name === 'reveal_presented' && typeof e.line === 'string' && e.line.trim()) {
         d.reveal = { line: e.line.trim(), family: e.family || null, outcome: 'REVEAL',
-          evidence_count: Number(e.evidence_count || 0) || 0, at: s.received_at || s.updated_at || null };
+          evidence_count: Number(e.evidence_count || 0) || 0,
+          // De grond die de deelnemer zelf achter "Waar zie je dat?" heeft gezien. Woordelijk, want
+          // dit is overdracht en geen nieuwe waarneming. Oudere sessies dragen dit niet; dan blijft
+          // de lijst leeg en valt de keten terug op het aantal.
+          evidence: bewijsregels(e.evidence),
+          at: s.received_at || s.updated_at || null };
       }
       // Consent events carried in the session event trail. Only an affirmative
       // opt-in maps to consent; `inner_circle_declined` ("Nog niet") is a

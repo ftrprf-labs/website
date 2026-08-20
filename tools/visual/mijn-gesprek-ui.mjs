@@ -225,6 +225,13 @@ async function ronde(br, { breedte, hoogte, naam }) {
   const verstuurdVoor = store.verstuurd.length;
   await page.click('[data-intentie="samen"]');
   await page.waitForSelector('.praat-vorm');
+  // De draad wordt aangemaakt en dan pas met de openingszin gevuld. Wachten op het bestaan van het
+  // formulier is dus te vroeg: dit wachtte op de inhoud, anders meet de test een race in plaats van
+  // het gedrag. Faalt hij alsnog, dan is de zin er echt niet.
+  await page.waitForFunction(() => {
+    const t = document.querySelector('.praat-vorm .veldtekst');
+    return Boolean(t) && String(t.value || '').trim().length > 10;
+  }, null, { timeout: 5000 }).catch(() => {});
   chk('"Samen met Maculis" belooft een vervolgstap en geen uitvoering',
     /beste vervolgstap/i.test(await page.locator('#bw-intentie-uit').textContent()));
   chk('en het gesprek staat meteen open met de eerste zin er al in',

@@ -40,15 +40,21 @@ await new Promise((r) => server.listen(PORT, r));
 // De uitspraak zoals de Lens hem toonde. Woordelijk, want dat is de hele toets.
 const ZIN = 'De expertise van OCEA lijkt online minder zichtbaar dan de werkelijkheid.';
 const ID = '00000001-0000-4000-8000-000000000001';
-const GROND = 'Maculis vond hiervoor 3 aanwijzingen op jullie website.';
+// Precies de regels die de Lens hem liet zien, in dezelfde volgorde.
+const GROND = [
+  'Over ons: "twintig jaar ervaring in complexe trajecten"',
+  'Homepage: "wij denken graag mee"',
+  'Contact: "neem contact op"',
+];
+const VERDIEPING = 'We hebben hier alleen van buitenaf gekeken. Wat we nog niet weten, is hoe dit van binnenuit wordt ervaren.';
 
 const insight = {
   id: ID, title: ZIN, stance: 'reveal', sharing: 'SHARED', attention: true, status: 'new',
-  observation: ZIN, meaning: null, basis: null, not_yet_known: null,
+  observation: ZIN, meaning: null, basis: null, not_yet_known: VERDIEPING,
   audience: 'ORGANISATIE', source: 'lens', area: 'zichtbaarheid', perspective: 'buitenwereld',
   created_at: '2026-08-20T09:00:00.000Z', updated_at: '2026-08-20T09:00:00.000Z',
   shared_at: '2026-08-20T09:00:00.000Z', developed: false, unshared_development: false,
-  evidence_count: 1, recognition: 'deels',
+  evidence_count: 3, recognition: 'deels',
 };
 
 const stappen = [];
@@ -71,7 +77,7 @@ await page.route('**/api/mijn/**', async (r) => {
   if (p === '/api/mijn/collaboration') return j({ items: [] });
   if (p === '/api/mijn/conversations') return j({ items: [], unread: 0 });
   if (p === `/api/mijn/insights/${ID}`) {
-    return j({ insight, evidence: [{ label: GROND, at: '2026-08-20T09:00:00.000Z' }], versions: [] });
+    return j({ insight, evidence: GROND.map((label) => ({ label, at: '2026-08-20T09:00:00.000Z' })), versions: [] });
   }
   return j({});
 });
@@ -135,6 +141,13 @@ stap(tekst.includes('Deze antwoorden gaf je') || tekst.includes('Deels'), 'zijn 
 
 // 4. bron
 stap(/lens/i.test(tekst), 'de bron wordt genoemd');
+
+// 5. de drie lagen: uitspraak, onderbouwing, verdieping
+stap(tekst.includes(ZIN), 'laag 1, de uitspraak: zijn eigen zin');
+stap(GROND.every((g) => tekst.includes(g)), 'laag 2, de onderbouwing: elk citaat dat hij in de Lens zag');
+stap(!/te weinig bewijs|Te weinig om iets te zeggen/.test(tekst), 'de kamer haalt zijn onthulling niet meer onderuit');
+stap(tekst.includes(VERDIEPING), 'laag 3, de verdieping: wat we nog niet weten');
+stap(!/koppel|upload|verbind/i.test(tekst), 'en dat is geen aanbod, dus geen modulemenu');
 
 stap(fouten.length === 0, 'geen console errors', fouten.length ? fouten[0] : 'nul');
 

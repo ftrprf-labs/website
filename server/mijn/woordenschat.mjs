@@ -51,5 +51,21 @@ export const BRON_LENS = 'lens';
 export const BRON_LENS_LABEL = 'Maculis Lens';
 export const BRON_LENS_ZIN = 'Dit is wat Maculis vanuit het perspectief van buitenaf zag.';
 
+// De verdieping: welke vraag ontstaat er door dít perspectief. Bewust een eigenschap van het
+// PERSPECTIEF en niet van de klant, want dan is het geen bewering over hun organisatie maar een
+// eerlijke uitspraak over onze eigen kijkhoek. Voor elke organisatie dezelfde zin, precies zoals de
+// gebiedsnamen dat zijn.
+//
+// Dit is ook waarom het geen aanbod is. Er staat wat we niet weten, en niet wat je zou moeten
+// koppelen. Een aanbod hoort pas te bestaan wanneer er een vraag ligt die het beantwoordt, en die
+// vraag stelt de ondernemer zelf, of hij stelt hem niet.
+export const VERDIEPING = {
+  buitenwereld: 'We hebben hier alleen van buitenaf gekeken. Wat we nog niet weten, is hoe dit van binnenuit wordt ervaren.',
+  binnenuit: 'Dit komt van jullie zelf. Wat we nog niet weten, is of de buitenwereld dit ook zo ziet.',
+  feiten: 'Dit komt uit gegevens. Wat we nog niet weten, is welk verhaal er achter die cijfers zit.',
+  analyse: 'Dit is onze lezing van meerdere bronnen. Wat we nog niet weten, is of jullie hem herkennen.',
+};
+
 export function gebied(key) { return GEBIEDEN[key] || null; }
+export function verdieping(key) { return VERDIEPING[key] || null; }
 export function perspectief(key) { return PERSPECTIEVEN[key] || null; }
