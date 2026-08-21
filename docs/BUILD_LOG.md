@@ -34,6 +34,13 @@ klik dat er niets is verstuurd en dat er niemand op Uitgenodigd staat.
 Een status met de hand zetten blijft een administratieve correctie met een bevestiging, want
 statussen komen normaal uit echte gebeurtenissen.
 
+De berichttekst voor WhatsApp en e-mail staat onder Uitnodigingen, uitgeklapt achter een regel. Hij
+hoort daar omdat je hem leest vlak voordat je iemand uitnodigt, en niet in een apart scherm waar
+niemand hem terugvindt.
+
+Bulkacties zijn niet meegekomen. Uitnodigen gebeurt per mens, want dat is wat de architectuur al zei
+over de uitgaande grens: één menselijke handeling per verzending.
+
 ### Wat nog niet verhuisd is
 
 De Privacy-inbox heeft geen tegenhanger in de Cockpit en blijft bereikbaar via `/comm.html`. Die

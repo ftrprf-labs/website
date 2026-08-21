@@ -112,6 +112,7 @@ async function open({ mailConfigured = false, maculisConfigured = true } = {}) {
     if (/^\/api\/invitations\/[^/]+\/history$/.test(p)) return j(HISTORIE);
     if (/^\/api\/invitations\/[^/]+\/whatsapp$/.test(p)) return j({ text: 'Hoi Kim, ik heb iets voor je.', url: 'https://wa.me/31612345678?text=x', hasNumber: true });
     if (p === '/api/invite/email') return j({ delivers: mailConfigured, sent: mailConfigured ? 1 : 0, failed: 0, results: [] });
+    if (p === '/api/template') return j({ template: { whatsapp: 'Hoi {{voornaam}}, mag ik je iets laten zien?', emailSubject: 'Een blik op {{bedrijf}}', emailBody: 'Beste {{voornaam}},' } });
     return j({ ok: true });
   });
   await page.goto(`http://127.0.0.1:${PORT}/cockpit-live.html`);
@@ -195,6 +196,16 @@ const naarTab = async (page, label) => {
   const status = verzoeken.filter((v) => /\/status$/.test(v.p));
   stap(status.length === 1 && status[0].body.status === 'SENT' && status[0].body.channel === 'whatsapp',
     'pas de bevestiging zet de tester op Verstuurd', JSON.stringify(status[0] ? status[0].body : {}));
+  // De berichttekst hoort hier, niet in een apart scherm.
+  await page.evaluate(() => document.querySelector('.beheer-template summary').click());
+  await page.waitForTimeout(400);
+  const tpl = await page.evaluate(() => (document.querySelector('[data-t="whatsapp"]') || {}).value || '');
+  stap(tpl.includes('mag ik je iets laten zien'), 'de berichttekst is hier aan te passen', tpl.slice(0, 30));
+  await page.evaluate(() => [...document.querySelectorAll('.beheer-template button')].find((b) => /tekst opslaan/i.test(b.textContent)).click());
+  await page.waitForTimeout(400);
+  const tplPut = verzoeken.filter((v) => v.p === '/api/template' && v.method === 'PUT');
+  stap(tplPut.length === 1 && typeof tplPut[0].body.emailBody === 'string', 'en op te slaan via de bestaande route', `${tplPut.length}`);
+
   await page.close();
 }
 

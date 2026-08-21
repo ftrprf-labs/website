@@ -1475,3 +1475,7 @@ body {
 .tl-time { flex: 0 0 160px; color: var(--text-quiet, #8a8a8a); }
 .tl-meta { font-size: 12px; color: var(--text-quiet, #8a8a8a); margin-top: .1rem; }
 .beheer-add { flex-direction: row; flex-wrap: wrap; align-items: center; }
+.beheer-template { margin-top: 1.6rem; padding-top: 1rem; border-top: 1px solid var(--line, rgba(255,255,255,.08)); }
+.beheer-template summary { cursor: pointer; font-size: 13px; color: var(--text-quiet, #8a8a8a); }
+.beheer-template summary:hover { color: var(--text, inherit); }
+.beheer-template .edit-grid { margin-top: .8rem; }

@@ -1526,6 +1526,47 @@ function paneelUitnodigingen(paneel, data) {
   if (!data.testers.length) lijst.appendChild(el('p', 'muted', 'Nog geen testers. Voeg er een toe onder Testerbeheer.'));
   data.testers.forEach((r) => lijst.appendChild(uitnodigingRij(r, cfg)));
   paneel.appendChild(lijst);
+
+  paneel.appendChild(templatePaneel());
+}
+
+// De tekst die de uitnodiging draagt. Hoort hier omdat je hem leest vlak voordat je iemand
+// uitnodigt, en niet in een apart scherm waar niemand hem terugvindt.
+function templatePaneel() {
+  const box = el('details', 'beheer-template');
+  box.innerHTML = '<summary>Berichttekst aanpassen</summary>';
+  const melding = el('p', 'beheer-melding'); melding.hidden = true;
+  const velden = el('div', 'edit-grid');
+  velden.innerHTML = `
+    <label class="edit-breed">WhatsApp<textarea class="beheer-preview" data-t="whatsapp" rows="5"></textarea></label>
+    <label class="edit-breed">Onderwerp van de e-mail<input type="text" data-t="emailSubject"></label>
+    <label class="edit-breed">Tekst van de e-mail<textarea class="beheer-preview" data-t="emailBody" rows="8"></textarea></label>`;
+  box.appendChild(velden);
+
+  const acties = el('div', 'prepared-actions');
+  const opslaan = el('button', 'btn btn-primary', 'Tekst opslaan');
+  acties.appendChild(opslaan);
+  box.appendChild(acties);
+  box.appendChild(melding);
+
+  let geladen = false;
+  box.addEventListener('toggle', async () => {
+    if (!box.open || geladen) return;
+    const r = await api('/api/template');
+    if (!r.ok) { beheerMelding(melding, 'Kon de tekst niet laden.', 'fout'); return; }
+    const t = (r.data && r.data.template) || {};
+    for (const k of ['whatsapp', 'emailSubject', 'emailBody']) velden.querySelector(`[data-t="${k}"]`).value = t[k] || '';
+    geladen = true;
+  });
+  opslaan.addEventListener('click', async () => {
+    opslaan.disabled = true;
+    const patch = {};
+    for (const k of ['whatsapp', 'emailSubject', 'emailBody']) patch[k] = velden.querySelector(`[data-t="${k}"]`).value;
+    const r = await api('/api/template', { method: 'PUT', body: JSON.stringify(patch) });
+    opslaan.disabled = false;
+    beheerMelding(melding, r.ok ? 'Opgeslagen. Nieuwe uitnodigingen gebruiken deze tekst.' : 'Opslaan mislukt.', r.ok ? '' : 'fout');
+  });
+  return box;
 }
 
 function uitnodigingRij(r, cfg) {
