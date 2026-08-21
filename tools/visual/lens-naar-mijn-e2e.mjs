@@ -310,6 +310,46 @@ try {
   const ins2 = (tweedeBezoek.body.insights || [])[0];
   stap(ins2 && ins2.id === ins.id && ins2.recognition === 'ja', 'zijn toegang blijft werken en toont dezelfde kamer');
 
+  // ---- de vier eigenaarsvragen ------------------------------------------------------------------
+  //
+  // Precies de dingen die je bij een echte pilot met het blote oog wilt kunnen vaststellen. De eerste
+  // drie gaan over koppeling en dubbeling; de vierde is de grens die nooit mag schuiven.
+
+  // 1. KOMT DE JUISTE PERSOON BINNEN, EN IS DE JUISTE KAMER GEKOPPELD?
+  // De relatie in de Cockpit en de mens in Mijn Maculis moeten dezelfde zijn, en de kamer moet bij
+  // dezelfde organisatie horen. Anders kijkt iemand in de omgeving van een ander.
+  const relaties = await api('/api/comm/relationships');
+  const relatie = (relaties.body.relationships || relaties.body.items || [])[0];
+  stap(Boolean(relatie), 'er is een relatie in de Cockpit');
+  const relNaam = relatie ? [relatie.first_name, relatie.last_name].filter(Boolean).join(' ') : '';
+  stap(relNaam === 'Ludwig Vermeulen', 'en het is dezelfde mens als in Mijn Maculis', relNaam);
+  stap((relatie && (relatie.org || relatie.organisatie || relatie.organization)) === 'OCEA',
+    'bij dezelfde organisatie als de kamer');
+
+  // 2. WORDT ER NIETS DUBBEL OPGESLAGEN?
+  // De sync draait bij ELKE keer dat iemand Vandaag of Beheer opent. Als die niet idempotent is,
+  // groeit het aantal kamers en inzichten stilletjes mee met het aantal keren dat je kijkt.
+  for (let i = 0; i < 3; i++) { await api('/api/cockpit/today'); await api('/api/invitations'); }
+  const naKijken = await api('/api/comm/relationships');
+  stap((naKijken.body.relationships || naKijken.body.items || []).length === 1,
+    'driemaal opnieuw kijken levert nog steeds één relatie op');
+  const insNa = await api('/api/mijn/insights', { headers: { 'x-mijn-token': mijn } });
+  stap((insNa.body.insights || []).length === 1, 'en nog steeds één inzicht', `${(insNa.body.insights || []).length}`);
+  const kamersNa = await api('/api/comm/mijn/kamers');
+  stap((kamersNa.body.kamers || []).length === 0,
+    'en er staat geen tweede kamer klaar naast de actieve', `${(kamersNa.body.kamers || []).length}`);
+  const detailNa = await api(`/api/mijn/insights/${ins.id}`, { headers: { 'x-mijn-token': mijn } });
+  stap((detailNa.body.stemmen || []).length === 2, 'zijn twee stemmen blijven twee stemmen');
+  stap((detailNa.body.evidence || []).length === 3, 'en de grond blijft drie regels');
+
+  // 3. ZIET DE COCKPIT ALLEEN WAT HIJ MAG ZIEN?
+  // Één harde greep over alles wat de Cockpit over deze mens kan tonen, en daarin mag zijn reflectie
+  // nergens voorkomen.
+  const dossier = await api(`/api/cockpit/relation/${relatie ? relatie.id || relatie.contact_id : 'x'}`);
+  const alles = JSON.stringify([relaties.body, kamersNa.body, dossier.body, (await api('/api/cockpit/today')).body]);
+  stap(!alles.includes('Klopt, dit zeggen klanten ook'), 'zijn reflectie staat op GEEN ENKEL Cockpitpad');
+  stap(!alles.includes(code) && !alles.includes(mijn), 'en er staat geen enkele toegangswaarde in');
+
 } catch (e) {
   stap(false, 'onverwachte fout', e.message);
   console.log('\n--- serverlog ---\n' + bootlog.slice(-2500));
