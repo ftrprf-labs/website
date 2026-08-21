@@ -227,8 +227,24 @@ async function syncLifecycleFromMaculis() {
           // wordt het event pas gezet als de voorbereiding werkelijk klaar is.
           if (res && res.ok && res.status !== 'wacht_op_contact') {
             store.recordEventOnce(inv.id, 'mijn_room_prepared', { result: res.status });
+          } else if (res && !res.ok) {
+            // DE REDEN MAG NIET MEER STIL VERDWIJNEN.
+            //
+            // Deze mens vroeg zelf om te bewaren en kreeg geen omgeving. `bereidKamerVoor` wist
+            // waarom en die reden werd hier weggegooid, dus er stond nergens dat het gebeurd was.
+            // De meest voorkomende reden is `no_statement`: de Lens deed geen uitspraak, wat een
+            // geldige uitkomst is en geen storing. Maar een geldige uitkomst hoort naleesbaar te
+            // zijn, niet stil.
+            //
+            // Vaste redencode, nooit vrije tekst: die draagt geen naam, geen adres en geen sleutel.
+            store.recordEventOnce(inv.id, 'mijn_room_not_prepared', { reason: res.reason || 'unknown' });
           }
-        } catch { /* best effort: de tester blijft gewoon AFGEROND en niets is half zichtbaar */ }
+        } catch (err) {
+          // Ook een uitzondering is een ontbrekende uitspraak met een oorzaak. Best effort blijft
+          // best effort, maar niet meer onzichtbaar.
+          try { store.recordEventOnce(inv.id, 'mijn_room_not_prepared', { reason: 'exception' }); } catch { /* stil */ }
+          void err;
+        }
       }
     }
   }

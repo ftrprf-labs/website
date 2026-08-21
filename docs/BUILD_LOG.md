@@ -5,6 +5,62 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-21 — Alleen vragen wat je kunt tonen
+
+**Stand.** Suite 299 van 299, echte end to end 67 van 67, cockpit-beheer 29 van 29,
+cockpit-activatie 19 van 19, tokengate en canon-scan groen. Deze wijziging raakt twee repo's.
+
+### Wat er misging in de eerste echte pilottest
+
+De Lens kwam bij de geanalyseerde site tot `outcome: SILENCE`. Dat is een geldige uitkomst en geen
+storing: de engine noemt het zelf een first-class success. Maar de bewaarvraag werd toch gesteld, en
+`bewaarSamenvatting()` liet het blok "Wat ik zag" simpelweg weg. De ondernemer kon dus ja zeggen
+tegen niets. Aan de andere kant weigerde `bereidKamerVoor()` terecht een lege kamer, dus die
+toestemming leverde nooit iets op en er kwam ook nooit bericht.
+
+### De regel is nu gebonden aan het artefact
+
+In de Lens stelt `gotoBewaren()` de vraag alleen wanneer er zowel iets op het scherm stond
+(`currentOutcome.line`) als iets wordt overgedragen (`session.shown.reveal_line`). Dat tweede veld is
+precies wat de Cockpit leest om de kamer te vullen, dus vraag en gevolg kunnen niet meer uit elkaar
+lopen. Bewust niet getoetst op het engine-label: gaat een toekomstig pad alsnog een uitspraak
+overdragen, dan komt de vraag vanzelf terug.
+
+Bij SILENCE sluit de Lens af met de bestaande terminale goodbye. Die telt als het werkelijke einde
+van de First Five, dus de tester komt gewoon op AFGEROND en de evaluatie wordt gewoon aangeboden.
+Bewust geen `restBeat`: die biedt standaard "Kijk naar een andere site" aan, en dat is precies de
+vraag die hier niet hoort.
+
+SILENCE blijft een geldige uitkomst. Er wordt geen uitspraak van gemaakt, niet uit de technische
+signalen en niet uit de observaties.
+
+### De poort in de Cockpit blijft, en zwijgt niet meer
+
+`bereidKamerVoor()` verandert niet. Twee systemen met twee deploys kunnen uit de pas lopen, dus de
+weigering blijft de fail-closed vangnet.
+
+Wat wel verandert: de reden werd weggegooid. Nu komt hij in de historie van de tester als
+`mijn_room_not_prepared` met een vaste redencode, één keer, via dezelfde mechaniek als
+`publish_to_maculis_failed`. Ook een uitzondering krijgt een reden. Een geldige uitkomst hoort
+naleesbaar te zijn, niet stil.
+
+### Een correctie op een eerdere bewering van mij
+
+Ik schreef dat er na een SILENCE niets in de relatielaag ontstaat. Dat klopt niet. `migrateInvitations`
+brengt bij elke start elke tester over naar contact en organisatie (§9), los van de Lens. Wat er niet
+ontstaat is de kamer, en dus ook geen kaart en geen inzicht. Het harnas legt dat nu vast: hij staat
+als gewone relatie in de Cockpit, zoals elke tester, en levert geen enkel signaal op.
+
+### Verificatie van de Lens
+
+De Lens-repo heeft geen client-testharnas en zijn adresvalidatie accepteert alleen echte
+domeinnamen, dus de volle journey tegen een lokale fixture kan niet. De wijziging is geverifieerd
+door de echte pagina te laden en `gotoBewaren()` met beide toestanden aan te roepen, dertien
+controles, allemaal groen. Die controle is niet gecommit; het blijft een gat dat die repo geen eigen
+harnas heeft.
+
+---
+
 ## 2026-08-21 — Pilot readiness: twee stille fouten weg, één voordeur
 
 **Stand.** Suite 299 van 299, echte end to end 48 van 48, cockpit-beheer 29 van 29,

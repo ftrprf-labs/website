@@ -61,6 +61,14 @@ const EVENTS = [
   'keep_consent_recorded',
   // ADR-0003 D4: de kamer is automatisch klaargezet. Observatie, nooit een status.
   'mijn_room_prepared',
+  // De voorbereiding ging NIET door, en waarom. Bestond niet: `bereidKamerVoor` gaf een nette reden
+  // terug (`no_statement`, `no_identity`, `no_organization`) en die werd weggegooid. Een ondernemer
+  // die zelf om bewaren vroeg kreeg dan niets, en nergens stond dat of waarom. Dat leest als rust
+  // terwijl het dat niet is.
+  //
+  // Eén keer per tester, want dit is een toestand en geen reeks pogingen: de sync probeert het bij
+  // elke schermverversing opnieuw en zou de historie anders volschrijven.
+  'mijn_room_not_prepared',
   // ADR-0003 D4: a person at Maculis sent the invitation to the prepared environment.
   'mijn_maculis_invited',
   // Pass the Lens: an existing tester/relation introduced this person. Observation

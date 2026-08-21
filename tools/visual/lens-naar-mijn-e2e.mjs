@@ -15,12 +15,15 @@ const PORT = 8099;
 const JPORT = 8098;
 const BASE = `http://127.0.0.1:${PORT}`;
 const TOKEN = 'e2e-participant-token-0001';
+// Een tweede deelnemer, met een SILENCE-sessie: afgerond, bewaartoestemming gegeven, maar zonder
+// uitspraak. Zo bewijzen we dat een ontbrekende uitspraak nooit als rust wordt behandeld.
+const TOKEN_STIL = 'e2e-participant-token-0002';
 
 const REVEAL = 'De expertise van OCEA lijkt online minder zichtbaar dan de werkelijkheid.';
 
 // ---- 1. de nagebootste Journey: één afgeronde sessie, precies zoals de echte export hem levert --
 const sessies = {
-  count: 1,
+  count: 2,
   lines: [{
     received_at: new Date().toISOString(),
     participant: TOKEN,
@@ -47,6 +50,27 @@ const sessies = {
       { name: 'novelty_answered', value: 'nieuw' },
       { name: 'account_handoff_accepted', at: new Date().toISOString() },
       { name: 'inner_circle_opt_in', version: 'maculis-contact-v1' },
+      { name: 'session_completed' },
+    ],
+  }, {
+    // De SILENCE-sessie. Precies zoals de Lens hem levert: een `shown`-blok met observaties en
+    // ZONDER `reveal_line`, geen `reveal_presented`, wel afgerond en wel bewaartoestemming.
+    //
+    // Deze deelnemer is bewust ouder dan de nieuwe Lens: hij heeft de bewaarvraag nog wél gekregen.
+    // Daarmee dekt hij de blijvende situatie waarin twee systemen niet gelijk op deploy staan. De
+    // poort in bereidKamerVoor moet dan nog steeds sluiten, en de reden moet naleesbaar zijn.
+    received_at: new Date().toISOString(),
+    participant: TOKEN_STIL,
+    session_id: 'e2e-2',
+    started_at: new Date(Date.now() - 600000).toISOString(),
+    updated_at: new Date().toISOString(),
+    shown: { outcome: 'SILENCE', observations: [{ note: 'iets wat opviel', meaning: '', lens: 'eerste indruk' }] },
+    inner_circle_opt_in: true,
+    contact_consent_version: 'maculis-contact-v1',
+    events: [
+      { name: 'session_started' },
+      { name: 'recognition_answered', value: 'ja' },
+      { name: 'account_handoff_accepted', at: new Date().toISOString() },
       { name: 'session_completed' },
     ],
   }],
@@ -152,13 +176,25 @@ try {
   stap(maak.status === 201, 'tester aangemaakt in Testerbeheer');
   const invId = maak.body && maak.body.invitation && maak.body.invitation.id;
 
+  // De tweede tester, die straks een SILENCE-sessie blijkt te hebben. Nu al aanmaken zodat één
+  // herstart beide tokens oppikt.
+  const maakStil = await api('/api/invitations', {
+    method: 'POST',
+    body: { first_name: 'Wies', last_name: 'Doorn', company_name: 'Doorn Advies', email: 'wies@doorn-e2e.nl', domain: 'doorn-e2e.nl' },
+  });
+  stap(maakStil.status === 201, 'tweede tester aangemaakt, die straks niets te bewaren blijkt te hebben');
+  const invIdStil = maakStil.body && maakStil.body.invitation && maakStil.body.invitation.id;
+
   // Zorg dat het token van de tester hetzelfde is als dat van de nagebootste sessie, want daarop
   // wordt gejoind. In het echt komt dat token uit de persoonlijke link.
   const { execSync } = await import('node:child_process');
   execSync(`node -e "
     const f='/var/tmp/e2e-data/invitations.json';
     const fs=require('fs'); const db=JSON.parse(fs.readFileSync(f,'utf8'));
-    db.invitations.forEach(i=>{ if(i.id==='${invId}'){ i.token='${TOKEN}'; i.status='SENT'; } });
+    db.invitations.forEach(i=>{
+      if(i.id==='${invId}'){ i.token='${TOKEN}'; i.status='SENT'; }
+      if(i.id==='${invIdStil}'){ i.token='${TOKEN_STIL}'; i.status='SENT'; }
+    });
     fs.writeFileSync(f, JSON.stringify(db,null,2));
   "`);
   // De server houdt de store in geheugen; herstart hem zodat hij het aangepaste token leest.
@@ -310,6 +346,41 @@ try {
   const ins2 = (tweedeBezoek.body.insights || [])[0];
   stap(ins2 && ins2.id === ins.id && ins2.recognition === 'ja', 'zijn toegang blijft werken en toont dezelfde kamer');
 
+  // ---- een sessie zonder uitspraak: geen kamer, en nooit stil -----------------------------------
+  //
+  // De Lens kan tot de slotsom komen dat hij niets gegronds te zeggen heeft. Dat is een geldige
+  // uitkomst en geen storing. Maar iemand die dan tóch om bewaren vroeg, moet niet in het niets
+  // verdwijnen: er is geen kamer, en juist daarom hoort er een spoor te zijn.
+  const stil = (await api('/api/invitations')).body.invitations.find((x) => x.id === invIdStil);
+  stap(Boolean(stil), 'de tweede tester bestaat');
+  stap(stil && stil.status === 'COMPLETED', 'zijn Lens is gewoon afgerond', stil ? stil.status : '');
+  stap(stil && stil.keep_consent === true, 'en zijn bewaartoestemming is vastgelegd');
+  stap(stil && !stil.history.some((h) => h.event === 'mijn_room_prepared'),
+    'er is GEEN persoonlijke omgeving klaargezet');
+  const nietKlaar = stil && stil.history.find((h) => h.event === 'mijn_room_not_prepared');
+  stap(Boolean(nietKlaar), 'en dat staat in zijn historie, in plaats van stil te verdwijnen');
+  stap(nietKlaar && nietKlaar.reason === 'no_statement', 'met de reden erbij', nietKlaar ? nietKlaar.reason : '');
+
+  // Hij STAAT wel als relatie in de Cockpit, en dat is geen gevolg van de Lens: `migrateInvitations`
+  // brengt bij het opstarten elke tester over naar contact en organisatie (§9). Een relatie zonder
+  // kamer is administratie, geen signaal: hij levert geen kaart op en er is niets van hem te lezen.
+  const naStil = await api('/api/comm/relationships');
+  const namen = (naStil.body.relationships || naStil.body.items || [])
+    .map((r) => [r.first_name, r.last_name].filter(Boolean).join(' '));
+  stap(namen.includes('Wies Doorn'), 'hij staat als gewone relatie in de Cockpit, zoals elke tester', namen.join(', '));
+
+  // En hij levert geen kaart op. Geen kamer betekent geen signaal, ook niet als aandachtspunt.
+  const naStilVandaag = await api('/api/cockpit/today');
+  const alleKaarten = naStilVandaag.status === 200 && naStilVandaag.body.buckets
+    ? [...naStilVandaag.body.buckets.NU, ...naStilVandaag.body.buckets.KLAAR, ...naStilVandaag.body.buckets.RADAR] : [];
+  stap(!JSON.stringify(alleKaarten).includes('Wies'), 'en geen kaart in Vandaag');
+
+  // Herhaalde verversingen schrijven de historie niet vol: dit is een toestand, geen reeks pogingen.
+  for (let i = 0; i < 3; i++) await api('/api/invitations');
+  const stilNa = (await api('/api/invitations')).body.invitations.find((x) => x.id === invIdStil);
+  const aantal = stilNa ? stilNa.history.filter((h) => h.event === 'mijn_room_not_prepared').length : 0;
+  stap(aantal === 1, 'en de melding staat er precies één keer, ook na drie verversingen', `${aantal}`);
+
   // ---- de vier eigenaarsvragen ------------------------------------------------------------------
   //
   // Precies de dingen die je bij een echte pilot met het blote oog wilt kunnen vaststellen. De eerste
@@ -319,10 +390,9 @@ try {
   // De relatie in de Cockpit en de mens in Mijn Maculis moeten dezelfde zijn, en de kamer moet bij
   // dezelfde organisatie horen. Anders kijkt iemand in de omgeving van een ander.
   const relaties = await api('/api/comm/relationships');
-  const relatie = (relaties.body.relationships || relaties.body.items || [])[0];
-  stap(Boolean(relatie), 'er is een relatie in de Cockpit');
-  const relNaam = relatie ? [relatie.first_name, relatie.last_name].filter(Boolean).join(' ') : '';
-  stap(relNaam === 'Ludwig Vermeulen', 'en het is dezelfde mens als in Mijn Maculis', relNaam);
+  const alleRel = relaties.body.relationships || relaties.body.items || [];
+  const relatie = alleRel.find((r) => [r.first_name, r.last_name].filter(Boolean).join(' ') === 'Ludwig Vermeulen');
+  stap(Boolean(relatie), 'de mens uit de kamer staat als relatie in de Cockpit');
   stap((relatie && (relatie.org || relatie.organisatie || relatie.organization)) === 'OCEA',
     'bij dezelfde organisatie als de kamer');
 
@@ -331,8 +401,8 @@ try {
   // groeit het aantal kamers en inzichten stilletjes mee met het aantal keren dat je kijkt.
   for (let i = 0; i < 3; i++) { await api('/api/cockpit/today'); await api('/api/invitations'); }
   const naKijken = await api('/api/comm/relationships');
-  stap((naKijken.body.relationships || naKijken.body.items || []).length === 1,
-    'driemaal opnieuw kijken levert nog steeds één relatie op');
+  stap((naKijken.body.relationships || naKijken.body.items || []).length === alleRel.length,
+    'driemaal opnieuw kijken levert geen enkele relatie extra op', `${alleRel.length}`);
   const insNa = await api('/api/mijn/insights', { headers: { 'x-mijn-token': mijn } });
   stap((insNa.body.insights || []).length === 1, 'en nog steeds één inzicht', `${(insNa.body.insights || []).length}`);
   const kamersNa = await api('/api/comm/mijn/kamers');

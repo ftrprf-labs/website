@@ -1196,12 +1196,18 @@ const HIST_EVENT = {
   consent_recorded: 'Toestemming vastgelegd', consent_changed: 'Toestemming gewijzigd',
   published_to_maculis: 'Gepubliceerd naar Maculis', publish_to_maculis_failed: 'Publiceren naar Maculis mislukt',
   keep_consent_recorded: 'Bewaartoestemming vastgelegd', mijn_room_prepared: 'Persoonlijke omgeving klaargezet',
+  mijn_room_not_prepared: 'Persoonlijke omgeving niet klaargezet',
   mijn_maculis_invited: 'Mijn Maculis uitnodiging verstuurd', pass_the_lens_introduction: 'Aangedragen via Pass the Lens',
 };
 const HIST_REDEN = {
   no_data_dir: 'geen schrijfbare opslag bij de Lens', not_configured: 'koppeling niet ingesteld',
   forbidden: 'sleutel geweigerd', network: 'Lens niet bereikbaar', timeout: 'Lens reageerde niet op tijd',
   http: 'onverwacht antwoord van de Lens', exception: 'onverwachte fout',
+  // Waarom een persoonlijke omgeving niet is klaargezet. `no_statement` is geen storing: de Lens
+  // deed geen uitspraak, en dat is een geldige uitkomst die alleen naleesbaar hoort te zijn.
+  no_statement: 'er kwam geen uitspraak mee uit de Lens',
+  no_identity: 'de persoon was niet te herleiden', no_organization: 'de organisatie was niet te herleiden',
+  no_input: 'er kwam geen bruikbare sessie mee', unknown: 'onbekende reden',
 };
 const HIST_KANAAL = { whatsapp: 'WhatsApp', email: 'E-mail' };
 
