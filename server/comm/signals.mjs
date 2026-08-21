@@ -20,6 +20,8 @@ import { query } from './db.mjs';
 import { attentionOverview } from './attention.mjs';
 import { listFollowUps } from './followups.mjs';
 import { listWorkItems, shapeWorkItem } from './work.mjs';
+import { channelAllowed } from './consent.mjs';
+import { getChannelProvider } from './providers/index.mjs';
 
 // The senses that can raise a signal. Only COMM and FOLLOW_UP are wired in Slice 5; the rest are
 // declared so the contract (and the aggregation/ranking) is source-agnostic from day one.
@@ -39,7 +41,10 @@ export const SIGNAL_PRIORITY = {
   INBOUND_MESSAGE: 88,     // an unanswered inbound message
   FOLLOWUP_OVERDUE: 80,
   FOLLOWUP_DUE: 70,
+  MIJN_ROOM_READY: 60,     // iemand vroeg zelf om te bewaren en wacht op een mens (KLAAR)
+  MIJN_ROOM_EXPIRED: 55,   // uitgenodigd, nooit binnengekomen, de link is verlopen (KLAAR)
   FOLLOWUP_UPCOMING: 50,   // prepared work, not due yet (KLAAR)
+  MIJN_ROOM_WAITING: 25,   // bewaren zonder benaderen: er gaat niets uit (RADAR)
   QUIET_RELATIONSHIP: 20,  // radar
 };
 
@@ -50,6 +55,8 @@ const BUCKET_OF = {
   DELIVERY_PROBLEM: 'NU', INBOUND_QUESTION: 'NU', INBOUND_MESSAGE: 'NU',
   FOLLOWUP_OVERDUE: 'NU', FOLLOWUP_DUE: 'NU',
   FOLLOWUP_UPCOMING: 'KLAAR',
+  MIJN_ROOM_READY: 'KLAAR', MIJN_ROOM_EXPIRED: 'KLAAR',
+  MIJN_ROOM_WAITING: 'RADAR',
   QUIET_RELATIONSHIP: 'RADAR',
 };
 
@@ -168,6 +175,55 @@ export function deriveQuietSignal(rel, now, { thresholdDays = 45 } = {}) {
   });
 }
 
+// ---- FIRST_LENS: een klaargezette Mijn Maculis kamer -------------------------------------------
+//
+// ADR-0003 D4. De ondernemer vroeg zelf om te bewaren, de kamer is automatisch klaargezet, en wat
+// overblijft is de enige handeling die het gebouw verlaat. Die blijft menselijk.
+//
+// DIT IS EEN AFLEIDING, GEEN OBJECT. Er is met opzet geen tabel met interessesignalen en geen rij in
+// attention_item. De toestand van de kamer IS het signaal: verandert die, dan verdwijnt de kaart
+// vanzelf. Zou het signaal apart zijn opgeslagen, dan kon het blijven staan nadat iemand allang
+// besloten had, en dat is precies de dubbele waarheid die deze radar niet mag hebben.
+//
+// Wat er met opzet NIET in dit signaal zit: geen reflectie, geen antwoord uit de kamer, geen token.
+// `uitspraak` is de zin die de ondernemer zelf in de Lens gelezen heeft; die teruggeven aan de mens
+// die erover beslist is overdracht, geen inzage in wat hij daarna privé heeft opgeschreven.
+export function deriveKamerSignaal(row, { derivedAt } = {}) {
+  if (!row || !row.contactId) return null;
+  const who = [row.firstName, row.lastName].filter(Boolean).join(' ') || null;
+  const base = {
+    source: 'FIRST_LENS', sourceId: row.id,
+    contactId: row.contactId, organizationId: row.organizationId || null,
+    who, org: row.org || null,
+    occurredAt: row.createdAt || null, relevantAt: row.invitedAt || row.createdAt || null, derivedAt,
+  };
+  const kamer = {
+    id: row.id, status: row.status,
+    uitspraak: row.uitspraak || null,
+    kanalen: Array.isArray(row.kanalen) ? row.kanalen : [],
+    herhaling: row.status === 'uitgenodigd',
+  };
+  const naam = firstName(who);
+
+  if (row.status === 'klaargezet') {
+    return { ...signal({ ...base, type: 'MIJN_ROOM_READY', rule: "mijn_room.status='klaargezet'",
+      reason: `${naam} vroeg om dit te bewaren. De persoonlijke omgeving staat klaar.` }), kind: 'kamer', kamer };
+  }
+  if (row.status === 'wacht_op_contact') {
+    // Geen actiepunt en toch zichtbaar: iemand vroeg om te bewaren en krijgt bewust niets. Stil
+    // laten gebeuren zou de keuze onzichtbaar maken in plaats van gerespecteerd.
+    return { ...signal({ ...base, type: 'MIJN_ROOM_WAITING', rule: "mijn_room.status='wacht_op_contact'",
+      reason: `${naam} vroeg om dit te bewaren, maar gaf geen toestemming om benaderd te worden. Er gaat niets uit.` }), kind: 'kamer', kamer };
+  }
+  if (row.status === 'uitgenodigd' && !row.levendeUitnodiging) {
+    // De uitnodiging is verlopen zonder dat iemand binnenkwam. De kamer blijft van hem, dus dit is
+    // geen nieuwe kamer en geen nieuwe toestemming: alleen dezelfde deurbel nog een keer.
+    return { ...signal({ ...base, type: 'MIJN_ROOM_EXPIRED', rule: "mijn_room.status='uitgenodigd' zonder levende uitnodiging",
+      reason: `De uitnodiging aan ${naam} is verlopen zonder dat hij binnen is geweest.` }), kind: 'kamer', kamer };
+  }
+  return null; // uitgenodigd met een levende link, actief, ingetrokken: er valt niets te beslissen
+}
+
 // ---- Aggregation: many signals → one card per relation (§ 15, no card explosion) ---------------
 // Group by contact (fallback: conversation). primary = highest priority; the rest become secondary
 // reasons, deduped by type. The card's bucket is the primary's bucket, so a relation surfaces once,
@@ -203,6 +259,9 @@ export function aggregateSignals(signals) {
       .map((s) => ({ id: s.followUpId, reason: s.reason, type: s.type, overdue: s.type === 'FOLLOWUP_OVERDUE', upcoming: s.type === 'FOLLOWUP_UPCOMING' }));
     // Authored colleague work touching this relation, in full (origin, evidence, proposal, actions).
     const work = sorted.filter((s) => s.work).map((s) => s.work);
+    // De klaargezette kamer rijdt in zijn geheel mee, net als geauteurd werk, zodat de kaart de
+    // status en de werkelijk mogelijke kanalen kent zonder een tweede aanroep.
+    const kamer = (sorted.find((s) => s.kamer) || {}).kamer || null;
     // Het gesprek van de kaart is het gesprek van de PRIMAIRE reden. Anders kan de knop naar een
     // andere draad wijzen dan de reden die eronder staat, en dan opent een mens iets anders dan
     // waar hij op klikte. Alleen wanneer de primaire reden zelf geen gesprek heeft (werk van een
@@ -211,7 +270,7 @@ export function aggregateSignals(signals) {
     const conv = primary.conversationId ? primary : sorted.find((s) => s.conversationId);
     cards.push({
       key: gkey,
-      kind: primary.kind === 'work' ? 'work' : 'relation',
+      kind: primary.kind === 'work' ? 'work' : (primary.kind === 'kamer' ? 'kamer' : 'relation'),
       bucket: primary.bucket,
       contactId: primary.contactId || (conv && conv.contactId) || null,
       conversationId: conv ? conv.conversationId : null,
@@ -222,7 +281,7 @@ export function aggregateSignals(signals) {
         origin: primary.work ? primary.work.origin : null, needs: primary.work ? primary.work.needs : null },
       secondary: secondary.slice(0, 3),
       followUps,
-      work,
+      work, kamer,
       hasPrepared: group.some((s) => s.prepared),
       priority: primary.priority,
       relevantAt: primary.relevantAt || primary.occurredAt || null,
@@ -250,6 +309,30 @@ export function rankCards(cards) {
     if (ta !== tb) return ta - tb;
     return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
   });
+}
+
+// Welke kanalen een uitnodiging naar Mijn Maculis werkelijk kunnen dragen, per kamer.
+//
+// Bewust drie losse redenen in plaats van één boolean: een medewerker die een kanaal niet ziet, moet
+// kunnen weten waarom. `geen_transport` los je op met een instelling, `geen_toestemming` nooit.
+//
+// De kanaalkeuze wordt NIET afgeleid uit de algemene toestemming uit de Lens. Die vraag ging over
+// benaderen, niet over WhatsApp, en een kanaal afleiden uit een kanaalloze vraag is precies de
+// afleiding die ADR-0003 D2 verbiedt. Staat er geen expliciete kanaalvoorkeur, dan blijft WhatsApp
+// dicht en dat is de bedoeling.
+const KAMER_KANALEN = ['WHATSAPP', 'EMAIL'];
+async function kanaalKeuzes(tenantId, row) {
+  const adres = { WHATSAPP: row.mobile || null, EMAIL: row.email || null };
+  const out = [];
+  for (const kanaal of KAMER_KANALEN) {
+    const prov = getChannelProvider(kanaal);
+    if (!adres[kanaal]) { out.push({ kanaal, mogelijk: false, reden: 'geen_adres' }); continue; }
+    if (!prov || prov.mode !== 'live') { out.push({ kanaal, mogelijk: false, reden: 'geen_transport' }); continue; }
+    // eslint-disable-next-line no-await-in-loop
+    const c = await channelAllowed(tenantId, row.contact_id, kanaal, 'service');
+    out.push(c.allowed ? { kanaal, mogelijk: true, reden: 'ok' } : { kanaal, mogelijk: false, reden: 'geen_toestemming' });
+  }
+  return out;
 }
 
 // ---- DB orchestration: authoritative tenant state → ranked, bucketed radar ---------------------
@@ -327,7 +410,49 @@ export async function buildRadar(tenantId, { now = new Date(), contactId = null,
   // attention; the full work item rides along for the card (origin, evidence, proposal, actions).
   const workRows = await listWorkItems(tenantId, { status: 'open', contactId });
   const workEls = workRows.map(shapeWorkItem).map(workElement);
-  const elements = [...signals, ...workEls];
+
+  // 5) FIRST_LENS — kamers die op één menselijke beslissing wachten (ADR-0003 D4).
+  //
+  // Geen aparte tabel en geen rij in attention_item: de kamer bestaat al en zijn status is het
+  // signaal. Afgewezen kamers vallen hier weg. De kamer blijft bestaan, want de ondernemer vroeg om
+  // te bewaren, maar een kaart die blijft staan nadat een mens besloten heeft is geen signaal meer.
+  const kamerRows = (await query(
+    `select r.id, r.status, r.organization_id, r.contact_id, r.created_at, r.invited_at,
+            o.name as org, c.first_name, c.last_name, c.email, c.mobile,
+            (select ci.title from customer_insight ci
+              where ci.organization_id = r.organization_id and ci.status <> 'archived'
+              order by ci.created_at asc limit 1) as uitspraak,
+            exists(select 1 from customer_invite iv
+                    where iv.tenant_id = r.tenant_id and iv.contact_id = r.contact_id
+                      and iv.accepted_at is null and iv.revoked_at is null and iv.expires_at > now()
+                  ) as levende_uitnodiging
+       from mijn_room r
+       join organization o on o.id = r.organization_id
+       left join contact c on c.id = r.contact_id
+      where r.tenant_id=$1 and r.declined_at is null
+        and ($2::uuid is null or r.contact_id = $2)
+        and r.status in ('klaargezet','wacht_op_contact','uitgenodigd')
+      order by r.created_at asc limit 50`, [tenantId, contactId])).rows;
+
+  const kamerEls = [];
+  for (const r of kamerRows) {
+    // Welke kanalen werkelijk kunnen. Drie voorwaarden tegelijk, en alle drie een feit in plaats van
+    // een aanname: er is een adres, de provider draait echt live, en de toestemming staat het toe.
+    //
+    // `mode === 'live'` is hier de belangrijkste regel. De mock-adapter geeft `ok:true` terug, dus
+    // toetsen op "bestaat er een provider" zou "verzonden" melden terwijl er niets verstuurd is.
+    // eslint-disable-next-line no-await-in-loop
+    const kanalen = await kanaalKeuzes(tenantId, r);
+    const s = deriveKamerSignaal({
+      id: r.id, status: r.status, contactId: r.contact_id, organizationId: r.organization_id,
+      firstName: r.first_name, lastName: r.last_name, org: r.org,
+      createdAt: r.created_at, invitedAt: r.invited_at, uitspraak: r.uitspraak,
+      levendeUitnodiging: r.levende_uitnodiging, kanalen,
+    }, { derivedAt });
+    if (s) kamerEls.push(s);
+  }
+
+  const elements = [...signals, ...workEls, ...kamerEls];
 
   // Aggregate → cards → bucket → rank.
   const cards = aggregateSignals(elements);
@@ -335,7 +460,7 @@ export async function buildRadar(tenantId, { now = new Date(), contactId = null,
   for (const card of cards) buckets[card.bucket].push(card);
   for (const b of BUCKETS) buckets[b] = rankCards(buckets[b]);
 
-  const counts = { nu: buckets.NU.length, klaar: buckets.KLAAR.length, radar: buckets.RADAR.length, work: workEls.length };
+  const counts = { nu: buckets.NU.length, klaar: buckets.KLAAR.length, radar: buckets.RADAR.length, work: workEls.length, kamers: kamerEls.length };
   const replyReady = cards.filter((c) => c.hasPrepared).length;
 
   // Honest provenance of what the radar does NOT yet derive (§ 13, § 32 — do not fake).

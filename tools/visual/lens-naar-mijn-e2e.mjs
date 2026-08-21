@@ -169,17 +169,21 @@ try {
 
   // ---- de sync: dit is de hele automatische voorbereiding ---------------------------------------
   //
-  // Bewust UITSLUITEND via de Cockpit, en niet via de testerlijst. Dat was namelijk het gat: de
-  // Cockpit toonde een lijst kamers en was de enige pagina die niet probeerde die lijst actueel te
-  // maken. Wie hier /api/invitations eerst aanroept, test de oude weg en merkt de reparatie niet.
-  let kamers = null;
+  // Bewust UITSLUITEND via Cockpit Vandaag, en niet via de testerlijst. Dat is sinds deze stap de
+  // enige interne voordeur: een medewerker opent de Cockpit en verder niets. Wie hier eerst
+  // /api/invitations aanroept, test de oude weg en merkt de reparatie niet.
+  let vandaag = null;
+  let kaart = null;
   for (let i = 0; i < 20; i++) {
-    kamers = await api('/api/comm/mijn/kamers');
-    if ((kamers.body.kamers || []).length) break;
+    vandaag = await api('/api/cockpit/today');
+    const alle = vandaag.status === 200 && vandaag.body.buckets
+      ? [...vandaag.body.buckets.NU, ...vandaag.body.buckets.KLAAR, ...vandaag.body.buckets.RADAR] : [];
+    kaart = alle.find((c) => c.kamer) || null;
+    if (kaart) break;
     await wacht(400);
   }
-  stap(kamers && kamers.body.sync && kamers.body.sync.ok === true,
-    'de Cockpit werkt zichzelf bij vanaf de Lens', kamers && kamers.body.sync ? JSON.stringify(kamers.body.sync) : 'geen sync');
+  stap(vandaag && vandaag.body.sync && vandaag.body.sync.ok === true,
+    'Vandaag werkt zichzelf bij vanaf de Lens', vandaag && vandaag.body.sync ? JSON.stringify(vandaag.body.sync) : 'geen sync');
 
   // Pas hierna de testerlijst, om vast te stellen wat de Cockpit al had veroorzaakt.
   let rec = null;
@@ -194,22 +198,45 @@ try {
   stap(rec && rec.consent_status === 'OPTED_IN', 'de contacttoestemming staat er los naast');
   stap(rec && rec.history.some((h) => h.event === 'mijn_room_prepared'), 'de kamer is automatisch klaargezet');
 
-  // ---- de Cockpitregel --------------------------------------------------------------------------
-  const kamer = (kamers.body.kamers || [])[0];
-  stap(Boolean(kamer), 'de kamer staat in de Cockpit, zonder dat de testerlijst is geopend');
-  stap(kamer && kamer.organisatie === 'OCEA', 'met de juiste organisatie', kamer ? kamer.organisatie : '');
-  stap(kamer && kamer.naam === 'Ludwig Vermeulen', 'en de juiste mens');
-  stap(kamer && kamer.eersteInzicht === REVEAL, 'de regel toont de zin uit de Lens, woordelijk');
-  stap(kamer && kamer.inzichten === 1, 'precies één inzicht', kamer ? String(kamer.inzichten) : '');
-  const geenPersoonlijk = !JSON.stringify(kamers.body).includes('deels');
-  stap(geenPersoonlijk, 'het antwoord uit de Lens staat NIET in de Cockpitregel');
+  // ---- de actiekaart in Vandaag -----------------------------------------------------------------
+  stap(Boolean(kaart), 'de actiekaart staat in Vandaag, zonder dat de testerlijst is geopend');
+  stap(kaart && kaart.bucket === 'KLAAR', 'als voorbereid werk, niet als urgentie', kaart ? kaart.bucket : '');
+  stap(kaart && kaart.primary.type === 'MIJN_ROOM_READY', 'met de juiste reden', kaart ? kaart.primary.type : '');
+  stap(kaart && kaart.primary.source === 'FIRST_LENS', 'en de Lens als herkomst', kaart ? kaart.primary.source : '');
+  stap(kaart && kaart.org === 'OCEA', 'met de juiste organisatie', kaart ? kaart.org : '');
+  stap(kaart && kaart.who === 'Ludwig Vermeulen', 'en de juiste mens');
+  stap(kaart && kaart.kamer.uitspraak === REVEAL, 'de kaart toont de zin uit de Lens, woordelijk');
+  const kanalen = kaart ? Object.fromEntries(kaart.kamer.kanalen.map((k) => [k.kanaal, k.reden])) : {};
+  // Deze tester heeft geen mobiel nummer, dus WhatsApp valt af op het adres en e-mail op het
+  // ontbrekende transport. Twee verschillende redenen, en allebei zichtbaar: een medewerker die een
+  // kanaal mist, moet kunnen weten of hij dat oplost met een instelling of nooit.
+  stap(kaart && kaart.kamer.kanalen.every((k) => !k.mogelijk),
+    'geen enkel kanaal doet alsof: de mock-adapter levert nooit "verzonden"', JSON.stringify(kanalen));
+  stap(kanalen.EMAIL === 'geen_transport' && kanalen.WHATSAPP === 'geen_adres',
+    'en de reden staat er per kanaal bij', JSON.stringify(kanalen));
+  const geenPersoonlijk = !JSON.stringify(kaart || {}).includes('deels');
+  stap(geenPersoonlijk, 'het antwoord uit de Lens staat NIET op de actiekaart');
 
-  // ---- de menselijke handeling ------------------------------------------------------------------
-  const nodig = await api(`/api/comm/mijn/kamers/${kamer.id}/uitnodigen`, { method: 'POST', body: {} });
-  stap(nodig.status === 200 && nodig.body.ok, 'de medewerker nodigt uit');
-  stap(nodig.body.bezorging === 'handmatig', 'geen e-mailtransport, dus niets verstuurd en de link komt terug');
+  // ---- de ene menselijke bevestiging ------------------------------------------------------------
+  const nodig = await api(`/api/comm/mijn/kamers/${kaart.kamer.id}/uitnodigen`, { method: 'POST', body: {} });
+  stap(nodig.status === 200 && nodig.body.ok, 'de medewerker bevestigt, en Maculis voert de rest uit');
+  stap(nodig.body.bezorging === 'handmatig', 'geen verzendkanaal, dus niets verstuurd en de link komt terug');
+  stap(nodig.body.herhaling === false, 'en dit is de eerste keer');
   const link = nodig.body.link || '';
   stap(link.startsWith(BASE + '/mijn.html?u='), 'de link wijst naar Mijn Maculis', link.slice(0, 40) + '…');
+
+  // De kaart is een afleiding en geen object: beslist is beslist.
+  const naBesluit = await api('/api/cockpit/today');
+  const nogSteeds = naBesluit.status === 200 && naBesluit.body.buckets
+    ? [...naBesluit.body.buckets.NU, ...naBesluit.body.buckets.KLAAR, ...naBesluit.body.buckets.RADAR].filter((c) => c.kamer) : [];
+  stap(nogSteeds.length === 0, 'de kaart verdwijnt vanzelf uit Vandaag', `${nogSteeds.length} over`);
+
+  // De historie van de tester weet ervan, want Testerbeheer is de plek waar een medewerker de reis
+  // van één mens naleest.
+  const naLijst = await api('/api/invitations');
+  const recNa = (naLijst.body.invitations || []).find((x) => x.id === invId);
+  stap(recNa && recNa.history.some((h) => h.event === 'mijn_maculis_invited'),
+    'de uitnodiging staat in de historie van de tester');
 
   // ---- de ondernemer komt binnen ----------------------------------------------------------------
   const code = new URL(link).searchParams.get('u');

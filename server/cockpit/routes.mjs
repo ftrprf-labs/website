@@ -155,7 +155,7 @@ function reachability(rel) {
 
 // ---- handler ----------------------------------------------------------------
 
-export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
+export async function handleCockpit(req, res, { pathname, method, isAuthed, syncLifecycle = null }) {
   if (!pathname.startsWith('/api/cockpit/')) return false;
   const u = new URL(req.url, 'http://x');
 
@@ -217,12 +217,27 @@ export async function handleCockpit(req, res, { pathname, method, isAuthed }) {
   // relation and ranked into three buckets: NU (needs you), KLAAR (Maculis prepared something),
   // OP DE RADAR (relevant, no action needed). Recomputed every call, so it can never go stale.
   if (pathname === '/api/cockpit/today' && method === 'GET') {
+    // EERST DE LENS BIJWERKEN, DAN PAS TONEN. Vandaag toont sinds Slice 5 ook de kamers die op één
+    // menselijke beslissing wachten, en die ontstaan uit een afgeronde Lens. Zonder deze aanroep
+    // zou een kamer hier pas verschijnen nadat iemand toevallig een ander scherm opende, en dat is
+    // precies het gat dat de kamerlijst eerder al dichtte. Dezelfde sync, dezelfde poort.
+    //
+    // Faalt het, dan blokkeert dat niets: de radar komt uit de database en de reden gaat mee in het
+    // antwoord. Een storing in de Lens mag nooit als rust lezen op het stiltescherm.
+    let sync = { ok: true };
+    if (typeof syncLifecycle === 'function') {
+      try {
+        const r = await syncLifecycle();
+        if (r && r.ok === false) sync = { ok: false, reason: r.reason || 'unknown' };
+      } catch { sync = { ok: false, reason: 'exception' }; }
+    }
     const radar = await buildRadar(tenantId);
     // Privacy rijdt mee op dezelfde aanroep, maar blijft buiten de radar en buiten de bakken. Het is
     // een telling en een ouderdom, geen aandachtskaart: de Cockpit toont nooit een privacygesprek.
     const privacy = await privacyAttention(tenantId);
     json(res, 200, {
       headline: radarHeadline(radar.counts, radar.replyReady),
+      sync,
       privacy,
       counts: radar.counts,
       buckets: radar.buckets,          // { NU:[cards], KLAAR:[cards], RADAR:[cards] }

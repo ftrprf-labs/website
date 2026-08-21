@@ -1400,3 +1400,15 @@ body {
      het operationele scherm na dit bestand wordt geladen. */
   .rail .ask-scout { width: auto; flex: 0 0 auto; margin: 0; white-space: nowrap; }
 }
+
+/* ---- Mijn Maculis: de klaargezette persoonlijke omgeving in Vandaag ----
+   Rustig en zonder telling. Dit is één beslissing per mens, geen werkvoorraad. */
+.kamerblok{margin-top:10px;padding-top:10px;border-top:1px solid var(--line, rgba(255,255,255,.08))}
+.kamer-uitspraak{margin:0 0 10px;padding-left:12px;border-left:2px solid var(--semantic-confirmed, #7aa2a0);
+  font-size:14px;line-height:1.5;color:var(--text, inherit)}
+.kamer-note{margin:8px 0 0;font-size:12px;color:var(--text-quiet, #8a8a8a);line-height:1.5}
+.kamer-acties{flex-wrap:wrap;gap:8px}
+.kamer-link{width:100%;margin-top:8px;padding:8px 10px;font-size:12px;font-family:ui-monospace,monospace;
+  border:1px solid var(--line, rgba(255,255,255,.12));border-radius:8px;
+  background:var(--field, rgba(255,255,255,.04));color:var(--text, inherit)}
+.sync-note{margin-top:14px}

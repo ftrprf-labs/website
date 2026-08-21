@@ -47,7 +47,7 @@ const ipRefOf = (req) => (req.socket && req.socket.remoteAddress ? String(req.so
 // app_user capabilities (§44) plugs in here.
 function capabilities() { return { communication: true, privacy: true, admin: true }; }
 
-export async function handleComm(req, res, { pathname, method, isAuthed, syncLifecycle = null }) {
+export async function handleComm(req, res, { pathname, method, isAuthed, syncLifecycle = null, meldUitnodiging = null }) {
   if (!commEnabled() || !pathname.startsWith('/api/comm/')) return false;
   const u = new URL(req.url, 'http://x');
 
@@ -95,9 +95,18 @@ export async function handleComm(req, res, { pathname, method, isAuthed, syncLif
     if (actie === 'uitnodigen') {
       // De enige handeling in deze keten die het gebouw verlaat, en daarom de enige met een mens
       // ervoor. Uitstellen bestaat niet als handeling: dat is de knop niet indrukken.
-      const r = await nodigUit(tenantId, roomId, { ipRef: ipRefOf(req) });
+      //
+      // Het kanaal komt uit de klik en niet uit een afleiding: de medewerker kiest WhatsApp of
+      // e-mail, en zonder keuze wordt er niets verstuurd maar alleen klaargezet.
+      const body = await readJson(req) || {};
+      const r = await nodigUit(tenantId, roomId, { ipRef: ipRefOf(req), kanaal: body.kanaal || null });
+      // De historie van de tester in Testerbeheer hoort te weten dat dit gebeurd is. Best effort:
+      // een uitnodiging die de deur uit is mag niet alsnog mislukken omdat het logboek hapert.
+      if (r.ok && typeof meldUitnodiging === 'function') {
+        try { await meldUitnodiging({ email: r.email, mobile: r.mobile, bezorging: r.bezorging, herhaling: r.herhaling }); } catch { /* stil */ }
+      }
       json(res, r.ok ? 200 : 400, r.ok
-        ? { ok: true, bezorging: r.bezorging, link: r.link || null, kamer: await kamer(tenantId, roomId) }
+        ? { ok: true, bezorging: r.bezorging, herhaling: r.herhaling, link: r.link || null, kamer: await kamer(tenantId, roomId) }
         : { ok: false, error: r.error });
       return true;
     }

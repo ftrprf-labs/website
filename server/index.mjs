@@ -235,6 +235,23 @@ async function syncLifecycleFromMaculis() {
   return { ok: true, byToken };
 }
 
+// De uitnodiging naar Mijn Maculis in de historie van de tester zetten.
+//
+// De relationele kant legt dit al vast in de audit, maar Testerbeheer is de plek waar een medewerker
+// de reis van één mens naleest, en daar ontbrak dit. Het event `mijn_maculis_invited` stond sinds
+// ADR-0003 D4 gedeclareerd en werd nergens geschreven.
+//
+// Deze functie leeft hier omdat alleen deze laag de JSON-store kent. De relationele laag krijgt hem
+// als naad doorgegeven, precies zoals `syncLifecycleFromMaculis`, en hoeft `store.mjs` niet te
+// kennen. Herhaalbaar: opnieuw uitnodigen is een eigen gebeurtenis, geen dubbele registratie van de
+// eerste.
+async function meldUitnodiging({ email = null, mobile = null, bezorging = null, herhaling = false } = {}) {
+  if (!email && !mobile) return;
+  const rec = store.findByPersonKey({ email, mobile });
+  if (!rec) return;
+  store.addEvent(rec.id, 'mijn_maculis_invited', { channel: bezorging || undefined, result: herhaling ? 'opnieuw' : 'verstuurd' });
+}
+
 const securityHeaders = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
@@ -302,7 +319,7 @@ async function handleApi(req, res, pathname) {
   // other comm routes gate on the admin session inside handleComm. Additive — never touches the
   // existing Invitation Manager / First Five routes.
   if (pathname.startsWith('/api/comm/')) {
-    const handled = await handleComm(req, res, { pathname, method, isAuthed, syncLifecycle: syncLifecycleFromMaculis });
+    const handled = await handleComm(req, res, { pathname, method, isAuthed, syncLifecycle: syncLifecycleFromMaculis, meldUitnodiging });
     if (handled) return;
   }
 
@@ -317,7 +334,7 @@ async function handleApi(req, res, pathname) {
   // Future Cockpit orchestration layer (Slice 1-5). Meaning-first, fail-closed inside
   // handleCockpit (503 unless the Communication Layer is enabled). Owns work landing + resolution.
   if (pathname.startsWith('/api/cockpit/')) {
-    const handled = await handleCockpit(req, res, { pathname, method, isAuthed });
+    const handled = await handleCockpit(req, res, { pathname, method, isAuthed, syncLifecycle: syncLifecycleFromMaculis });
     if (handled) return;
   }
 

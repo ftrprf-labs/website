@@ -207,6 +207,7 @@ async function renderVandaag() {
   const wrap = el('div', 'view-enter');
   if (!ok) { wrap.appendChild(el('p', 'lead-note', 'Kon aandacht niet laden.')); view.appendChild(wrap); return; }
   const h = data.headline || { primary: '', secondary: null, zero: false };
+  const syncNote = syncNotice(data.sync);
   const buckets = data.buckets || { NU: [], KLAAR: [], RADAR: [] };
   const counts = data.counts || { nu: 0, klaar: 0, radar: 0 };
   document.getElementById('nc-vandaag').textContent = counts.nu ? String(counts.nu) : '';
@@ -219,6 +220,9 @@ async function renderVandaag() {
     s.innerHTML = `<h2>${esc(h.primary || 'Je bent bij.')}</h2>${h.secondary ? `<p>${esc(h.secondary)}</p>` : ''}
       <div class="whisper">Maculis kijkt verder. Als er iets werkelijk toe doet, zie je het hier.</div>`;
     wrap.appendChild(s);
+    // Een storing in de Lens mag nooit als rust lezen. Juist hier niet: op dit scherm staat
+    // letterlijk "Je bent bij", terwijl er iemand kan wachten die we simpelweg niet konden ophalen.
+    if (syncNote) wrap.appendChild(syncNote);
     view.appendChild(wrap); return;
   }
 
@@ -242,9 +246,25 @@ async function renderVandaag() {
     items.forEach(c => g.appendChild(radarCard(c)));
     wrap.appendChild(g);
   }
+  if (syncNote) wrap.appendChild(syncNote);
   const pa = privacyNotice(data.privacy);
   if (pa) wrap.appendChild(pa);
   view.appendChild(wrap);
+}
+
+// Waarom de radar mogelijk niet actueel is, in woorden waar een medewerker iets mee kan. Geen host,
+// geen sleutel, geen stacktrace: alleen waar hij moet gaan kijken.
+const SYNC_REDEN = {
+  not_configured: 'De koppeling met de Lens is niet ingesteld, dus afgeronde Lens-ervaringen komen hier nog niet binnen.',
+  timeout: 'De Lens reageerde niet op tijd. Dit beeld kan verouderd zijn. Ververs zo nog een keer.',
+  network: 'De Lens is niet bereikbaar. Dit beeld kan verouderd zijn.',
+  forbidden: 'De Lens weigerde onze sleutel, dus afgeronde Lens-ervaringen komen hier nog niet binnen.',
+  exception: 'Het bijwerken vanaf de Lens ging mis. Dit beeld kan verouderd zijn.',
+  unknown: 'Het bijwerken vanaf de Lens lukte niet. Dit beeld kan verouderd zijn.',
+};
+function syncNotice(sync) {
+  if (!sync || sync.ok !== false) return null;
+  return el('p', 'lead-note sync-note', esc(SYNC_REDEN[sync.reason] || SYNC_REDEN.unknown));
 }
 
 /* ---------- Scout, a digital colleague reachable from the cockpit header ----------
@@ -423,6 +443,8 @@ function radarCard(c) {
      ${chips.length ? `<div class="tags">${chips.join('')}</div>` : ''}`;
   // Colleague work touching this relation: proposal, evidence, and the actions the mandate allows.
   (c.work || []).forEach(w => b.appendChild(workBlock(w)));
+  // Een klaargezette persoonlijke omgeving: de uitspraak die hij zelf las, en de enige beslissing.
+  if (c.kamer) b.appendChild(kamerBlock(c.kamer, c.contactId));
   // Prepared work (follow-ups) touching this relation can be completed straight from the card.
   if (c.followUps && c.followUps.length) {
     const bar = el('div', 'prepared-actions');
@@ -997,6 +1019,127 @@ function gespRow(c) {
   row.addEventListener('click', open);
   row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
   return row;
+}
+
+/* ---------- Mijn Maculis: de kamer die op één beslissing wacht (ADR-0003 D4) ----------
+
+   Eén menselijke bevestiging, daarna voert Maculis de rest uit: de uitnodiging wordt gemaakt,
+   verstuurd op het gekozen kanaal, de kamer gaat op `uitgenodigd` en de historie wordt vastgelegd.
+   De medewerker doet geen tweede stap en kopieert geen link.
+
+   WAT HIER MET OPZET ONTBREEKT
+
+     * een manier om de uitspraak te wijzigen of aan te vullen. `Amplify, do not author` is hier een
+       bevoegdheidsgrens: wat in zijn omgeving staat moet zijn wat hij werkelijk zag;
+     * een activatieknop bij `wacht_op_contact`. Hij gaf geen toestemming om benaderd te worden, en
+       een knop die altijd weigert verplaatst die grens van de architectuur naar de discipline van
+       de medewerker;
+     * een kanaal dat wordt gekozen door Maculis. De medewerker kiest, want de toestemming uit de
+       Lens ging over benaderen en niet over WhatsApp. */
+
+const KAMER_KANAAL = { WHATSAPP: 'WhatsApp', EMAIL: 'e-mail' };
+const KAMER_REDEN = {
+  geen_adres: 'geen adres bekend',
+  geen_transport: 'op deze omgeving niet ingesteld',
+  geen_toestemming: 'geen toestemming voor dit kanaal',
+};
+const KAMER_FOUT = {
+  no_contact_consent: 'Deze ondernemer gaf geen toestemming om benaderd te worden. Er gaat niets uit.',
+  already_open: 'Er loopt al een geldige uitnodiging. Er is niets opnieuw verstuurd.',
+  wrong_status: 'Deze omgeving is al actief of ingetrokken.',
+  no_contact: 'Er is geen persoon aan deze omgeving gekoppeld.',
+  no_public_url: 'De publieke URL van Mijn Maculis is niet ingesteld, dus er valt geen werkende link te maken.',
+  consent_blocked: 'De toestemming voor dit kanaal staat dit niet toe.',
+  no_recipient: 'Er is geen adres voor dit kanaal.',
+  unknown_channel: 'Dit kanaal bestaat niet voor Mijn Maculis.',
+  send_failed: 'Versturen is niet gelukt.',
+  not_found: 'Deze omgeving bestaat niet meer.',
+};
+
+function kamerBlock(k, contactId) {
+  const box = el('div', 'kamerblok');
+  if (k.uitspraak) box.appendChild(el('blockquote', 'kamer-uitspraak', esc(k.uitspraak)));
+
+  if (k.status === 'wacht_op_contact') {
+    box.appendChild(el('p', 'kamer-note', 'Hij gaf geen toestemming om benaderd te worden. De omgeving staat klaar en er gaat niets uit.'));
+    return box;
+  }
+
+  const bar = el('div', 'prepared-actions kamer-acties');
+  const melding = el('p', 'kamer-note'); melding.hidden = true;
+  const mogelijk = (k.kanalen || []).filter(x => x.mogelijk);
+  const geblokkeerd = (k.kanalen || []).filter(x => !x.mogelijk);
+
+  async function activeer(btn, kanaal) {
+    [...bar.querySelectorAll('button')].forEach(x => { x.disabled = true; });
+    btn.textContent = 'Bezig…';
+    const r = await api('/api/comm/mijn/kamers/' + k.id + '/uitnodigen', {
+      method: 'POST', body: JSON.stringify(kanaal ? { kanaal } : {}),
+    });
+    if (r.ok && r.data && r.data.ok) {
+      if (r.data.bezorging === 'handmatig') {
+        // Er staat geen transport aan. We melden dus NIET dat er iets verstuurd is, want dat is niet
+        // zo. De omgeving is actief en de link staat hier, zodat de medewerker hem zelf doorgeeft.
+        bar.innerHTML = '';
+        melding.hidden = false;
+        melding.textContent = 'De omgeving is geactiveerd. Er staat op deze omgeving geen verzendkanaal aan, dus er is niets verstuurd. Deze link is eenmalig en zeven dagen geldig.';
+        const veld = el('input', 'kamer-link'); veld.readOnly = true; veld.value = r.data.link || '';
+        box.appendChild(veld); veld.select();
+        return;
+      }
+      render();
+      return;
+    }
+    const code = (r.data && r.data.error) || 'send_failed';
+    melding.hidden = false;
+    melding.textContent = KAMER_FOUT[code] || 'Activeren is niet gelukt.';
+    [...bar.querySelectorAll('button')].forEach(x => { x.disabled = false; });
+    btn.textContent = btn.dataset.label || 'Activeer Mijn Maculis';
+  }
+
+  const bekijk = el('button', 'btn btn-ghost', 'Bekijk');
+  bekijk.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (contactId) { activeContactId = contactId; scn = 'dossier'; render(); }
+  });
+  bar.appendChild(bekijk);
+
+  if (mogelijk.length) {
+    for (const ch of mogelijk) {
+      const label = `Activeer via ${KAMER_KANAAL[ch.kanaal] || ch.kanaal}`;
+      const b = el('button', 'btn btn-primary', label);
+      b.dataset.label = label;
+      b.addEventListener('click', (e) => { e.stopPropagation(); activeer(b, ch.kanaal); });
+      bar.appendChild(b);
+    }
+  } else {
+    // Geen enkel kanaal kan werkelijk bezorgen. De knop belooft dan ook niets anders dan wat er
+    // gebeurt: de omgeving gaat open en de link komt hier te staan.
+    const label = 'Activeer en toon de link';
+    const b = el('button', 'btn btn-primary', label);
+    b.dataset.label = label;
+    b.addEventListener('click', (e) => { e.stopPropagation(); activeer(b, null); });
+    bar.appendChild(b);
+  }
+
+  // Uitstellen verandert niets aan de werkelijkheid: de omgeving blijft klaarstaan en de kaart komt
+  // terug. Daarom slaat deze knop niets op; hij vouwt alleen dit ene beeld dicht.
+  const later = el('button', 'btn btn-ghost', 'Later');
+  later.addEventListener('click', (e) => {
+    e.stopPropagation();
+    bar.innerHTML = '';
+    melding.hidden = false;
+    melding.textContent = 'Blijft klaarstaan tot je beslist.';
+  });
+  bar.appendChild(later);
+
+  box.appendChild(bar);
+  box.appendChild(melding);
+  if (geblokkeerd.length) {
+    box.appendChild(el('p', 'kamer-note', geblokkeerd
+      .map(x => `${KAMER_KANAAL[x.kanaal] || x.kanaal}: ${KAMER_REDEN[x.reden] || 'niet beschikbaar'}`).join(' · ')));
+  }
+  return box;
 }
 
 /* ---------- Beheer → Testerbeheer (administrative; reuses the existing invitation tool) ---------- */

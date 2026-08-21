@@ -16,7 +16,6 @@ async function boot() {
   $('#tab-comm').addEventListener('click', () => setBox('communication'));
   $('#tab-priv').addEventListener('click', () => setBox('privacy'));
   await loadList();
-  loadKamers();
   // Deep link from the Attention Cockpit: /comm.html#conv=<id> opens that exact conversation (and,
   // via the GET, marks it read + shows its AI proposal) in one click.
   const m = (location.hash || '').match(/conv=([0-9a-f-]{36})/i);
@@ -112,71 +111,6 @@ function renderCtx(d, c) {
 async function addNote() { const t = prompt('Interne notitie (nooit extern verzonden):'); if (!t) return; await api('/api/comm/conversations/' + current + '/notes', { method: 'POST', body: JSON.stringify({ body: t }) }); openConv(current); }
 async function linkUnknown() { const email = prompt('Koppel deze afzender aan een nieuwe relatie — e-mail (optioneel):', ''); const name = prompt('Naam:', ''); if (name === null) return; const r = await api('/api/comm/conversations/' + current + '/link', { method: 'POST', body: JSON.stringify({ newContact: { first_name: name, email: email || undefined } }) }); if (r.status === 200) { toast('Gekoppeld'); openConv(current); loadList(); } else toast('Koppelen mislukt'); }
 
-// ---- Mijn Maculis: de kamers die op één beslissing wachten (ADR-0003 D4) ----------------------
-//
-// Eén regel per ondernemer die vroeg om het te bewaren, met alles wat nodig is om te beslissen en
-// niets meer. Er is bewust geen knop om de tekst te wijzigen: wat in zijn kamer staat moet zijn wat
-// hij werkelijk zag, en een redactieslag maakt dat onwaar. `Amplify, do not author`.
-//
-// Uitstellen is geen knop. Dat is de knop niet indrukken, en de regel blijft dan gewoon staan.
-// Waarom de lijst niet actueel is, in woorden waar een medewerker iets mee kan. Geen host, geen
-// sleutel, geen stacktrace: alleen waar hij moet gaan kijken.
-const SYNC_REDEN = {
-  not_configured: 'De koppeling met de Lens is niet ingesteld, dus afgeronde journeys komen hier nog niet binnen.',
-  timeout: 'De Lens reageerde niet op tijd. Deze lijst kan verouderd zijn. Ververs zo nog een keer.',
-  network: 'De Lens is niet bereikbaar. Deze lijst kan verouderd zijn.',
-  forbidden: 'De Lens weigerde onze sleutel, dus afgeronde journeys komen hier nog niet binnen.',
-  exception: 'Het bijwerken vanaf de Lens ging mis. Deze lijst kan verouderd zijn.',
-  unknown: 'Het bijwerken vanaf de Lens lukte niet. Deze lijst kan verouderd zijn.',
-};
-async function loadKamers() {
-  const box = $('#kamers');
-  if (!box) return;
-  const r = await api('/api/comm/mijn/kamers');
-  const ks = (r.status === 200 && r.body.kamers) || [];
-  // Een lege lijst kan twee dingen betekenen: er wacht niemand, of we konden de Lens niet lezen.
-  // Dat verschil hoort zichtbaar te zijn, want anders leest een storing als rust.
-  const sync = (r.status === 200 && r.body.sync) || { ok: true };
-  if (!ks.length) {
-    box.innerHTML = sync.ok ? '' : `<p class="note">${esc(SYNC_REDEN[sync.reason] || SYNC_REDEN.unknown)}</p>`;
-    return;
-  }
-  box.innerHTML = ks.map((k) => {
-    const wie = esc(k.naam || 'Iemand');
-    const org = k.organisatie ? ` (${esc(k.organisatie)})` : '';
-    const wacht = k.status === 'wacht_op_contact';
-    // Zonder toestemming om te benaderen gaat er niets uit. Dat is geen storing maar zijn keuze,
-    // en het hoort zichtbaar te zijn in plaats van stil.
-    const knoppen = wacht
-      ? '<span class="note">Hij gaf geen toestemming om benaderd te worden. Er gaat niets uit.</span>'
-      : `<button type="button" class="btn gold" data-act="kamerUitnodigen" data-id="${k.id}">Uitnodigen</button>`
-        + `<button type="button" class="btn" data-act="kamerAfwijzen" data-id="${k.id}">Afwijzen</button>`;
-    return `<div class="kamer"><div class="kamer-t">${wie}${org} heeft gevraagd om dit te bewaren. De kamer staat klaar.</div>`
-      + `<div class="kamer-i">${esc(k.eersteInzicht || '')}</div><div class="kamer-a">${knoppen}</div></div>`;
-  }).join('');
-}
-async function kamerUitnodigen(ds) {
-  const r = await api('/api/comm/mijn/kamers/' + ds.id + '/uitnodigen', { method: 'POST', body: JSON.stringify({}) });
-  if (r.status !== 200 || !r.body.ok) { toast('Niet verstuurd: ' + ((r.body && r.body.error) || 'onbekend')); loadKamers(); return; }
-  if (r.body.bezorging === 'email') { toast('Uitnodiging verstuurd.'); loadKamers(); return; }
-  // Geen e-mailtransport op deze omgeving. We melden dus niet dat er iets verstuurd is, want dat is
-  // niet zo. De uitnodiging staat klaar en jij geeft de link zelf door.
-  const box = $('#kamers');
-  loadKamers();
-  if (box) {
-    box.insertAdjacentHTML('afterbegin',
-      '<div class="kamer"><div class="kamer-t">Uitnodiging klaargezet. Er staat op deze omgeving geen e-mail aan, dus er is niets verstuurd.</div>'
-      + '<div class="kamer-i">Geef deze link zelf door. Hij is eenmalig en zeven dagen geldig.</div>'
-      + '<div class="kamer-a"><input class="uitn-link" readonly value="' + esc(r.body.link || '') + '"></div></div>');
-  }
-}
-async function kamerAfwijzen(ds) {
-  const reden = prompt('Waarom nodig je deze ondernemer niet uit? Wordt alleen intern vastgelegd.');
-  if (reden === null) return;
-  await api('/api/comm/mijn/kamers/' + ds.id + '/afwijzen', { method: 'POST', body: JSON.stringify({ reden }) });
-  loadKamers();
-}
-
-const ACTIONS = { filter: (ds) => setFilter(ds.f), openConv: (ds) => openConv(ds.id), switchChannel: (ds) => switchChannel(ds.ch), sendChat, approveSend, saveEdit, addNote, linkUnknown, kamerUitnodigen, kamerAfwijzen };
+const ACTIONS = { filter: (ds) => setFilter(ds.f), openConv: (ds) => openConv(ds.id), switchChannel: (ds) => switchChannel(ds.ch), sendChat, approveSend, saveEdit, addNote, linkUnknown };
 document.addEventListener('click', (e) => { const t = e.target.closest('[data-act]'); if (!t) return; const fn = ACTIONS[t.dataset.act]; if (fn) fn(t.dataset, t, e); });
 boot();

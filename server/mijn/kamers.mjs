@@ -20,6 +20,11 @@ import { getChannelProvider } from '../comm/providers/index.mjs';
 import { config } from '../config.mjs';
 import { maakUitnodiging } from './uitnodiging.mjs';
 
+// De kanalen waarop een uitnodiging naar Mijn Maculis mag reizen. Geen lijst met alles wat de
+// providerlaag kent: dit bericht draagt een persoonlijke deur en hoort niet op een kanaal terecht te
+// komen dat niemand voor dit doel heeft gekozen.
+export const KANALEN = ['WHATSAPP', 'EMAIL'];
+
 // Alles wat de medewerker nodig heeft om te beslissen, in één blik. Bewust zonder enige join op de
 // persoonlijke laag: die tabellen horen niet op dit pad thuis, en een test bewaakt dat deze module
 // ze zelfs niet bij naam noemt.
@@ -93,17 +98,26 @@ export function uitnodigingstekst({ voornaam, organisatie, link }) {
 // Fail-closed op toestemming om te benaderen: bewaren gaf het recht om de kamer klaar te zetten en
 // nooit het recht om iets te sturen (ADR-0003 D2). De uitgaande poort controleert dat zelf nog eens;
 // de controle hier staat er zodat er niet eens een uitnodiging ontstaat die niemand mag ontvangen.
-export async function nodigUit(tenantId, roomId, { userId = null, ipRef = null } = {}) {
+export async function nodigUit(tenantId, roomId, { userId = null, ipRef = null, kanaal = null } = {}) {
   const k = (await query(
     `select r.id, r.status, r.organization_id, r.contact_id, o.name as organisatie,
-            c.first_name, c.email
+            c.first_name, c.email, c.mobile
        from mijn_room r join organization o on o.id=r.organization_id
        left join contact c on c.id=r.contact_id
       where r.tenant_id=$1 and r.id=$2`, [tenantId, roomId])).rows[0];
   if (!k) return { ok: false, error: 'not_found' };
   if (k.status === 'wacht_op_contact') return { ok: false, error: 'no_contact_consent' };
-  if (k.status !== 'klaargezet') return { ok: false, error: 'wrong_status' };
+  // Opnieuw uitnodigen vanuit DEZELFDE kamer. Een uitnodiging die verliep zonder dat iemand
+  // binnenkwam liet de kamer op `uitgenodigd` staan, en daarmee kon niemand hem nog bereiken: de
+  // deurbel was dood en er was geen tweede. Dit is geen nieuwe kamer en geen nieuwe toestemming.
+  // Loopt er nog een levende uitnodiging, dan valt er niets te herhalen en zegt `maakUitnodiging`
+  // dat hieronder zelf.
+  const herhaling = k.status === 'uitgenodigd';
+  if (k.status !== 'klaargezet' && !herhaling) return { ok: false, error: 'wrong_status' };
   if (!k.contact_id) return { ok: false, error: 'no_contact' };
+  // Het kanaal is een expliciete keuze van de medewerker, nooit een afleiding uit de algemene
+  // toestemming uit de Lens. Die vraag ging over benaderen en niet over WhatsApp.
+  if (kanaal !== null && !KANALEN.includes(kanaal)) return { ok: false, error: 'unknown_channel' };
 
   const inv = await maakUitnodiging(tenantId, k.organization_id, k.contact_id, { byUserId: userId });
   if (!inv.ok) return { ok: false, error: inv.error || 'invite_failed' };
@@ -126,13 +140,16 @@ export async function nodigUit(tenantId, roomId, { userId = null, ipRef = null }
   // daarvan is de uitnodiging klaargezet en krijgt de mens die op de knop drukte de link, zodat hij
   // hem zelf kan doorgeven. Er is nog steeds precies één menselijke handeling, en er verlaat niets
   // ongemerkt het gebouw.
-  const post = getChannelProvider('EMAIL');
-  const bezorging = post && post.mode === 'live' ? 'email' : 'handmatig';
+  //
+  // `mode === 'live'` is de kern. De mock-adapter geeft `ok:true` terug, dus toetsen op het bestaan
+  // van een provider zou "verzonden" melden terwijl er niets verstuurd is.
+  const prov = kanaal ? getChannelProvider(kanaal) : null;
+  const bezorging = prov && prov.mode === 'live' ? kanaal.toLowerCase() : 'handmatig';
 
-  if (bezorging === 'email') {
+  if (bezorging !== 'handmatig') {
     const verstuurd = await sendOnChannel({
       tenantId, contactId: k.contact_id, organizationId: k.organization_id,
-      channel: 'EMAIL', subject: 'Wat Maculis zag staat voor je klaar',
+      channel: kanaal, subject: 'Wat Maculis zag staat voor je klaar',
       text: tekst, purpose: 'service', userId, ipRef,
     });
     if (!verstuurd || !verstuurd.ok) return { ok: false, error: verstuurd ? verstuurd.reason : 'send_failed' };
@@ -143,12 +160,13 @@ export async function nodigUit(tenantId, roomId, { userId = null, ipRef = null }
       where id=$1`, [roomId, userId]);
   await recordAudit({
     tenantId, actorUserId: userId, action: 'mijn_room_invited', entityType: 'mijn_room', entityId: roomId,
-    ipRef, meta: { organization_id: k.organization_id, bezorging },
+    ipRef, meta: { organization_id: k.organization_id, bezorging, kanaal: kanaal || null, herhaling },
   });
   // De link gaat alleen terug naar de Cockpit wanneer er niets is verstuurd. Ging hij wel per mail,
   // dan staat hij daar en heeft niemand hier een tweede kopie nodig.
   return {
-    ok: true, contactId: k.contact_id, organizationId: k.organization_id, bezorging,
+    ok: true, contactId: k.contact_id, organizationId: k.organization_id, bezorging, herhaling,
+    email: k.email || null, mobile: k.mobile || null,
     link: bezorging === 'handmatig' ? link : null,
     tekst: bezorging === 'handmatig' ? tekst : null,
   };

@@ -5,6 +5,54 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-21 — Van de Lens naar Mijn Maculis, met één menselijke bevestiging
+
+**Stand.** De activatieflow loopt nu volledig vanaf de Cockpit. Suite 293 van 293, de echte end to
+end **46 van 46**, de nieuwe UI-harness 19 van 19, tokengate en canon-scan groen.
+
+### De actiekaart is een afleiding, geen object
+
+Een klaargezette kamer verscheen alleen in `/comm.html`, en die pagina is geen voordeur meer. Vandaag
+leidt de kaart nu zelf af uit `mijn_room`: `klaargezet` wordt `MIJN_ROOM_READY` in KLAAR,
+`wacht_op_contact` wordt `MIJN_ROOM_WAITING` in RADAR, en `uitgenodigd` zonder levende uitnodiging
+wordt `MIJN_ROOM_EXPIRED`. Bron `FIRST_LENS`, die sinds Slice 5 al gedeclareerd stond.
+
+Geen tabel, geen migratie, geen rij in `attention_item`, geen nieuw event. De toestand van de kamer
+is het signaal: beslist een mens, dan verdwijnt de kaart vanzelf. Een afgewezen kamer nagelt niet
+door, en blijft wel bestaan.
+
+### Drie gaten die de keten stil braken
+
+`/api/cockpit/today` haalde niets op bij de Lens. Een kamer verscheen daardoor pas nadat iemand
+toevallig een ander scherm opende. Dezelfde sync als de kamerlijst hangt er nu voor, met de reden in
+het antwoord: een storing in de Lens mag nooit als rust lezen op een scherm waar "Je bent bij" staat.
+
+Een verlopen uitnodiging maakte de kamer onbereikbaar. De status bleef `uitgenodigd` en `nodigUit`
+weigerde met `wrong_status`, dus niemand kon nog uitnodigen. Opnieuw uitnodigen mag nu vanuit
+dezelfde kamer: geen nieuwe kamer, geen nieuwe toestemming, wel een eigen auditregel.
+
+`mijn_maculis_invited` stond sinds ADR-0003 D4 gedeclareerd en werd nergens geschreven. De historie
+van de tester weet er nu van, via dezelfde naad waarlangs de sync al liep.
+
+### Het kanaal wordt gekozen, nooit afgeleid
+
+De medewerker kiest WhatsApp of e-mail. De toestemming uit de Lens ging over benaderen en niet over
+een kanaal, en die vertalen zou de afleiding zijn die ADR-0003 D2 verbiedt. De kaart toont alleen
+kanalen die alle drie de voorwaarden halen: er is een adres, de provider draait `live`, en de
+toestemming staat het toe. Per geblokkeerd kanaal staat de reden erbij, want `geen_transport` los je
+op met een instelling en `geen_toestemming` nooit.
+
+`mode === 'live'` is daarin de kern. De mock-adapter geeft `ok:true` terug, dus toetsen op het
+bestaan van een provider zou "verzonden" melden terwijl er niets verstuurd is.
+
+### Grenzen die niet verschoven zijn
+
+Bij `wacht_op_contact` is er geen activatieknop, niet alleen een weigering achteraf. De kaart draagt
+de uitspraak die de ondernemer zelf las en geen reflectie, geen intentie en geen token. De uitspraak
+is niet te bewerken. `/comm.html` is geen voordeur meer en verwijst naar de Cockpit.
+
+---
+
 ## 2026-08-20 — De grond reist mee, en de eerste ster krijgt drie lagen
 
 **Stand.** De bevinding uit de vorige ronde is opgelost bij de bron. De kamer zegt niet langer dat er
