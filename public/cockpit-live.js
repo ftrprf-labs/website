@@ -1052,7 +1052,10 @@ const KAMER_FOUT = {
   consent_blocked: 'De toestemming voor dit kanaal staat dit niet toe.',
   no_recipient: 'Er is geen adres voor dit kanaal.',
   unknown_channel: 'Dit kanaal bestaat niet voor Mijn Maculis.',
-  send_failed: 'Versturen is niet gelukt.',
+  send_failed: 'Versturen is niet gelukt. Er is niets aangekomen en je kunt het opnieuw proberen.',
+  empty_body: 'Er viel niets te versturen. Probeer het opnieuw.',
+  privacy_email_only: 'Dit kanaal kan hier niet gebruikt worden.',
+  unsupported_channel: 'Dit kanaal kan niets bezorgen.',
   not_found: 'Deze omgeving bestaat niet meer.',
 };
 
@@ -1092,7 +1095,11 @@ function kamerBlock(k, contactId) {
     }
     const code = (r.data && r.data.error) || 'send_failed';
     melding.hidden = false;
-    melding.textContent = KAMER_FOUT[code] || 'Activeren is niet gelukt.';
+    // Mislukte verzending: de server heeft de uitnodiging ingetrokken, dus de omgeving staat er nog
+    // en de knoppen gaan gewoon weer aan. Opnieuw proberen is hier de bedoeling en geen doorbraak
+    // van een grens: er is niets aangekomen en er ontstaat geen tweede uitnodiging.
+    melding.textContent = KAMER_FOUT[code]
+      || (r.data && r.data.opnieuwMogelijk ? 'Activeren is niet gelukt. Je kunt het opnieuw proberen.' : 'Activeren is niet gelukt.');
     [...bar.querySelectorAll('button')].forEach(x => { x.disabled = false; });
     btn.textContent = btn.dataset.label || 'Activeer Mijn Maculis';
   }
@@ -1353,7 +1360,12 @@ function testerRij(r, data) {
   if (r.token && data.cfg && data.cfg.maculisPublicUrl) {
     const kopie = el('button', 'btn btn-ghost', 'Kopieer persoonlijke link');
     kopie.addEventListener('click', async () => {
-      const url = `${String(data.cfg.maculisPublicUrl).replace(/\/+$/, '')}/?t=${encodeURIComponent(r.token)}`;
+      // `?p=`, en nooit iets anders. Dit MOET gelijk zijn aan personalUrl() in server/tokens.mjs.
+      // Stond hier ooit `?t=`, en dat is de gevaarlijkste soort fout die dit systeem kent: de link
+      // opent gewoon, de Lens start gewoon, en de ondernemer loopt de hele ervaring door. Alleen
+      // hoort die sessie dan bij niemand. Geen naam, geen koppeling terug, en de bewaartoestemming
+      // landt nergens. De keten stopt stil en niets meldt dat. Een test bewaakt deze regel.
+      const url = `${String(data.cfg.maculisPublicUrl).replace(/\/+$/, '')}/?p=${encodeURIComponent(r.token)}`;
       try { await navigator.clipboard.writeText(url); kopie.textContent = 'Gekopieerd'; }
       catch { kopie.textContent = url; }
     });

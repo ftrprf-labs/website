@@ -107,7 +107,7 @@ export async function handleComm(req, res, { pathname, method, isAuthed, syncLif
       }
       json(res, r.ok ? 200 : 400, r.ok
         ? { ok: true, bezorging: r.bezorging, herhaling: r.herhaling, link: r.link || null, kamer: await kamer(tenantId, roomId) }
-        : { ok: false, error: r.error });
+        : { ok: false, error: r.error, opnieuwMogelijk: Boolean(r.opnieuwMogelijk) });
       return true;
     }
     const body = await readJson(req) || {};

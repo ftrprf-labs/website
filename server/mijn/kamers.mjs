@@ -18,7 +18,7 @@ import { recordAudit } from '../comm/audit.mjs';
 import { sendOnChannel } from '../comm/send.mjs';
 import { getChannelProvider } from '../comm/providers/index.mjs';
 import { config } from '../config.mjs';
-import { maakUitnodiging } from './uitnodiging.mjs';
+import { maakUitnodiging, trekUitnodigingIn } from './uitnodiging.mjs';
 
 // De kanalen waarop een uitnodiging naar Mijn Maculis mag reizen. Geen lijst met alles wat de
 // providerlaag kent: dit bericht draagt een persoonlijke deur en hoort niet op een kanaal terecht te
@@ -119,16 +119,21 @@ export async function nodigUit(tenantId, roomId, { userId = null, ipRef = null, 
   // toestemming uit de Lens. Die vraag ging over benaderen en niet over WhatsApp.
   if (kanaal !== null && !KANALEN.includes(kanaal)) return { ok: false, error: 'unknown_channel' };
 
+  // Zonder publieke basis-URL zou de link beginnen met een schuine streep, en dan geef je iemand
+  // iets wat hij niet kan openen. Liever niets dan een kapotte deur.
+  //
+  // Deze controle staat VOOR het aanmaken van de uitnodiging. Stond hij erna, dan liet een
+  // omgeving zonder basis-URL bij elke poging een levende uitnodiging achter die niemand ooit
+  // kreeg, en die de kamer daarna zeven dagen dichthield.
+  const basis = (config.mijnMaculisUrl || '').replace(/\/+$/, '');
+  if (!basis) return { ok: false, error: 'no_public_url' };
+
   const inv = await maakUitnodiging(tenantId, k.organization_id, k.contact_id, { byUserId: userId });
   if (!inv.ok) return { ok: false, error: inv.error || 'invite_failed' };
   // Er lag al een levende uitnodiging. De rauwe waarde bestaat maar één keer en is niet opnieuw te
   // maken, dus hier valt niets te versturen. Dat is geen fout maar een dubbele klik.
   if (!inv.token) return { ok: false, error: 'already_open' };
 
-  // Zonder publieke basis-URL zou de link beginnen met een schuine streep, en dan geef je iemand
-  // iets wat hij niet kan openen. Liever niets dan een kapotte deur.
-  const basis = (config.mijnMaculisUrl || '').replace(/\/+$/, '');
-  if (!basis) return { ok: false, error: 'no_public_url' };
   const link = `${basis}/mijn.html?u=${encodeURIComponent(inv.token)}`;
   const tekst = uitnodigingstekst({ voornaam: k.first_name || null, organisatie: k.organisatie || null, link });
 
@@ -152,7 +157,26 @@ export async function nodigUit(tenantId, roomId, { userId = null, ipRef = null, 
       channel: kanaal, subject: 'Wat Maculis zag staat voor je klaar',
       text: tekst, purpose: 'service', userId, ipRef,
     });
-    if (!verstuurd || !verstuurd.ok) return { ok: false, error: verstuurd ? verstuurd.reason : 'send_failed' };
+    if (!verstuurd || !verstuurd.ok) {
+      // EEN MISLUKTE VERZENDING MAG DE KAMER NOOIT DICHTHOUDEN.
+      //
+      // De uitnodiging bestaat op dit moment al, en zijn rauwe waarde is nergens bewaard. Lieten we
+      // hem staan, dan vond de volgende poging een "levende" uitnodiging die niemand ooit heeft
+      // ontvangen, antwoordde het scherm `already_open`, en was de kamer zeven dagen onbereikbaar
+      // voor een ondernemer die zelf om zijn omgeving had gevraagd.
+      //
+      // Daarom trekken we hem hier in. Niet verwijderen: `revoked_at` houdt zichtbaar dat er een
+      // poging is geweest. De kamer blijft op zijn oude status staan, dus hij komt gewoon terug in
+      // Vandaag en de medewerker kan het opnieuw proberen. Geen nieuwe kamer, geen nieuwe
+      // toestemming, en nooit twee levende uitnodigingen naast elkaar.
+      await trekUitnodigingIn(inv.inviteId);
+      const reden = verstuurd ? verstuurd.reason : 'send_failed';
+      await recordAudit({
+        tenantId, actorUserId: userId, action: 'mijn_room_invite_failed', entityType: 'mijn_room',
+        entityId: roomId, ipRef, meta: { organization_id: k.organization_id, kanaal, reden },
+      });
+      return { ok: false, error: reden, opnieuwMogelijk: true };
+    }
   }
 
   await query(

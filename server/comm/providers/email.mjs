@@ -13,6 +13,16 @@ import { config } from '../../config.mjs';
 import { sendThreadedEmail } from '../resend.mjs';
 
 // Can we actually deliver via Resend right now? (Independent of MAIL_FROM.)
+//
+// MAIL_FROM hoort hier NIET bij, en dat is een productie-incident dat één keer is opgelost en niet
+// nog eens hoeft. Deze adapter verstuurt namens het postvak van het gesprek zelf
+// (`ctx.mailbox_address`, anders COMM_MAILBOXES) en gebruikt MAIL_FROM nergens. Nam deze controle
+// MAIL_FROM tóch mee, dan viel de adapter terug op mock en meldde hij een verzending die nooit
+// heeft plaatsgevonden. Zie tests/comm-outbound-delivery.test.mjs.
+//
+// mailDelivers() in server/mailer.mjs eist MAIL_FROM wél, en terecht: dat is de oudere
+// Testerbeheer-mailer, en die verstuurt wel degelijk vanaf dat adres. Twee afzenders, twee
+// voorwaarden. Dat is geen inconsistentie maar twee verschillende brieven.
 function canSendLive() {
   return config.mailTransport === 'resend' && Boolean(config.mailApiKey);
 }

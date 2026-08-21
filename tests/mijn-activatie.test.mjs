@@ -311,3 +311,45 @@ test('bewaren zonder benaderen: zichtbaar op de radar, en geen enkele weg naar b
     await closePool();
   }
 });
+
+// ================================================================================================
+// De persoonlijke Lens-link: één vorm, overal
+// ================================================================================================
+//
+// De Lens herkent een deelnemer aan `?p=<token>`. Stond er ooit `?t=` in de Cockpit, en dat is de
+// gevaarlijkste soort fout die dit systeem kent: de link opent, de Lens start, de ondernemer loopt
+// de hele ervaring door, en toch hoort die sessie bij niemand. Geen naam, geen koppeling terug, en
+// de bewaartoestemming landt nergens. De keten stopt stil en niets meldt dat.
+//
+// Daarom staat de vorm hier vast, en wordt elke plek in de browser die hem zelf bouwt gecontroleerd
+// tegen dezelfde regel.
+
+import { readFileSync } from 'node:fs';
+import { personalUrl } from '../server/tokens.mjs';
+
+test('de server bouwt de persoonlijke link als ?p=', () => {
+  assert.equal(personalUrl('https://lens.test', 'abc-123'), 'https://lens.test/?p=abc-123');
+});
+
+test('de token gaat door encodeURIComponent, zodat een base64url-waarde heel blijft', () => {
+  assert.equal(personalUrl('https://lens.test', 'a+b/c=d'), 'https://lens.test/?p=a%2Bb%2Fc%3Dd');
+});
+
+// De browser kan server/tokens.mjs niet importeren, dus de enige manier om beide kanten aan
+// dezelfde regel te houden is de bron lezen. Grof, en precies wat deze fout had tegengehouden.
+for (const bestand of ['public/cockpit-live.js', 'public/app.js']) {
+  test(`${bestand} bouwt de persoonlijke link als ?p=`, () => {
+    const bron = readFileSync(new URL(`../${bestand}`, import.meta.url), 'utf8');
+    // Een venster in plaats van één regel: in app.js staat de basis op de ene regel en de
+    // samenstelling op de volgende.
+    const vensters = [];
+    let i = bron.indexOf('maculisPublicUrl');
+    while (i !== -1) { vensters.push(bron.slice(i, i + 320)); i = bron.indexOf('maculisPublicUrl', i + 1); }
+    const bouwers = vensters.filter((v) => /\/\?[a-z]=/.test(v));
+    assert.ok(bouwers.length >= 1, 'er is minstens één plek die de link bouwt');
+    for (const v of bouwers) {
+      const sleutels = [...v.matchAll(/\/\?([a-z])=/g)].map((m) => m[1]);
+      assert.deepEqual([...new Set(sleutels)], ['p'], `alleen ?p= tegen de Lens, gevonden: ${sleutels.join(',')}`);
+    }
+  });
+}

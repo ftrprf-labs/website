@@ -51,6 +51,22 @@ export async function maakUitnodiging(tenantId, organizationId, contactId, { byU
   return { ok: true, bestond: false, inviteId: r.rows[0].id, token: raw, expiresAt: r.rows[0].expires_at };
 }
 
+// Trek een uitnodiging in die nooit is aangekomen.
+//
+// Alleen bedoeld voor de ene situatie waarin de uitnodiging wél is gemaakt maar de verzending
+// mislukte. Zonder dit zou die rij als "levende" uitnodiging blijven gelden, terwijl zijn rauwe
+// waarde nergens bestaat en niemand hem ooit heeft gezien. De kamer zat dan zeven dagen dicht.
+//
+// Intrekken en niet verwijderen: dat er een poging is geweest hoort te blijven staan. Een reeds
+// verzilverde uitnodiging wordt nooit ingetrokken, want die heeft echte toegang opgeleverd.
+export async function trekUitnodigingIn(inviteId) {
+  if (!inviteId) return { ok: false, error: 'no_invite' };
+  const r = await query(
+    'update customer_invite set revoked_at=now() where id=$1 and accepted_at is null and revoked_at is null returning id',
+    [inviteId]);
+  return { ok: Boolean(r.rows[0]) };
+}
+
 // Verzilver een uitnodiging: van deurbel naar sleutel.
 //
 // Fail-closed op elke voorwaarde, en de foutredenen zijn bewust grof. Een aanvaller mag niet uit het

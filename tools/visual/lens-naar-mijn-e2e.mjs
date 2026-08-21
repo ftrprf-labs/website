@@ -100,6 +100,9 @@ const env = {
   MACULIS_EXPORT_KEY: 'e2e-export-key',
   MIJN_MACULIS_URL: BASE,
   MIJN_PREVIEW_SEED: '',
+  // Zoals de pilot draait: de kale hostnaam leidt naar de Cockpit, niet naar de losse tool. Een
+  // medewerker hoeft geen technische route te kennen.
+  PREVIEW_COCKPIT_ROOT: '1',
 };
 delete env.NODE_ENV;
 const srv = spawn('node', ['server/index.mjs'], { env, cwd: '/home/user/website', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -166,6 +169,14 @@ try {
   srv2.stderr.on('data', (b) => { bootlog += b; });
   for (let i = 0; i < 60; i++) { await wacht(300); try { const r = await fetch(`${BASE}/healthz`); if (r.ok) break; } catch { /* wacht */ } }
   for (let i = 0; i < 80; i++) { const s = await api('/api/comm/status'); if (s.status === 200) break; await wacht(400); }
+
+  // ---- de enige voordeur ------------------------------------------------------------------------
+  // Wie de kale hostnaam opent, hoort in de Cockpit te landen en niet in de losse uitnodigingstool.
+  const voordeur = await fetch(BASE + '/');
+  const voordeurHtml = await voordeur.text();
+  stap(voordeur.status === 200 && /cockpit-live\.js/.test(voordeurHtml),
+    'de kale hostnaam opent de Cockpit, zonder technische route', voordeur.status + '');
+  stap(!/app\.js/.test(voordeurHtml), 'en niet de losse uitnodigingstool');
 
   // ---- de sync: dit is de hele automatische voorbereiding ---------------------------------------
   //

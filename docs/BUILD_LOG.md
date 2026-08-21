@@ -5,6 +5,52 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-21 — Pilot readiness: twee stille fouten weg, één voordeur
+
+**Stand.** Suite 299 van 299, echte end to end 48 van 48, cockpit-beheer 29 van 29,
+cockpit-activatie 19 van 19, tokengate en canon-scan groen.
+
+### De persoonlijke link had `?t=` in plaats van `?p=`
+
+Bij het verhuizen van Testerbeheer naar de Cockpit is de kopieerknop verkeerd overgenomen. De Lens
+herkent een deelnemer aan `?p=`, en dat staat zo in `personalUrl()` in `server/tokens.mjs` en in het
+opstartlog van elke omgeving.
+
+Dit is de gevaarlijkste soort fout die dit systeem kent. De link opent gewoon, de Lens start gewoon,
+en de ondernemer loopt de hele ervaring door. Alleen hoort die sessie bij niemand: geen naam, geen
+koppeling terug, en de bewaartoestemming landt nergens. De keten stopt stil en niets meldt het.
+
+Een test leest nu beide browserbestanden en eist dat elke plek die de link samenstelt `?p=` gebruikt
+en nooit iets anders. Bewezen door de fout er tijdelijk weer in te zetten: de test viel om.
+
+### Een mislukte verzending hield de omgeving zeven dagen dicht
+
+`nodigUit()` maakte eerst de uitnodiging en verstuurde daarna. Mislukte dat, dan bleef de rij staan
+terwijl de rauwe waarde nergens bestond. De volgende poging vond een "levende" uitnodiging,
+antwoordde `already_open`, en een ondernemer die zelf om zijn omgeving had gevraagd was onbereikbaar.
+
+Nu wordt zo'n uitnodiging ingetrokken. Niet verwijderd: `revoked_at` houdt zichtbaar dat er een
+poging is geweest. De omgeving blijft op zijn oude status staan, de kaart blijft in Vandaag, en de
+medewerker kan het opnieuw proberen. Geen nieuwe kamer, geen nieuwe toestemming, nooit twee levende
+uitnodigingen. De mislukking komt in de audit met de reden en zonder adres.
+
+Dezelfde val zat in de controle op de publieke basis-URL. Die staat nu vóór het aanmaken.
+
+### Wat ik fout deed en heb teruggedraaid
+
+Ik maakte de e-mailadapter afhankelijk van `MAIL_FROM`, omdat `mailDelivers()` dat ook eist. Twee
+bestaande tests vielen om, en die hadden gelijk: dat was ooit een productie-incident. De adapter
+verstuurt namens het postvak van het gesprek en gebruikt `MAIL_FROM` nergens; die eis meenemen liet
+hem terugvallen op mock en een verzending melden die nooit plaatsvond. Teruggedraaid, met de reden
+erbij, zodat de volgende dit niet nog eens probeert.
+
+### Eén voordeur
+
+`PREVIEW_COCKPIT_ROOT` staat aan op de pilot, dus de kale hostnaam opent de Cockpit. De echte end to
+end controleert dat nu ook: `/` moet `cockpit-live.js` laden en niet `app.js`.
+
+---
+
 ## 2026-08-21 — Beheer verhuist naar de Cockpit, en de journey past achter één URL
 
 **Stand.** De volledige medewerkersreis loopt vanaf `/cockpit-live.html`. Suite 293 van 293, echte
