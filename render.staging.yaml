@@ -1,0 +1,91 @@
+# FTRLABS Cockpit + Mijn Maculis — STAGING blueprint (Docker web service + Postgres).
+#
+# This file is NOT the production blueprint. Production keeps using render.yaml on
+# its own connected branch, with its own disk and its own tester data. Nothing here
+# reads or writes any of that.
+#
+# Purpose: make the existing chain experienceable end to end.
+#   Beheer, organisation, Lens, Reveal or SILENCE, Mijn Maculis, invitation, user.
+#
+# Four things are deliberately ABSENT, and their absence is the safeguard:
+#   1. No MAIL_TRANSPORT. Without a real transport the app never fake-sends; the
+#      invitation is prepared and its link is handed back on screen instead. So no
+#      staging mail can ever reach a real person.
+#   2. No MIJN_PREVIEW_SEED and no PREVIEW_SEED. The point is the first REAL room,
+#      not fixtures.
+#   3. No production database, disk or keys. Every store below is its own.
+#   4. No AGENTS_ENABLED, no SCOUT_* signals, no external AI key. The copilot stays
+#      in mock mode, so staging makes no outbound calls beyond the Lens itself.
+services:
+  - type: web
+    name: maculis-staging-cockpit
+    runtime: docker
+    region: frankfurt              # EU, same residency as production
+    plan: starter                  # a Disk requires a paid instance; free has none
+    branch: claude/maculis-pilot-consolidatie      # carries 758b133
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    # The JSON store: testers and invitations. Its own disk, so the production
+    # store is never touched and this one can be thrown away afterwards.
+    disk:
+      name: staging-cockpit-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production          # keeps the fail-closed startup checks on
+      - key: DATA_DIR
+        value: /var/data           # = the disk mount above
+      # --- Mijn Maculis ---------------------------------------------------------
+      # Both are required. Without the flag the Postgres layer stays off and there
+      # is no room to open; without a database the flag alone does nothing.
+      - key: COMM_LAYER_ENABLED
+        value: "1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: maculis-staging-db
+          property: connectionString
+      # --- The staging Lens, never the production one ---------------------------
+      # MACULIS_HOST is the server-to-server base (publish and session export).
+      # MACULIS_PUBLIC_URL is what a participant opens on their phone.
+      # Verify both after the Lens service is created: Render appends a suffix when
+      # the name is already taken in the workspace.
+      - key: MACULIS_HOST
+        value: https://maculis-staging-lens.onrender.com
+      - key: MACULIS_PUBLIC_URL
+        value: https://maculis-staging-lens.onrender.com
+      # Shared secrets. Must equal the values set on maculis-staging-lens, character
+      # for character. Two blueprints in two repositories cannot reference each
+      # other, so these are typed by hand in both dashboards.
+      - key: MACULIS_EXPORT_KEY   # pull the sessions
+        sync: false
+      - key: MACULIS_SYNC_KEY     # publish the participants
+        sync: false
+      - key: INTAKE_KEY           # optional, "Pass the Lens" only
+        sync: false
+      # --- Access ---------------------------------------------------------------
+      # This service holds personal data, so the admin gate is mandatory: the server
+      # refuses to start in production without both of these.
+      - key: ADMIN_PASSWORD       # choose a staging password, not the production one
+        sync: false
+      - key: AUTH_SECRET
+        generateValue: true
+      # Signature images in outbound mail. Mail is off here, so this is cosmetic; it
+      # points at staging only so nothing in this service references production.
+      - key: SIGNATURE_ASSET_BASE
+        value: https://maculis-staging-cockpit.onrender.com
+      # MIJN_MACULIS_URL is intentionally unset: it falls back to RENDER_EXTERNAL_URL,
+      # which Render fills in with this service's own public URL. That is the base of
+      # the invitation link, so it configures itself correctly and can never point at
+      # production by accident.
+
+databases:
+  - name: maculis-staging-db
+    databaseName: maculis_staging
+    user: maculis
+    region: frankfurt
+    plan: basic-256mb            # "free" also works but expires after 30 days
+    # Empty allow list = reachable only from inside this Render workspace. No
+    # external client can connect, which keeps the staging data self-contained.
+    ipAllowList: []
