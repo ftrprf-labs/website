@@ -1141,76 +1141,168 @@ function kamerBlock(k, contactId) {
   }
   return box;
 }
+/* ---------- Beheer: de hele administratieve laag, in de Cockpit ----------
 
-/* ---------- Beheer → Testerbeheer (administrative; reuses the existing invitation tool) ---------- */
-// This is administrative functionality, not the relational workspace. It reads and writes the SAME
-// JSON invitation store as the standalone tool via /api/invitations (no new backend, no new
-// outbound). A tester here is NOT a Maculis relation: this view never touches the relational layer,
-// so nothing is silently promoted from tester to relation.
+   Vanaf hier is de Cockpit de enige interne voordeur. Alles wat een medewerker aan de campagne doet,
+   gebeurt hier: testers, uitnodigingen, evaluaties, inzichten en historie.
+
+   GEEN NIEUWE DATABRON. Elk paneel hieronder praat met een route die al bestond en al getest was:
+   /api/invitations, /api/invite/email, /api/publish, /api/import/*, /api/evaluations en
+   /api/invitations/:id/history. De oude tool op /index.html blijft technisch bestaan als
+   achterliggend onderdeel, maar is niet langer de weg van een mens.
+
+   DRIE GRENZEN DIE MEE ZIJN VERHUISD EN NIET MOGEN VERSIMPELEN
+
+     * toestemming met de hand vastleggen kan alleen mét de wijze waarop die is verkregen, en
+       "anders" vraagt om een toelichting. Intrekken vraagt om een bevestiging;
+     * WhatsApp openen verandert de status NIET. Pas wanneer een mens bevestigt dat hij werkelijk
+       heeft verstuurd, gaat de tester op Verstuurd. Twee stappen, met opzet;
+     * zonder verzendend transport wordt er niet gedaan alsof. Dan meldt het scherm dat er niets is
+       verstuurd en dat er niemand op Uitgenodigd staat.
+
+   En één grens die uit de Cockpit zelf komt: een tester is geen Maculis-relatie. Dit paneel schrijft
+   in de administratie van de campagne en raakt de relationele laag nergens aan. */
+
+const BEHEER_TABS = [
+  ['testers', 'Testerbeheer'],
+  ['uitnodigingen', 'Uitnodigingen'],
+  ['evaluaties', 'Evaluaties'],
+  ['inzichten', 'Inzichten'],
+  ['historie', 'Historie'],
+];
+let beheerTab = 'testers';
+let beheerTester = null;   // de tester waarvoor Historie en Inzichten openstaan
+
 const TESTER_STATUS = {
-  DRAFT: ['nog niet verstuurd', ''], SENT: ['uitnodiging verstuurd', 'ready'],
-  OPENED: ['link geopend', 'ready'], COMPLETED: ['afgerond', 'ready'],
+  DRAFT: ['concept', ''], SENT: ['uitgenodigd', 'ready'], INVITED: ['uitgenodigd', 'ready'],
+  OPENED: ['geopend', 'ready'], COMPLETED: ['afgerond', 'ready'],
   DECLINED: ['afgewezen', 'now'], ERROR: ['fout', 'now'],
 };
 const TESTER_CONSENT = { OPTED_IN: ['toestemming', 'ready'], OPTED_OUT: ['geen toestemming', 'now'], UNKNOWN: ['toestemming onbekend', ''] };
+const EVAL_STATUS = { NOT_STARTED: ['niet gestart', ''], IN_PROGRESS: ['bezig', ''], COMPLETED: ['afgerond', 'ready'] };
+const CONSENT_METHODE = { VERBAL: 'Mondeling', PHONE: 'Telefonisch', EMAIL: 'Per e-mail', WHATSAPP: 'Via WhatsApp', WRITTEN: 'Schriftelijk', OTHER: 'Anders' };
+const HIST_EVENT = {
+  tester_created: 'Tester aangemaakt', invitation_sent: 'Uitnodiging verstuurd',
+  invitation_failed: 'Uitnodiging mislukt', invitation_skipped: 'Uitnodiging overgeslagen',
+  invitation_blocked: 'Uitnodiging geblokkeerd', journey_started: 'Journey gestart',
+  evaluation_started: 'Evaluatie gestart', evaluation_completed: 'Evaluatie afgerond',
+  consent_recorded: 'Toestemming vastgelegd', consent_changed: 'Toestemming gewijzigd',
+  published_to_maculis: 'Gepubliceerd naar Maculis', publish_to_maculis_failed: 'Publiceren naar Maculis mislukt',
+  keep_consent_recorded: 'Bewaartoestemming vastgelegd', mijn_room_prepared: 'Persoonlijke omgeving klaargezet',
+  mijn_maculis_invited: 'Mijn Maculis uitnodiging verstuurd', pass_the_lens_introduction: 'Aangedragen via Pass the Lens',
+};
+const HIST_REDEN = {
+  no_data_dir: 'geen schrijfbare opslag bij de Lens', not_configured: 'koppeling niet ingesteld',
+  forbidden: 'sleutel geweigerd', network: 'Lens niet bereikbaar', timeout: 'Lens reageerde niet op tijd',
+  http: 'onverwacht antwoord van de Lens', exception: 'onverwachte fout',
+};
+const HIST_KANAAL = { whatsapp: 'WhatsApp', email: 'E-mail' };
+
+// Alles wat Beheer nodig heeft, in één ophaalslag. `/api/invitations` synchroniseert onderweg met de
+// Lens, precies zoals Vandaag dat doet, dus dit scherm is nooit ouder dan de radar.
+const beheerData = { testers: [], cfg: null, evals: null, geladen: false };
+async function laadBeheer({ opnieuw = false } = {}) {
+  if (beheerData.geladen && !opnieuw) return beheerData;
+  const [inv, cfg] = await Promise.all([api('/api/invitations'), api('/api/config')]);
+  beheerData.testers = (inv.ok && inv.data && inv.data.invitations) || [];
+  beheerData.cfg = (cfg.ok && cfg.data) || {};
+  beheerData.geladen = true;
+  return beheerData;
+}
+async function laadEvaluaties({ opnieuw = false } = {}) {
+  if (beheerData.evals && !opnieuw) return beheerData.evals;
+  const r = await api('/api/evaluations');
+  beheerData.evals = (r.ok && r.data) || { evaluations: [], questions: [], ok: false, reason: 'unknown' };
+  return beheerData.evals;
+}
+const testerNaam = (r) => [r.first_name, r.last_name].filter(Boolean).join(' ') || r.email || r.company_name || 'Onbekend';
+function beheerTijd(iso) {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    if (isNaN(d)) return '—';
+    return `${d.getDate()} ${NL_MONTHS[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  } catch { return '—'; }
+}
+function beheerMelding(box, tekst, soort = '') {
+  box.className = 'beheer-melding' + (soort ? ' ' + soort : '');
+  box.textContent = tekst;
+  box.hidden = !tekst;
+}
 
 async function renderBeheer() {
-  const wrap = el('div', 'view-enter wide');
+  const wrap = el('div', 'view-enter');
   wrap.appendChild(el('div', 'eyebrow-line', 'Beheer'));
-  wrap.appendChild(el('h1', 'work-h1', 'Testerbeheer'));
-  // Canon 12, empty state: ontworpen, niet leeg. Een serif-regel plus een actie.
-  wrap.appendChild(el('p', 'beheer-lead mac-sharpen', 'Wie Maculis mag proberen, staat hier.'));
-  wrap.appendChild(el('p', 'lead-note', 'Administratief. Testers en uitnodigingen voor de campagne. Dit staat los van je relaties: een tester wordt hier geen Maculis-relatie.'));
+  const titel = (BEHEER_TABS.find(([k]) => k === beheerTab) || [null, 'Beheer'])[1];
+  wrap.appendChild(el('h1', 'work-h1', titel));
 
-  // Add a tester (reuses POST /api/invitations; creates a record + link, sends niets).
-  const form = el('form', 'beheer-add');
-  form.innerHTML =
-    `<div class="ba-row">
-       <input type="text" id="ba-first" placeholder="Voornaam" aria-label="Voornaam">
-       <input type="text" id="ba-last" placeholder="Achternaam" aria-label="Achternaam">
-       <input type="text" id="ba-org" placeholder="Organisatie" aria-label="Organisatie">
-     </div>
-     <div class="ba-row">
-       <input type="email" id="ba-email" placeholder="E-mail" aria-label="E-mail">
-       <input type="text" id="ba-mobile" placeholder="Mobiel" aria-label="Mobiel">
-       <button class="btn btn-primary" type="submit">Tester toevoegen</button>
-     </div>`;
-  const err = el('p', 'lead-note'); err.style.color = 'var(--danger)'; err.style.display = 'none';
-  wrap.appendChild(form); wrap.appendChild(err);
+  const nav = el('nav', 'beheer-tabs');
+  nav.setAttribute('aria-label', 'Beheeronderdelen');
+  for (const [key, label] of BEHEER_TABS) {
+    const b = el('button', 'beheer-tab' + (key === beheerTab ? ' on' : ''), esc(label));
+    if (key === beheerTab) b.setAttribute('aria-current', 'page');
+    b.addEventListener('click', () => { beheerTab = key; render(); });
+    nav.appendChild(b);
+  }
+  wrap.appendChild(nav);
 
-  const meta = el('div', 'work-meta'); wrap.appendChild(meta);
-  const bar = el('div', 'filterbar');
-  bar.innerHTML = `<span class="search big"><span aria-hidden="true">⌕</span><input type="text" id="t-q" placeholder="Zoek een tester of organisatie" aria-label="Zoek tester"></span>`;
-  wrap.appendChild(bar);
-  const list = el('div', 'ck-list'); wrap.appendChild(list);
-
-  // A discreet bridge to the full tool for the heavier admin flows (import, e-mail, evaluaties),
-  // which keep their own tested safety rules; the cockpit does not rebuild them.
-  const more = el('p', 'lead-note beheer-more');
-  more.innerHTML = 'Importeren, uitnodigingen versturen en evaluaties: <a href="/index.html">open de volledige uitnodigingstool</a>.';
-  wrap.appendChild(more);
+  const paneel = el('div', 'beheer-paneel');
+  paneel.appendChild(el('p', 'lead-note', 'Laden…'));
+  wrap.appendChild(paneel);
   view.appendChild(wrap);
 
-  let all = [];
-  function draw(q) {
-    const needle = (q || '').toLowerCase();
-    const rows = all.filter((r) => !needle || (
-      `${r.first_name || ''} ${r.last_name || ''} ${r.company_name || ''} ${r.email || ''}`.toLowerCase().includes(needle)));
-    list.innerHTML = '';
-    meta.innerHTML = `<span class="wm-count"><b>${rows.length}</b> tester${rows.length === 1 ? '' : 's'}</span>`;
-    if (!rows.length) { list.appendChild(el('p', 'muted', all.length ? 'Geen tester gevonden.' : 'Nog geen testers. Voeg er hierboven een toe of importeer via de volledige tool.')); return; }
-    rows.forEach((r) => list.appendChild(testerRow(r)));
+  const data = await laadBeheer();
+  paneel.innerHTML = '';
+  if (beheerTab === 'testers') return paneelTesters(paneel, data);
+  if (beheerTab === 'uitnodigingen') return paneelUitnodigingen(paneel, data);
+  if (beheerTab === 'evaluaties') return paneelEvaluaties(paneel);
+  if (beheerTab === 'inzichten') return paneelInzichten(paneel);
+  return paneelHistorie(paneel, data);
+}
+
+/* ---------- Testerbeheer ---------- */
+
+function paneelTesters(paneel, data) {
+  paneel.appendChild(el('p', 'beheer-lead mac-sharpen', 'Wie Maculis mag proberen, staat hier.'));
+  paneel.appendChild(el('p', 'lead-note', 'Administratief. Testers en toestemming voor de campagne. Dit staat los van je relaties: een tester wordt hier geen Maculis-relatie.'));
+
+  const melding = el('p', 'beheer-melding'); melding.hidden = true;
+
+  const form = el('form', 'beheer-add');
+  form.innerHTML = `
+    <input type="text" id="ba-first" placeholder="Voornaam" aria-label="Voornaam" required>
+    <input type="text" id="ba-last" placeholder="Achternaam" aria-label="Achternaam">
+    <input type="text" id="ba-org" placeholder="Organisatie" aria-label="Organisatie">
+    <input type="email" id="ba-email" placeholder="E-mail" aria-label="E-mail">
+    <input type="text" id="ba-mobile" placeholder="Mobiel" aria-label="Mobiel">
+    <button class="btn btn-primary" type="submit">Tester toevoegen</button>`;
+  paneel.appendChild(form);
+  paneel.appendChild(melding);
+
+  const bar = el('div', 'ck-meta');
+  const meta = el('div', 'wm-meta');
+  bar.appendChild(meta);
+  const zoek = el('span', 'search big', '<span aria-hidden="true">⌕</span><input type="text" id="t-q" placeholder="Zoek een tester of organisatie" aria-label="Zoek tester">');
+  bar.appendChild(zoek);
+  paneel.appendChild(bar);
+
+  const lijst = el('div', 'ck-list');
+  paneel.appendChild(lijst);
+
+  function teken(q) {
+    const naald = (q || '').toLowerCase();
+    const rijen = data.testers.filter((r) => !naald
+      || `${r.first_name || ''} ${r.last_name || ''} ${r.company_name || ''} ${r.email || ''}`.toLowerCase().includes(naald));
+    lijst.innerHTML = '';
+    meta.innerHTML = `<span class="wm-count"><b>${rijen.length}</b> tester${rijen.length === 1 ? '' : 's'}</span>`;
+    if (!rijen.length) { lijst.appendChild(el('p', 'muted', data.testers.length ? 'Geen tester gevonden.' : 'Nog geen testers. Voeg er hierboven een toe of importeer onder Uitnodigingen.')); return; }
+    rijen.forEach((r) => lijst.appendChild(testerRij(r, data)));
   }
-  async function load() {
-    const { ok, data } = await api('/api/invitations');
-    if (!ok || !data) { list.appendChild(el('p', 'lead-note', 'Kon testers niet laden.')); return; }
-    all = data.invitations || [];
-    draw(bar.querySelector('#t-q').value.trim());
-  }
-  let t; bar.querySelector('#t-q').addEventListener('input', (e) => { clearTimeout(t); t = setTimeout(() => draw(e.target.value.trim()), 150); });
+  let t;
+  zoek.querySelector('#t-q').addEventListener('input', (e) => { clearTimeout(t); t = setTimeout(() => teken(e.target.value.trim()), 150); });
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    err.style.display = 'none';
+    beheerMelding(melding, '');
     const body = {
       first_name: form.querySelector('#ba-first').value.trim(),
       last_name: form.querySelector('#ba-last').value.trim(),
@@ -1219,29 +1311,456 @@ async function renderBeheer() {
       mobile: form.querySelector('#ba-mobile').value.trim(),
     };
     const r = await api('/api/invitations', { method: 'POST', body: JSON.stringify(body) });
-    if (r.ok) { form.reset(); load(); } else { err.textContent = (r.data && r.data.error) || 'Kon tester niet toevoegen.'; err.style.display = ''; }
+    if (!r.ok) { beheerMelding(melding, (r.data && r.data.error) || 'Kon tester niet toevoegen.', 'fout'); return; }
+    form.reset();
+    await laadBeheer({ opnieuw: true });
+    render();
   });
-  load();
+  teken('');
 }
 
-function testerRow(r) {
-  const row = el('article', 'conv');
-  const name = [r.first_name, r.last_name].filter(Boolean).join(' ') || r.email || r.company_name || 'Onbekend';
+function testerRij(r, data) {
+  const rij = el('article', 'conv beheer-rij');
+  const naam = testerNaam(r);
   const [stLbl, stCls] = TESTER_STATUS[r.status] || [(r.status || '').toLowerCase(), ''];
   const [csLbl, csCls] = TESTER_CONSENT[r.consent_status] || ['', ''];
   const chips = [`<span class="chip ${stCls}"><span class="k"></span>${esc(stLbl)}</span>`];
   if (csLbl) chips.push(`<span class="chip ${csCls}">${esc(csLbl)}</span>`);
   if (r.campaign) chips.push(`<span class="chip">${esc(r.campaign)}</span>`);
   const contact = r.email || r.mobile || '';
-  row.innerHTML =
-    `<span class="av" aria-hidden="true">${esc(initials(name))}</span>
+  rij.innerHTML =
+    `<span class="av" aria-hidden="true">${esc(initials(naam))}</span>
      <div class="conv-main">
-       <div class="conv-top"><span class="conv-who">${esc(name)}</span></div>
+       <div class="conv-top"><span class="conv-who">${esc(naam)}</span></div>
        ${r.company_name ? `<div class="conv-org">${esc(r.company_name)}</div>` : ''}
        ${contact ? `<div class="conv-snip">${esc(contact)}</div>` : ''}
        <div class="conv-tags">${chips.join('')}</div>
      </div>`;
-  return row;
+
+  const acties = el('div', 'prepared-actions beheer-acties');
+  const bewerk = el('button', 'btn btn-ghost', 'Bewerken');
+  bewerk.addEventListener('click', () => {
+    const open = rij.querySelector('.beheer-edit');
+    if (open) { open.remove(); return; }
+    rij.appendChild(bewerkPaneel(r, data));
+  });
+  acties.appendChild(bewerk);
+
+  const hist = el('button', 'btn btn-ghost', 'Historie');
+  hist.addEventListener('click', () => { beheerTester = r.id; beheerTab = 'historie'; render(); });
+  acties.appendChild(hist);
+
+  if (r.token && data.cfg && data.cfg.maculisPublicUrl) {
+    const kopie = el('button', 'btn btn-ghost', 'Kopieer persoonlijke link');
+    kopie.addEventListener('click', async () => {
+      const url = `${String(data.cfg.maculisPublicUrl).replace(/\/+$/, '')}/?t=${encodeURIComponent(r.token)}`;
+      try { await navigator.clipboard.writeText(url); kopie.textContent = 'Gekopieerd'; }
+      catch { kopie.textContent = url; }
+    });
+    acties.appendChild(kopie);
+  }
+  rij.appendChild(acties);
+  return rij;
+}
+
+// Bewerken, status en toestemming in één paneel, met dezelfde regels als de tool waar dit vandaan
+// komt. Toestemming is een eigen dimensie naast status: die twee worden hier nooit één veld.
+function bewerkPaneel(r, data) {
+  const box = el('div', 'beheer-edit');
+  const statussen = (data.cfg && data.cfg.statuses) || ['DRAFT', 'SENT', 'OPENED', 'COMPLETED', 'DECLINED', 'ERROR'];
+  box.innerHTML = `
+    <div class="edit-grid">
+      <label>Voornaam<input type="text" data-f="first_name" value="${esc(r.first_name || '')}"></label>
+      <label>Achternaam<input type="text" data-f="last_name" value="${esc(r.last_name || '')}"></label>
+      <label>Organisatie<input type="text" data-f="company_name" value="${esc(r.company_name || '')}"></label>
+      <label>Domein<input type="text" data-f="domain" value="${esc(r.domain || '')}"></label>
+      <label>E-mail<input type="email" data-f="email" value="${esc(r.email || '')}"></label>
+      <label>Mobiel<input type="text" data-f="mobile" value="${esc(r.mobile || '')}"></label>
+      <label class="edit-breed">Notitie<input type="text" data-f="notes" value="${esc(r.notes || '')}"></label>
+      <label>Status<select data-f="status">${statussen.map((s) => `<option value="${esc(s)}"${s === r.status ? ' selected' : ''}>${esc((TESTER_STATUS[s] || [s])[0])}</option>`).join('')}</select></label>
+      <label>Toestemming<select data-f="consent">${['UNKNOWN', 'OPTED_IN', 'OPTED_OUT'].map((c) => `<option value="${c}"${c === r.consent_status ? ' selected' : ''}>${esc((TESTER_CONSENT[c] || [c])[0])}</option>`).join('')}</select></label>
+      <label class="edit-methode" hidden>Hoe is die toestemming gegeven?<select data-f="methode">
+        <option value="">Kies…</option>
+        ${Object.entries(CONSENT_METHODE).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}
+      </select></label>
+      <label class="edit-anders edit-breed" hidden>Toelichting<input type="text" data-f="anders" placeholder="Korte toelichting op de toestemmingswijze"></label>
+    </div>`;
+  const melding = el('p', 'beheer-melding'); melding.hidden = true;
+  const veld = (f) => box.querySelector(`[data-f="${f}"]`);
+
+  function toonMethode() {
+    const nieuw = veld('consent').value;
+    box.querySelector('.edit-methode').hidden = !(nieuw === 'OPTED_IN' && nieuw !== r.consent_status);
+    box.querySelector('.edit-anders').hidden = !(box.querySelector('.edit-methode').hidden === false && veld('methode').value === 'OTHER');
+  }
+  veld('consent').addEventListener('change', toonMethode);
+  veld('methode').addEventListener('change', toonMethode);
+  toonMethode();
+
+  const acties = el('div', 'prepared-actions');
+  const opslaan = el('button', 'btn btn-primary', 'Opslaan');
+  opslaan.addEventListener('click', async () => {
+    beheerMelding(melding, '');
+    opslaan.disabled = true;
+    try {
+      const patch = {};
+      for (const f of ['first_name', 'last_name', 'company_name', 'domain', 'email', 'mobile', 'notes']) patch[f] = veld(f).value.trim();
+      const p = await api(`/api/invitations/${r.id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+      if (!p.ok) throw new Error((p.data && p.data.error) || 'Opslaan mislukt.');
+
+      // Een status met de hand zetten is een administratieve correctie, geen normale gang van zaken:
+      // statussen komen uit echte gebeurtenissen. Daarom een expliciete bevestiging.
+      const nieuweStatus = veld('status').value;
+      if (nieuweStatus && nieuweStatus !== r.status) {
+        const ok = confirm(`Status administratief corrigeren van ${r.status} naar ${nieuweStatus}?\n\nNormale statussen komen automatisch uit systeemgebeurtenissen.`);
+        if (ok) await api(`/api/invitations/${r.id}/status`, { method: 'POST', body: JSON.stringify({ status: nieuweStatus }) });
+      }
+
+      // Toestemming: fail-closed. Met de hand vastleggen kan alleen mét de wijze waarop die is
+      // verkregen, en intrekken vraagt om een bevestiging omdat het uitnodigen blokkeert.
+      const nieuwConsent = veld('consent').value;
+      if (nieuwConsent && nieuwConsent !== r.consent_status) {
+        const body = { consent_status: nieuwConsent, consent_source: 'manual' };
+        let door = true;
+        if (nieuwConsent === 'OPTED_IN') {
+          const m = veld('methode').value;
+          if (!m) throw new Error('Kies hoe de toestemming is verkregen.');
+          body.consent_method = m;
+          if (m === 'OTHER') {
+            const toel = veld('anders').value.trim();
+            if (!toel) throw new Error('Kies "Anders": geef een korte toelichting op de toestemmingswijze.');
+            body.consent_note = toel;
+          }
+        }
+        if (nieuwConsent === 'OPTED_OUT') {
+          door = confirm('Toestemming intrekken: deze tester wordt geblokkeerd voor uitnodigingen en voor publicatie naar Maculis. Registreren?');
+        }
+        if (door) {
+          const c = await api(`/api/invitations/${r.id}/consent`, { method: 'POST', body: JSON.stringify(body) });
+          if (!c.ok) throw new Error((c.data && c.data.error) || 'Toestemming vastleggen mislukt.');
+        }
+      }
+      await laadBeheer({ opnieuw: true });
+      render();
+    } catch (ex) {
+      beheerMelding(melding, ex.message || 'Opslaan mislukt.', 'fout');
+      opslaan.disabled = false;
+    }
+  });
+  acties.appendChild(opslaan);
+
+  const weg = el('button', 'btn btn-ghost', 'Verwijderen');
+  weg.addEventListener('click', async () => {
+    if (!confirm(`${testerNaam(r)} verwijderen? De historie van deze tester verdwijnt mee.`)) return;
+    const d = await api(`/api/invitations/${r.id}`, { method: 'DELETE' });
+    if (!d.ok) { beheerMelding(melding, (d.data && d.data.error) || 'Verwijderen mislukt.', 'fout'); return; }
+    await laadBeheer({ opnieuw: true });
+    render();
+  });
+  acties.appendChild(weg);
+
+  box.appendChild(acties);
+  box.appendChild(melding);
+  return box;
+}
+
+/* ---------- Uitnodigingen ---------- */
+
+function paneelUitnodigingen(paneel, data) {
+  paneel.appendChild(el('p', 'beheer-lead mac-sharpen', 'De uitnodiging naar de Lens.'));
+  paneel.appendChild(el('p', 'lead-note', 'Per tester, met de toestemming ernaast. Er gaat nooit iets uit zonder dat jij erop klikt.'));
+
+  const cfg = data.cfg || {};
+  if (!cfg.maculisConfigured) {
+    paneel.appendChild(el('p', 'beheer-melding waarschuwing', 'De sync naar de Lens is niet ingesteld, dus een tester komt daar niet met naam aan. Publiceren werkt niet.'));
+  }
+  if (!cfg.mailConfigured) {
+    paneel.appendChild(el('p', 'beheer-melding waarschuwing', 'Er staat op deze omgeving geen verzendend mailtransport. Een e-mailuitnodiging wordt dan niet werkelijk verstuurd en niemand komt op Uitgenodigd.'));
+  }
+
+  const importeer = el('div', 'beheer-import');
+  importeer.innerHTML = '<label class="btn btn-ghost">Testers importeren<input type="file" accept=".csv,.xlsx,.xls" hidden></label>';
+  const impMelding = el('p', 'beheer-melding'); impMelding.hidden = true;
+  importeer.appendChild(impMelding);
+  importeer.querySelector('input').addEventListener('change', async (e) => {
+    const bestand = e.target.files && e.target.files[0];
+    if (!bestand) return;
+    beheerMelding(impMelding, 'Bestand lezen…');
+    try {
+      const base64 = await new Promise((ok, mis) => {
+        const rd = new FileReader();
+        rd.onload = () => ok(String(rd.result).split(',')[1] || '');
+        rd.onerror = () => mis(new Error('Kon het bestand niet lezen.'));
+        rd.readAsDataURL(bestand);
+      });
+      const ext = (bestand.name.split('.').pop() || '').toLowerCase();
+      const herkomst = (ext === 'xlsx' || ext === 'xls') ? 'xlsx' : (ext === 'csv' ? 'csv' : 'import');
+      const pv = await api('/api/import/preview', {
+        method: 'POST',
+        body: JSON.stringify({ filename: bestand.name, contentType: bestand.type, dataBase64: base64 }),
+      });
+      if (!pv.ok) throw new Error((pv.data && pv.data.error) || 'Voorbeeld mislukt.');
+      // Alleen rijen die de server zelf op `import` zette. Ongeldige rijen komen er nooit in en
+      // dubbele worden overgeslagen, zodat een import niets stilzwijgend overschrijft.
+      const rijen = (pv.data.rows || []).filter((x) => x._action === 'import')
+        .map(({ first_name, last_name, company_name, email, mobile, domain }) => ({ first_name, last_name, company_name, email, mobile, domain }));
+      const sam = pv.data.summary || {};
+      if (!rijen.length) {
+        beheerMelding(impMelding, `Niets te importeren. ${sam.duplicate || 0} dubbel, ${sam.invalid || 0} ongeldig.`, 'waarschuwing');
+        return;
+      }
+      if (!confirm(`${rijen.length} nieuwe tester(s) importeren?${sam.duplicate ? `\n${sam.duplicate} rij(en) bestaan al en worden overgeslagen.` : ''}${sam.invalid ? `\n${sam.invalid} rij(en) zijn ongeldig en komen er niet in.` : ''}`)) {
+        beheerMelding(impMelding, ''); return;
+      }
+      const cm = await api('/api/import/commit', { method: 'POST', body: JSON.stringify({ rows: rijen, source: herkomst }) });
+      if (!cm.ok) throw new Error((cm.data && cm.data.error) || 'Importeren mislukt.');
+      await laadBeheer({ opnieuw: true });
+      render();
+    } catch (ex) {
+      beheerMelding(impMelding, ex.message || 'Importeren mislukt.', 'fout');
+    } finally { e.target.value = ''; }
+  });
+  paneel.appendChild(importeer);
+
+  const lijst = el('div', 'ck-list');
+  if (!data.testers.length) lijst.appendChild(el('p', 'muted', 'Nog geen testers. Voeg er een toe onder Testerbeheer.'));
+  data.testers.forEach((r) => lijst.appendChild(uitnodigingRij(r, cfg)));
+  paneel.appendChild(lijst);
+}
+
+function uitnodigingRij(r, cfg) {
+  const rij = el('article', 'conv beheer-rij');
+  const naam = testerNaam(r);
+  const [stLbl, stCls] = TESTER_STATUS[r.status] || [(r.status || '').toLowerCase(), ''];
+  const [csLbl, csCls] = TESTER_CONSENT[r.consent_status] || ['', ''];
+  rij.innerHTML =
+    `<span class="av" aria-hidden="true">${esc(initials(naam))}</span>
+     <div class="conv-main">
+       <div class="conv-top"><span class="conv-who">${esc(naam)}</span></div>
+       ${r.company_name ? `<div class="conv-org">${esc(r.company_name)}</div>` : ''}
+       <div class="conv-tags"><span class="chip ${stCls}"><span class="k"></span>${esc(stLbl)}</span><span class="chip ${csCls}">${esc(csLbl)}</span></div>
+     </div>`;
+  const melding = el('p', 'beheer-melding'); melding.hidden = true;
+  const acties = el('div', 'prepared-actions beheer-acties');
+
+  const magBenaderen = r.consent_status === 'OPTED_IN';
+  if (!magBenaderen) {
+    acties.appendChild(el('p', 'kamer-note', r.consent_status === 'OPTED_OUT'
+      ? 'Toestemming ingetrokken. Er gaat niets uit.'
+      : 'Nog geen toestemming om te benaderen. Leg die eerst vast onder Testerbeheer.'));
+    rij.appendChild(acties);
+    return rij;
+  }
+
+  // WhatsApp in twee stappen. Openen verandert niets; pas de bevestiging zet de status.
+  const wa = el('button', 'btn btn-primary', 'Via WhatsApp uitnodigen');
+  wa.addEventListener('click', async () => {
+    beheerMelding(melding, 'Tekst klaarzetten…');
+    const res = await api(`/api/invitations/${r.id}/whatsapp`);
+    if (!res.ok) { beheerMelding(melding, (res.data && res.data.error) || 'Kon de uitnodiging niet klaarzetten.', 'fout'); return; }
+    beheerMelding(melding, res.data.hasNumber
+      ? 'WhatsApp opent in een nieuw tabblad. Verstuur daar het bericht en bevestig hier pas daarna.'
+      : 'Geen mobiel nummer. WhatsApp opent zonder ontvanger, je kiest het contact zelf.', 'waarschuwing');
+    const tekst = el('textarea', 'beheer-preview'); tekst.readOnly = true; tekst.value = res.data.text || '';
+    rij.appendChild(tekst);
+    window.open(res.data.url, '_blank', 'noopener');
+    wa.hidden = true;
+    const bevestig = el('button', 'btn btn-primary', 'Ik heb hem verstuurd');
+    bevestig.addEventListener('click', async () => {
+      const s = await api(`/api/invitations/${r.id}/status`, { method: 'POST', body: JSON.stringify({ status: 'SENT', channel: 'whatsapp' }) });
+      if (!s.ok) { beheerMelding(melding, (s.data && s.data.error) || 'Vastleggen mislukt.', 'fout'); return; }
+      await laadBeheer({ opnieuw: true });
+      render();
+    });
+    acties.appendChild(bevestig);
+  });
+  acties.appendChild(wa);
+
+  const mail = el('button', 'btn btn-ghost', 'Via e-mail uitnodigen');
+  mail.addEventListener('click', async () => {
+    if (!r.email) { beheerMelding(melding, 'Deze tester heeft geen e-mailadres.', 'fout'); return; }
+    mail.disabled = true;
+    beheerMelding(melding, 'Bezig…');
+    const res = await api('/api/invite/email', { method: 'POST', body: JSON.stringify({ ids: [r.id] }) });
+    mail.disabled = false;
+    if (!res.ok) { beheerMelding(melding, (res.data && res.data.error) || 'Verzenden mislukt.', 'fout'); return; }
+    // Geen verzendend transport betekent: er is NIETS verstuurd. Dat melden we, in plaats van
+    // een geslaagde verzending te suggereren die niet heeft plaatsgevonden.
+    if (!res.data.delivers) {
+      beheerMelding(melding, 'Niet verstuurd: er staat geen verzendend mailtransport aan. Niemand is op Uitgenodigd gezet.', 'waarschuwing');
+      return;
+    }
+    await laadBeheer({ opnieuw: true });
+    render();
+  });
+  acties.appendChild(mail);
+
+  if (cfg.maculisConfigured) {
+    const pub = el('button', 'btn btn-ghost', 'Publiceer naar de Lens');
+    pub.addEventListener('click', async () => {
+      pub.disabled = true;
+      const res = await api('/api/publish', { method: 'POST', body: JSON.stringify({ ids: [r.id] }) });
+      pub.disabled = false;
+      if (!res.ok) { beheerMelding(melding, (res.data && res.data.error) || 'Publiceren mislukt.', 'fout'); return; }
+      beheerMelding(melding, res.data.published
+        ? 'Gepubliceerd. De Lens begroet deze tester bij naam.'
+        : 'Niet gepubliceerd, geblokkeerd wegens ontbrekende toestemming.', res.data.published ? '' : 'waarschuwing');
+    });
+    acties.appendChild(pub);
+  }
+
+  rij.appendChild(acties);
+  rij.appendChild(melding);
+  return rij;
+}
+
+/* ---------- Evaluaties ---------- */
+
+async function paneelEvaluaties(paneel) {
+  paneel.appendChild(el('p', 'lead-note', 'Laden…'));
+  const data = await laadEvaluaties({ opnieuw: true });
+  paneel.innerHTML = '';
+  paneel.appendChild(el('p', 'beheer-lead mac-sharpen', 'Hoe ver iedereen is.'));
+  paneel.appendChild(el('p', 'lead-note', 'De Lens is de bron. Dit scherm leest mee en bewaart niets van zichzelf.'));
+  if (data.ok === false) {
+    paneel.appendChild(el('p', 'beheer-melding waarschuwing', SYNC_REDEN[data.reason] || SYNC_REDEN.unknown));
+  }
+
+  const rijen = data.evaluations || [];
+  const tel = (f) => rijen.filter(f).length;
+  const samenvatting = el('div', 'beheer-cijfers');
+  samenvatting.innerHTML = [
+    ['Testers', rijen.length],
+    ['Journey gestart', tel((r) => r.started)],
+    ['Evaluatie bezig', tel((r) => r.eval_status === 'IN_PROGRESS')],
+    ['Afgerond', tel((r) => r.eval_status === 'COMPLETED')],
+  ].map(([k, v]) => `<div class="cijfer"><b>${v}</b><span>${esc(k)}</span></div>`).join('');
+  paneel.appendChild(samenvatting);
+
+  const lijst = el('div', 'ck-list');
+  if (!rijen.length) lijst.appendChild(el('p', 'muted', 'Nog geen testers.'));
+  for (const r of rijen) {
+    const rij = el('article', 'conv beheer-rij openable');
+    const [evLbl, evCls] = EVAL_STATUS[r.eval_status] || [(r.eval_status || '').toLowerCase(), ''];
+    const [stLbl, stCls] = TESTER_STATUS[r.lifecycle] || [(r.lifecycle || '').toLowerCase(), ''];
+    rij.innerHTML =
+      `<span class="av" aria-hidden="true">${esc(initials(r.name))}</span>
+       <div class="conv-main">
+         <div class="conv-top"><span class="conv-who">${esc(r.name)}</span></div>
+         ${r.company_name ? `<div class="conv-org">${esc(r.company_name)}</div>` : ''}
+         <div class="conv-tags">
+           <span class="chip ${stCls}"><span class="k"></span>${esc(stLbl)}</span>
+           <span class="chip ${evCls}">${esc(evLbl)}</span>
+         </div>
+       </div>`;
+    const naar = el('div', 'prepared-actions beheer-acties');
+    const knop = el('button', 'btn btn-ghost', 'Inzichten bekijken');
+    knop.addEventListener('click', () => { beheerTester = r.id; beheerTab = 'inzichten'; render(); });
+    naar.appendChild(knop);
+    rij.appendChild(naar);
+    lijst.appendChild(rij);
+  }
+  paneel.appendChild(lijst);
+}
+
+/* ---------- Inzichten ---------- */
+
+async function paneelInzichten(paneel) {
+  paneel.appendChild(el('p', 'lead-note', 'Laden…'));
+  const data = await laadEvaluaties();
+  paneel.innerHTML = '';
+  paneel.appendChild(el('p', 'beheer-lead mac-sharpen', 'Wat zij zelf antwoordden.'));
+  paneel.appendChild(el('p', 'lead-note', 'Woordelijk, zoals het uit de Lens komt. Niets hiervan is samengevat of geïnterpreteerd.'));
+
+  const rijen = data.evaluations || [];
+  const kiezer = el('label', 'beheer-kiezer', 'Tester'
+    + `<select>${['<option value="">Kies een tester…</option>'].concat(rijen.map((r) => `<option value="${esc(r.id)}"${r.id === beheerTester ? ' selected' : ''}>${esc(r.name)}${r.company_name ? ' · ' + esc(r.company_name) : ''}</option>`)).join('')}</select>`);
+  kiezer.querySelector('select').addEventListener('change', (e) => { beheerTester = e.target.value || null; render(); });
+  paneel.appendChild(kiezer);
+
+  const r = rijen.find((x) => x.id === beheerTester);
+  if (!r) { paneel.appendChild(el('p', 'muted', 'Kies hierboven een tester.')); return; }
+
+  const kop = el('p', 'lead-note', `${esc(r.campaign || '')} · ${esc((TESTER_STATUS[r.lifecycle] || [r.lifecycle])[0])} · evaluatie ${esc((EVAL_STATUS[r.eval_status] || [r.eval_status])[0])}`);
+  paneel.appendChild(kop);
+
+  const vragen = data.questions || [];
+  if (r.eval_status === 'NOT_STARTED') {
+    paneel.appendChild(el('p', 'muted', r.started ? 'De journey loopt, er zijn nog geen antwoorden.' : 'Nog geen evaluatieresultaten.'));
+    return;
+  }
+  const box = el('div', 'beheer-qa');
+  box.innerHTML = vragen.map((q) => {
+    const val = r.answers[q.id];
+    const label = val ? (q.options[val] || val) : '—';
+    let blok = `<div class="qa"><div class="qa-q">${esc(q.text)}</div><div class="qa-a ${val ? '' : 'muted'}">${esc(label)}</div>`;
+    if (q.context && r.contexts[q.context.id]) {
+      blok += `<div class="qa-ctx"><div class="muted small">${esc(q.context.text)}</div><div>${esc(r.contexts[q.context.id])}</div></div>`;
+    }
+    return blok + '</div>';
+  }).join('');
+  paneel.appendChild(box);
+
+  const tijden = [];
+  if (r.started_at) tijden.push('Gestart: ' + beheerTijd(r.started_at));
+  if (r.completed_at) tijden.push('Afgerond: ' + beheerTijd(r.completed_at));
+  if (tijden.length) paneel.appendChild(el('p', 'lead-note', esc(tijden.join(' · '))));
+}
+
+/* ---------- Historie ---------- */
+
+async function paneelHistorie(paneel, data) {
+  paneel.appendChild(el('p', 'beheer-lead mac-sharpen', 'De reis van één mens.'));
+  paneel.appendChild(el('p', 'lead-note', 'Alleen gebeurtenissen. Geen berichten, geen links, geen tokens.'));
+
+  const kiezer = el('label', 'beheer-kiezer', 'Tester'
+    + `<select>${['<option value="">Kies een tester…</option>'].concat(data.testers.map((r) => `<option value="${esc(r.id)}"${r.id === beheerTester ? ' selected' : ''}>${esc(testerNaam(r))}${r.company_name ? ' · ' + esc(r.company_name) : ''}</option>`)).join('')}</select>`);
+  kiezer.querySelector('select').addEventListener('change', (e) => { beheerTester = e.target.value || null; render(); });
+  paneel.appendChild(kiezer);
+
+  if (!beheerTester) { paneel.appendChild(el('p', 'muted', 'Kies hierboven een tester.')); return; }
+  const bezig = el('p', 'lead-note', 'Laden…');
+  paneel.appendChild(bezig);
+  const res = await api(`/api/invitations/${beheerTester}/history`);
+  bezig.remove();
+  if (!res.ok) { paneel.appendChild(el('p', 'beheer-melding fout', 'Kon de historie niet laden.')); return; }
+  const h = res.data;
+
+  const entries = (h.history || []).slice().sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  const laatsteUitnodiging = [...entries].reverse().find((e) => e.event === 'invitation_sent');
+  const intro = Array.isArray(h.introductions) ? h.introductions.slice().reverse() : [];
+
+  const samen = el('div', 'beheer-samenvatting');
+  samen.innerHTML = [
+    ['Bron', h.source || '—'],
+    ...(intro.length ? [['Aangedragen door', intro.map((i) => (i.by_name || 'Onbekende verwijzer') + (i.by_company ? ` (${i.by_company})` : '')).join(', ')]] : []),
+    ['Aangemaakt', beheerTijd(h.created_at)],
+    ['Laatste uitnodiging', laatsteUitnodiging
+      ? beheerTijd(laatsteUitnodiging.at) + (laatsteUitnodiging.channel ? ' · ' + (HIST_KANAAL[laatsteUitnodiging.channel] || laatsteUitnodiging.channel) : '')
+      : '—'],
+    ['Status', (TESTER_STATUS[h.lifecycle] || [h.lifecycle])[0]],
+    ['Toestemming', (TESTER_CONSENT[h.consent_status] || [h.consent_status])[0]],
+  ].map(([k, v]) => `<div class="hs-rij"><span class="hs-k">${esc(k)}</span><span class="hs-v">${esc(v || '—')}</span></div>`).join('');
+  paneel.appendChild(samen);
+
+  const tijdlijn = el('div', 'beheer-tijdlijn');
+  tijdlijn.innerHTML = entries.length
+    ? entries.map((e) => {
+      const meta = [];
+      if (e.channel) meta.push(HIST_KANAAL[e.channel] || e.channel);
+      if (e.result) meta.push(e.result);
+      if (e.source) meta.push(e.source);
+      if (e.reason) meta.push(HIST_REDEN[e.reason] || e.reason);
+      return `<div class="tl-item">
+        <div class="tl-time">${esc(beheerTijd(e.at))}</div>
+        <div class="tl-body">
+          <div class="tl-event">${esc(HIST_EVENT[e.event] || e.event)}</div>
+          ${meta.length ? `<div class="tl-meta">${esc(meta.join(' · '))}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('')
+    : '<p class="muted">Nog geen gebeurtenissen.</p>';
+  paneel.appendChild(tijdlijn);
 }
 
 boot();

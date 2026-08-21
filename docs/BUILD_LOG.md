@@ -5,6 +5,43 @@ Geen persoonlijke of gevoelige data. Uitsluitend architectuur- en testbeslissing
 
 ---
 
+## 2026-08-21 — Beheer verhuist naar de Cockpit, en de journey past achter één URL
+
+**Stand.** De volledige medewerkersreis loopt vanaf `/cockpit-live.html`. Suite 293 van 293, echte
+end to end 46 van 46, de nieuwe Beheer-harness 19 van 19 en 27 van 27, tokengate en canon-scan groen.
+
+### Vijf panelen, nul nieuwe routes
+
+Beheer had één paneel dat testers toonde en voor alles daarbuiten naar `/index.html` verwees. Het
+zijn er nu vijf: Testerbeheer, Uitnodigingen, Evaluaties, Inzichten en Historie. Elk paneel praat met
+een route die al bestond: `/api/invitations`, `/api/invite/email`, `/api/publish`, `/api/import/*`,
+`/api/evaluations` en `/api/invitations/:id/history`. Geen nieuwe databron, geen nieuw model, geen
+migratie. De verwijzing naar de losse tool is weg.
+
+### Drie grenzen die mee zijn verhuisd en niet zijn versimpeld
+
+Toestemming met de hand vastleggen kan alleen mét de wijze waarop die is verkregen, en "anders"
+vraagt om een toelichting. Intrekken vraagt om een bevestiging, want het blokkeert uitnodigen en
+publiceren.
+
+WhatsApp openen verandert de status niet. Pas wanneer een mens bevestigt dat hij werkelijk heeft
+verstuurd, gaat de tester op Verstuurd. Twee stappen, met opzet, want de eerste stap is het openen
+van een ander programma en dat is geen bewijs van verzending.
+
+Zonder verzendend transport wordt er niet gedaan alsof. Het scherm waarschuwt vooraf en meldt na de
+klik dat er niets is verstuurd en dat er niemand op Uitgenodigd staat.
+
+Een status met de hand zetten blijft een administratieve correctie met een bevestiging, want
+statussen komen normaal uit echte gebeurtenissen.
+
+### Wat nog niet verhuisd is
+
+De Privacy-inbox heeft geen tegenhanger in de Cockpit en blijft bereikbaar via `/comm.html`. Die
+staat niet in de medewerkersreis en is bewust niet in deze ronde meegenomen: het weghalen van de link
+zou de enige toegang tot privacygesprekken hebben afgesloten.
+
+---
+
 ## 2026-08-21 — Van de Lens naar Mijn Maculis, met één menselijke bevestiging
 
 **Stand.** De activatieflow loopt nu volledig vanaf de Cockpit. Suite 293 van 293, de echte end to

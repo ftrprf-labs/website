@@ -1412,3 +1412,66 @@ body {
   border:1px solid var(--line, rgba(255,255,255,.12));border-radius:8px;
   background:var(--field, rgba(255,255,255,.04));color:var(--text, inherit)}
 .sync-note{margin-top:14px}
+
+/* ---- Beheer: de administratieve laag in de Cockpit ----
+   Rustig en tekstueel. Geen tabel met tien kolommen: per mens één regel, en wat je met hem kunt
+   doen staat eronder in plaats van erachter. */
+.prepared-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .6rem; }
+.ck-list { display: flex; flex-direction: column; gap: .5rem; }
+.ck-meta { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; justify-content: space-between; margin: 1rem 0 .6rem; }
+
+.beheer-tabs { display: flex; flex-wrap: wrap; gap: .35rem; margin: .8rem 0 1.2rem;
+  border-bottom: 1px solid var(--line, rgba(255,255,255,.1)); padding-bottom: .5rem; }
+.beheer-tab { background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm, 8px);
+  color: var(--text-quiet, #8a8a8a); font: inherit; font-size: 13px; padding: .4rem .8rem; cursor: pointer; }
+.beheer-tab:hover { color: var(--text, inherit); border-color: var(--line, rgba(255,255,255,.12)); }
+.beheer-tab.on { color: var(--text, inherit); border-color: var(--line, rgba(255,255,255,.2));
+  background: var(--field, rgba(255,255,255,.04)); }
+
+.beheer-melding { margin: .6rem 0 0; font-size: 12px; line-height: 1.5; color: var(--text-quiet, #8a8a8a); }
+.beheer-melding.fout { color: var(--danger, #c0564a); }
+.beheer-melding.waarschuwing { color: var(--semantic-attention, #c8a45c); }
+
+.beheer-rij { display: flex; flex-wrap: wrap; gap: .6rem; align-items: flex-start;
+  padding: .8rem .9rem; border: 1px solid var(--line, rgba(255,255,255,.08)); border-radius: var(--radius-sm, 8px); }
+.beheer-rij .conv-main { flex: 1 1 240px; min-width: 0; }
+.beheer-acties { width: 100%; }
+
+.beheer-edit { width: 100%; margin-top: .8rem; padding-top: .8rem; border-top: 1px solid var(--line, rgba(255,255,255,.08)); }
+.edit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .6rem; }
+.edit-grid label { display: flex; flex-direction: column; gap: .25rem; font-size: 12px; color: var(--text-quiet, #8a8a8a); }
+.edit-grid input, .edit-grid select { padding: var(--s2, .4rem) var(--s3, .6rem); border: 1px solid var(--line, rgba(255,255,255,.12));
+  border-radius: var(--radius-sm, 8px); background: transparent; color: var(--text, inherit); font: inherit; font-size: 13px; }
+.edit-grid input:focus, .edit-grid select:focus { outline: none; border-color: var(--primary, #c8a45c); }
+.edit-breed { grid-column: 1 / -1; }
+
+.beheer-import { margin: 1rem 0; }
+.beheer-preview { width: 100%; min-height: 96px; margin-top: .6rem; padding: .6rem .7rem; font: inherit; font-size: 12px;
+  border: 1px solid var(--line, rgba(255,255,255,.12)); border-radius: var(--radius-sm, 8px);
+  background: var(--field, rgba(255,255,255,.04)); color: var(--text, inherit); resize: vertical; }
+
+.beheer-cijfers { display: flex; flex-wrap: wrap; gap: 1.4rem; margin: 1rem 0 1.2rem; }
+.cijfer { display: flex; flex-direction: column; gap: .15rem; }
+.cijfer b { font-size: 22px; font-weight: 500; }
+.cijfer span { font-size: 12px; color: var(--text-quiet, #8a8a8a); }
+
+.beheer-kiezer { display: flex; flex-direction: column; gap: .3rem; margin: 1rem 0; max-width: 420px;
+  font-size: 12px; color: var(--text-quiet, #8a8a8a); }
+.beheer-kiezer select { padding: var(--s2, .4rem) var(--s3, .6rem); border: 1px solid var(--line, rgba(255,255,255,.12));
+  border-radius: var(--radius-sm, 8px); background: transparent; color: var(--text, inherit); font: inherit; font-size: 13px; }
+
+.beheer-qa { display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; }
+.qa-q { font-size: 13px; color: var(--text-quiet, #8a8a8a); }
+.qa-a { font-size: 15px; margin-top: .2rem; }
+.qa-ctx { margin-top: .4rem; padding-left: 12px; border-left: 2px solid var(--line, rgba(255,255,255,.14)); font-size: 13px; }
+
+.beheer-samenvatting { display: flex; flex-direction: column; gap: .3rem; margin: 1rem 0 1.4rem; }
+.hs-rij { display: flex; gap: .8rem; font-size: 13px; }
+.hs-k { flex: 0 0 160px; color: var(--text-quiet, #8a8a8a); }
+.hs-v { flex: 1 1 auto; }
+
+.beheer-tijdlijn { display: flex; flex-direction: column; gap: .6rem; }
+.tl-item { display: flex; gap: .9rem; font-size: 13px; }
+.tl-time { flex: 0 0 160px; color: var(--text-quiet, #8a8a8a); }
+.tl-meta { font-size: 12px; color: var(--text-quiet, #8a8a8a); margin-top: .1rem; }
+.beheer-add { flex-direction: row; flex-wrap: wrap; align-items: center; }
