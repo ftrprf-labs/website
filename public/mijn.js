@@ -590,10 +590,16 @@
     const n = bewijs(i);
     // Een inzicht dat Maculis uitspreekt, spreekt Maculis niet in dezelfde adem tegen. Alleen de
     // houding "unknown" zegt dat er te weinig is, en die zegt het als de uitspraak zelf.
-    $('zeg-rust').innerHTML = drempel(i) === Infinity
+    // EEN NON-REVEAL WORDT NIET DOOR ZIJN AANTAL GEDRAGEN. Bij een reveal ondersteunen de
+    // waarnemingen de uitspraak, en dan zegt het aantal iets. Bij "hier zien we géén verschil"
+    // zou dezelfde zin suggereren dat de afwezigheid sterker wordt naarmate we meer keken, en dat
+    // is niet waar. De breedte van de blik staat in de onderbouwing, in woorden, waar hij hoort.
+    $('zeg-rust').innerHTML = (drempel(i) === Infinity
       ? 'Hier is nog <b>te weinig bewijs</b> om iets te zeggen.'
-      : `Rust op <b>${n}</b> ${n === 1 ? 'waarneming' : 'waarnemingen'}.`
-        + (pat.nieuw ? ' Sinds je vorige bezoek is er iets bijgekomen.' : '');
+      : i.stance === 'non_reveal'
+        ? 'Dit is wat we zagen op de plekken waar we keken.'
+        : `Rust op <b>${n}</b> ${n === 1 ? 'waarneming' : 'waarnemingen'}.`)
+      + (pat.nieuw ? ' Sinds je vorige bezoek is er iets bijgekomen.' : '');
     toonEigenBijdrage(i);
     $('zeg').classList.add('in');
   }
@@ -784,10 +790,15 @@
   function vulBewijs(pat, evidence, development) {
     const i = pat.ins;
     const momenten = new Set(evidence.map((e) => fmtKort(e.at))).size;
+    // Zelfde reden als bij zeg-rust: bij een non-reveal telt het aantal niet als draagkracht.
+    // Het getal blijft staan, want het is waar en het is zichtbaar in het veld, maar de zin
+    // ernaast zegt wat het wél betekent.
     $('bw-getal').textContent = String(evidence.length || bewijs(i));
-    $('bw-sterkte').textContent = evidence.length <= 1
-      ? 'waarneming. Te weinig om iets te zeggen, en dat zeggen we dan ook.'
-      : `onafhankelijke waarnemingen, over ${momenten} ${momenten === 1 ? 'moment' : 'momenten'}. De straal van het licht volgt dit aantal.`;
+    $('bw-sterkte').textContent = i.stance === 'non_reveal'
+      ? `${evidence.length === 1 ? 'plek' : 'plekken'} waar dit te zien was. Dat we het op meer plekken zagen maakt het niet sterker, alleen breder.`
+      : evidence.length <= 1
+        ? 'waarneming. Te weinig om iets te zeggen, en dat zeggen we dan ook.'
+        : `onafhankelijke waarnemingen, over ${momenten} ${momenten === 1 ? 'moment' : 'momenten'}. De straal van het licht volgt dit aantal.`;
 
     const ul = $('bw-bronnen');
     ul.innerHTML = '';

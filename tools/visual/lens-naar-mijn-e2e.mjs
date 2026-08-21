@@ -18,12 +18,15 @@ const TOKEN = 'e2e-participant-token-0001';
 // Een tweede deelnemer, met een SILENCE-sessie: afgerond, bewaartoestemming gegeven, maar zonder
 // uitspraak. Zo bewijzen we dat een ontbrekende uitspraak nooit als rust wordt behandeld.
 const TOKEN_STIL = 'e2e-participant-token-0002';
+// Een derde deelnemer: SILENCE, maar mét gegronde observaties. Die hoort wél een omgeving te
+// openen, want een non-reveal met grond is een volwaardige uitspraak (ADR-0005).
+const TOKEN_GROND = 'e2e-participant-token-0003';
 
 const REVEAL = 'De expertise van OCEA lijkt online minder zichtbaar dan de werkelijkheid.';
 
 // ---- 1. de nagebootste Journey: één afgeronde sessie, precies zoals de echte export hem levert --
 const sessies = {
-  count: 2,
+  count: 3,
   lines: [{
     received_at: new Date().toISOString(),
     participant: TOKEN,
@@ -53,12 +56,14 @@ const sessies = {
       { name: 'session_completed' },
     ],
   }, {
-    // De SILENCE-sessie. Precies zoals de Lens hem levert: een `shown`-blok met observaties en
-    // ZONDER `reveal_line`, geen `reveal_presented`, wel afgerond en wel bewaartoestemming.
+    // EEN SILENCE ZONDER GROND. De observatie heeft wel een tekst en geen enkel citaat eronder.
     //
-    // Deze deelnemer is bewust ouder dan de nieuwe Lens: hij heeft de bewaarvraag nog wél gekregen.
-    // Daarmee dekt hij de blijvende situatie waarin twee systemen niet gelijk op deploy staan. De
-    // poort in bereidKamerVoor moet dan nog steeds sluiten, en de reden moet naleesbaar zijn.
+    // Sinds de poort ook op betekenisvolle observaties opent, is dít het geval dat nog steeds moet
+    // sluiten: een waarneming zonder grond is een mening, en een mening opent geen omgeving. De
+    // reden moet naleesbaar in de historie staan in plaats van stil te verdwijnen.
+    //
+    // Deze deelnemer dekt daarnaast de blijvende situatie waarin twee systemen niet gelijk op
+    // deploy staan: hij heeft de bewaarvraag nog wél gekregen.
     received_at: new Date().toISOString(),
     participant: TOKEN_STIL,
     session_id: 'e2e-2',
@@ -70,6 +75,40 @@ const sessies = {
     events: [
       { name: 'session_started' },
       { name: 'recognition_answered', value: 'ja' },
+      { name: 'account_handoff_accepted', at: new Date().toISOString() },
+      { name: 'session_completed' },
+    ],
+  }, {
+    // EEN SILENCE MET GROND. Geen uitspraak, wel twee observaties met een citaat en een vindplaats.
+    // Dit is het pad dat de Lens het vaakst oplevert, en tot voor kort leverde het niets op.
+    received_at: new Date().toISOString(),
+    participant: TOKEN_GROND,
+    session_id: 'e2e-3',
+    started_at: new Date(Date.now() - 600000).toISOString(),
+    updated_at: new Date().toISOString(),
+    shown: {
+      outcome: 'SILENCE',
+      pages_seen: 6,
+      observations: [{
+        subject: 'Samen werken aan herstel',
+        note: 'Op je homepage krijgt "Samen werken aan herstel" veel nadruk.',
+        meaning: 'Daarmee vertel je duidelijk waar je voor staat.',
+        lens: 'Begrijpt een nieuwe bezoeker ook waarom dit voor hem de juiste keuze is?',
+        basis: 'inferred',
+        evidence: [{ surface: 'homepage', url: 'https://grond-e2e.nl/', quote: 'Samen werken aan herstel' }],
+      }, {
+        subject: 'binnen een week terecht',
+        note: 'Je site zegt zelf: "Je kunt bij ons meestal binnen een week terecht."',
+        meaning: 'Dit staat er letterlijk.',
+        lens: 'Wat wil je dat iemand hieruit opmaakt?',
+        basis: 'explicit',
+        evidence: [{ surface: 'pagina Contact', url: 'https://grond-e2e.nl/contact', quote: 'Je kunt bij ons meestal binnen een week terecht.' }],
+      }],
+    },
+    inner_circle_opt_in: true,
+    contact_consent_version: 'maculis-contact-v1',
+    events: [
+      { name: 'session_started' },
       { name: 'account_handoff_accepted', at: new Date().toISOString() },
       { name: 'session_completed' },
     ],
@@ -185,6 +224,14 @@ try {
   stap(maakStil.status === 201, 'tweede tester aangemaakt, die straks niets te bewaren blijkt te hebben');
   const invIdStil = maakStil.body && maakStil.body.invitation && maakStil.body.invitation.id;
 
+  // De derde: een SILENCE MET grond. Die hoort wél een omgeving te openen.
+  const maakGrond = await api('/api/invitations', {
+    method: 'POST',
+    body: { first_name: 'Bram', last_name: 'Grond', company_name: 'Praktijk Grond', email: 'bram@grond-e2e.nl', domain: 'grond-e2e.nl' },
+  });
+  stap(maakGrond.status === 201, 'derde tester aangemaakt, met een SILENCE die wél grond heeft');
+  const invIdGrond = maakGrond.body && maakGrond.body.invitation && maakGrond.body.invitation.id;
+
   // Zorg dat het token van de tester hetzelfde is als dat van de nagebootste sessie, want daarop
   // wordt gejoind. In het echt komt dat token uit de persoonlijke link.
   const { execSync } = await import('node:child_process');
@@ -194,6 +241,7 @@ try {
     db.invitations.forEach(i=>{
       if(i.id==='${invId}'){ i.token='${TOKEN}'; i.status='SENT'; }
       if(i.id==='${invIdStil}'){ i.token='${TOKEN_STIL}'; i.status='SENT'; }
+      if(i.id==='${invIdGrond}'){ i.token='${TOKEN_GROND}'; i.status='SENT'; }
     });
     fs.writeFileSync(f, JSON.stringify(db,null,2));
   "`);
@@ -273,10 +321,15 @@ try {
   stap(link.startsWith(BASE + '/mijn.html?u='), 'de link wijst naar Mijn Maculis', link.slice(0, 40) + '…');
 
   // De kaart is een afleiding en geen object: beslist is beslist.
+  //
+  // Afgebakend op DEZE deelnemer. Sinds een gegronde SILENCE ook een omgeving opent, staan er
+  // meerdere kamers in het systeem, en "nul kaarten in totaal" zou dan iets anders meten dan wat
+  // deze stap bedoelt: dat de kaart van wie beslist is verdwijnt.
   const naBesluit = await api('/api/cockpit/today');
   const nogSteeds = naBesluit.status === 200 && naBesluit.body.buckets
-    ? [...naBesluit.body.buckets.NU, ...naBesluit.body.buckets.KLAAR, ...naBesluit.body.buckets.RADAR].filter((c) => c.kamer) : [];
-  stap(nogSteeds.length === 0, 'de kaart verdwijnt vanzelf uit Vandaag', `${nogSteeds.length} over`);
+    ? [...naBesluit.body.buckets.NU, ...naBesluit.body.buckets.KLAAR, ...naBesluit.body.buckets.RADAR]
+      .filter((c) => c.kamer && JSON.stringify(c).includes('Vermeulen')) : [];
+  stap(nogSteeds.length === 0, 'de kaart van wie beslist is verdwijnt vanzelf uit Vandaag', `${nogSteeds.length} over`);
 
   // De historie van de tester weet ervan, want Testerbeheer is de plek waar een medewerker de reis
   // van één mens naleest.
@@ -377,6 +430,28 @@ try {
 
   // Herhaalde verversingen schrijven de historie niet vol: dit is een toestand, geen reeks pogingen.
   for (let i = 0; i < 3; i++) await api('/api/invitations');
+  // ---- de SILENCE die wél grond had --------------------------------------------------------------
+  //
+  // Dit is de kern van deze uitbreiding: een non-reveal met citaten is een volwaardige uitspraak en
+  // opent een omgeving. Zonder deze stap zou de keten alleen werken op de zeldzaamste uitkomst.
+  const grond = (await api('/api/invitations')).body.invitations.find((x) => x.id === invIdGrond);
+  stap(Boolean(grond) && grond.status === 'COMPLETED', 'de derde tester rondde de Lens af');
+  stap(grond && grond.history.some((h) => h.event === 'mijn_room_prepared'),
+    'en zijn omgeving IS klaargezet, zonder dat er ooit een uitspraak was',
+    grond ? grond.history.map((h) => h.event).join(', ') : '');
+  stap(grond && !grond.history.some((h) => h.event === 'mijn_room_not_prepared'),
+    'en er staat geen enkele reden waarom het niet zou kunnen');
+
+  const vandaagGrond = await api('/api/cockpit/today');
+  const kaartGrond = (() => {
+    const b = vandaagGrond.status === 200 && vandaagGrond.body.buckets ? vandaagGrond.body.buckets : null;
+    const alle = b ? [...b.NU, ...b.KLAAR, ...b.RADAR] : [];
+    return alle.find((c) => c.kamer && JSON.stringify(c).includes('Grond')) || null;
+  })();
+  stap(Boolean(kaartGrond), 'hij krijgt een kaart in Vandaag, net als een reveal');
+  stap(kaartGrond && !/rust op/i.test(JSON.stringify(kaartGrond)),
+    'en de kaart spreekt geen sterktetaal over een afwezigheid');
+
   const stilNa = (await api('/api/invitations')).body.invitations.find((x) => x.id === invIdStil);
   const aantal = stilNa ? stilNa.history.filter((h) => h.event === 'mijn_room_not_prepared').length : 0;
   stap(aantal === 1, 'en de melding staat er precies één keer, ook na drie verversingen', `${aantal}`);
@@ -405,9 +480,11 @@ try {
     'driemaal opnieuw kijken levert geen enkele relatie extra op', `${alleRel.length}`);
   const insNa = await api('/api/mijn/insights', { headers: { 'x-mijn-token': mijn } });
   stap((insNa.body.insights || []).length === 1, 'en nog steeds één inzicht', `${(insNa.body.insights || []).length}`);
+  // Idem: afgebakend op deze organisatie. De kamer van de gegronde SILENCE hoort er wél te staan.
   const kamersNa = await api('/api/comm/mijn/kamers');
-  stap((kamersNa.body.kamers || []).length === 0,
-    'en er staat geen tweede kamer klaar naast de actieve', `${(kamersNa.body.kamers || []).length}`);
+  const eigenKamers = (kamersNa.body.kamers || []).filter((k) => JSON.stringify(k).includes('Vermeulen'));
+  stap(eigenKamers.length === 0,
+    'en er staat geen tweede kamer klaar naast de actieve', `${eigenKamers.length}`);
   const detailNa = await api(`/api/mijn/insights/${ins.id}`, { headers: { 'x-mijn-token': mijn } });
   stap((detailNa.body.stemmen || []).length === 2, 'zijn twee stemmen blijven twee stemmen');
   stap((detailNa.body.evidence || []).length === 3, 'en de grond blijft drie regels');

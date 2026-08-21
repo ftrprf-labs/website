@@ -69,7 +69,11 @@ function bewijsregels(lijst) {
   return lijst
     .map((e) => ({
       quote: typeof e?.quote === 'string' ? e.quote.trim().slice(0, 400) : '',
-      label: typeof e?.label === 'string' ? e.label.trim().slice(0, 120) : '',
+      // De reveal noemt de vindplaats `label`, de SILENCE-observatie noemt hem `surface`. Het is
+      // hetzelfde ding: waar dit citaat stond. Eén van beide accepteren zou de grond van de ene
+      // uitkomst laten vallen omdat de andere hem anders noemt.
+      label: typeof e?.label === 'string' ? e.label.trim().slice(0, 120)
+        : typeof e?.surface === 'string' ? e.surface.trim().slice(0, 120) : '',
       url: typeof e?.url === 'string' ? e.url.trim().slice(0, 500) : '',
     }))
     .filter((e) => e.quote)
@@ -93,7 +97,14 @@ export function deriveByToken(sessions) {
         // The reveal EXACTLY as the participant saw it. Carried across verbatim, never rewritten
         // (amplify, do not author). `evidence_count` is what the Lens counted under it; the
         // individual quotes are not exported today, see BUILD_LOG.
-        reveal: null };
+        reveal: null,
+        // WAT DE LENS ZAG TOEN HIJ GEEN UITSPRAAK DEED.
+        //
+        // Bewust GEEN veld binnen `reveal`. Een non-reveal in een veld met die naam stoppen is een
+        // naamleugen, en de twee zijn ook echt verschillend: een reveal wordt gedragen door zijn
+        // citaten, een non-reveal wordt gedragen door het feit dát er gekeken is. `pages_seen` zegt
+        // daarom hoe BREED er gekeken is en nooit hoe sterk iets staat.
+        observaties: null };
       byToken.set(token, d);
     }
     // The journey also mirrors the presented outcome on the session itself (§J). Prefer the event,
@@ -103,6 +114,35 @@ export function deriveByToken(sessions) {
       d.reveal = { line: s.shown.reveal_line.trim(), family: s.shown.family || null,
         outcome: s.shown.outcome || null, evidence_count: regels.length,
         evidence: regels, at: s.received_at || s.updated_at || null };
+    }
+    // Een SILENCE draagt zijn eigen inhoud: de observaties die de Lens wél liet zien, met hun
+    // grond. Hij kwam hier nooit binnen omdat er alleen op `reveal_line` werd gekeken, en daarmee
+    // gold "geen uitspraak" en "niets gezien" als hetzelfde. Dat zijn twee verschillende dingen.
+    //
+    // De betekenispoort staat in de Lens: `pickSilenceObservations` laat triviale onderwerpen, de
+    // eigen bedrijfsnaam en holle proposities er niet doorheen. Is de lijst leeg, dan was er
+    // werkelijk niets betekenisvols, en dan ontstaat hier ook niets.
+    if (!d.observaties && s.shown && s.shown.outcome === 'SILENCE' && Array.isArray(s.shown.observations)) {
+      const items = s.shown.observations
+        .map((o) => ({
+          subject: typeof o?.subject === 'string' ? o.subject.trim().slice(0, 200) : '',
+          note: typeof o?.note === 'string' ? o.note.trim().slice(0, 600) : '',
+          meaning: typeof o?.meaning === 'string' ? o.meaning.trim().slice(0, 800) : '',
+          lens: typeof o?.lens === 'string' ? o.lens.trim().slice(0, 400) : '',
+          basis: o?.basis === 'explicit' ? 'explicit' : 'inferred',
+          evidence: bewijsregels(o?.evidence),
+        }))
+        // Zonder waarneming is er niets om te tonen, en zonder grond is het een mening. Beide
+        // maken een observatie ongeschikt om een omgeving mee te openen.
+        .filter((o) => o.note && o.evidence.length)
+        .slice(0, 6);
+      if (items.length) {
+        d.observaties = {
+          items,
+          pages_seen: Number.isFinite(Number(s.shown.pages_seen)) ? Number(s.shown.pages_seen) : 0,
+          at: s.received_at || s.updated_at || null,
+        };
+      }
     }
     if (s.started_at && (!d.started_at || s.started_at < d.started_at)) d.started_at = s.started_at;
     // The journey stamps the consent version it actually showed (maculis-contact-v1).

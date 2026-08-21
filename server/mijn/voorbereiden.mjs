@@ -78,8 +78,18 @@ export async function bereidKamerVoor(record, d, { tenantId = null } = {}) {
   if (!d.keep) return { ok: false, reason: 'no_keep_consent' };
   // ADR-0004: een ingang is pas geldig als hij een eerste uitspraak levert. Zonder uitspraak zou er
   // een lege kamer ontstaan, en een lege kamer is een gebroken belofte in het pak van het product.
+  //
+  // WAT EEN UITSPRAAK IS, is verbreed (ADR-0005). Deze poort toetste op de aanwezigheid van een
+  // reveal-regel, en daarmee gold "geen conclusie" als "niets gezien". Dat zijn twee verschillende
+  // dingen: de Lens noemt een SILENCE zelf een volwaardige uitkomst, en hij berekent er observaties
+  // bij die wél gegrond zijn.
+  //
+  // De betekenispoort staat niet hier maar in de Lens: alleen observaties die zijn eigen
+  // drempels overleefden komen mee. Is die lijst leeg, dan was er werkelijk niets, en dan opent er
+  // hier ook niets. Geen betekenis, geen omgeving.
   const lijn = d.reveal && typeof d.reveal.line === 'string' ? d.reveal.line.trim() : '';
-  if (!lijn) return { ok: false, reason: 'no_statement' };
+  const observaties = d.observaties && Array.isArray(d.observaties.items) ? d.observaties.items : [];
+  if (!lijn && !observaties.length) return { ok: false, reason: 'no_statement' };
 
   const tid = tenantId || await getDefaultTenantId();
   const persoon = {
@@ -97,14 +107,18 @@ export async function bereidKamerVoor(record, d, { tenantId = null } = {}) {
   // 2. het eerste inzicht. Idempotent op (organisatie, bron, titel): dezelfde onthulling twee keer
   //    binnenkrijgen is één uitspraak. Er wordt hier bewust NIET op een sessie- of tokenwaarde
   //    ontdubbeld, want dan zou die waarde bewaard moeten worden en dat hoort hier niet.
-  const bestaand = (await query(
+  const zoekInzicht = async (titel) => (await query(
     `select id from customer_insight
       where tenant_id=$1 and organization_id=$2 and source=$3 and title=$4 and status <> 'archived'
       limit 1`,
-    [tid, organizationId, BRON_LENS, lijn])).rows[0];
+    [tid, organizationId, BRON_LENS, titel])).rows[0] || null;
 
-  let insightId = bestaand ? bestaand.id : null;
+  let insightId = null;
   let nieuwInzicht = false;
+
+  if (lijn) {
+  const bestaand = await zoekInzicht(lijn);
+  insightId = bestaand ? bestaand.id : null;
   if (!insightId) {
     // Drie lagen, en alleen de eerste twee komen uit de Lens. De uitspraak is zijn zin, de
     // onderbouwing zijn de citaten die hij zag, en de verdieping is een eerlijke uitspraak over
@@ -156,11 +170,84 @@ export async function bereidKamerVoor(record, d, { tenantId = null } = {}) {
     await query('update customer_insight set area=$2, perspective=$3 where id=$1',
       [insightId, V1_GEBIED, V1_PERSPECTIEF]);
   }
+  } else {
+    // ---- 2b. de non-reveal ------------------------------------------------------------------
+    //
+    // Eén inzicht per betekenisvolle observatie, en niet één samenvattende. Een vaste zin als
+    // "wij zagen geen verschil" zou voor elke organisatie identiek zijn, en dat is precies het
+    // behang dat de Lens zelf uitfiltert. De observatie is wél specifiek en gegrond, dus die is
+    // de uitspraak.
+    //
+    // De houding draagt de eerlijkheid: `non_reveal` heet klantzijdig "Hier zien we géén verschil".
+    // De breedte van de blik staat in de onderbouwing en NOOIT als sterkte: meer plekken bekijken
+    // maakt een afwezigheid niet waarder.
+    const plekken = Number(d.observaties && d.observaties.pages_seen) || 0;
+    const breedte = plekken >= 2
+      ? `We keken op ${plekken} plekken op je site.`
+      : 'We keken op je site.';
+    const wanneer = (d.observaties && d.observaties.at) || d.completed_at || null;
+
+    for (const o of observaties) {
+      const titel = String(o.note || '').trim();
+      if (!titel) continue;
+      // eslint-disable-next-line no-await-in-loop
+      const al = await zoekInzicht(titel);
+      if (al) { insightId = insightId || al.id; continue; }
+
+      const regels = Array.isArray(o.evidence) ? o.evidence : [];
+      // eslint-disable-next-line no-await-in-loop
+      const gemaakt = await createInsightWithInitialVersion({
+        tenantId: tid,
+        organizationId,
+        title: titel,
+        stance: 'non_reveal',
+        observation: titel,
+        meaning: o.meaning || null,
+        // Hier hoort de breedte thuis, als proza en niet als getal met gewicht. En de tweede zin
+        // zegt waar onze waarneming ophoudt, zonder één woord over poorten of criteria: dat is
+        // onze machinerie en niet zijn vraag.
+        basis: `${breedte} Dit viel ons op. Het droeg geen verschil dat we hard konden maken.`,
+        // Wat we niet weten is tweeledig: de grens van dit perspectief, en de open vraag die deze
+        // observatie zelf stelt. Die vraag komt woordelijk uit de Lens en wordt niet herschreven.
+        notYetKnown: [VERDIEPING[V1_PERSPECTIEF] || null, o.lens || null].filter(Boolean).join(' ') || null,
+        sharing: 'SHARED',
+        source: BRON_LENS,
+        provenance: {
+          entrance: 'lens', outcome: 'SILENCE', basis: o.basis || 'inferred',
+          pages_seen: plekken, subject: o.subject || null,
+          evidence_refs: regels.map((e) => e.url).filter(Boolean),
+        },
+        status: 'new',
+        observedAt: wanneer,
+        customerLabel: regels.length ? bewijsregel(regels[0]) : null,
+      });
+      insightId = insightId || gemaakt.insightId;
+      nieuwInzicht = true;
+
+      for (const regel of regels.slice(1)) {
+        const label = bewijsregel(regel);
+        if (!label) continue;
+        // eslint-disable-next-line no-await-in-loop
+        await addObservation({
+          tenantId: tid, organizationId, insightId: gemaakt.insightId, customerLabel: label,
+          source: BRON_LENS, stance: 'non_reveal', observedAt: wanneer,
+        });
+      }
+
+      // eslint-disable-next-line no-await-in-loop
+      await query('update customer_insight set area=$2, perspective=$3 where id=$1',
+        [gemaakt.insightId, V1_GEBIED, V1_PERSPECTIEF]);
+    }
+    if (!insightId) return { ok: false, reason: 'no_statement' };
+  }
 
   // 3. zijn antwoord uit de Lens, met herkomst `lens`. Dat antwoord was nooit privé: het is
   //    onderzoeksdata die Maculis aantoonbaar al had. De markering houdt dat verschil hard, zodat
   //    een latere functie het nooit kan verwarren met wat hij ín de kamer antwoordt.
-  const antwoord = d.answers && d.answers.recognition ? String(d.answers.recognition) : null;
+  //    Alleen bij een reveal: dat is de uitspraak waar hij "herken je dit" over beantwoordde. Bij
+  //    een SILENCE is die vraag nooit over deze observaties gesteld, en zijn antwoord daar dan aan
+  //    hangen zou een antwoord verzinnen dat hij niet gaf.
+  const antwoord = lijn && d.answers && d.answers.recognition ? String(d.answers.recognition) : null;
   if (antwoord && ['ja', 'deels', 'nee'].includes(antwoord)) {
     await query(
       `insert into insight_recognition(tenant_id, organization_id, insight_id, contact_id, answer, origin, at)
@@ -192,8 +279,11 @@ export async function bereidKamerVoor(record, d, { tenantId = null } = {}) {
       meta: {
         entrance: 'lens', nieuwe_kamer: nieuweKamer, nieuw_inzicht: nieuwInzicht,
         gebied: V1_GEBIED, perspectief: V1_PERSPECTIEF, bron: BRON_LENS,
-        afgeleid_uit: 'reveal_presented + account_handoff_accepted',
-        evidence_count: Number(d.reveal.evidence_count || 0) || 0,
+        uitkomst: lijn ? 'REVEAL' : 'SILENCE',
+        afgeleid_uit: lijn ? 'reveal_presented + account_handoff_accepted'
+          : 'silence_presented + account_handoff_accepted',
+        evidence_count: lijn ? Number((d.reveal && d.reveal.evidence_count) || 0) || 0 : 0,
+        observaties: lijn ? 0 : observaties.length,
       },
     });
   }
