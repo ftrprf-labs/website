@@ -1,0 +1,74 @@
+// Bewijstest. Draait de echte scanner tegen de lokale nabootsing en
+// controleert drie dingen:
+//   1. een gezonde route levert GROEN op;
+//   2. een agenda zonder tijden levert ORANJE op;
+//   3. een locatiepagina zonder afspraakknop levert ROOD op.
+// Daarnaast wordt gecontroleerd dat de scanner nooit een POST heeft gedaan,
+// dus dat er nooit een afspraak is vastgelegd.
+
+import { rmSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { draaiScan } from '../src/scan.mjs';
+import { startFixture } from './server.mjs';
+
+const HIER = dirname(fileURLToPath(import.meta.url));
+const UITVOER = resolve(HIER, '..', 'runs', 'fixture');
+
+const GEVALLEN = [
+  { variant: 'groen', verwacht: 'GROEN' },
+  { variant: 'oranje-geen-tijden', verwacht: 'ORANJE' },
+  { variant: 'rood-knop', verwacht: 'ROOD' },
+];
+
+rmSync(UITVOER, { recursive: true, force: true });
+
+let fouten = 0;
+
+for (const geval of GEVALLEN) {
+  const fixture = await startFixture({ variant: geval.variant });
+  const url = `${fixture.basis}/vestigingen/revalidatie-amersfoort-databankweg/`;
+  process.stdout.write(`\n=== Fixture variant ${geval.variant} op ${url} ===\n`);
+
+  try {
+    const { resultaat } = await draaiScan({
+      headed: false,
+      locatie: 'revalidatie-amersfoort-databankweg',
+      url,
+      slowMo: 0,
+      out: join(UITVOER, geval.variant),
+    });
+
+    if (resultaat.status !== geval.verwacht) {
+      process.stdout.write(`FAIL: verwacht ${geval.verwacht}, gekregen ${resultaat.status}\n`);
+      fouten += 1;
+    } else {
+      process.stdout.write(`PASS: status ${resultaat.status}\n`);
+    }
+
+    const posts = fixture.gebeurtenissen.filter((g) => g.methode !== 'GET');
+    if (posts.length > 0) {
+      process.stdout.write(`FAIL: de scanner heeft een schrijfverzoek gedaan: ${JSON.stringify(posts)}\n`);
+      fouten += 1;
+    } else {
+      process.stdout.write('PASS: geen enkel schrijfverzoek, dus geen afspraak vastgelegd\n');
+    }
+
+    const bevestigd = fixture.gebeurtenissen.some((g) => /bevestigen/.test(g.pad));
+    if (bevestigd) {
+      process.stdout.write('FAIL: het bevestigingsendpoint is geraakt\n');
+      fouten += 1;
+    } else {
+      process.stdout.write('PASS: het bevestigingsendpoint is niet geraakt\n');
+    }
+  } catch (err) {
+    process.stdout.write(`FAIL: scan brak af met ${err.stack ?? err.message}\n`);
+    fouten += 1;
+  } finally {
+    await fixture.stop();
+  }
+}
+
+process.stdout.write(`\n${fouten === 0 ? 'ALLE FIXTURE TESTS GESLAAGD' : `${fouten} FIXTURE TESTS GEFAALD`}\n`);
+process.exit(fouten === 0 ? 0 : 1);

@@ -1,0 +1,21 @@
+{
+  "name": "topzorg-digital-appointment-guardian",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Proof of Concept: browser agent die controleert of een patient online een afspraak kan maken bij TopzorgGroep via Mijn Zorgtoegang.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "scan": "node src/scan.mjs",
+    "scan:headed": "node src/scan.mjs --headed",
+    "fixture": "node fixture/server.mjs",
+    "test:fixture": "node fixture/run-fixture-scan.mjs",
+    "test:safety": "node fixture/run-safety-test.mjs",
+    "test": "node fixture/run-safety-test.mjs && node fixture/run-fixture-scan.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.0"
+  }
+}

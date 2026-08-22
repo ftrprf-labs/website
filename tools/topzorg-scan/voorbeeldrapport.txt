@@ -1,0 +1,66 @@
+TOELICHTING BIJ DIT VOORBEELD
+
+Dit rapport is opgewekt door de scanner zelf, tegen de lokale nabootsing van de patiëntroute
+(npm test, variant groen). Het laat zien welke uitvoer je krijgt bij een gezonde online route.
+
+Het is uitdrukkelijk geen meting van de echte vestiging. De omgeving waarin deze PoC gebouwd is,
+heeft geen netwerktoegang tot topzorggroep.nl, dus een live meting moet gedraaid worden vanaf een
+werkplek met gewone internettoegang:
+
+    cd tools/topzorg-scan
+    npm ci && npx playwright install chromium
+    npm run scan
+
+De adressen in dit voorbeeld verwijzen daarom naar 127.0.0.1 en niet naar de productiesite.
+
+========================================================================
+
+DIGITALE PATIËNTSCAN
+
+Locatie:
+Revalidatie Amersfoort Databankweg
+
+Datum test:
+2026-08-22T08:59:41.478Z
+
+Status:
+GROEN
+
+Checks:
+
+Website bereikbaar:
+JA
+Toelichting: HTTP status 200 op http://127.0.0.1:46001/vestigingen/revalidatie-amersfoort-databankweg/
+
+Locatie herkenbaar:
+JA
+Toelichting: Alle herkenningswoorden staan op de pagina.
+
+Afspraakknop:
+JA
+Toelichting: Gevonden knop: "Online afspraak maken".
+
+Mijn Zorgtoegang bereikbaar:
+JA
+Toelichting: Herkend via adres van de pagina op http://127.0.0.1:46001/mijnzorgtoegang/
+
+Behandeling beschikbaar:
+JA
+Toelichting: Gekozen behandeling: "Fysiotherapie intake".
+
+Agenda geladen:
+JA
+Toelichting: Agenda herkend via component.
+
+Beschikbare tijden:
+JA
+Toelichting: 6 tijdsloten zichtbaar, bijvoorbeeld 09:00, 09:30, 10:15, 11:00, 13:45.
+
+Gestopt bij:
+stap 6, na het tonen van de agenda en voor elke bevestiging
+
+Veiligheid:
+Geen afspraak bevestigd. Geblokkeerde schrijfverzoeken: 0. Ingevulde persoonsgegevens: geen.
+
+Conclusie:
+Een patiënt kan bij Revalidatie Amersfoort Databankweg de volledige online route doorlopen tot en met de keuze van een tijdslot. De agenda toonde 6 beschikbare tijden op het moment van de scan. De scan is gestopt voor het bevestigingsscherm, dus er is geen afspraak vastgelegd.
