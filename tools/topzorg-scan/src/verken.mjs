@@ -18,7 +18,14 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 import { COOKIE_PATRONEN, DEFAULTS, MAX_COOKIEBANNERS } from './config.mjs';
-import { pauze, verzamelAdressen, verzamelKandidaten, verzamelTekst, zoekKlikbaar } from './dom.mjs';
+import {
+  pauze,
+  verzamelAdressen,
+  verzamelKandidaten,
+  verzamelTekst,
+  zoekAgenda,
+  zoekKlikbaar,
+} from './dom.mjs';
 import { maakLogger } from './logger.mjs';
 import { installeerNetwerkRem, veiligKlikken } from './safety.mjs';
 import { nettFoutmelding } from './tekst.mjs';
@@ -41,7 +48,7 @@ function slugVan(url) {
     .slice(0, 80);
 }
 
-export async function verken({ url = CENTRAAL_PORTAAL, out = null } = {}) {
+export async function verken({ url = CENTRAAL_PORTAAL, out = null, focus = 'Fysiotherapie (intake)' } = {}) {
   const stempel = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const runMap = out ?? join(PROJECT, 'runs', `verken_${stempel}`);
   const apiMap = join(runMap, 'api');
@@ -158,23 +165,101 @@ export async function verken({ url = CENTRAAL_PORTAAL, out = null } = {}) {
     }
     await legVast('na-consent');
 
-    // Doorloop de eerste schermen zonder inhoudelijke keuze, zodat zichtbaar
-    // wordt hoe het portaal zijn locatielijst opbouwt. Maximaal drie stappen.
-    for (let i = 0; i < 3; i += 1) {
-      const volgende = await zoekKlikbaar(paginas, [/^volgende$/i, /^verder$/i, /ga verder/i], {
-        timeoutMs: 3000,
-        pollMs: 300,
-      });
-      if (!volgende) break;
-      try {
-        await veiligKlikken(volgende.locator, logger, { context: `verkenstap ${i + 1}`, timeoutMs: 6000 });
-      } catch (err) {
-        logger.waarschuwing(`Verkenstap ${i + 1} mislukte. Technische melding: ${nettFoutmelding(err)}`);
-        break;
+    // Loop de publieke route door tot en met de kalender, zodat de applicatie
+    // zelf haar locatielijst en haar beschikbaarheid ophaalt. Elk verzoek dat
+    // zij daarbij doet wordt vastgelegd. De route stopt voor de
+    // persoonsgegevens.
+    // Doorklikken mag alleen zolang er geen kalender en geen invoerveld voor
+    // persoonsgegevens in beeld is. Achter zo'n scherm ligt de bevestiging, en
+    // daar heeft een verkenning niets te zoeken.
+    const magDoorklikken = async () => {
+      if (await zoekAgenda(paginas)) {
+        logger.info('Er staat een kalender in beeld. Verder klikken wordt overgeslagen.');
+        return false;
       }
-      await pauze(2500);
-      await legVast(`stap-${String(i + 1).padStart(2, '0')}`);
+      for (const p of paginas()) {
+        if (p.isClosed()) continue;
+        for (const frame of p.frames()) {
+          try {
+            const veld = frame.locator('input[type="text"], input[type="email"], input[type="tel"]').first();
+            if ((await veld.count()) > 0 && (await veld.isVisible())) {
+              logger.info('Er staat een invoerveld in beeld. Verder klikken wordt overgeslagen.');
+              return false;
+            }
+          } catch {
+            // volgende frame
+          }
+        }
+      }
+      return true;
+    };
+
+    const klik = async (patronen, naam, { verplicht = false, isDoorklik = false } = {}) => {
+      if (isDoorklik && !(await magDoorklikken())) return false;
+      const treffer = await zoekKlikbaar(paginas, patronen, { timeoutMs: 6000, pollMs: 300 });
+      if (!treffer) {
+        if (verplicht) logger.waarschuwing(`Stap ${naam} niet gevonden.`);
+        return false;
+      }
+      try {
+        await veiligKlikken(treffer.locator, logger, { context: naam, timeoutMs: 8000 });
+        await pauze(2500);
+        await legVast(naam);
+        return true;
+      } catch (err) {
+        logger.waarschuwing(`Stap ${naam} mislukte. Technische melding: ${nettFoutmelding(err)}`);
+        return false;
+      }
+    };
+
+    // Introscherm.
+    await klik([/^volgende$/i, /^verder$/i], 'intro', { isDoorklik: true });
+
+    // Aandachtsgebied. Standaard de gewone fysiotherapie intake, want dat is de
+    // referentiebehandeling voor het overzicht.
+    const focusPatroon = new RegExp(focus.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    await klik([focusPatroon, /fysiotherapie \(intake\)/i], 'aandachtsgebied', { verplicht: true });
+    await klik([/^volgende$/i], 'na-aandachtsgebied', { isDoorklik: true });
+
+    // Verwijzing.
+    await klik([/geen verwijzing/i, /zonder verwijzing/i, /^nee$/i], 'verwijzing', { verplicht: true });
+    await klik([/^volgende$/i], 'na-verwijzing', { isDoorklik: true });
+
+    // Locatiekeuze. Dit is het scherm waar de hele organisatie op staat.
+    await legVast('locaties');
+
+    // Kies de eerste locatie, zodat ook het verzoek voor de beschikbaarheid
+    // zichtbaar wordt. Daarna stopt de verkenning.
+    // Kies alleen een echte locatie. Een catch-all patroon pakt hier anders de
+    // knop "Volgende", en die leidt verder de flow in dan de bedoeling is.
+    const LOCATIEPATRONEN = [/amersfoort/i, /utrecht/i, /zeist/i, /nieuwegein/i, /amsterdam/i, /rotterdam/i];
+    const BEDIENINGSWOORDEN = /^(volgende|vorige|terug|annuleren|sluiten|verder|opnieuw)$/i;
+
+    const locatieTreffer = (await magDoorklikken())
+      ? await zoekKlikbaar(paginas, LOCATIEPATRONEN, {
+          timeoutMs: 6000,
+          pollMs: 300,
+          maxLabelLengte: 80,
+          mijdNavigatie: true,
+        })
+      : null;
+
+    if (locatieTreffer && BEDIENINGSWOORDEN.test(locatieTreffer.label.trim())) {
+      logger.info('De gevonden kandidaat is een bedieningsknop en geen locatie. Locatiekeuze overgeslagen.');
+    } else if (locatieTreffer) {
+      try {
+        await veiligKlikken(locatieTreffer.locator, logger, { context: 'locatiekeuze', timeoutMs: 8000 });
+        await pauze(3000);
+        await legVast('na-locatiekeuze');
+      } catch (err) {
+        logger.waarschuwing(`Locatiekeuze mislukte. Technische melding: ${nettFoutmelding(err)}`);
+      }
     }
+
+    await klik([/^volgende$/i], 'naar-kalender', { isDoorklik: true });
+    await pauze(3000);
+    await legVast('kalender');
+    logger.ok('Verkenning stopt hier. De persoonsgegevens worden niet benaderd.');
   } catch (err) {
     logger.fout(`Verkenning afgebroken: ${nettFoutmelding(err)}`);
   } finally {
@@ -195,6 +280,7 @@ if (isDirect) {
   for (const arg of process.argv.slice(2)) {
     if (arg.startsWith('--url=')) opties.url = arg.slice('--url='.length);
     else if (arg.startsWith('--out=')) opties.out = arg.slice('--out='.length);
+    else if (arg.startsWith('--focus=')) opties.focus = arg.slice('--focus='.length);
   }
   try {
     const { runMap, apiIndex } = await verken(opties);

@@ -210,3 +210,59 @@ Uitgeschakelde dagen blijven met rust. Een tweede agendafixture dekt dit af: daa
 tijdsloten pas na het kiezen van een dag.
 
 Eenendertig controles, exitcode 0.
+
+## Verkenning van het centrale portaal, 24 augustus 2026, 16:47
+
+Het centrale portaal `tzg.mijnzorgtoegang.nl/app/eerste-afspraak-maken` draait op een publieke REST
+API. Dat is de belangrijkste vondst van het hele traject.
+
+### De API
+
+```
+GET https://tzg.mijnzorgtoegang.nl/app/context
+```
+
+Levert een publiek toegangstoken (scope `mzt_public`, `authenticated: false`), het api adres, en de
+organisatie: TopzorgGroep, slug `tzg`. Het token is ongeveer twaalf uur geldig.
+
+```
+GET https://api.mijnzorgtoegang.nl/appointment/compose-first-appointments/v1/context
+```
+
+Levert de zes stappen van de flow, elk met een eigen adres:
+
+| Stap | Code | Adres |
+| --- | --- | --- |
+| 1 | focuses | `/v1/focuses` |
+| 2 | referrals | `/v1/referrals` |
+| 3 | practices | `/v1/practices?employee=..&gender=..` |
+| 4 | slots | `/v1/slots?employee=..&gender=..` |
+| 5 | data | `/v1/data` |
+| 6 | confirmation | `/v1/confirmation` |
+
+Stap 3 is de locatielijst en stap 4 is de beschikbaarheid. Precies de twee dingen die het dashboard
+nodig heeft. Stap 5 en 6 raken we niet aan.
+
+```
+GET .../v1/focuses
+```
+
+Levert 38 aandachtsgebieden voor de hele organisatie, elk met een `reference` en een `label`,
+waaronder "Fysiotherapie (intake)", "Manuele therapie (intake)", "Bekkenfysiotherapie (intake)",
+"Kinderfysiotherapie", "Diëtetiek" en "Ergotherapie".
+
+### Wat dit betekent
+
+Het dagelijkse ophalen hoeft geen browser te gebruiken. Een handvol verzoeken per aandachtsgebied
+vervangt honderdvijftig browsersessies. Dat scheelt uren looptijd, het is ordes van grootte minder
+belastend voor het portaal, en het is niet gevoelig voor wijzigingen in de vormgeving.
+
+De browserscanner blijft wel waardevol, maar in een andere rol: als steekproef die controleert of wat
+de API zegt ook echt is wat een patiënt op zijn scherm ziet.
+
+### Veiligheid tijdens de verkenning
+
+De verkenner stopt zodra er een kalender of een invoerveld in beeld komt, en hij klikt geen
+bedieningsknop aan die hij voor een locatie aanziet. In de nabootsing kwam hij daardoor niet eens in
+de buurt van het bevestigingsendpoint: nul schrijfverzoeken, ook zonder dat de netwerkrem hoefde in
+te grijpen.
