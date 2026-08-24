@@ -105,6 +105,41 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 5B. Metingmodus. Meet de beschikbaarheid van alle locaties die de gekozen
+#     behandeling online aanbieden. Alleen lezende verzoeken.
+# ---------------------------------------------------------------------------
+if [ "${TOPZORG_MODUS:-scan}" = "meting" ]; then
+  STEMPEL="$(date +%Y-%m-%d_%H-%M-%S)"
+  UIT="$(pwd)/runs/meting_${STEMPEL}"
+  melding "Meting van alle locaties. Er wordt niets vastgelegd en niets ingevuld."
+  node src/ophalen.mjs --out="$UIT" \
+    ${TOPZORG_FOCUS:+--focus="$TOPZORG_FOCUS"} \
+    --gelijktijdig="${TOPZORG_GELIJKTIJDIG:-3}" \
+    --max-locaties="${TOPZORG_MAX_LOCATIES:-0}"
+  CODE=$?
+
+  DOELMAP="$HOME/Desktop"
+  [ -d "$DOELMAP" ] || DOELMAP="$HOME"
+  BUNDEL="$DOELMAP/topzorg-meting_${STEMPEL}.zip"
+  if command -v zip >/dev/null 2>&1; then
+    (cd "$(dirname "$UIT")" && zip -qr "$BUNDEL" "$(basename "$UIT")") || BUNDEL=""
+  elif command -v ditto >/dev/null 2>&1; then
+    ditto -c -k --sequesterRsrc --keepParent "$UIT" "$BUNDEL" || BUNDEL=""
+  else
+    BUNDEL=""
+  fi
+
+  melding "Meting klaar"
+  printf 'Resultaten: %s\n' "$UIT"
+  if [ -n "$BUNDEL" ] && [ -f "$BUNDEL" ]; then
+    printf '\nAlles in een bestand: %s\n' "$BUNDEL"
+    printf 'Deel dat bestand terug in de chat, dan bouw ik het dashboard op deze data.\n'
+    if command -v open >/dev/null 2>&1; then open -R "$BUNDEL" >/dev/null 2>&1 || true; fi
+  fi
+  exit "$CODE"
+fi
+
+# ---------------------------------------------------------------------------
 # 5A. API modus. Verkent de publieke API van Mijn Zorgtoegang zonder browser.
 #     Alleen lezende verzoeken, en de stappen persoonsgegevens en bevestigen
 #     worden actief geweigerd.

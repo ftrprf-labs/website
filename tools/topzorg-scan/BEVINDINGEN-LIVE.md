@@ -310,3 +310,58 @@ onbekende stap `slots` een aantal parametervarianten, zodat in een keer vaststaa
 
 De hele laag is zonder netwerk getoetst tegen antwoorden die op de echte verkenningen gemodelleerd
 zijn, inclusief de val met Bekkenfysiotherapie. Elf controles.
+
+## API verkenning, 24 augustus 2026, 17:33
+
+Het volledige contract, opgehaald in 1,4 seconde zonder browser.
+
+```
+GET /v1/slots?employee=&gender=&focus=&referral=&practice=&date=YYYY-MM-DD
+```
+
+Antwoord:
+
+```
+{ dates: { current, min, max, previous, next },
+  days:  [ { date, disabled, slots: [ { reference, label, disabled } ] } ] }
+```
+
+Een venster beslaat 42 dagen. `dates.next` wijst naar het volgende venster, `dates.max` is de
+horizon waarbinnen online geboekt kan worden. Bij de referentiemeting liep die tot 21 september, dus
+ongeveer vier weken vooruit.
+
+### Cijfers
+
+- 38 aandachtsgebieden voor de hele organisatie
+- **89 locaties** bieden "Fysiotherapie (intake)" online aan
+- de eerste gemeten locatie, Paramedisch Centrum Simpelveld, had **1 vrije dag op 42**, met precies
+  twee tijden: 15:00 en 15:30 op 27 augustus
+
+Dat laatste is precies het signaal waar het overzicht voor bedoeld is. Deze locatie staat online
+vrijwel vol, en dat is nu meetbaar in plaats van merkbaar.
+
+### Wat hierop gebouwd is
+
+`src/beschikbaarheid.mjs` rekent een of meer vensters om naar de vragen die het overzicht moet
+beantwoorden: hoeveel tijden zijn er, wanneer is de eerstvolgende mogelijkheid, en welke actie hoort
+daarbij. Uitgeschakelde dagen en uitgeschakelde tijden tellen niet mee. Is er in het eerste venster
+niets vrij, dan wordt via `dates.next` doorgebladerd, zodat een eerstvolgende mogelijkheid buiten
+zes weken ook gevonden wordt.
+
+Vier statussen, want "geen plek" is niet een ding:
+
+| Status | Betekenis | Actie |
+| --- | --- | --- |
+| RUIMTE | genoeg tijden, snel terecht | geen |
+| KRAP | eerste mogelijkheid meer dan zeven dagen weg, of minder dan vijf tijden in het venster | budget temperen |
+| GEEN_RUIMTE | nul tijden binnen de horizon | advertenties overwegen te pauzeren |
+| GEEN_ONLINE_ROUTE | locatie biedt deze behandeling niet online aan | adverteren op online plannen heeft geen zin |
+
+`src/ophalen.mjs` doet de dagelijkse meting: alle locaties voor een behandeling, met een bovengrens
+op het aantal gelijktijdige verzoeken en een pauze tussen verzoeken. De provincie komt uit de
+afspraakpagina van TopzorgGroep, die de vestigingen per provincie groepeert. Er wordt dus geen
+provincie geraden op basis van een postcode. Een plaats die daar niet in voorkomt blijft leeg in
+plaats van dat er een gok in de data sluipt.
+
+Getoetst op de echte gegevens: het antwoord van Simpelveld levert KRAP op, twee tijden, eerste
+mogelijkheid over drie dagen.

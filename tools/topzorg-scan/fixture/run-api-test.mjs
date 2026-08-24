@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { ApiFout, kiesOpLabel, leesAdres, maakClient } from '../src/api.mjs';
 import { maakLogger } from '../src/logger.mjs';
 import { verkenApi } from '../src/api-verken.mjs';
+import { STATUS, vatVensterSamen } from '../src/beschikbaarheid.mjs';
+import { bouwProvincieKaart, zoekProvincie } from '../src/ophalen.mjs';
 import { maakNepFetch, REFERENTIES } from './api-antwoorden.mjs';
 
 const HIER = dirname(fileURLToPath(import.meta.url));
@@ -71,6 +73,38 @@ for (const pad of ['data', 'confirmation']) {
 
 // 5. Er is nooit een schrijvend verzoek gedaan.
 meld(log.length > 0 && log.every((u) => typeof u === 'string'), `${log.length} verzoeken gedaan, alle lezend`);
+
+// 6. Analyse van de beschikbaarheid.
+const venster = {
+  dates: { current: '2026-08-24', min: '2026-08-24', max: '2026-09-21', next: '2026-09-01' },
+  days: [
+    { date: '2026-08-24', disabled: true, slots: [] },
+    { date: '2026-08-27', disabled: false, slots: [
+      { reference: 'a', label: '15:00', disabled: false },
+      { reference: 'b', label: '15:30', disabled: false },
+    ] },
+    { date: '2026-08-28', disabled: false, slots: [{ reference: 'c', label: '09:00', disabled: true }] },
+  ],
+};
+const samenvatting = vatVensterSamen([venster], { peildatum: '2026-08-24' });
+meld(samenvatting.totaalTijden === 2, `uitgeschakelde tijden tellen niet mee (${samenvatting.totaalTijden})`);
+meld(samenvatting.eersteDatum === '2026-08-27', 'de eerstvolgende mogelijkheid wordt gevonden');
+meld(samenvatting.wachtdagen === 3, `wachttijd in dagen klopt (${samenvatting.wachtdagen})`);
+meld(samenvatting.status === STATUS.KRAP, `weinig tijden levert status ${samenvatting.status} op`);
+
+const leeg = vatVensterSamen([{ dates: {}, days: [{ date: '2026-08-24', disabled: true, slots: [] }] }], {
+  peildatum: '2026-08-24',
+});
+meld(leeg.status === STATUS.GEEN_RUIMTE, 'nul tijden levert GEEN_RUIMTE op');
+meld(leeg.eersteDatum === null, 'zonder tijden is er geen eerstvolgende datum');
+
+// 7. Provincie-indeling uit de namen van de locatiepagina's.
+const kaart = bouwProvincieKaart([
+  { naam: 'Fysiotherapie Amersfoort', provincie: 'Utrecht' },
+  { naam: 'Revalidatie Assen', provincie: 'Drenthe' },
+]);
+meld(zoekProvincie(kaart, 'Amersfoort') === 'Utrecht', 'plaats naar provincie');
+meld(zoekProvincie(kaart, 'Onbekendstad') === null, 'onbekende plaats levert niets op in plaats van een gok');
 
 process.stdout.write(`\n${fouten === 0 ? 'API TEST GESLAAGD' : `${fouten} API CONTROLES GEFAALD`}\n`);
 process.exit(fouten === 0 ? 0 : 1);
