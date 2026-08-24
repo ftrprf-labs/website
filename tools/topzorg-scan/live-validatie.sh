@@ -105,6 +105,39 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 5A. API modus. Verkent de publieke API van Mijn Zorgtoegang zonder browser.
+#     Alleen lezende verzoeken, en de stappen persoonsgegevens en bevestigen
+#     worden actief geweigerd.
+# ---------------------------------------------------------------------------
+if [ "${TOPZORG_MODUS:-scan}" = "api" ]; then
+  STEMPEL="$(date +%Y-%m-%d_%H-%M-%S)"
+  UIT="$(pwd)/runs/api_${STEMPEL}"
+  melding "Verkenning van de publieke API. Er wordt niets vastgelegd en niets ingevuld."
+  node src/api-verken.mjs --out="$UIT" ${TOPZORG_FOCUS:+--focus="$TOPZORG_FOCUS"}
+  CODE=$?
+
+  DOELMAP="$HOME/Desktop"
+  [ -d "$DOELMAP" ] || DOELMAP="$HOME"
+  BUNDEL="$DOELMAP/topzorg-api_${STEMPEL}.zip"
+  if command -v zip >/dev/null 2>&1; then
+    (cd "$(dirname "$UIT")" && zip -qr "$BUNDEL" "$(basename "$UIT")") || BUNDEL=""
+  elif command -v ditto >/dev/null 2>&1; then
+    ditto -c -k --sequesterRsrc --keepParent "$UIT" "$BUNDEL" || BUNDEL=""
+  else
+    BUNDEL=""
+  fi
+
+  melding "API verkenning klaar"
+  printf 'Resultaten: %s\n' "$UIT"
+  if [ -n "$BUNDEL" ] && [ -f "$BUNDEL" ]; then
+    printf '\nAlles in een bestand: %s\n' "$BUNDEL"
+    printf 'Deel dat bestand terug in de chat.\n'
+    if command -v open >/dev/null 2>&1; then open -R "$BUNDEL" >/dev/null 2>&1 || true; fi
+  fi
+  exit "$CODE"
+fi
+
+# ---------------------------------------------------------------------------
 # 5a. Verkenmodus. Legt vast hoe het centrale portaal zijn locatielijst en zijn
 #     beschikbaarheid ophaalt, inclusief de netwerkverzoeken.
 # ---------------------------------------------------------------------------

@@ -1,0 +1,76 @@
+// Toetst de API laag zonder netwerk, tegen antwoorden die gemodelleerd zijn op
+// de echte verkenningen.
+
+import { rmSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { ApiFout, kiesOpLabel, leesAdres, maakClient } from '../src/api.mjs';
+import { maakLogger } from '../src/logger.mjs';
+import { verkenApi } from '../src/api-verken.mjs';
+import { maakNepFetch, REFERENTIES } from './api-antwoorden.mjs';
+
+const HIER = dirname(fileURLToPath(import.meta.url));
+const UITVOER = resolve(HIER, '..', 'runs', 'api-test');
+rmSync(UITVOER, { recursive: true, force: true });
+
+let fouten = 0;
+const meld = (goed, tekst) => {
+  process.stdout.write(`${goed ? 'PASS' : 'FAIL'}: ${tekst}\n`);
+  if (!goed) fouten += 1;
+};
+
+// 1. Exacte labelkeuze gaat voor op een gedeeltelijke match.
+const focuses = [
+  { reference: 'a', label: 'Bekkenfysiotherapie (intake)' },
+  { reference: 'b', label: 'Fysiotherapie (intake)' },
+];
+meld(
+  kiesOpLabel(focuses, 'Fysiotherapie (intake)')?.reference === 'b',
+  'kiesOpLabel pakt de exacte behandeling en niet Bekkenfysiotherapie',
+);
+
+// 2. Adres uitlezen.
+const adres = leesAdres({ address_line2: '3821AL Amersfoort' });
+meld(adres.postcode === '3821AL' && adres.plaats === 'Amersfoort', 'postcode en plaats uit het adresblok');
+
+// 3. De volledige flow over de nep API.
+const log = [];
+const client = maakClient({ fetchImpl: maakNepFetch({ log }), pauzeMs: 0 });
+const { resultaat } = await verkenApi({
+  out: join(UITVOER, 'flow'),
+  client,
+  logger: maakLogger(null),
+});
+
+meld(resultaat.focus?.reference === REFERENTIES.FOCUS_FYSIO, 'de flow kiest Fysiotherapie (intake)');
+meld(resultaat.referral?.reference === REFERENTIES.REFERRAL_GEEN, 'de flow kiest Geen verwijzing');
+meld(resultaat.practices?.length === 2, `de flow leest ${resultaat.practices?.length} locaties`);
+meld(
+  resultaat.practices?.[0]?.plaats === 'Amersfoort' && resultaat.practices?.[0]?.postcode === '3821AL',
+  'locaties krijgen postcode en plaats mee',
+);
+meld(
+  resultaat.standaarden?.employee === REFERENTIES.EMPLOYEE && resultaat.standaarden?.gender === REFERENTIES.GENDER,
+  'standaardparameters komen uit de stappen',
+);
+
+const gelukteVariant = (resultaat.slotVarianten ?? []).find((v) => v.gelukt);
+meld(gelukteVariant?.naam === 'volledig', `de werkende slotvariant is "${gelukteVariant?.naam}"`);
+
+// 4. De cliënt weigert de stappen persoonsgegevens en bevestigen.
+for (const pad of ['data', 'confirmation']) {
+  let geweigerd = false;
+  try {
+    await client.haalJson(`https://api.mijnzorgtoegang.nl/appointment/compose-first-appointments/v1/${pad}`);
+  } catch (err) {
+    geweigerd = err instanceof ApiFout && /bewust niet opgehaald/.test(err.message);
+  }
+  meld(geweigerd, `de cliënt weigert de stap ${pad}`);
+}
+
+// 5. Er is nooit een schrijvend verzoek gedaan.
+meld(log.length > 0 && log.every((u) => typeof u === 'string'), `${log.length} verzoeken gedaan, alle lezend`);
+
+process.stdout.write(`\n${fouten === 0 ? 'API TEST GESLAAGD' : `${fouten} API CONTROLES GEFAALD`}\n`);
+process.exit(fouten === 0 ? 0 : 1);

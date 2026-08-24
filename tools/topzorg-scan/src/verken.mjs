@@ -217,8 +217,12 @@ export async function verken({ url = CENTRAAL_PORTAAL, out = null, focus = 'Fysi
 
     // Aandachtsgebied. Standaard de gewone fysiotherapie intake, want dat is de
     // referentiebehandeling voor het overzicht.
-    const focusPatroon = new RegExp(focus.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    await klik([focusPatroon, /fysiotherapie \(intake\)/i], 'aandachtsgebied', { verplicht: true });
+    // Anker op de volledige naam. Zonder anker matcht "Fysiotherapie (intake)"
+    // ook op "Bekkenfysiotherapie (intake)", en dat is een andere behandeling.
+    const ontsnapt = focus.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    await klik([new RegExp(`^${ontsnapt}$`, 'i'), new RegExp(`^${ontsnapt}`, 'i')], 'aandachtsgebied', {
+      verplicht: true,
+    });
     await klik([/^volgende$/i], 'na-aandachtsgebied', { isDoorklik: true });
 
     // Verwijzing.
@@ -232,7 +236,8 @@ export async function verken({ url = CENTRAAL_PORTAAL, out = null, focus = 'Fysi
     // zichtbaar wordt. Daarna stopt de verkenning.
     // Kies alleen een echte locatie. Een catch-all patroon pakt hier anders de
     // knop "Volgende", en die leidt verder de flow in dan de bedoeling is.
-    const LOCATIEPATRONEN = [/amersfoort/i, /utrecht/i, /zeist/i, /nieuwegein/i, /amsterdam/i, /rotterdam/i];
+    // De locaties in het portaal heten "TZG <plaats> <straat>".
+    const LOCATIEPATRONEN = [/^TZG\s/i, /amersfoort/i, /utrecht/i, /assen/i];
     const BEDIENINGSWOORDEN = /^(volgende|vorige|terug|annuleren|sluiten|verder|opnieuw)$/i;
 
     const locatieTreffer = (await magDoorklikken())

@@ -266,3 +266,47 @@ De verkenner stopt zodra er een kalender of een invoerveld in beeld komt, en hij
 bedieningsknop aan die hij voor een locatie aanziet. In de nabootsing kwam hij daardoor niet eens in
 de buurt van het bevestigingsendpoint: nul schrijfverzoeken, ook zonder dat de netwerkrem hoefde in
 te grijpen.
+
+## Verkenning 2, 24 augustus 2026, 17:16
+
+De verdiepte verkenner liep door tot de locatiekeuze en legde het parametercontract vast.
+
+### Het contract
+
+```
+GET /v1/referrals?focus=<focus>
+GET /v1/practices?employee=<std>&gender=<std>&focus=<focus>&referral=<referral>
+```
+
+Elke stap krijgt de tot dan toe gemaakte keuzes mee als queryparameters. De standaardwaarden voor
+`employee` en `gender` staan in de stappen die `/v1/context` teruggeeft.
+
+### De locatielijst is gefilterd op behandeling
+
+Dit is de belangrijkste inhoudelijke vondst. `/v1/practices` geeft alleen de locaties terug die de
+gekozen behandeling aanbieden. Voor "Bekkenfysiotherapie (intake)" waren dat er vier, allemaal in
+Assen. Het onderscheid dat ik eerder als aandachtspunt noemde, beschikbaarheid is per behandeling en
+niet per locatie, zit dus al in de API ingebakken.
+
+Elke locatie komt met `reference`, `label` in de vorm "TZG Assen Hoekbree", en een adres waarvan
+`address_line2` de postcode en de plaats bevat.
+
+### Twee fouten in de verkenner
+
+**Het verkeerde aandachtsgebied.** Het patroon `fysiotherapie (intake)` matchte op
+"Bekkenfysiotherapie (intake)", want dat staat eerder in de lijst en bevat de gezochte tekst als
+deel van een langer woord. De zoekopdracht is nu verankerd op de volledige naam.
+
+**Geen locatie aangeklikt.** Mijn patronen waren plaatsnamen, maar de locaties heten "TZG <plaats>
+<straat>". Bij deze behandeling stonden alleen Assense locaties in de lijst en die stond niet in
+mijn rijtje. Nu wordt op de naamgeving zelf gezocht.
+
+### Waarom de browser hierna niet meer nodig is
+
+Met dit contract is een API cliënt genoeg. `src/api.mjs` doet uitsluitend GET verzoeken en weigert
+actief de paden `data`, `confirmation`, `create` en `register`, dus persoonsgegevens en bevestiging
+zijn ook per ongeluk niet te raken. `src/api-verken.mjs` loopt de flow door en probeert voor de nog
+onbekende stap `slots` een aantal parametervarianten, zodat in een keer vaststaat welke werkt.
+
+De hele laag is zonder netwerk getoetst tegen antwoorden die op de echte verkenningen gemodelleerd
+zijn, inclusief de val met Bekkenfysiotherapie. Elf controles.
