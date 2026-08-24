@@ -177,3 +177,36 @@ Route: locatiepagina, dan `/contact/afspraak-maken/`, dan een knop die alleen na
 diezelfde pagina springt (`#afspraaksectie`). Geen portaal, en geen verwijzing naar een portaal op de
 pagina zelf. Het beeld uit run 2 blijft dus staan, nu met de wetenschap dat de online route op hetzelfde
 adres wel bestaat voor fysiotherapie.
+
+## Run 4, 24 augustus 2026, 15:30
+
+| Locatie | Status |
+| --- | --- |
+| Fysiotherapie Amersfoort Databankweg | ORANJE, één stap van GROEN |
+| Revalidatie Amersfoort Databankweg | ROOD, ongewijzigd |
+
+De wizard liep nu wel door. Gekozen: "Fysiotherapie (intake)", daarna "Geen verwijzing", en de agenda
+kwam in beeld. Alleen de tijdsloten werden niet gezien.
+
+### Eén selector te smal
+
+De tijdsloten stonden er gewoon: 08:00, 10:05, 13:55, 14:20, 16:50 en 17:15. Ze zijn alleen
+opgebouwd als `label` bij een verborgen radio-input, precies zoals de keuzekaarten eerder in de flow.
+Mijn zoekopdracht voor tijdsloten keek naar knoppen, links, lijstitems en tabelcellen, maar niet naar
+labels. Toegevoegd.
+
+### Doorklikken bij een zichtbare agenda is nu verboden
+
+De wizard drukte vier keer op "Volgende" terwijl de agenda al in beeld stond. Dat is niet onschuldig:
+met een gekozen tijdslot leidt die knop naar het scherm voor persoonsgegevens. Zodra de agenda
+zichtbaar is, klikt de scan niet meer door. Het enige wat dan nog mag, is een datum kiezen om de
+tijdsloten zichtbaar te maken.
+
+### Datum kiezen toegevoegd
+
+In deze praktijk stond al een datum voorgeselecteerd, maar dat is niet vanzelfsprekend. De scan kiest
+nu zelf de eerste beschikbare dag in de kalender wanneer er nog geen tijdsloten zichtbaar zijn.
+Uitgeschakelde dagen blijven met rust. Een tweede agendafixture dekt dit af: daar verschijnen de
+tijdsloten pas na het kiezen van een dag.
+
+Eenendertig controles, exitcode 0.

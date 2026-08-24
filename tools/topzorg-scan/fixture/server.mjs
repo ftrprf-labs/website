@@ -283,6 +283,51 @@ const PORTAAL_PERSOONSGEGEVENS = pagina(
 `,
 );
 
+// Agenda zoals Mijn Zorgtoegang hem toont: een kalender met dagcellen waarvan
+// sommige uitgeschakeld zijn, en tijdsloten als label bij een verborgen
+// radio-input. In deze variant verschijnen de tijdsloten pas nadat een dag is
+// gekozen.
+function tijdslot(tijd) {
+  const id = `slot_${tijd.replace(':', '')}`;
+  return `<div class="card card-selectable">
+    <input type="radio" id="${id}" name="slot" style="position:absolute;opacity:0;width:1px;height:1px">
+    <label for="${id}">${tijd}</label>
+  </div>`;
+}
+
+function portaalAgenda(dagGekozen) {
+  const dagen = Array.from({ length: 20 }, (_, i) => i + 1)
+    .map((d) =>
+      d < 4
+        ? `<td class="day disabled">${d}</td>`
+        : `<td class="day"><a href="/mijnzorgtoegang/agenda-datum?dag=${d}">${d}</a></td>`,
+    )
+    .join('');
+
+  const sloten = dagGekozen
+    ? `<h4>Kies tijdslot</h4><p>Kies een tijdslot.</p>${['08:00', '10:05', '13:55', '14:20', '16:50', '17:15'].map(tijdslot).join('')}`
+    : '<p>Kies eerst een datum.</p>';
+
+  return pagina(
+    'Mijn Zorgtoegang',
+    `
+  ${STAPPENBALK}
+  <h2>Wanneer wil je een afspraak?</h2>
+  <p>Kies een beschikbare datum en tijd in de onderstaande kalender.</p>
+  <h4>Selecteer datum</h4>
+  <p>Augustus 2026</p>
+  <table class="calendar">
+    <thead><tr><th>ma.</th><th>di.</th><th>wo.</th><th>do.</th><th>vr.</th><th>za.</th><th>zo.</th></tr></thead>
+    <tbody><tr>${dagen}</tr></tbody>
+  </table>
+  <div>${sloten}</div>
+  <form method="POST" action="/mijnzorgtoegang/afspraak/bevestigen">
+    <button class="knop" type="submit">Volgende</button>
+  </form>
+`,
+  );
+}
+
 export function startFixture({ port = 0, variant = 'groen' } = {}) {
   const gebeurtenissen = [];
 
@@ -339,8 +384,12 @@ export function startFixture({ port = 0, variant = 'groen' } = {}) {
         return stuur(VERWIJZING);
       case '/mijnzorgtoegang/voorkeur':
         return stuur(VOORKEUR);
+      case '/mijnzorgtoegang/agenda-datum':
+        return stuur(portaalAgenda(url.searchParams.has('dag')));
       case '/mijnzorgtoegang/agenda':
         if (variant === 'oranje-persoonsgegevens') return stuur(PORTAAL_PERSOONSGEGEVENS);
+        if (variant === 'portaal-datum-eerst') return stuur(portaalAgenda(false));
+        if (variant === 'portaal-echt') return stuur(portaalAgenda(true));
         return stuur(agendaPagina(variant !== 'oranje-geen-tijden'));
       default:
         return stuur(pagina('Fout', '<h1>Pagina niet gevonden</h1>'), 404);

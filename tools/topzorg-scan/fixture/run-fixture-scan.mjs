@@ -20,6 +20,7 @@ const GEVALLEN = [
   { variant: 'groen', verwacht: 'GROEN' },
   { variant: 'echt-achtig', verwacht: 'GROEN' },
   { variant: 'portaal-echt', verwacht: 'GROEN' },
+  { variant: 'portaal-datum-eerst', verwacht: 'GROEN' },
   { variant: 'oranje-persoonsgegevens', verwacht: 'ORANJE', persoonsgegevens: true },
   { variant: 'oranje-geen-tijden', verwacht: 'ORANJE' },
   { variant: 'rood-knop', verwacht: 'ROOD' },

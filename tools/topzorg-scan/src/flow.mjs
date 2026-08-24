@@ -278,6 +278,45 @@ export async function voerScanUit({ context, locatie, logger, schermafbeelding, 
 // zolang er een blijft staan vangt die elke klik op. Ze kunnen elkaar ook
 // afdekken, dus een knop die nog niet klikbaar is betekent niet dat we klaar
 // zijn: dan is een andere consentlaag eerst aan de beurt.
+// Kiest de eerste beschikbare dag in een kalender. Sommige portalen tonen pas
+// tijdsloten nadat een datum gekozen is. Uitgeschakelde dagen blijven met rust.
+const DAGCEL_SELECTOR = 'td, button, [role="gridcell"], [class*="day" i], [class*="dag" i]';
+
+async function kiesEersteBeschikbareDatum(geefPaginas, logger) {
+  for (const page of geefPaginas()) {
+    if (page.isClosed()) continue;
+    for (const frame of page.frames()) {
+      let cellen = [];
+      try {
+        cellen = (await frame.locator(DAGCEL_SELECTOR).filter({ hasText: /^\s*\d{1,2}\s*$/ }).all()).slice(0, 45);
+      } catch {
+        continue;
+      }
+      for (const cel of cellen) {
+        try {
+          if (!(await cel.isVisible())) continue;
+          const uitgeschakeld = await cel.evaluate((el) => {
+            const klasse = el.className && el.className.toString ? el.className.toString() : '';
+            return (
+              el.hasAttribute('disabled') ||
+              el.getAttribute('aria-disabled') === 'true' ||
+              /disabled|uitgeschakeld|unavailable|niet-beschikbaar/i.test(klasse)
+            );
+          });
+          if (uitgeschakeld) continue;
+          const dag = (await cel.innerText({ timeout: 1000 })).trim();
+          await cel.click({ timeout: 5000 });
+          logger.info(`Dag ${dag} in de kalender gekozen om tijdsloten zichtbaar te maken.`);
+          return true;
+        } catch {
+          // volgende cel
+        }
+      }
+    }
+  }
+  return false;
+}
+
 // Herkent het scherm waar het portaal om persoonsgegevens vraagt. De scan
 // vult daar niets in en stopt. Ontwerpprincipe 2 uit de opdracht.
 const PERSOONSVELD_SELECTOR = [
@@ -595,6 +634,19 @@ async function doorloopWizard({ paginas, locatie, logger, schermafbeelding, legD
       stilstand = 0;
     }
     vorigScherm = schermTekst;
+
+    // Staat de agenda er, dan is doorklikken met Volgende gevaarlijk: dat leidt
+    // naar het scherm voor persoonsgegevens. Alleen een datum kiezen mag nog,
+    // om de tijdsloten zichtbaar te maken.
+    if (agenda) {
+      const gekozenDatum = await kiesEersteBeschikbareDatum(paginas, logger);
+      if (gekozenDatum) {
+        await pauze(1500);
+        continue;
+      }
+      logger.waarschuwing('De agenda staat er, maar er is geen beschikbare dag te kiezen. De wizard stopt hier.');
+      break;
+    }
 
     let geklikt = false;
     for (const stap of volgorde) {

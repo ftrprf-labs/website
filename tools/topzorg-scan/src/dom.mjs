@@ -219,8 +219,12 @@ export async function zoekTijdsloten(geefPaginas, maximum = 60) {
     for (const frame of page.frames()) {
       let elementen = [];
       try {
+        // label hoort er nadrukkelijk bij. In Mijn Zorgtoegang zijn de
+        // tijdsloten labels bij een verborgen radio-input, niet knoppen.
         elementen = await frame
-          .locator('button, [role="button"], [role="option"], a[href], li, td')
+          .locator(
+            'button, [role="button"], [role="option"], [role="radio"], a[href], li, td, label, [class*="slot" i]',
+          )
           .filter({ hasText: TIJD_PATROON })
           .all();
       } catch {
