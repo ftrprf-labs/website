@@ -51,34 +51,61 @@ async function labelVan(locator) {
   return '';
 }
 
-// Zoekt het eerste zichtbare klikbare element dat op een van de patronen past.
-// Patronen zijn geordend van specifiek naar algemeen; de eerste treffer wint.
+// Weegt kandidaten die op hetzelfde patroon passen. Een locatiepagina bevat
+// vaak meerdere knoppen met dezelfde tekst: een in het menu, een in de tekst en
+// een in de voettekst. Zonder weging pakt de scan willekeurig de eerste in de
+// DOM, en dat is meestal het menu.
+async function scoreVan(locator) {
+  try {
+    return await locator.evaluate((el) => {
+      let score = 0;
+      const href = (el.getAttribute && el.getAttribute('href')) || '';
+      if (/zorgtoegang/i.test(href)) score += 6;
+      if (/afspraak|booking|boeken|online/i.test(href)) score += 3;
+      if (el.closest && !el.closest('nav, header, footer')) score += 1;
+      if (el.tagName === 'A' || el.tagName === 'BUTTON') score += 1;
+      return score;
+    });
+  } catch {
+    return 0;
+  }
+}
+
+// Zoekt het best passende zichtbare klikbare element. Patronen zijn geordend
+// van specifiek naar algemeen; het eerste patroon met een treffer wint, en
+// binnen dat patroon wint de kandidaat met de hoogste score.
 export async function zoekKlikbaar(geefPaginas, patronen, opties = {}) {
-  const { timeoutMs = 20000, pollMs = 500, slaVerbodenOver = true } = opties;
+  const { timeoutMs = 20000, pollMs = 500, slaVerbodenOver = true, maxKandidaten = 12 } = opties;
   const deadline = Date.now() + timeoutMs;
-  let laatsteFout = null;
 
   while (Date.now() < deadline) {
     for (const patroon of patronen) {
+      let beste = null;
       for (const page of geefPaginas()) {
         if (page.isClosed()) continue;
         for (const frame of page.frames()) {
           for (const fabriek of frameFabrieken(patroon)) {
-            let locator;
+            let elementen = [];
             try {
-              locator = fabriek(frame).first();
-              if ((await locator.count()) === 0) continue;
-              if (!(await locator.isVisible())) continue;
-            } catch (err) {
-              laatsteFout = err;
+              elementen = (await fabriek(frame).all()).slice(0, maxKandidaten);
+            } catch {
               continue;
             }
-            const label = await labelVan(locator);
-            if (slaVerbodenOver && label && VERBODEN_LABELS.some((p) => p.test(label))) continue;
-            return { locator, page, frame, patroon, label };
+            for (const locator of elementen) {
+              try {
+                if (!(await locator.isVisible())) continue;
+              } catch {
+                continue;
+              }
+              const label = await labelVan(locator);
+              if (slaVerbodenOver && label && VERBODEN_LABELS.some((p) => p.test(label))) continue;
+              const score = await scoreVan(locator);
+              if (!beste || score > beste.score) beste = { locator, page, frame, patroon, label, score };
+            }
           }
         }
       }
+      if (beste) return beste;
     }
     await pauze(pollMs);
   }

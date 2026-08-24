@@ -67,7 +67,7 @@ export function installeerNetwerkRem(context, logger) {
 }
 
 // Weigert een klik op alles wat naar een definitieve handeling ruikt.
-export async function veiligKlikken(locator, logger, { context = 'stap' } = {}) {
+export async function veiligKlikken(locator, logger, { context = 'stap', timeoutMs = 15000 } = {}) {
   let label = '';
   try {
     label = ((await locator.innerText({ timeout: 2000 })) || '').trim();
@@ -90,7 +90,7 @@ export async function veiligKlikken(locator, logger, { context = 'stap' } = {}) 
   }
 
   logger.info(`Klik op "${label.replace(/\s+/g, ' ').slice(0, 80) || '(zonder tekst)'}" bij ${context}.`);
-  await locator.click({ timeout: 15000 });
+  await locator.click({ timeout: timeoutMs });
   return label;
 }
 

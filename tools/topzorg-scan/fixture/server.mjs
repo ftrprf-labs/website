@@ -19,6 +19,12 @@ const HOOFD = `
   .slot { background: #eaf6f9; border: 1px solid #12809b; border-radius: 4px; padding: 8px 12px;
           margin: 4px; cursor: pointer; font-size: 15px; }
   #cookie { position: fixed; inset: auto 0 0 0; background: #17242e; color: #fff; padding: 18px; }
+  /* Twee consentlagen die elkaar afdekken, zoals op de echte site. */
+  #laag-modaal { position: fixed; inset: 0; background: rgba(10,20,28,.55); z-index: 9000;
+                 display: flex; align-items: center; justify-content: center; }
+  #laag-modaal .venster { background: #fff; padding: 24px; border-radius: 8px; max-width: 420px; }
+  #laag-banner { position: fixed; left: 16px; bottom: 16px; width: 280px; background: #fff;
+                 border: 1px solid #d5dee4; border-radius: 8px; padding: 16px; z-index: 100; }
 `;
 
 function pagina(titel, inhoud, { cookiebanner = false } = {}) {
@@ -110,6 +116,63 @@ function agendaPagina(metSloten) {
   );
 }
 
+// Nabootsing van de werkelijk aangetroffen situatie op de locatiepagina:
+// twee consentlagen die elkaar afdekken, een menuknop en een tekstknop met
+// exact dezelfde tekst, en een tussenpagina voordat het portaal in beeld komt.
+const LOCATIEPAGINA_ECHT = `<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><title>Revalidatie Amersfoort Databankweg</title><style>${HOOFD}</style></head>
+<body>
+<header>
+  <strong>TopzorgGroep</strong>
+  <nav>
+    <a href="/vestigingen/">Locaties</a>
+    <a class="knop" href="/contact/afspraak-maken/">Afspraak maken</a>
+  </nav>
+</header>
+<main>
+  <h1>Revalidatie Amersfoort Databankweg</h1>
+  <p>Databankweg 2A, 3821 AL Amersfoort. Telefoon 088 567 0100.</p>
+  <p>Wil je een afspraak maken? Bel 088 5670 100.</p>
+  <p><a class="knop" href="/doodlopend/neem-contact-op/">Afspraak maken</a></p>
+  <h2>Openingstijden</h2>
+  <p>Maandag tot en met vrijdag van 08:30 tot 17:00.</p>
+</main>
+
+<div id="laag-banner">
+  <p>TopzorgGroep hecht grote waarde aan het beschermen van jouw persoonsgegevens.</p>
+  <button class="knop" onclick="document.getElementById('laag-banner').remove()">Ja, ik accepteer cookies</button>
+  <button onclick="document.getElementById('laag-banner').remove()">Nee, liever niet</button>
+</div>
+
+<div id="laag-modaal">
+  <div class="venster">
+    <h2>Cookies</h2>
+    <p>TopzorgGroep gebruikt cookies en vergelijkbare technieken.</p>
+    <button onclick="document.getElementById('laag-modaal').remove()">Laat mij kiezen</button>
+    <button class="knop" onclick="document.getElementById('laag-modaal').remove()">Ok&eacute;!</button>
+  </div>
+</div>
+</body></html>`;
+
+const AFSPRAAK_TUSSENPAGINA = pagina(
+  'Maak een afspraak',
+  `
+  <h1>Maak een afspraak</h1>
+  <p>Kies de vestiging waar je terecht wilt.</p>
+  <a class="kaart" href="/mijnzorgtoegang/">Revalidatie Amersfoort Databankweg</a>
+  <a class="kaart" href="/doodlopend/neem-contact-op/">Revalidatie Zeist</a>
+  <a class="kaart" href="/doodlopend/neem-contact-op/">Revalidatie Utrecht</a>
+`,
+);
+
+const DOODLOPEND = pagina(
+  'Neem contact op',
+  `
+  <h1>Neem contact op</h1>
+  <p>Bel ons op 088 567 0100 of stuur een bericht.</p>
+`,
+);
+
 export function startFixture({ port = 0, variant = 'groen' } = {}) {
   const gebeurtenissen = [];
 
@@ -131,6 +194,7 @@ export function startFixture({ port = 0, variant = 'groen' } = {}) {
     switch (url.pathname) {
       case '/vestigingen/revalidatie-amersfoort-databankweg/':
         if (variant === 'rood-website') return stuur(pagina('Fout', '<h1>Pagina niet gevonden</h1>'), 404);
+        if (variant === 'echt-achtig') return stuur(LOCATIEPAGINA_ECHT);
         if (variant === 'rood-knop') {
           return stuur(
             pagina('Revalidatie Amersfoort Databankweg', `
@@ -140,6 +204,10 @@ export function startFixture({ port = 0, variant = 'groen' } = {}) {
           );
         }
         return stuur(LOCATIEPAGINA);
+      case '/contact/afspraak-maken/':
+        return stuur(AFSPRAAK_TUSSENPAGINA);
+      case '/doodlopend/neem-contact-op/':
+        return stuur(DOODLOPEND);
       case '/mijnzorgtoegang/':
         return stuur(AANDACHTSGEBIED);
       case '/mijnzorgtoegang/behandeling':

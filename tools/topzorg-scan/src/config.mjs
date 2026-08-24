@@ -22,6 +22,10 @@ export const LOCATIES = {
       behandeling: [/fysiotherapie\s*intake/i, /intake\s*fysiotherapie/i, /intake/i, /eerste afspraak/i, /screening/i],
       verwijzing: [/geen verwijzing/i, /zonder verwijzing/i, /nee,? ?ik heb geen verwijzing/i, /^nee$/i, /directe toegang/i],
     },
+
+    // Keuzes op een tussenpagina waar eerst een vestiging gekozen moet worden,
+    // voordat de route naar Mijn Zorgtoegang doorloopt.
+    vervolgkeuzes: [/databankweg/i, /revalidatie amersfoort/i, /amersfoort/i],
   },
 };
 
@@ -35,15 +39,40 @@ export const AFSPRAAKKNOP_PATRONEN = [
   /afspraak/i,
 ];
 
-// Cookiebanners van de gangbare NL consent tools.
+// Cookiebanners. Op topzorggroep.nl staan er twee tegelijk: de Axeptio widget
+// met "Oke!" en een eigen banner met "Ja, ik accepteer cookies". Zolang die
+// blijven staan, vangt de overlay elke klik op en loopt de scan vast op een
+// timeout. Volgorde is van specifiek naar algemeen.
 export const COOKIE_PATRONEN = [
+  /ja,? ?ik accepteer/i,
   /alles accepteren/i,
   /accepteer alle/i,
-  /alle cookies/i,
+  /alle cookies (accepteren|toestaan)/i,
+  /^ok[eé]!?$/i,
   /^accepteren$/i,
   /^akkoord$/i,
-  /^ok$/i,
+  /^doorgaan$/i,
 ];
+
+// Een pagina kan meerdere consentlagen tonen. Blijf klikken tot er geen
+// knop meer verschijnt, met een bovengrens zodat een lus nooit oneindig is.
+export const MAX_COOKIEBANNERS = 4;
+
+// Route naar het portaal. De knop op een locatiepagina leidt niet altijd
+// rechtstreeks naar Mijn Zorgtoegang. Soms komt er eerst een algemene
+// afspraakpagina waar nog een locatie of een ingang gekozen moet worden.
+export const PORTAAL_PATRONEN = [
+  /mijn ?zorgtoegang/i,
+  /online (een )?afspraak (maken|plannen)/i,
+  /direct (online )?(een )?afspraak/i,
+  /plan (je|uw) afspraak (online)?/i,
+  /afspraak plannen/i,
+  /online plannen/i,
+];
+
+// Hoeveel tussenpagina's de scan volgt voordat hij concludeert dat er geen
+// online route is.
+export const MAX_ROUTESTAPPEN = 3;
 
 export const DEFAULTS = {
   navigatieTimeoutMs: 45000,

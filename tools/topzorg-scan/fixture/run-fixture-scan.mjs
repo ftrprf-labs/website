@@ -18,6 +18,7 @@ const UITVOER = resolve(HIER, '..', 'runs', 'fixture');
 
 const GEVALLEN = [
   { variant: 'groen', verwacht: 'GROEN' },
+  { variant: 'echt-achtig', verwacht: 'GROEN' },
   { variant: 'oranje-geen-tijden', verwacht: 'ORANJE' },
   { variant: 'rood-knop', verwacht: 'ROOD' },
 ];
