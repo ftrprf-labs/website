@@ -78,7 +78,11 @@ function statTegel(rol, aantal, woord, toelichting) {
   </div>`;
 }
 
-function provincieBalk(rij) {
+// De hoofdstatussen staan altijd op de kaart, ook als ze nul zijn. Zo staan de
+// cijfers op elke kaart op dezelfde plek en is een rij kaarten te scannen.
+const KAART_STATUSSEN = [STATUS.GEEN_RUIMTE, STATUS.KRAP, STATUS.RUIMTE];
+
+function provincieKaart(rij) {
   const delen = STATUS_VOLGORDE.filter((s) => rij.statussen[s] > 0)
     .map((s) => {
       const aantal = rij.statussen[s];
@@ -88,12 +92,36 @@ function provincieBalk(rij) {
     })
     .join('');
 
-  return `<tr>
-    <th scope="row">${esc(rij.provincie)}</th>
-    <td class="getal">${rij.totaal}</td>
-    <td class="balkcel"><span class="balk">${delen}</span></td>
-    <td class="getal">${rij.problemen}</td>
-  </tr>`;
+  const extra = [STATUS.GEEN_ONLINE_ROUTE, STATUS.FOUT]
+    .filter((s) => rij.statussen[s] > 0)
+    .map((s) => {
+      const u = STATUS_UITERLIJK[s];
+      return `<div class="pkc-regel" data-rol="${u.rol}">
+        <span class="stip" data-rol="${u.rol}" aria-hidden="true"></span>
+        <span class="pkc-getal getal">${rij.statussen[s]}</span>
+        <span class="pkc-woord">${esc(u.woord)}</span>
+      </div>`;
+    })
+    .join('');
+
+  const regels = KAART_STATUSSEN.map((s) => {
+    const u = STATUS_UITERLIJK[s];
+    const aantal = rij.statussen[s] ?? 0;
+    return `<div class="pkc-regel${aantal === 0 ? ' leeg' : ''}" data-rol="${u.rol}">
+      <span class="stip" data-rol="${u.rol}" aria-hidden="true"></span>
+      <span class="pkc-getal getal">${aantal}</span>
+      <span class="pkc-woord">${esc(u.woord)}</span>
+    </div>`;
+  }).join('');
+
+  return `<article class="pkaart">
+    <header class="pkc-kop">
+      <h3>${esc(rij.provincie)}</h3>
+      <span class="pkc-totaal">${rij.totaal} ${rij.totaal === 1 ? 'locatie' : 'locaties'}</span>
+    </header>
+    <span class="balk" role="img" aria-label="Verdeling in ${esc(rij.provincie)}">${delen}</span>
+    <div class="pkc-cijfers">${regels}${extra}</div>
+  </article>`;
 }
 
 function locatieRij(l) {
@@ -246,10 +274,33 @@ export function bouwDashboard(dataset, { artefact = false } = {}) {
   .status { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; font-weight: 600; }
   .status .teken { color: var(--rol); font-size: 13px; }
 
-  .balk { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--lijn); min-width: 180px; }
+  .balk { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--lijn); }
   .segment { background: var(--rol); }
   .segment + .segment { box-shadow: -2px 0 0 var(--surface); }
-  .balkcel { width: 42%; }
+
+  .provinciekaarten {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+    gap: 12px;
+  }
+  .pkaart {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--lijn);
+    border-radius: 10px;
+    padding: 15px 16px 16px;
+  }
+  .pkc-kop { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .pkc-kop h3 { margin: 0; font-size: 15px; font-weight: 600; }
+  .pkc-totaal { color: var(--ink-muted); font-size: 12px; white-space: nowrap; }
+  .pkc-cijfers { display: flex; flex-direction: column; gap: 5px; }
+  .pkc-regel { display: grid; grid-template-columns: 10px 2.4em 1fr; align-items: center; gap: 8px; }
+  .pkc-getal { font-size: 19px; font-weight: 600; text-align: right; line-height: 1.2; }
+  .pkc-woord { color: var(--ink-2); font-size: 13px; }
+  .pkc-regel.leeg .pkc-getal, .pkc-regel.leeg .pkc-woord { color: var(--ink-muted); font-weight: 500; }
+  .pkc-regel.leeg .stip { background: var(--lijn); }
 
   .legenda { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0 0; color: var(--ink-2); font-size: 13px; }
   .legenda span.stip { width: 9px; height: 9px; }
@@ -278,27 +329,14 @@ export function bouwDashboard(dataset, { artefact = false } = {}) {
 ${tegels}
   </div>
 
-  <h2>Waar zit de druk</h2>
+  <h2>Per provincie</h2>
   <p class="uitleg">
-    Per provincie de verdeling over de statussen, gesorteerd op het aantal locaties waar iets aan de
-    hand is. Beweeg over een balk voor de aantallen.
+    Dezelfde telling, uitgesplitst naar provincie en gesorteerd op het aantal locaties waar iets aan
+    de hand is. Beweeg over een balk voor de aantallen.
   </p>
-  <div class="tabelhoes">
-    <table>
-      <thead>
-        <tr><th scope="col">Provincie</th><th scope="col" class="getal">Locaties</th><th scope="col">Verdeling</th><th scope="col" class="getal">Krap of geen ruimte</th></tr>
-      </thead>
-      <tbody>
-${perProvincie(locaties).map(provincieBalk).join('\n')}
-      </tbody>
-    </table>
+  <div class="provinciekaarten">
+${perProvincie(locaties).map(provincieKaart).join('\n')}
   </div>
-  <p class="legenda">
-    ${STATUS_VOLGORDE.map((st) => {
-      const u = STATUS_UITERLIJK[st];
-      return `<span class="legenda-item"><span class="stip" data-rol="${u.rol}"></span>${esc(u.woord)}</span>`;
-    }).join('\n    ')}
-  </p>
 
   <h2>Alle locaties</h2>
   <p class="uitleg">
