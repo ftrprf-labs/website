@@ -24,6 +24,8 @@ import { handleComm } from './comm/routes.mjs';
 import { migrateOnBoot } from './comm/migrate.mjs';
 import { commEnabled } from './comm/db.mjs';
 import { bridgePassTheLens } from './comm/pass-the-lens.mjs';
+import { handleTopzorg } from './topzorg/routes.mjs';
+import { startPlanner } from './topzorg/planner.mjs';
 
 const PUBLIC = join(ROOT, 'public');
 
@@ -617,6 +619,10 @@ const server = createServer(async (req, res) => {
   });
 
   try {
+    if (pathname === '/topzorg' || pathname.startsWith('/topzorg/')) {
+      const afgehandeld = await handleTopzorg(req, res, pathname);
+      if (afgehandeld) return;
+    }
     if (pathname.startsWith('/api/') || pathname === '/healthz') {
       await handleApi(req, res, pathname);
     } else {
@@ -717,6 +723,14 @@ server.listen(config.port, bindHost, () => {
   runRetention();
   const retentionTimer = setInterval(runRetention, 24 * 60 * 60 * 1000);
   if (typeof retentionTimer.unref === 'function') retentionTimer.unref();
+
+  // Dagelijkse meting van de online beschikbaarheid bij TopzorgGroep. Additief:
+  // faalt nooit de Invitation Manager, en is uit te zetten met TOPZORG_ACTIEF=0.
+  try {
+    startPlanner();
+  } catch (err) {
+    console.error('  Topzorg  : planner niet gestart:', err.message);
+  }
 });
 
 export { server };

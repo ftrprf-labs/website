@@ -10,6 +10,10 @@ RUN npm install --omit=dev
 # App code.
 COPY server ./server
 COPY public ./public
+# De meetlaag van het beschikbaarheidsoverzicht. Alleen de API-kant, dus geen
+# browser en geen Playwright in het image.
+COPY tools/topzorg-scan/src ./tools/topzorg-scan/src
+COPY tools/topzorg-scan/data ./tools/topzorg-scan/data
 
 # Render injects PORT; the app also reads HOST. Bind all interfaces so the
 # platform can reach it, and run in production mode (enables fail-closed checks).

@@ -152,3 +152,36 @@ Voorbeeldbestanden in `data/`:
 Geen volledige CRM, geen WhatsApp Business API, geen automatische
 bulkverzending, geen e-mailinfrastructuur, geen analytics. Zie de sprint-brief
 §17.
+
+## Beschikbaarheidsoverzicht TopzorgGroep (`/topzorg`)
+
+Naast Testerbeheer draait in dezelfde service een dagelijkse meting van de online plancapaciteit van
+alle TopzorgGroep vestigingen. Elke ochtend om 07:00 Nederlandse tijd wordt via de publieke
+afsprakenroute van Mijn Zorgtoegang per vestiging opgehaald hoeveel tijden er vrij zijn en wanneer de
+eerstvolgende mogelijkheid is. Het resultaat staat op `/topzorg`.
+
+Alleen lezende verzoeken. Er wordt nooit een afspraak gemaakt en er worden geen persoonsgegevens
+opgehaald of opgeslagen. De meetlaag weigert de stappen persoonsgegevens en bevestigen actief.
+
+**Toegang.** Het overzicht heeft een eigen wachtwoord, `TOPZORG_WACHTWOORD`, los van
+`ADMIN_PASSWORD`. Zo kan een bredere groep collega's meekijken zonder toegang tot Testerbeheer, dat
+wel persoonsgegevens bevat.
+
+**Instellingen.**
+
+| Variabele | Betekenis | Standaard |
+| --- | --- | --- |
+| `TOPZORG_WACHTWOORD` | wachtwoord voor het overzicht | leeg, dan is het overzicht dicht in productie |
+| `TOPZORG_UUR` | meetmoment in Nederlandse tijd | `7` |
+| `TOPZORG_BEHANDELING` | welke behandeling gemeten wordt | `Fysiotherapie (intake)` |
+| `TOPZORG_GELIJKTIJDIG` | verzoeken tegelijk | `3` |
+| `TOPZORG_ACTIEF` | op `0` legt de meting stil | `1` |
+
+**Waarom in het proces en niet als losse cron job.** Een cron job draait op het platform als aparte
+service en kan de persistente schijf van de webservice niet benaderen, want een schijf hoort bij een
+service. Deze opzet herstelt zichzelf bovendien: gaat de service om 07:00 net opnieuw op, dan ziet de
+eerstvolgende controle dat er nog geen meting van vandaag is en haalt die alsnog op. Er wordt elk
+kwartier gekeken, en per dag hoogstens een keer gemeten.
+
+De metingen staan als een bestand per dag op de persistente schijf, onder `topzorg/metingen/`. De
+historie is dus gewoon in te zien, en oude bestanden worden na ruim een jaar opgeruimd.

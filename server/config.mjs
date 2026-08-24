@@ -64,6 +64,17 @@ export const config = {
   intakeKey: process.env.INTAKE_KEY || '',
   adminPassword: process.env.ADMIN_PASSWORD || '',
 
+  // --- Beschikbaarheidsoverzicht TopzorgGroep -----------------------------
+  // Dagelijkse meting van de online plancapaciteit. Bevat geen persoonsgegevens
+  // en heeft daarom een eigen wachtwoord, los van de admin-login hierboven, zodat
+  // een bredere groep collega's het overzicht kan bekijken zonder toegang tot
+  // Testerbeheer.
+  topzorgActief: process.env.TOPZORG_ACTIEF !== '0',
+  topzorgUur: Number(process.env.TOPZORG_UUR || 7),
+  topzorgBehandeling: process.env.TOPZORG_BEHANDELING || 'Fysiotherapie (intake)',
+  topzorgGelijktijdig: Number(process.env.TOPZORG_GELIJKTIJDIG || 3),
+  topzorgWachtwoord: process.env.TOPZORG_WACHTWOORD || '',
+
   // E-mail sending contract (see server/mailer.mjs). No credentials in code:
   //   MAIL_TRANSPORT = ''      → not configured; the app never fake-sends.
   //   MAIL_TRANSPORT = resend  → transactional send via Resend (MAIL_API_KEY +

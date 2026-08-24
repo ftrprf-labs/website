@@ -159,3 +159,9 @@ van het eigen netwerk, niet als een storing bij de vestiging. Zo'n run levert we
 maar de conclusie zegt expliciet dat de run niet meetelt als meting.
 
 De werking van de scanner zelf is aangetoond met `npm test`, tegen de lokale nabootsing van de route.
+
+## Draaien als dienst
+
+In productie draait deze meetlaag mee in de webservice van dit project. Elke ochtend om 07:00
+Nederlandse tijd wordt er gemeten en het resultaat staat op `/topzorg`. Zie de README in de hoofdmap
+voor de instellingen en de toegang.

@@ -45,6 +45,23 @@ services:
         sync: false
       - key: MACULIS_SYNC_KEY  # = the Journey's MACULIS_SYNC_KEY (for publish; optional)
         sync: false
+      # --- Beschikbaarheidsoverzicht TopzorgGroep -----------------------------
+      # Meet elke ochtend de online plancapaciteit van alle vestigingen en toont
+      # die op /topzorg. Bevat geen persoonsgegevens, dus een eigen wachtwoord
+      # naast ADMIN_PASSWORD. Zo kan een bredere groep collega's meekijken
+      # zonder toegang tot Testerbeheer.
+      - key: TOPZORG_WACHTWOORD  # het wachtwoord dat je aan collega's geeft
+        sync: false
+      - key: TOPZORG_UUR         # meetmoment in Nederlandse tijd
+        value: "7"
+      - key: TOPZORG_BEHANDELING
+        value: Fysiotherapie (intake)
+      - key: TOPZORG_GELIJKTIJDIG # verzoeken tegelijk, bewust laag gehouden
+        value: "3"
+      # Zet op 0 om de dagelijkse meting tijdelijk stil te leggen.
+      - key: TOPZORG_ACTIEF
+        value: "1"
+
       # --- E-mail via Resend (OPTIONAL; you can invite by WhatsApp without this) ---
       - key: MAIL_TRANSPORT
         value: resend
