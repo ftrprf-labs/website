@@ -3,8 +3,16 @@
 // opnieuw te draaien.
 
 import { AFSPRAAKKNOP_PATRONEN, COOKIE_PATRONEN, DEFAULTS } from './config.mjs';
-import { pauze, verzamelTekst, wachtOpTekst, zoekAgenda, zoekKlikbaar, zoekTijdsloten } from './dom.mjs';
+import {
+  pauze,
+  verzamelTekst,
+  wachtOpTekst,
+  zoekAgenda,
+  zoekKlikbaar,
+  zoekTijdsloten,
+} from './dom.mjs';
 import { veiligKlikken, VeiligheidsStop } from './safety.mjs';
+import { isEigenNetwerkprobleem, NETWERK_TOELICHTING, nettFoutmelding } from './tekst.mjs';
 
 // Neutrale doorklikstappen in de wizard. Deze kiezen niets inhoudelijks en
 // leggen niets vast.
@@ -20,7 +28,9 @@ const TUSSENSTAP_PATRONEN = [
 
 const MAX_WIZARD_STAPPEN = 10;
 
-export async function voerScanUit({ context, locatie, logger, schermafbeelding, opties = {} }) {
+export async function voerScanUit({ context, locatie, logger, schermafbeelding, diagnose, opties = {} }) {
+  // diagnose is optioneel, zodat bestaande aanroepen blijven werken.
+  const legDiagnoseVast = diagnose ?? (async () => {});
   const navigatieTimeout = opties.navigatieTimeoutMs ?? DEFAULTS.navigatieTimeoutMs;
   const zoekTimeout = opties.zoekTimeoutMs ?? DEFAULTS.zoekTimeoutMs;
   const portaalTimeout = opties.portaalTimeoutMs ?? DEFAULTS.portaalTimeoutMs;
@@ -48,7 +58,11 @@ export async function voerScanUit({ context, locatie, logger, schermafbeelding, 
       timeout: navigatieTimeout,
     });
   } catch (err) {
-    zet('websiteBereikbaar', 'NEE', `De pagina kon niet geladen worden. Technische melding: ${err.message}`);
+    const eigenNetwerk = isEigenNetwerkprobleem(err);
+    const toelichting = eigenNetwerk
+      ? `De pagina kon niet geladen worden. Technische melding: ${nettFoutmelding(err)}. ${NETWERK_TOELICHTING}`
+      : `De pagina kon niet geladen worden. Technische melding: ${nettFoutmelding(err)}`;
+    zet('websiteBereikbaar', 'NEE', toelichting, { eigenNetwerk });
     zet('locatieHerkenbaar', 'NVT');
     zet('afspraakknop', 'NVT');
     zet('portaalBereikbaar', 'NVT');
@@ -69,6 +83,7 @@ export async function voerScanUit({ context, locatie, logger, schermafbeelding, 
   await accepteerCookies(paginas, logger);
   await pauze(800);
   await schermafbeelding(page, 'locatiepagina');
+  await legDiagnoseVast('locatiepagina');
 
   if (checks.websiteBereikbaar.waarde === 'NEE') {
     zet('locatieHerkenbaar', 'NVT');
@@ -115,7 +130,7 @@ export async function voerScanUit({ context, locatie, logger, schermafbeelding, 
     await veiligKlikken(knop.locator, logger, { context: 'afspraakknop' });
   } catch (err) {
     if (err instanceof VeiligheidsStop) throw err;
-    zet('portaalBereikbaar', 'NEE', `De knop kon niet aangeklikt worden. Technische melding: ${err.message}`);
+    zet('portaalBereikbaar', 'NEE', `De knop kon niet aangeklikt worden. Technische melding: ${nettFoutmelding(err)}`);
     zet('behandelingBeschikbaar', 'NVT');
     zet('agendaGeladen', 'NVT');
     zet('beschikbareTijden', 'NVT');
@@ -141,6 +156,7 @@ export async function voerScanUit({ context, locatie, logger, schermafbeelding, 
   };
   await pauze(1200);
   await schermafbeelding(actief(), 'portaal');
+  await legDiagnoseVast('portaal');
 
   if (!portaal) {
     const urls = paginas().map((p) => p.url()).join(' , ');
@@ -154,7 +170,15 @@ export async function voerScanUit({ context, locatie, logger, schermafbeelding, 
 
   // Stap 5. De wizard doorlopen tot aan de agenda.
   logger.stap('Stap 5. Afspraakflow doorlopen tot aan de agenda.');
-  const wizard = await doorloopWizard({ paginas, locatie, logger, schermafbeelding, actief, zoekTimeout });
+  const wizard = await doorloopWizard({
+    paginas,
+    locatie,
+    logger,
+    schermafbeelding,
+    legDiagnoseVast,
+    actief,
+    zoekTimeout,
+  });
 
   if (wizard.gekozen.behandeling) {
     zet('behandelingBeschikbaar', 'JA', `Gekozen behandeling: "${wizard.gekozen.behandeling}".`);
@@ -177,6 +201,7 @@ export async function voerScanUit({ context, locatie, logger, schermafbeelding, 
 
   await pauze(1500);
   await schermafbeelding(actief(), 'agenda');
+  await legDiagnoseVast('agenda');
 
   if (agenda) {
     const tijden = await zoekTijdsloten(paginas);
@@ -197,6 +222,7 @@ export async function voerScanUit({ context, locatie, logger, schermafbeelding, 
   gestoptBij = 'stap 6, na het tonen van de agenda en voor elke bevestiging';
   logger.ok('Scan gestopt voor het bevestigingsscherm. Er is geen afspraak vastgelegd.');
   await schermafbeelding(actief(), 'stoppunt');
+  await legDiagnoseVast('stoppunt');
 
   return { checks, gestoptBij };
 }
@@ -209,7 +235,7 @@ async function accepteerCookies(paginas, logger) {
     await pauze(600);
     return true;
   } catch (err) {
-    logger.waarschuwing(`Cookiebanner niet weggeklikt. Technische melding: ${err.message}`);
+    logger.waarschuwing(`Cookiebanner niet weggeklikt. Technische melding: ${nettFoutmelding(err)}`);
     return false;
   }
 }
@@ -235,7 +261,7 @@ async function wachtOpPortaal(paginas, locatie, timeoutMs, logger) {
   return null;
 }
 
-async function doorloopWizard({ paginas, locatie, logger, schermafbeelding, actief, zoekTimeout }) {
+async function doorloopWizard({ paginas, locatie, logger, schermafbeelding, legDiagnoseVast, actief, zoekTimeout }) {
   const volgorde = ['aandachtsgebied', 'behandeling', 'verwijzing'];
   const gekozen = { aandachtsgebied: null, behandeling: null, verwijzing: null };
   let agenda = null;
@@ -243,7 +269,9 @@ async function doorloopWizard({ paginas, locatie, logger, schermafbeelding, acti
 
   for (let i = 0; i < MAX_WIZARD_STAPPEN; i += 1) {
     await pauze(1200);
-    await schermafbeelding(actief(), `wizard-${String(i).padStart(2, '0')}`);
+    const naam = `wizard-${String(i).padStart(2, '0')}`;
+    await schermafbeelding(actief(), naam);
+    await legDiagnoseVast(naam);
 
     agenda = await zoekAgenda(paginas);
     const tijden = agenda ? await zoekTijdsloten(paginas, 3) : [];
@@ -272,7 +300,7 @@ async function doorloopWizard({ paginas, locatie, logger, schermafbeelding, acti
         geklikt = true;
         break;
       } catch (err) {
-        logger.waarschuwing(`Keuze ${stap} kon niet aangeklikt worden. Technische melding: ${err.message}`);
+        logger.waarschuwing(`Keuze ${stap} kon niet aangeklikt worden. Technische melding: ${nettFoutmelding(err)}`);
       }
     }
 
@@ -283,7 +311,7 @@ async function doorloopWizard({ paginas, locatie, logger, schermafbeelding, acti
           await veiligKlikken(tussen.locator, logger, { context: 'tussenstap' });
           geklikt = true;
         } catch (err) {
-          logger.waarschuwing(`Tussenstap kon niet aangeklikt worden. Technische melding: ${err.message}`);
+          logger.waarschuwing(`Tussenstap kon niet aangeklikt worden. Technische melding: ${nettFoutmelding(err)}`);
         }
       }
     }

@@ -51,6 +51,7 @@ Nuttige opties:
 | `--locatie=<sleutel>` | kiest een andere geconfigureerde locatie |
 | `--url=<adres>` | overschrijft de URL van de locatiepagina |
 | `--out=<map>` | schrijft de resultaten naar een eigen map |
+| `--bewaar-html` | bewaart ook de ruwe HTML per scherm, voor kalibratie |
 
 Exitcodes voor automatisering: `0` bij GROEN, `1` bij ORANJE, `2` bij ROOD, `3` bij een onverwachte fout.
 
@@ -64,7 +65,12 @@ runs/2026-08-22_09-30-11_revalidatie-amersfoort-databankweg/
   rapport.json         dezelfde uitkomst als data, voor dashboards en meldingen
   run.log              tijdgestempelde log van elke handeling
   screenshots/         schermafbeelding per stap
+  diagnose/            per scherm de adressen, alle klikbare labels en de zichtbare tekst
 ```
+
+De map `diagnose/` is bedoeld voor kalibratie. Als een keuze in de wizard niet gevonden wordt, staat
+daar precies welke labels dat scherm wel aanbood. De patronen in `src/config.mjs` zijn daarmee bij te
+stellen zonder de scan opnieuw te draaien.
 
 ## Zelftest zonder de productiesite
 
@@ -113,10 +119,29 @@ Een locatie is een object in `src/config.mjs`. Een tweede vestiging toevoegen ko
 
 Lees eerst `ADVIES.md` voordat je opschaalt naar alle vestigingen.
 
+## Live validatie in één commando
+
+De eerste echte meting moet gedaan worden vanaf een werkplek met gewone internettoegang. Daarvoor is
+één commando genoeg:
+
+```bash
+bash live-validatie.sh
+```
+
+Het script zoekt zelf de juiste repository, ook als je het vanuit een andere map start, haalt de
+branch op, installeert wat ontbreekt, hergebruikt een al aanwezige Chromium, draait de scan met
+diagnostiek aan, en zet het hele resultaat als zipbestand op het bureaublad. Het maakt nooit een
+afspraak.
+
+Werkt er nog geen lokale kopie van de repository? Dan kloont het script die naar
+`~/topzorg-live-validatie/website`. Staan er lokale wijzigingen open, dan blijft het script daar
+vanaf en draait het met de code die er op dat moment staat.
+
 ## Bekende beperking bij het bouwen
 
-Deze PoC is gebouwd in een omgeving zonder netwerktoegang tot topzorggroep.nl. De egress proxy
-weigert dat domein met een 403 op de CONNECT, en de scanner meldt dat netjes als
-`ERR_TUNNEL_CONNECTION_FAILED`. De eerste live meting moet daarom gedraaid worden vanaf een werkplek
-met gewone internettoegang. De werking van de scanner zelf is aangetoond met `npm test`, tegen de
-lokale nabootsing van de route.
+Deze PoC is gebouwd in een cloudomgeving zonder netwerktoegang tot topzorggroep.nl. De egress proxy
+weigert dat domein met een 403 op de CONNECT. De scanner herkent dat en meldt het als een probleem
+van het eigen netwerk, niet als een storing bij de vestiging. Zo'n run levert wel de status ROOD op,
+maar de conclusie zegt expliciet dat de run niet meetelt als meting.
+
+De werking van de scanner zelf is aangetoond met `npm test`, tegen de lokale nabootsing van de route.

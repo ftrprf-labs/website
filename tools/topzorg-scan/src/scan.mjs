@@ -15,22 +15,32 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 import { DEFAULTS, LOCATIES } from './config.mjs';
+import { verzamelAdressen, verzamelKandidaten, verzamelTekst } from './dom.mjs';
 import { voerScanUit } from './flow.mjs';
 import { maakLogger } from './logger.mjs';
 import { bepaalStatus, bouwConclusie, bouwRapportJson, bouwRapportTekst } from './report.mjs';
 import { installeerNetwerkRem, VeiligheidsStop } from './safety.mjs';
+import { nettFoutmelding } from './tekst.mjs';
 
 const HIER = dirname(fileURLToPath(import.meta.url));
 const PROJECT = resolve(HIER, '..');
 
 function leesArgumenten(argv) {
-  const opties = { headed: false, locatie: 'revalidatie-amersfoort-databankweg', url: null, slowMo: 0, out: null };
+  const opties = {
+    headed: false,
+    locatie: 'revalidatie-amersfoort-databankweg',
+    url: null,
+    slowMo: 0,
+    out: null,
+    bewaarHtml: false,
+  };
   for (const arg of argv.slice(2)) {
     if (arg === '--headed') opties.headed = true;
     else if (arg.startsWith('--locatie=')) opties.locatie = arg.slice('--locatie='.length);
     else if (arg.startsWith('--url=')) opties.url = arg.slice('--url='.length);
     else if (arg.startsWith('--slowmo=')) opties.slowMo = Number(arg.slice('--slowmo='.length)) || 0;
     else if (arg.startsWith('--out=')) opties.out = arg.slice('--out='.length);
+    else if (arg === '--bewaar-html') opties.bewaarHtml = true;
     else if (arg === '--help' || arg === '-h') opties.help = true;
   }
   return opties;
@@ -66,7 +76,51 @@ export async function draaiScan(opties) {
       gemaakteSchermen.push(bestand.replace(runMap + '/', ''));
       logger.info(`Schermafbeelding opgeslagen: ${bestand.replace(runMap + '/', '')}`);
     } catch (err) {
-      logger.waarschuwing(`Schermafbeelding ${naam} mislukt. Technische melding: ${err.message}`);
+      logger.waarschuwing(`Schermafbeelding ${naam} mislukt. Technische melding: ${nettFoutmelding(err)}`);
+    }
+  };
+
+  // Diagnostiek per scherm. Dit is het verschil tussen een live run die
+  // antwoord geeft en een live run die alleen een status oplevert: als een
+  // keuzepatroon niet matcht, staat hier precies welke labels het scherm wel
+  // aanbood, dus is de configuratie bij te stellen zonder opnieuw te draaien.
+  const diagnoseMap = join(runMap, 'diagnose');
+  mkdirSync(diagnoseMap, { recursive: true });
+  let diagnoseTeller = 0;
+
+  const maakDiagnose = (context) => async (naam) => {
+    diagnoseTeller += 1;
+    const paginas = () => context.pages().filter((p) => !p.isClosed());
+    const nummer = String(diagnoseTeller).padStart(2, '0');
+    try {
+      const adressen = verzamelAdressen(paginas);
+      const kandidaten = await verzamelKandidaten(paginas);
+      const tekst = await verzamelTekst(paginas);
+      const regels = [
+        `SCHERM: ${naam}`,
+        `TIJD: ${new Date().toISOString()}`,
+        '',
+        'ADRESSEN:',
+        ...adressen.map((a) => `  ${a}`),
+        '',
+        `KLIKBARE ELEMENTEN (${kandidaten.length}):`,
+        ...kandidaten.map((k) => `  ${k}`),
+        '',
+        'ZICHTBARE TEKST:',
+        tekst,
+        '',
+      ];
+      writeFileSync(join(diagnoseMap, `${nummer}-${naam}.txt`), regels.join('\n'), 'utf8');
+
+      if (opties.bewaarHtml) {
+        const lijst = paginas();
+        const laatste = lijst[lijst.length - 1];
+        if (laatste) {
+          writeFileSync(join(diagnoseMap, `${nummer}-${naam}.html`), await laatste.content(), 'utf8');
+        }
+      }
+    } catch (err) {
+      logger.waarschuwing(`Diagnose ${naam} mislukt. Technische melding: ${nettFoutmelding(err)}`);
     }
   };
 
@@ -90,7 +144,14 @@ export async function draaiScan(opties) {
   let resultaatFlow;
   let onverwachteFout = null;
   try {
-    resultaatFlow = await voerScanUit({ context, locatie, logger, schermafbeelding, opties });
+    resultaatFlow = await voerScanUit({
+      context,
+      locatie,
+      logger,
+      schermafbeelding,
+      diagnose: maakDiagnose(context),
+      opties,
+    });
   } catch (err) {
     onverwachteFout = err;
     if (err instanceof VeiligheidsStop) {
@@ -119,7 +180,7 @@ export async function draaiScan(opties) {
       persoonsgegevensGebruikt: false,
     },
     schermafbeeldingen: gemaakteSchermen,
-    fout: onverwachteFout ? { naam: onverwachteFout.name, bericht: onverwachteFout.message } : null,
+    fout: onverwachteFout ? { naam: onverwachteFout.name, bericht: nettFoutmelding(onverwachteFout) } : null,
     conclusie: '',
   };
   resultaat.conclusie = bouwConclusie(status, checks, resultaat.locatie);
@@ -146,6 +207,7 @@ Opties:
   --url=<adres>        overschrijf de URL van de locatiepagina
   --slowmo=<ms>        vertraag elke handeling, handig om mee te kijken
   --out=<map>          schrijf resultaten naar een eigen map
+  --bewaar-html        bewaar ook de ruwe HTML van elk scherm, voor kalibratie
   --help               deze uitleg
 
 Exitcodes: 0 GROEN, 1 ORANJE, 2 ROOD, 3 onverwachte fout.

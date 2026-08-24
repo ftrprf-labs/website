@@ -191,3 +191,50 @@ export async function zoekTijdsloten(geefPaginas, maximum = 60) {
   }
   return gevonden;
 }
+
+// Diagnostiek. Verzamelt van elk zichtbaar klikbaar element het label, zodat na
+// een live run precies te zien is welke keuzes een scherm aanbood. Daarmee zijn
+// de patronen in config.mjs bij te stellen zonder de scan opnieuw te draaien.
+export async function verzamelKandidaten(geefPaginas, maximum = 120) {
+  const kandidaten = [];
+  for (const page of geefPaginas()) {
+    if (page.isClosed()) continue;
+    for (const frame of page.frames()) {
+      let elementen = [];
+      try {
+        elementen = await frame.locator(KLIKBARE_SELECTOR).all();
+      } catch {
+        continue;
+      }
+      for (const el of elementen) {
+        if (kandidaten.length >= maximum) return kandidaten;
+        try {
+          if (!(await el.isVisible())) continue;
+          const label = (await el.innerText({ timeout: 800 })).trim().replace(/\s+/g, ' ');
+          if (!label) continue;
+          if (label.length > 120) continue;
+          const tag = await el.evaluate((n) => n.tagName.toLowerCase()).catch(() => '?');
+          const href = await el.getAttribute('href').catch(() => null);
+          const regel = `${tag}${href ? ` href=${href}` : ''} :: ${label}`;
+          if (!kandidaten.includes(regel)) kandidaten.push(regel);
+        } catch {
+          // element kan tussentijds verdwijnen
+        }
+      }
+    }
+  }
+  return kandidaten;
+}
+
+// Adressen van alle open pagina's en van hun iframes.
+export function verzamelAdressen(geefPaginas) {
+  const adressen = [];
+  for (const page of geefPaginas()) {
+    if (page.isClosed()) continue;
+    for (const frame of page.frames()) {
+      const url = frame.url();
+      if (url && url !== 'about:blank' && !adressen.includes(url)) adressen.push(url);
+    }
+  }
+  return adressen;
+}

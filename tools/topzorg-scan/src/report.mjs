@@ -40,6 +40,15 @@ export function bouwConclusie(status, checks, context) {
   }
 
   if (status === 'ROOD') {
+    // Een netwerkfout aan de kant van de scanner is geen bevinding over de
+    // vestiging. Die uitkomst mag dus ook niet als zodanig gelezen worden.
+    if (checks.websiteBereikbaar?.meta?.eigenNetwerk) {
+      return [
+        `De scan kon ${context.naam} niet bereiken, maar de oorzaak ligt bij het netwerk van de scanner.`,
+        detail('websiteBereikbaar'),
+        'Deze run zegt daarom niets over de online route van de vestiging en telt niet mee als meting.',
+      ].join(' ');
+    }
     if (waarde('websiteBereikbaar') === 'NEE') {
       zinnen.push(`De locatiepagina van ${context.naam} was niet bereikbaar. ${detail('websiteBereikbaar')}`);
     } else if (waarde('locatieHerkenbaar') === 'NEE') {
