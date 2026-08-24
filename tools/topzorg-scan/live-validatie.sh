@@ -9,6 +9,10 @@
 #
 #     bash live-validatie.sh
 #
+# Met TOPZORG_GEISOLEERD=1 blijft het script strikt binnen zijn eigen kopie en
+# kijkt het niet naar andere repositories op de machine. Dat is de modus die het
+# copy-paste commando gebruikt.
+#
 set -u
 
 BRANCH="claude/topzorg-appointment-poc-h2f5e7"
@@ -38,10 +42,16 @@ if REPO_KANDIDAAT="$(cd "$SCRIPT_DIR" && git rev-parse --show-toplevel 2>/dev/nu
   if [ -d "$REPO_KANDIDAAT/$SUBMAP" ]; then REPO="$REPO_KANDIDAAT"; fi
 fi
 
-if [ -z "$REPO" ]; then
+# In geïsoleerde modus blijft het script binnen zijn eigen kopie. Andere
+# repositories op de machine worden dan niet eens bekeken.
+if [ -z "$REPO" ] && [ "${TOPZORG_GEISOLEERD:-0}" != "1" ]; then
   for kandidaat in "$HOME/website" "$HOME/Documents/website" "$HOME/Developer/website" "$HOME/projects/website" "$PWD"; do
     if [ -d "$kandidaat/.git" ] && [ -d "$kandidaat/$SUBMAP" ]; then REPO="$kandidaat"; break; fi
   done
+fi
+
+if [ -z "$REPO" ] && [ "${TOPZORG_GEISOLEERD:-0}" = "1" ]; then
+  fout "De geïsoleerde kopie is onvolledig. Verwacht $SUBMAP naast dit script."
 fi
 
 if [ -z "$REPO" ]; then
@@ -118,7 +128,15 @@ if [ -d "$UIT" ]; then
   DOELMAP="$HOME/Desktop"
   [ -d "$DOELMAP" ] || DOELMAP="$HOME"
   BUNDEL="$DOELMAP/topzorg-scan_${STEMPEL}.zip"
-  (cd "$(dirname "$UIT")" && zip -qr "$BUNDEL" "$(basename "$UIT")") 2>/dev/null || BUNDEL=""
+  BASIS="$(dirname "$UIT")"
+  NAAM="$(basename "$UIT")"
+  if command -v zip >/dev/null 2>&1; then
+    (cd "$BASIS" && zip -qr "$BUNDEL" "$NAAM") || BUNDEL=""
+  elif command -v ditto >/dev/null 2>&1; then
+    ditto -c -k --sequesterRsrc --keepParent "$UIT" "$BUNDEL" || BUNDEL=""
+  else
+    BUNDEL=""
+  fi
 fi
 
 melding "Uitslag: $UITSLAG"
@@ -127,9 +145,11 @@ printf 'Data:           %s/rapport.json\n' "$UIT"
 printf 'Log:            %s/run.log\n' "$UIT"
 printf 'Schermen:       %s/screenshots/\n' "$UIT"
 printf 'Diagnose:       %s/diagnose/\n' "$UIT"
-if [ -n "$BUNDEL" ]; then
+if [ -n "$BUNDEL" ] && [ -f "$BUNDEL" ]; then
   printf '\nAlles in één bestand: %s\n' "$BUNDEL"
   printf 'Deel dat bestand terug in de chat, dan kalibreer ik de keuzepatronen op wat het portaal werkelijk toont.\n'
+  # Zet het bestand meteen zichtbaar in de Finder, zodat er niets opgezocht hoeft te worden.
+  if command -v open >/dev/null 2>&1; then open -R "$BUNDEL" >/dev/null 2>&1 || true; fi
 fi
 
 exit "$CODE"
