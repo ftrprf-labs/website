@@ -118,16 +118,21 @@ if [ "${TOPZORG_MODUS:-scan}" = "meting" ]; then
     --max-locaties="${TOPZORG_MAX_LOCATIES:-0}"
   CODE=$?
 
-  if [ -f "$UIT/meting.json" ]; then
-    melding "Overzicht bouwen"
-    node src/dashboard.mjs "$UIT/meting.json" --out="$UIT/dashboard.html" || true
-    if command -v open >/dev/null 2>&1 && [ -f "$UIT/dashboard.html" ]; then
-      open "$UIT/dashboard.html" >/dev/null 2>&1 || true
-    fi
-  fi
-
   DOELMAP="$HOME/Desktop"
   [ -d "$DOELMAP" ] || DOELMAP="$HOME"
+
+  # Het overzicht komt op het bureaublad te staan, niet alleen in de tijdelijke
+  # werkmap. Elke run kloont namelijk naar een eigen map, en daar wil je het
+  # dashboard niet elke keer uit hoeven vissen.
+  OVERZICHT=""
+  if [ -f "$UIT/meting.json" ]; then
+    melding "Overzicht bouwen"
+    if node src/dashboard.mjs "$UIT/meting.json" --out="$UIT/dashboard.html"; then
+      OVERZICHT="$DOELMAP/topzorg-dashboard_${STEMPEL}.html"
+      cp "$UIT/dashboard.html" "$OVERZICHT" 2>/dev/null || OVERZICHT="$UIT/dashboard.html"
+      if command -v open >/dev/null 2>&1; then open "$OVERZICHT" >/dev/null 2>&1 || true; fi
+    fi
+  fi
   BUNDEL="$DOELMAP/topzorg-meting_${STEMPEL}.zip"
   if command -v zip >/dev/null 2>&1; then
     (cd "$(dirname "$UIT")" && zip -qr "$BUNDEL" "$(basename "$UIT")") || BUNDEL=""
@@ -138,11 +143,14 @@ if [ "${TOPZORG_MODUS:-scan}" = "meting" ]; then
   fi
 
   melding "Meting klaar"
-  printf 'Resultaten: %s\n' "$UIT"
+  if [ -n "$OVERZICHT" ] && [ -f "$OVERZICHT" ]; then
+    printf 'Overzicht: %s\n' "$OVERZICHT"
+    printf 'Die is zojuist geopend in je browser.\n'
+  fi
+  printf 'Ruwe gegevens: %s\n' "$UIT"
   if [ -n "$BUNDEL" ] && [ -f "$BUNDEL" ]; then
     printf '\nAlles in een bestand: %s\n' "$BUNDEL"
-    printf 'Deel dat bestand terug in de chat, dan bouw ik het dashboard op deze data.\n'
-    if command -v open >/dev/null 2>&1; then open -R "$BUNDEL" >/dev/null 2>&1 || true; fi
+    printf 'Deel dat bestand als je wilt dat ik meekijk naar de cijfers.\n'
   fi
   exit "$CODE"
 fi
