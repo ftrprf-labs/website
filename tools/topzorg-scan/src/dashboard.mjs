@@ -98,7 +98,7 @@ function provincieBalk(rij) {
 
 function locatieRij(l) {
   const uiterlijk = STATUS_UITERLIJK[l.status] ?? STATUS_UITERLIJK[STATUS.FOUT];
-  return `<tr data-provincie="${esc(l.provincie ?? 'Onbekend')}" data-status="${esc(l.status)}"
+  return `<tr data-rol="${uiterlijk.rol}" data-provincie="${esc(l.provincie ?? 'Onbekend')}" data-status="${esc(l.status)}"
       data-zoek="${esc(`${l.naam} ${l.plaats ?? ''} ${l.provincie ?? ''}`.toLowerCase())}">
     <td>
       <span class="status" data-rol="${uiterlijk.rol}">
@@ -114,7 +114,10 @@ function locatieRij(l) {
   </tr>`;
 }
 
-export function bouwDashboard(dataset) {
+// artefact=true levert alleen de inhoud, zonder doctype en body, voor een
+// gepubliceerde pagina die zelf een omhulsel toevoegt. Zo blijft er een
+// generator bestaan in plaats van twee kopieen die uit elkaar gaan lopen.
+export function bouwDashboard(dataset, { artefact = false } = {}) {
   const locaties = [...(dataset.locaties ?? [])].sort((a, b) => {
     const rang = STATUS_VOLGORDE.indexOf(a.status) - STATUS_VOLGORDE.indexOf(b.status);
     if (rang !== 0) return rang;
@@ -137,15 +140,19 @@ export function bouwDashboard(dataset) {
     statTegel('serious', (s.perStatus?.[STATUS.FOUT] ?? 0) + (s.perStatus?.[STATUS.GEEN_ONLINE_ROUTE] ?? 0), 'Aandacht', 'Meting mislukt of geen online route'),
   ].join('\n');
 
-  return `<!doctype html>
+  const volledig = `<!doctype html>
 <html lang="nl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Online beschikbaarheid TopzorgGroep</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
 <style>
   :root {
     color-scheme: light;
+    --accent: #2a78d6;
     --plane: #f9f9f7;
     --surface: #fcfcfb;
     --ink: #0b0b0b;
@@ -161,6 +168,7 @@ export function bouwDashboard(dataset) {
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       color-scheme: dark;
+      --accent: #3987e5;
       --plane: #0d0d0d;
       --surface: #1a1a19;
       --ink: #ffffff;
@@ -172,6 +180,7 @@ export function bouwDashboard(dataset) {
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
+    --accent: #3987e5;
     --plane: #0d0d0d;
     --surface: #1a1a19;
     --ink: #ffffff;
@@ -186,8 +195,14 @@ export function bouwDashboard(dataset) {
     margin: 0;
     background: var(--plane);
     color: var(--ink);
-    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+    font: 15px/1.55 "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   }
+  .cijfer, .getal, .tegel-waarde {
+    font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
   .blad { max-width: 1180px; margin: 0 auto; padding: 32px 20px 72px; }
   h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
   .onderkop { color: var(--ink-2); margin: 0 0 28px; }
@@ -216,13 +231,18 @@ export function bouwDashboard(dataset) {
   table { width: 100%; border-collapse: collapse; background: var(--surface); }
   .tabelhoes { overflow-x: auto; border: 1px solid var(--lijn); border-radius: 10px; }
   th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--lijn); vertical-align: top; }
-  thead th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); font-weight: 600; }
+  thead th {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--ink-muted); font-weight: 500;
+  }
   tbody tr:last-child td, tbody tr:last-child th { border-bottom: 0; }
   .getal { text-align: right; font-variant-numeric: tabular-nums; }
   .naam { font-weight: 600; }
   td:nth-child(3), td:nth-child(4) { white-space: nowrap; }
   .straat { display: block; font-weight: 400; color: var(--ink-muted); font-size: 13px; }
 
+  tbody tr td:first-child { border-left: 3px solid var(--rol, transparent); }
   .status { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; font-weight: 600; }
   .status .teken { color: var(--rol); font-size: 13px; }
 
@@ -361,6 +381,14 @@ ${locaties.map(locatieRij).join('\n')}
 </body>
 </html>
 `;
+
+  if (!artefact) return volledig;
+
+  // Een gepubliceerde pagina krijgt haar eigen omhulsel, dus lever alleen de
+  // titel, de stijlen en de inhoud.
+  const kop = volledig.slice(volledig.indexOf('<title>'), volledig.indexOf('</head>'));
+  const romp = volledig.slice(volledig.indexOf('<body>') + '<body>'.length, volledig.lastIndexOf('</body>'));
+  return `${kop.trim()}\n${romp.trim()}\n`;
 }
 
 const isDirect = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
@@ -368,12 +396,13 @@ if (isDirect) {
   const argumenten = process.argv.slice(2);
   const bron = argumenten.find((a) => !a.startsWith('--'));
   const uitArg = argumenten.find((a) => a.startsWith('--out='));
+  const artefact = argumenten.includes('--artefact');
   if (!bron) {
     process.stderr.write('Geef het pad naar meting.json mee.\n');
     process.exit(2);
   }
   const doel = uitArg ? uitArg.slice('--out='.length) : bron.replace(/meting\.json$/, 'dashboard.html');
   const dataset = JSON.parse(readFileSync(bron, 'utf8'));
-  writeFileSync(doel, bouwDashboard(dataset), 'utf8');
+  writeFileSync(doel, bouwDashboard(dataset, { artefact }), 'utf8');
   process.stdout.write(`Dashboard geschreven naar ${doel}\n`);
 }
