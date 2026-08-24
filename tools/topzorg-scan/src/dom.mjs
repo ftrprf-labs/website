@@ -208,6 +208,7 @@ export async function zoekAgenda(geefPaginas) {
 }
 
 const TIJD_PATROON = /\b([01]?\d|2[0-3])[:.][0-5]\d\b/;
+const ALLE_TIJDEN = /\b([01]?\d|2[0-3])[:.][0-5]\d\b/g;
 
 // Tijdsloten zijn klikbare elementen waarvan de tekst een kloktijd is.
 // Losse tijden in een openingstijdenblok tellen niet mee, want die zitten niet
@@ -237,6 +238,10 @@ export async function zoekTijdsloten(geefPaginas, maximum = 60) {
           const tekst = (await el.innerText({ timeout: 1000 })).trim().replace(/\s+/g, ' ');
           const match = tekst.match(TIJD_PATROON);
           if (!match) continue;
+          // Precies een tijd per element. Het omhullende blok bevat alle tijden
+          // achter elkaar en zou anders als extra tijdslot meetellen.
+          const aantalTijden = (tekst.match(ALLE_TIJDEN) || []).length;
+          if (aantalTijden !== 1) continue;
           // Alleen korte labels: een heel tekstblok met toevallig een tijd erin
           // is geen tijdslot.
           if (tekst.length > 40) continue;
