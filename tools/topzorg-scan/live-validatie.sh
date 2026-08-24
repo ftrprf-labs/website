@@ -105,6 +105,39 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 5a. Verkenmodus. Legt vast hoe het centrale portaal zijn locatielijst en zijn
+#     beschikbaarheid ophaalt, inclusief de netwerkverzoeken.
+# ---------------------------------------------------------------------------
+if [ "${TOPZORG_MODUS:-scan}" = "verken" ]; then
+  STEMPEL="$(date +%Y-%m-%d_%H-%M-%S)"
+  UIT="$(pwd)/runs/verken_${STEMPEL}"
+  melding "Verkenning van het centrale portaal. Er wordt geen afspraak gemaakt."
+  node src/verken.mjs --out="$UIT"
+  CODE=$?
+
+  BUNDEL=""
+  DOELMAP="$HOME/Desktop"
+  [ -d "$DOELMAP" ] || DOELMAP="$HOME"
+  BUNDEL="$DOELMAP/topzorg-verkenning_${STEMPEL}.zip"
+  if command -v zip >/dev/null 2>&1; then
+    (cd "$(dirname "$UIT")" && zip -qr "$BUNDEL" "$(basename "$UIT")") || BUNDEL=""
+  elif command -v ditto >/dev/null 2>&1; then
+    ditto -c -k --sequesterRsrc --keepParent "$UIT" "$BUNDEL" || BUNDEL=""
+  else
+    BUNDEL=""
+  fi
+
+  melding "Verkenning klaar"
+  printf 'Resultaten: %s\n' "$UIT"
+  if [ -n "$BUNDEL" ] && [ -f "$BUNDEL" ]; then
+    printf '\nAlles in een bestand: %s\n' "$BUNDEL"
+    printf 'Deel dat bestand terug in de chat.\n'
+    if command -v open >/dev/null 2>&1; then open -R "$BUNDEL" >/dev/null 2>&1 || true; fi
+  fi
+  exit "$CODE"
+fi
+
+# ---------------------------------------------------------------------------
 # 5. Scannen. Een of meer locaties, ingesteld met TOPZORG_LOCATIES.
 # ---------------------------------------------------------------------------
 STEMPEL="$(date +%Y-%m-%d_%H-%M-%S)"

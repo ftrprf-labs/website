@@ -238,6 +238,7 @@ const PORTAAL_START = pagina(
   <h1>Eerste afspraak inplannen</h1>
   <p>Plan een afspraak bij je praktijk.</p>
   <p><button class="knop" onclick="location.href='/mijnzorgtoegang/aandachtsgebied'">Volgende</button></p>
+  <script>fetch('/api/praktijken').then((r) => r.json());</script>
 `,
 );
 
@@ -343,6 +344,20 @@ export function startFixture({ port = 0, variant = 'groen' } = {}) {
     if (req.method === 'POST') {
       // Mag nooit gebeuren tijdens een scan.
       stuur(pagina('Bevestigd', '<h1>Afspraak vastgelegd</h1>'), 200);
+      return;
+    }
+
+    if (url.pathname === '/api/praktijken') {
+      // Staat model voor de JSON die een echte portaalapplicatie ophaalt.
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({
+          praktijken: [
+            { id: 'mtcdatabankweg', naam: 'Fysiotherapie Amersfoort Databankweg', plaats: 'Amersfoort' },
+            { id: 'mtczeist', naam: 'Fysiotherapie Zeist', plaats: 'Zeist' },
+          ],
+        }),
+      );
       return;
     }
 
