@@ -118,6 +118,14 @@ if [ "${TOPZORG_MODUS:-scan}" = "meting" ]; then
     --max-locaties="${TOPZORG_MAX_LOCATIES:-0}"
   CODE=$?
 
+  if [ -f "$UIT/meting.json" ]; then
+    melding "Overzicht bouwen"
+    node src/dashboard.mjs "$UIT/meting.json" --out="$UIT/dashboard.html" || true
+    if command -v open >/dev/null 2>&1 && [ -f "$UIT/dashboard.html" ]; then
+      open "$UIT/dashboard.html" >/dev/null 2>&1 || true
+    fi
+  fi
+
   DOELMAP="$HOME/Desktop"
   [ -d "$DOELMAP" ] || DOELMAP="$HOME"
   BUNDEL="$DOELMAP/topzorg-meting_${STEMPEL}.zip"

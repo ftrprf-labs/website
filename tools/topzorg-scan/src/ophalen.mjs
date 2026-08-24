@@ -12,7 +12,7 @@
 // per provincie groepeert. Zo hoeft de indeling niet uit een postcode geraden
 // te worden.
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -56,6 +56,26 @@ export function bouwProvincieKaart(locatiepaginas) {
     if (!kaart.has(sleutel)) kaart.set(sleutel, locatie.provincie);
   }
   return kaart;
+}
+
+// Vaste tabel als basis. Het locatiemenu op de afspraakpagina wordt door
+// JavaScript opgebouwd, dus een gewoon verzoek ziet die indeling niet. De
+// tabel is een keer uit de gerenderde pagina afgeleid en verandert zelden,
+// want plaatsen verhuizen niet van provincie. Nieuwe vestigingen kunnen wel
+// nieuwe plaatsen opleveren, en die vallen dan zichtbaar op als onbekend.
+export function laadVasteProvincieKaart(pad = join(PROJECT, 'data', 'plaats-provincie.json')) {
+  try {
+    const data = JSON.parse(readFileSync(pad, 'utf8'));
+    const kaart = new Map();
+    for (const bron of [data.afgeleid ?? {}, data.handmatig ?? {}]) {
+      for (const [plaats, provincie] of Object.entries(bron)) {
+        kaart.set(plaats.toLowerCase(), provincie);
+      }
+    }
+    return kaart;
+  } catch {
+    return new Map();
+  }
 }
 
 export function zoekProvincie(kaart, plaats) {
@@ -107,14 +127,25 @@ export async function haalAlles({
   logger.ok(`${practices.length} locaties bieden deze behandeling online aan.`);
   if (maxLocaties > 0) practices = practices.slice(0, maxLocaties);
 
-  logger.stap('Provincie-indeling ophalen van de afspraakpagina.');
-  let provincieKaart = new Map();
+  logger.stap('Provincie-indeling laden.');
+  const provincieKaart = laadVasteProvincieKaart();
+  logger.ok(`${provincieKaart.size} plaatsen uit de vaste tabel.`);
+
+  // Mocht het menu ooit wel server-side geleverd worden, dan vult dat de tabel
+  // vanzelf aan. Lukt het niet, dan is dat geen probleem.
   try {
     const html = await haalPagina(AFSPRAAKPAGINA);
-    provincieKaart = bouwProvincieKaart(leesLocatiepaginas(html));
-    logger.ok(`${provincieKaart.size} plaatsen met een provincie.`);
-  } catch (err) {
-    logger.waarschuwing(`Provincie-indeling niet opgehaald: ${err.message}. Het overzicht groepeert dan zonder provincie.`);
+    const live = bouwProvincieKaart(leesLocatiepaginas(html));
+    let toegevoegd = 0;
+    for (const [plaats, provincie] of live) {
+      if (!provincieKaart.has(plaats)) {
+        provincieKaart.set(plaats, provincie);
+        toegevoegd += 1;
+      }
+    }
+    if (toegevoegd > 0) logger.ok(`${toegevoegd} plaatsen aangevuld vanaf de afspraakpagina.`);
+  } catch {
+    // De vaste tabel is leidend, dus dit mag falen.
   }
 
   logger.stap(`Beschikbaarheid meten voor ${practices.length} locaties, ${gelijktijdig} tegelijk.`);
