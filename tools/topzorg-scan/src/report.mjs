@@ -89,6 +89,13 @@ export function bouwConclusie(status, checks, context) {
       `Het portaal opent wel, maar de scan vond geen keuze voor een fysiotherapie intake. ${detail('behandelingBeschikbaar')}`,
     );
   } else if (waarde('agendaGeladen') === 'NEE') {
+    if (checks.agendaGeladen?.meta?.persoonsgegevensVoorAgenda) {
+      return [
+        'De online route werkt tot en met de keuze van de behandeling.',
+        detail('agendaGeladen'),
+        'Voor een patiënt betekent dit dat de beschikbaarheid pas zichtbaar wordt na het invullen van gegevens.',
+      ].join(' ');
+    }
     zinnen.push(
       `De behandeling is te kiezen, maar er verscheen geen agenda. ${detail('agendaGeladen')}`,
     );

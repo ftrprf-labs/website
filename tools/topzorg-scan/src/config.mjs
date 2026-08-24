@@ -19,7 +19,7 @@ export const LOCATIES = {
     // zichtbaar is wint.
     keuzes: {
       aandachtsgebied: [/revalidatie/i, /fysiotherapie/i],
-      behandeling: [/fysiotherapie\s*intake/i, /intake\s*fysiotherapie/i, /intake/i, /eerste afspraak/i, /screening/i],
+      behandeling: [/fysiotherapie\s*\(?\s*intake/i, /intake\s*fysiotherapie/i, /intake/i, /eerste afspraak/i, /screening/i],
       verwijzing: [/geen verwijzing/i, /zonder verwijzing/i, /nee,? ?ik heb geen verwijzing/i, /^nee$/i, /directe toegang/i],
     },
 
@@ -40,8 +40,17 @@ export const LOCATIES = {
     herkenning: [/databankweg/i, /amersfoort/i],
     portaalHost: /zorgtoegang/i,
     keuzes: {
-      aandachtsgebied: [/fysiotherapie/i, /algemene fysiotherapie/i],
-      behandeling: [/fysiotherapie\s*intake/i, /intake\s*fysiotherapie/i, /intake/i, /eerste afspraak/i, /screening/i],
+      // Het portaal vraagt bij deze praktijk naar een aandachtsgebied en biedt
+      // klachtgerichte keuzes aan. Uit run 3 bleek de exacte lijst. De gewone
+      // intake gaat voor de variant met directe behandeling, want die laatste
+      // duurt langer en is niet wat de opdracht beschrijft.
+      aandachtsgebied: [
+        /^fysiotherapie \(intake\)$/i,
+        /fysiotherapie \(intake\)/i,
+        /fysiotherapie\s*\(?\s*intake/i,
+        /^fysiotherapie$/i,
+      ],
+      behandeling: [/fysiotherapie \(intake\)/i, /fysiotherapie\s*\(?\s*intake/i, /intake/i, /eerste afspraak/i, /screening/i],
       verwijzing: [/geen verwijzing/i, /zonder verwijzing/i, /nee,? ?ik heb geen verwijzing/i, /^nee$/i, /directe toegang/i],
     },
     vervolgkeuzes: [/databankweg/i, /fysiotherapie amersfoort/i, /amersfoort/i],

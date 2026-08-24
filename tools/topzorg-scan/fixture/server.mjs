@@ -217,6 +217,72 @@ const VESTIGINGENOVERZICHT = pagina(
 `,
 );
 
+// Nabootsing van de werkelijke structuur van Mijn Zorgtoegang, zoals
+// aangetroffen in run 3: keuzekaarten met een verborgen radio-input naast een
+// label, een stappenbalk, en een scherm voor persoonsgegevens na de agenda.
+// De verborgen input is de val: hij matcht wel op naam maar is niet klikbaar.
+function keuzekaart(tekst, doel) {
+  const id = `focus_${Buffer.from(tekst).toString('hex').slice(0, 12)}`;
+  return `<div class="card card-selectable">
+    <input type="radio" id="${id}" name="focus" style="position:absolute;opacity:0;width:1px;height:1px">
+    <label for="${id}" class="card-body" onclick="location.href='${doel}'"><span class="h3">${tekst}</span></label>
+  </div>`;
+}
+
+const STAPPENBALK =
+  '<p><strong>Aandachtsgebied</strong> Verwijzing Datum &amp; tijd Persoonsgegevens Bevestigen</p>';
+
+const PORTAAL_START = pagina(
+  'Mijn Zorgtoegang',
+  `
+  <h1>Eerste afspraak inplannen</h1>
+  <p>Plan een afspraak bij je praktijk.</p>
+  <p><button class="knop" onclick="location.href='/mijnzorgtoegang/aandachtsgebied'">Volgende</button></p>
+`,
+);
+
+const PORTAAL_AANDACHTSGEBIED = pagina(
+  'Mijn Zorgtoegang',
+  `
+  ${STAPPENBALK}
+  <h2>Waar kom je voor?</h2>
+  <p>Laat ons weten wat je aandachtsgebied is.</p>
+  ${keuzekaart('Andere klacht', '/mijnzorgtoegang/verwijzing')}
+  ${keuzekaart('Echografie', '/mijnzorgtoegang/verwijzing')}
+  ${keuzekaart('Fysiotherapie (intake)', '/mijnzorgtoegang/verwijzing')}
+  ${keuzekaart('Fysiotherapie intake met behandeling (50 min)', '/mijnzorgtoegang/verwijzing')}
+  ${keuzekaart('Kinderfysiotherapie', '/mijnzorgtoegang/verwijzing')}
+  ${keuzekaart('Manuele therapie (intake)', '/mijnzorgtoegang/verwijzing')}
+  <p><button class="knop">Volgende</button></p>
+`,
+);
+
+const PORTAAL_VERWIJZING = pagina(
+  'Mijn Zorgtoegang',
+  `
+  ${STAPPENBALK}
+  <h2>Heb je een verwijzing?</h2>
+  ${keuzekaart('Ik heb een verwijzing', '/mijnzorgtoegang/agenda')}
+  ${keuzekaart('Geen verwijzing', '/mijnzorgtoegang/agenda')}
+  <p><button class="knop">Volgende</button></p>
+`,
+);
+
+const PORTAAL_PERSOONSGEGEVENS = pagina(
+  'Mijn Zorgtoegang',
+  `
+  ${STAPPENBALK}
+  <h2>Je gegevens</h2>
+  <form>
+    <label for="voornaam">Voornaam</label>
+    <input type="text" id="voornaam" name="voornaam">
+    <label for="geboortedatum">Geboortedatum</label>
+    <input type="text" id="geboortedatum" name="geboortedatum">
+    <button class="knop" type="button">Volgende</button>
+  </form>
+`,
+);
+
 export function startFixture({ port = 0, variant = 'groen' } = {}) {
   const gebeurtenissen = [];
 
@@ -257,14 +323,24 @@ export function startFixture({ port = 0, variant = 'groen' } = {}) {
       case '/doodlopend/neem-contact-op/':
         return stuur(DOODLOPEND);
       case '/mijnzorgtoegang/':
+        if (variant === 'portaal-echt') return stuur(PORTAAL_START);
+        if (variant === 'oranje-persoonsgegevens') return stuur(PORTAAL_START);
         return stuur(AANDACHTSGEBIED);
+      case '/mijnzorgtoegang/aandachtsgebied':
+        return stuur(PORTAAL_AANDACHTSGEBIED);
+      case '/mijnzorgtoegang/verwijzing2':
+        return stuur(PORTAAL_VERWIJZING);
+      case '/mijnzorgtoegang/persoonsgegevens':
+        return stuur(PORTAAL_PERSOONSGEGEVENS);
       case '/mijnzorgtoegang/behandeling':
         return stuur(BEHANDELING);
       case '/mijnzorgtoegang/verwijzing':
+        if (variant === 'portaal-echt' || variant === 'oranje-persoonsgegevens') return stuur(PORTAAL_VERWIJZING);
         return stuur(VERWIJZING);
       case '/mijnzorgtoegang/voorkeur':
         return stuur(VOORKEUR);
       case '/mijnzorgtoegang/agenda':
+        if (variant === 'oranje-persoonsgegevens') return stuur(PORTAAL_PERSOONSGEGEVENS);
         return stuur(agendaPagina(variant !== 'oranje-geen-tijden'));
       default:
         return stuur(pagina('Fout', '<h1>Pagina niet gevonden</h1>'), 404);

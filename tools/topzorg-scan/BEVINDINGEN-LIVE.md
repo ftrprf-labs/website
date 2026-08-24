@@ -109,3 +109,71 @@ Op Databankweg staan drie vestigingspagina's naast elkaar:
 De opdracht beschrijft een fysiotherapie intake. De fysiotherapiepagina is daarom als
 referentiemeting toegevoegd. Run 3 scant beide, zodat vaststaat of de online route überhaupt bestaat
 en alleen op de revalidatiepagina ontbreekt, of dat hij nergens op deze vestiging bestaat.
+
+## Run 3, 24 augustus 2026, 15:02
+
+Eerste run met twee locaties. Dit is de run die de hoofdvraag beantwoordt.
+
+| Locatie | Status |
+| --- | --- |
+| Fysiotherapie Amersfoort Databankweg | ORANJE |
+| Revalidatie Amersfoort Databankweg | ROOD |
+
+### De online route bestaat wel degelijk
+
+De fysiotherapiepagina op hetzelfde adres leidt naar een echt afsprakenportaal:
+
+```
+https://mtcdatabankweg-tzg.mijnzorgtoegang.nl/app/#/eerste-afspraak-maken
+```
+
+Het portaal toont een stappenbalk met vijf stappen: Aandachtsgebied, Verwijzing, Datum en tijd,
+Persoonsgegevens, Bevestigen. De eerste inhoudelijke stap vraagt "Waar kom je voor?" met deze keuzes:
+
+Andere klacht, Duizeligheid, Duizeligheid intake met behandeling, Echografie, Elleboog en
+Polsklachten, Enkelklachten, Fysiotherapie (intake), Fysiotherapie intake met behandeling (50 min),
+Heupklachten, Kinderfysiotherapie, Knieklachten, Manuele therapie (intake), Manuele therapie intake
+met behandeling, Nekklachten, Rugklachten, Schouderklachten.
+
+Er is dus geen aparte stap voor de behandeling. Het aandachtsgebied is meteen de keuze voor de
+behandeling, en de hele flow heet "Eerste afspraak inplannen", wat neerkomt op een intake.
+
+### Waarom de fysiotherapiescan toch op ORANJE bleef staan
+
+De scan klikte negen keer achter elkaar op "Volgende" zonder ooit een keuze te maken, en het portaal
+bleef netjes melden: "Maak een keuze voordat je verder gaat." Twee oorzaken.
+
+**De keuze matchte niet.** Het patroon zocht naar "fysiotherapie intake", maar de optie heet
+"Fysiotherapie (intake)". De haakjes braken de match. De patronen staan nu op de werkelijke tekst,
+met de gewone intake vóór de variant met directe behandeling, want die laatste duurt vijftig minuten
+en is niet wat de opdracht beschrijft.
+
+**De klik landde op het verkeerde element.** Elke keuze bestaat uit een verborgen radio-input met
+daarnaast een label in een omhullende kaart. De scan vond de radio-input, die matcht namelijk op naam,
+maar die is niet aanklikbaar. Vijftien seconden per poging, negen keer. Kandidaten zonder leesbaar
+label vallen nu af, en een echt interactief element zoals een label of een knop weegt zwaarder dan de
+omhullende kaart.
+
+### Nog twee fouten die de nieuwe portaalfixture blootlegde
+
+**Tekst uit het verkeerde tabblad.** Het portaal opent in een nieuw tabblad, maar de locatiepagina
+blijft open. De agendaherkenning las de tekst van beide tabbladen samen, en een openingstijdenblok met
+"Maandag tot en met vrijdag" werd daardoor als agenda geteld. De wizard kijkt nu alleen nog naar het
+actieve tabblad.
+
+**Eindeloos doorklikken.** Negen ronden op hetzelfde scherm leveren niets op behalve een lange run.
+De wizard stopt nu zodra het scherm twee ronden achter elkaar identiek blijft.
+
+### Nieuwe harde grens
+
+Het portaal vraagt om persoonsgegevens vlak voor het bevestigen. De scan herkent dat scherm nu aan de
+invoervelden en stopt daar onmiddellijk, zonder iets in te vullen. Komt zo'n scherm voor de agenda,
+dan meldt het rapport dat de beschikbaarheid pas zichtbaar wordt na het invullen van gegevens. Dat is
+een uitspraak over de patiëntbeleving en geen technische storing.
+
+### De revalidatiepagina
+
+Route: locatiepagina, dan `/contact/afspraak-maken/`, dan een knop die alleen naar een ankerpunt op
+diezelfde pagina springt (`#afspraaksectie`). Geen portaal, en geen verwijzing naar een portaal op de
+pagina zelf. Het beeld uit run 2 blijft dus staan, nu met de wetenschap dat de online route op hetzelfde
+adres wel bestaat voor fysiotherapie.

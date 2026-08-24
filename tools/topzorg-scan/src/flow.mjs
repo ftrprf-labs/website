@@ -51,6 +51,15 @@ export async function voerScanUit({ context, locatie, logger, schermafbeelding, 
   };
 
   const paginas = () => context.pages().filter((p) => !p.isClosed());
+  // De wizard speelt zich af op het laatst geopende tabblad. De locatiepagina
+  // blijft daarnaast open staan, en tekst daarvan mag de metingen niet
+  // vervuilen. Een openingstijdenblok met weekdagen zou anders als agenda
+  // worden gelezen.
+  const actievePaginas = () => {
+    const lijst = paginas();
+    const laatste = lijst[lijst.length - 1];
+    return laatste ? [laatste] : [];
+  };
   let gestoptBij = 'onbekend';
 
   const page = await context.newPage();
@@ -202,7 +211,7 @@ export async function voerScanUit({ context, locatie, logger, schermafbeelding, 
   // Stap 5. De wizard doorlopen tot aan de agenda.
   logger.stap('Stap 5. Afspraakflow doorlopen tot aan de agenda.');
   const wizard = await doorloopWizard({
-    paginas,
+    paginas: actievePaginas,
     locatie,
     logger,
     schermafbeelding,
@@ -223,9 +232,16 @@ export async function voerScanUit({ context, locatie, logger, schermafbeelding, 
 
   // Stap 6. Agenda en tijden.
   logger.stap('Stap 6. Agenda en beschikbare tijden controleren.');
-  const agenda = wizard.agenda ?? (await zoekAgenda(paginas));
+  const agenda = wizard.agenda ?? (await zoekAgenda(actievePaginas));
   if (agenda) {
     zet('agendaGeladen', 'JA', `Agenda herkend via ${agenda.bron}.`);
+  } else if (wizard.persoonsgegevensBereikt) {
+    zet(
+      'agendaGeladen',
+      'NEE',
+      'Het portaal vraagt om persoonsgegevens voordat het beschikbare tijden toont. De scan stopt daar en vult niets in, dus of er tijden zijn is langs deze weg niet vast te stellen.',
+      { persoonsgegevensVoorAgenda: true },
+    );
   } else {
     zet('agendaGeladen', 'NEE', `Geen kalender zichtbaar. Laatst gezien scherm: ${wizard.laatsteScherm}`);
   }
@@ -235,7 +251,7 @@ export async function voerScanUit({ context, locatie, logger, schermafbeelding, 
   await legDiagnoseVast('agenda');
 
   if (agenda) {
-    const tijden = await zoekTijdsloten(paginas);
+    const tijden = await zoekTijdsloten(actievePaginas);
     if (tijden.length > 0) {
       zet(
         'beschikbareTijden',
@@ -262,6 +278,35 @@ export async function voerScanUit({ context, locatie, logger, schermafbeelding, 
 // zolang er een blijft staan vangt die elke klik op. Ze kunnen elkaar ook
 // afdekken, dus een knop die nog niet klikbaar is betekent niet dat we klaar
 // zijn: dan is een andere consentlaag eerst aan de beurt.
+// Herkent het scherm waar het portaal om persoonsgegevens vraagt. De scan
+// vult daar niets in en stopt. Ontwerpprincipe 2 uit de opdracht.
+const PERSOONSVELD_SELECTOR = [
+  'input[name*="naam" i]',
+  'input[id*="naam" i]',
+  'input[name*="voornaam" i]',
+  'input[name*="achternaam" i]',
+  'input[name*="geboorte" i]',
+  'input[id*="geboorte" i]',
+  'input[type="email"]',
+  'input[type="tel"]',
+  'input[name*="bsn" i]',
+].join(', ');
+
+async function vraagtOmPersoonsgegevens(geefPaginas) {
+  for (const page of geefPaginas()) {
+    if (page.isClosed()) continue;
+    for (const frame of page.frames()) {
+      try {
+        const veld = frame.locator(PERSOONSVELD_SELECTOR).first();
+        if ((await veld.count()) > 0 && (await veld.isVisible())) return true;
+      } catch {
+        // volgende frame
+      }
+    }
+  }
+  return false;
+}
+
 async function accepteerCookies(paginas, logger, { eersteRonde = false } = {}) {
   // Snelle voorcontrole, zodat een pagina zonder banner geen tijd kost.
   const eersteTreffer = await zoekKlikbaar(paginas, COOKIE_PATRONEN, {
@@ -507,6 +552,9 @@ async function wachtOpPortaal(paginas, locatie, timeoutMs, logger) {
 
 async function doorloopWizard({ paginas, locatie, logger, schermafbeelding, legDiagnoseVast, actief, zoekTimeout }) {
   const volgorde = ['aandachtsgebied', 'behandeling', 'verwijzing'];
+  let vorigScherm = '';
+  let stilstand = 0;
+  let persoonsgegevensBereikt = false;
   const gekozen = { aandachtsgebied: null, behandeling: null, verwijzing: null };
   let agenda = null;
   let laatsteScherm = '';
@@ -524,7 +572,29 @@ async function doorloopWizard({ paginas, locatie, logger, schermafbeelding, legD
       break;
     }
 
-    laatsteScherm = (await verzamelTekst(paginas)).replace(/\s+/g, ' ').trim().slice(0, 200);
+    const schermTekst = (await verzamelTekst(paginas)).replace(/\s+/g, ' ').trim();
+    laatsteScherm = schermTekst.slice(0, 200);
+
+    // Harde grens. Zodra het portaal om persoonsgegevens vraagt, is de publieke
+    // route uitgelopen en gaat de scan geen stap verder.
+    if (await vraagtOmPersoonsgegevens(paginas)) {
+      persoonsgegevensBereikt = true;
+      logger.ok('Het scherm voor persoonsgegevens is bereikt. De scan stopt hier en vult niets in.');
+      break;
+    }
+
+    // Stilstand herkennen. Blijft het scherm identiek, dan heeft doorklikken
+    // geen zin meer en levert het alleen een misleidend lange run op.
+    if (schermTekst === vorigScherm) {
+      stilstand += 1;
+      if (stilstand >= 2) {
+        logger.waarschuwing('Het scherm verandert niet meer na twee pogingen. De wizard stopt hier.');
+        break;
+      }
+    } else {
+      stilstand = 0;
+    }
+    vorigScherm = schermTekst;
 
     let geklikt = false;
     for (const stap of volgorde) {
@@ -533,7 +603,7 @@ async function doorloopWizard({ paginas, locatie, logger, schermafbeelding, legD
       const treffer = await zoekKlikbaar(paginas, patronen, { timeoutMs: 2500, pollMs: 300 });
       if (!treffer) continue;
       try {
-        const label = await veiligKlikken(treffer.locator, logger, { context: `keuze ${stap}` });
+        const label = await veiligKlikken(treffer.locator, logger, { context: `keuze ${stap}`, timeoutMs: 6000 });
         // Een enkel scherm kan meerdere keuzes tegelijk afhandelen. Markeer
         // daarom elke nog openstaande stap waar het label ook op past.
         for (const kandidaat of volgorde) {
@@ -552,7 +622,7 @@ async function doorloopWizard({ paginas, locatie, logger, schermafbeelding, legD
       const tussen = await zoekKlikbaar(paginas, TUSSENSTAP_PATRONEN, { timeoutMs: 2500, pollMs: 300 });
       if (tussen) {
         try {
-          await veiligKlikken(tussen.locator, logger, { context: 'tussenstap' });
+          await veiligKlikken(tussen.locator, logger, { context: 'tussenstap', timeoutMs: 6000 });
           geklikt = true;
         } catch (err) {
           logger.waarschuwing(`Tussenstap kon niet aangeklikt worden. Technische melding: ${nettFoutmelding(err)}`);
@@ -567,5 +637,5 @@ async function doorloopWizard({ paginas, locatie, logger, schermafbeelding, legD
   }
 
   if (!agenda) agenda = await zoekAgenda(paginas);
-  return { gekozen, agenda, laatsteScherm };
+  return { gekozen, agenda, laatsteScherm, persoonsgegevensBereikt };
 }

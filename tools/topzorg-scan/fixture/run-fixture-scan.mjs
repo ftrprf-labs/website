@@ -19,6 +19,8 @@ const UITVOER = resolve(HIER, '..', 'runs', 'fixture');
 const GEVALLEN = [
   { variant: 'groen', verwacht: 'GROEN' },
   { variant: 'echt-achtig', verwacht: 'GROEN' },
+  { variant: 'portaal-echt', verwacht: 'GROEN' },
+  { variant: 'oranje-persoonsgegevens', verwacht: 'ORANJE', persoonsgegevens: true },
   { variant: 'oranje-geen-tijden', verwacht: 'ORANJE' },
   { variant: 'rood-knop', verwacht: 'ROOD' },
   { variant: 'rood-geen-online-route', verwacht: 'ROOD', geenPortaalLink: true },
@@ -47,6 +49,16 @@ for (const geval of GEVALLEN) {
       fouten += 1;
     } else {
       process.stdout.write(`PASS: status ${resultaat.status}\n`);
+    }
+
+    if (geval.persoonsgegevens) {
+      const meta = resultaat.checks.agendaGeladen?.meta ?? {};
+      if (meta.persoonsgegevensVoorAgenda === true) {
+        process.stdout.write('PASS: de scan stopt bij het scherm voor persoonsgegevens\n');
+      } else {
+        process.stdout.write(`FAIL: stop bij persoonsgegevens niet herkend: ${JSON.stringify(meta)}\n`);
+        fouten += 1;
+      }
     }
 
     if (geval.geenPortaalLink) {

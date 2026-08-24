@@ -64,7 +64,15 @@ async function analyseer(locator) {
       if (/afspraak|booking|boeken|online/i.test(href)) score += 3;
       const inNavigatie = Boolean(el.closest && el.closest('nav, header, footer'));
       if (!inNavigatie) score += 1;
-      if (el.tagName === 'A' || el.tagName === 'BUTTON') score += 1;
+
+      // Het element zelf moet interactief zijn. Keuzekaarten in een portaal
+      // bestaan uit een omhullende div met daarin het echte label. Een klik op
+      // die div landt soms op de rand en doet dan niets, terwijl een klik op
+      // het label wel werkt.
+      const rol = (el.getAttribute && el.getAttribute('role')) || '';
+      if (['A', 'BUTTON', 'LABEL', 'INPUT', 'SELECT'].includes(el.tagName)) score += 3;
+      else if (['button', 'option', 'radio', 'tab', 'link'].includes(rol)) score += 3;
+
       return { score, inNavigatie };
     });
   } catch {
@@ -111,7 +119,12 @@ export async function zoekKlikbaar(geefPaginas, patronen, opties = {}) {
                 continue;
               }
               const label = await labelVan(locator);
-              if (slaVerbodenOver && label && VERBODEN_LABELS.some((p) => p.test(label))) continue;
+              // Zonder leesbaar label overslaan. Keuzekaarten in het portaal
+              // bestaan uit een verborgen radio-input met daarnaast een label.
+              // De input matcht wel op naam maar is niet aanklikbaar, dus zonder
+              // deze regel klikt de scan vijftien seconden op niets.
+              if (!label) continue;
+              if (slaVerbodenOver && VERBODEN_LABELS.some((p) => p.test(label))) continue;
               if (maxLabelLengte && label.length > maxLabelLengte) continue;
               const { score, inNavigatie } = await analyseer(locator);
               if (mijdNavigatie && inNavigatie) continue;
