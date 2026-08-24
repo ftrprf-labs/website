@@ -55,3 +55,57 @@ timeout als de echte run.
 
 Of de online afspraakroute voor Revalidatie Amersfoort Databankweg werkelijk bestaat, is nog niet
 vastgesteld. Run 2 moet dat uitwijzen.
+
+## Run 2, 24 augustus 2026, 14:46
+
+De consentlagen gingen nu wel weg en de klik werkte. Uitkomst opnieuw ROOD, maar een stap verder en
+met veel meer informatie.
+
+Gevolgde route:
+
+1. Locatiepagina, klik op "Afspraak maken"
+2. `topzorggroep.nl/contact/afspraak-maken/`
+3. klik op "Locaties", naar `topzorggroep.nl/vestigingen/`
+4. twee keer opnieuw op hetzelfde menu-item, dus in een kring
+
+### De fout die dit blootlegde
+
+Het menu-item "Locaties" klapt open met een lijst van alle vestigingen, waaronder Amersfoort. Mijn
+zoekopdracht matchte op onderliggende tekst, dus dat menu-item paste op het patroon voor de
+vestigingskeuze. De route liep daardoor het algemene overzicht in en bleef daar rondjes draaien.
+
+Hersteld op drie manieren. Menu, kop en voettekst tellen niet meer mee bij het zoeken naar een
+vervolgstap. Een kandidaat met een heel tekstblok als label valt af. En de route stopt zodra hij op
+een adres uitkomt waar hij al geweest is, of wanneer een klik geen nieuwe pagina oplevert.
+
+### Wat de pagina's zelf zeggen
+
+Op `topzorggroep.nl/contact/afspraak-maken/` staat letterlijk:
+
+> Je boekt eenvoudig en direct in de agenda van de zorgprofessional via de locatie- en praktijkpagina.
+
+Online boeken hoort dus thuis op de vestigingspagina zelf. Maar op de vestigingspagina van
+Revalidatie Amersfoort Databankweg komt het woord "zorgtoegang" nul keer voor, en de pagina zegt:
+
+> Wil je een afspraak maken? Bel 088 5670 100.
+
+Ook op de algemene afspraakpagina en op het vestigingenoverzicht komt "zorgtoegang" nul keer voor.
+
+### Wat dit betekent voor de meting
+
+De scan meldt nu expliciet het verschil tussen "de knop werkt niet" en "er is geen online ingang".
+Voor dit tweede geval controleert hij of er ergens op de pagina een verwijzing naar het portaal
+staat, en of de pagina naar de telefoon verwijst. De conclusie zegt dan dat de online
+zelfbedieningsroute voor deze vestiging niet bestaat, of vanaf deze pagina niet te vinden is.
+
+### Openstaande vraag voor run 3
+
+Op Databankweg staan drie vestigingspagina's naast elkaar:
+
+- `/vestigingen/revalidatie-amersfoort-databankweg/` (de gevraagde locatie)
+- `/vestigingen/amersfoort-databankweg/` (fysiotherapie)
+- `/vestigingen/dietetiek-amersfoort-databankweg/` (diëtetiek)
+
+De opdracht beschrijft een fysiotherapie intake. De fysiotherapiepagina is daarom als
+referentiemeting toegevoegd. Run 3 scant beide, zodat vaststaat of de online route überhaupt bestaat
+en alleen op de revalidatiepagina ontbreekt, of dat hij nergens op deze vestiging bestaat.

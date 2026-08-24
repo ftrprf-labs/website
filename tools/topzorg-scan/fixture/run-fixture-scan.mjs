@@ -21,6 +21,7 @@ const GEVALLEN = [
   { variant: 'echt-achtig', verwacht: 'GROEN' },
   { variant: 'oranje-geen-tijden', verwacht: 'ORANJE' },
   { variant: 'rood-knop', verwacht: 'ROOD' },
+  { variant: 'rood-geen-online-route', verwacht: 'ROOD', geenPortaalLink: true },
 ];
 
 rmSync(UITVOER, { recursive: true, force: true });
@@ -46,6 +47,16 @@ for (const geval of GEVALLEN) {
       fouten += 1;
     } else {
       process.stdout.write(`PASS: status ${resultaat.status}\n`);
+    }
+
+    if (geval.geenPortaalLink) {
+      const meta = resultaat.checks.portaalBereikbaar?.meta ?? {};
+      if (meta.geenPortaalLink === true) {
+        process.stdout.write('PASS: de scan stelt vast dat er geen online ingang op de pagina staat\n');
+      } else {
+        process.stdout.write(`FAIL: ontbrekende online ingang niet herkend: ${JSON.stringify(meta)}\n`);
+        fouten += 1;
+      }
     }
 
     const posts = fixture.gebeurtenissen.filter((g) => g.methode !== 'GET');

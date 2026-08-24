@@ -27,6 +27,25 @@ export const LOCATIES = {
     // voordat de route naar Mijn Zorgtoegang doorloopt.
     vervolgkeuzes: [/databankweg/i, /revalidatie amersfoort/i, /amersfoort/i],
   },
+
+  // Zelfde adres, andere praktijk. Op Databankweg staan drie vestigingspagina's
+  // naast elkaar: revalidatie, fysiotherapie en dietetiek. De afspraakpagina van
+  // TopzorgGroep zegt dat je "direct in de agenda van de zorgprofessional" boekt
+  // via de locatie- en praktijkpagina. Deze vestiging dient als referentiemeting
+  // om vast te stellen of die online route uberhaupt bestaat.
+  'fysiotherapie-amersfoort-databankweg': {
+    key: 'fysiotherapie-amersfoort-databankweg',
+    naam: 'Fysiotherapie Amersfoort Databankweg',
+    url: 'https://www.topzorggroep.nl/vestigingen/amersfoort-databankweg/',
+    herkenning: [/databankweg/i, /amersfoort/i],
+    portaalHost: /zorgtoegang/i,
+    keuzes: {
+      aandachtsgebied: [/fysiotherapie/i, /algemene fysiotherapie/i],
+      behandeling: [/fysiotherapie\s*intake/i, /intake\s*fysiotherapie/i, /intake/i, /eerste afspraak/i, /screening/i],
+      verwijzing: [/geen verwijzing/i, /zonder verwijzing/i, /nee,? ?ik heb geen verwijzing/i, /^nee$/i, /directe toegang/i],
+    },
+    vervolgkeuzes: [/databankweg/i, /fysiotherapie amersfoort/i, /amersfoort/i],
+  },
 };
 
 // Knoppen op de locatiepagina die naar het afsprakenportaal leiden.

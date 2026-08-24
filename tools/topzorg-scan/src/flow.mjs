@@ -116,6 +116,8 @@ export async function voerScanUit({ context, locatie, logger, schermafbeelding, 
     );
   }
 
+  const onlineIngang = await onderzoekOnlineIngang(paginas, logger);
+
   // Stap 3. Afspraakknop zoeken.
   logger.stap('Stap 3. Afspraakknop zoeken.');
   const knop = await zoekKlikbaar(paginas, AFSPRAAKKNOP_PATRONEN, { timeoutMs: zoekTimeout });
@@ -183,7 +185,12 @@ export async function voerScanUit({ context, locatie, logger, schermafbeelding, 
       'portaalBereikbaar',
       'NEE',
       `Mijn Zorgtoegang werd niet bereikt na ${route.stappen} stap of stappen vanaf de locatiepagina. Actieve adressen: ${urls}. Gevolgde route: ${route.spoor.join(' naar ') || 'geen vervolgstap gevonden'}.`,
-      { spoor: route.spoor, adressen: urls.split(' , ') },
+      {
+        spoor: route.spoor,
+        adressen: urls.split(' , '),
+        geenPortaalLink: onlineIngang.portaalLinks.length === 0,
+        telefonischAdvies: onlineIngang.telefonisch,
+      },
     );
     zet('behandelingBeschikbaar', 'NVT');
     zet('agendaGeladen', 'NVT');
@@ -317,6 +324,38 @@ async function klikMetHerstel(treffer, paginas, logger, context) {
   }
 }
 
+// Kijkt of de locatiepagina uberhaupt naar een online afsprakenportaal wijst.
+// Zonder deze vaststelling leest een mislukte route als "de knop werkt niet",
+// terwijl de werkelijkheid kan zijn dat er helemaal geen online ingang is.
+async function onderzoekOnlineIngang(geefPaginas, logger) {
+  const adressen = [];
+  for (const page of geefPaginas()) {
+    if (page.isClosed()) continue;
+    for (const frame of page.frames()) {
+      try {
+        const gevonden = await frame.evaluate(() =>
+          Array.from(document.querySelectorAll('a[href]')).map((a) => a.href),
+        );
+        adressen.push(...gevonden);
+      } catch {
+        // frame kan verdwijnen
+      }
+    }
+  }
+
+  const portaalLinks = adressen.filter((a) => /zorgtoegang/i.test(a));
+  const tekst = await verzamelTekst(geefPaginas);
+  const telefonisch = /(wil je een afspraak maken\?\s*bel|afspraak[^.]{0,60}\bbel\b|telefonisch een afspraak)/i.test(tekst);
+
+  logger.info(
+    portaalLinks.length > 0
+      ? `De pagina bevat ${portaalLinks.length} verwijzing of verwijzingen naar het afsprakenportaal.`
+      : 'De pagina bevat geen enkele verwijzing naar een online afsprakenportaal.',
+  );
+
+  return { portaalLinks, telefonisch };
+}
+
 // Klikt en handelt af wat de klik oplevert: een nieuw tabblad, een navigatie
 // in hetzelfde tabblad, of niets van beide.
 async function volgKlik({ context, treffer, paginas, logger, label, navigatieTimeout }) {
@@ -357,6 +396,7 @@ async function volgRouteNaarPortaal({
   navigatieTimeout,
 }) {
   const spoor = [];
+  const bezocht = new Set();
   let stappen = 0;
 
   for (let i = 0; i <= MAX_ROUTESTAPPEN; i += 1) {
@@ -375,16 +415,29 @@ async function volgRouteNaarPortaal({
     const huidigAdres = actief().url();
     logger.info(`Nog geen Mijn Zorgtoegang op ${huidigAdres}. Zoek een vervolgstap.`);
 
+    if (bezocht.has(huidigAdres)) {
+      logger.waarschuwing(`De route komt terug op ${huidigAdres} en draait in een kring. De route stopt hier.`);
+      break;
+    }
+    bezocht.add(huidigAdres);
+
     // Eerst een expliciete verwijzing naar online plannen, dan de vestiging
-    // zelf, en pas daarna een algemene afspraakknop.
+    // zelf, en pas daarna een algemene afspraakknop. Menu en voettekst tellen
+    // niet mee: een menu-item dat alle vestigingen opsomt matcht anders op de
+    // naam van de gezochte vestiging en leidt de route het overzicht in.
     const kandidaten = [
       ...PORTAAL_PATRONEN,
       ...(locatie.vervolgkeuzes ?? []),
       ...AFSPRAAKKNOP_PATRONEN,
     ];
-    const vervolg = await zoekKlikbaar(paginas, kandidaten, { timeoutMs: 6000, pollMs: 400 });
+    const vervolg = await zoekKlikbaar(paginas, kandidaten, {
+      timeoutMs: 6000,
+      pollMs: 400,
+      maxLabelLengte: 80,
+      mijdNavigatie: true,
+    });
     if (!vervolg) {
-      logger.waarschuwing('Geen vervolgstap gevonden. De route stopt hier.');
+      logger.waarschuwing('Geen vervolgstap gevonden buiten menu en voettekst. De route stopt hier.');
       break;
     }
 
@@ -402,7 +455,12 @@ async function volgRouteNaarPortaal({
     }
 
     stappen += 1;
-    spoor.push(uitkomst.label || vervolg.patroon.source);
+    spoor.push((uitkomst.label || vervolg.patroon.source).replace(/\s+/g, ' ').slice(0, 60));
+
+    if (actief().url() === huidigAdres) {
+      logger.waarschuwing('De vervolgstap leverde geen nieuwe pagina op. De route stopt hier.');
+      break;
+    }
   }
 
   return { portaal: null, spoor, stappen };

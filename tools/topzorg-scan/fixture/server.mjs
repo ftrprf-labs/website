@@ -173,6 +173,50 @@ const DOODLOPEND = pagina(
 `,
 );
 
+// Nabootsing van een vestiging zonder online route. Het menu bevat een item
+// dat alle vestigingen opsomt, inclusief de gezochte naam. Dat is precies de
+// val waar de scan eerder in liep: het menu-item matcht op de vestigingsnaam en
+// leidt de route het overzicht in.
+const LOCATIEPAGINA_ZONDER_ROUTE = `<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><title>Revalidatie Amersfoort Databankweg</title><style>${HOOFD}</style></head>
+<body>
+<header>
+  <strong>TopzorgGroep</strong>
+  <nav>
+    <ul><li>Locaties
+      <ul>
+        <li><a href="/vestigingen/">Revalidatie Amersfoort Databankweg</a></li>
+        <li><a href="/vestigingen/">Revalidatie Zeist</a></li>
+      </ul>
+    </li></ul>
+    <a class="knop" href="/contact/afspraak-maken/">Afspraak maken</a>
+  </nav>
+</header>
+<main>
+  <h1>Revalidatie Amersfoort Databankweg</h1>
+  <p>Databankweg 2A, 3821 AL Amersfoort.</p>
+  <p>Wil je een afspraak maken? Bel 088 5670 100.</p>
+</main>
+</body></html>`;
+
+const AFSPRAAKPAGINA_ZONDER_ROUTE = pagina(
+  'Maak een afspraak',
+  `
+  <h1>Direct een afspraak maken?</h1>
+  <p>Liever dat wij contact met jou opnemen? Gebruik onderstaand formulier.</p>
+  <p><a class="kaart" href="/doodlopend/neem-contact-op/">Neem contact op</a></p>
+`,
+);
+
+const VESTIGINGENOVERZICHT = pagina(
+  'Alle vestigingen',
+  `
+  <h1>Bekijk alle locaties</h1>
+  <a class="kaart" href="/vestigingen/revalidatie-amersfoort-databankweg/">Revalidatie Amersfoort Databankweg</a>
+  <a class="kaart" href="/doodlopend/neem-contact-op/">Revalidatie Zeist</a>
+`,
+);
+
 export function startFixture({ port = 0, variant = 'groen' } = {}) {
   const gebeurtenissen = [];
 
@@ -195,6 +239,7 @@ export function startFixture({ port = 0, variant = 'groen' } = {}) {
       case '/vestigingen/revalidatie-amersfoort-databankweg/':
         if (variant === 'rood-website') return stuur(pagina('Fout', '<h1>Pagina niet gevonden</h1>'), 404);
         if (variant === 'echt-achtig') return stuur(LOCATIEPAGINA_ECHT);
+        if (variant === 'rood-geen-online-route') return stuur(LOCATIEPAGINA_ZONDER_ROUTE);
         if (variant === 'rood-knop') {
           return stuur(
             pagina('Revalidatie Amersfoort Databankweg', `
@@ -205,7 +250,10 @@ export function startFixture({ port = 0, variant = 'groen' } = {}) {
         }
         return stuur(LOCATIEPAGINA);
       case '/contact/afspraak-maken/':
+        if (variant === 'rood-geen-online-route') return stuur(AFSPRAAKPAGINA_ZONDER_ROUTE);
         return stuur(AFSPRAAK_TUSSENPAGINA);
+      case '/vestigingen/':
+        return stuur(VESTIGINGENOVERZICHT);
       case '/doodlopend/neem-contact-op/':
         return stuur(DOODLOPEND);
       case '/mijnzorgtoegang/':

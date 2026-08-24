@@ -55,27 +55,40 @@ async function labelVan(locator) {
 // vaak meerdere knoppen met dezelfde tekst: een in het menu, een in de tekst en
 // een in de voettekst. Zonder weging pakt de scan willekeurig de eerste in de
 // DOM, en dat is meestal het menu.
-async function scoreVan(locator) {
+async function analyseer(locator) {
   try {
     return await locator.evaluate((el) => {
       let score = 0;
       const href = (el.getAttribute && el.getAttribute('href')) || '';
       if (/zorgtoegang/i.test(href)) score += 6;
       if (/afspraak|booking|boeken|online/i.test(href)) score += 3;
-      if (el.closest && !el.closest('nav, header, footer')) score += 1;
+      const inNavigatie = Boolean(el.closest && el.closest('nav, header, footer'));
+      if (!inNavigatie) score += 1;
       if (el.tagName === 'A' || el.tagName === 'BUTTON') score += 1;
-      return score;
+      return { score, inNavigatie };
     });
   } catch {
-    return 0;
+    return { score: 0, inNavigatie: false };
   }
 }
 
 // Zoekt het best passende zichtbare klikbare element. Patronen zijn geordend
 // van specifiek naar algemeen; het eerste patroon met een treffer wint, en
 // binnen dat patroon wint de kandidaat met de hoogste score.
+//
+// maxLabelLengte en mijdNavigatie zijn er tegen een valkuil die zich in de
+// praktijk meteen wreekte: een menu-item dat alle vestigingen opsomt, bevat de
+// naam van de gezochte vestiging als onderliggende tekst en matcht daardoor op
+// een patroon dat voor een echte keuzeknop bedoeld was.
 export async function zoekKlikbaar(geefPaginas, patronen, opties = {}) {
-  const { timeoutMs = 20000, pollMs = 500, slaVerbodenOver = true, maxKandidaten = 12 } = opties;
+  const {
+    timeoutMs = 20000,
+    pollMs = 500,
+    slaVerbodenOver = true,
+    maxKandidaten = 12,
+    maxLabelLengte = 0,
+    mijdNavigatie = false,
+  } = opties;
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
@@ -99,7 +112,9 @@ export async function zoekKlikbaar(geefPaginas, patronen, opties = {}) {
               }
               const label = await labelVan(locator);
               if (slaVerbodenOver && label && VERBODEN_LABELS.some((p) => p.test(label))) continue;
-              const score = await scoreVan(locator);
+              if (maxLabelLengte && label.length > maxLabelLengte) continue;
+              const { score, inNavigatie } = await analyseer(locator);
+              if (mijdNavigatie && inNavigatie) continue;
               if (!beste || score > beste.score) beste = { locator, page, frame, patroon, label, score };
             }
           }

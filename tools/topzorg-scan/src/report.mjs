@@ -60,6 +60,21 @@ export function bouwConclusie(status, checks, context) {
         `Op de locatiepagina staat geen zichtbare knop om online een afspraak te maken. Een patiënt die hier landt, kan alleen nog bellen.`,
       );
     } else if (waarde('portaalBereikbaar') === 'NEE') {
+      const meta = checks.portaalBereikbaar?.meta ?? {};
+      if (meta.geenPortaalLink) {
+        // Belangrijk onderscheid: hier is niets kapot, hier ontbreekt de ingang.
+        zinnen.push(
+          `Op de locatiepagina staat geen enkele verwijzing naar een online afsprakenportaal, en ook via de gevolgde vervolgpagina's kwam de scan er niet.`,
+        );
+        if (meta.telefonischAdvies) {
+          zinnen.push('De pagina verwijst een patiënt naar telefonisch contact.');
+        }
+        zinnen.push(
+          'Voor deze vestiging bestaat de online zelfbedieningsroute dus niet, of hij is vanaf deze pagina niet te vinden.',
+        );
+        zinnen.push(`Technische onderbouwing: ${detail('portaalBereikbaar')}`);
+        return zinnen.join(' ');
+      }
       zinnen.push(
         `De afspraakknop leidt niet naar een werkend Mijn Zorgtoegang scherm. ${detail('portaalBereikbaar')}`,
       );

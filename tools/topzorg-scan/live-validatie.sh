@@ -105,24 +105,44 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Scannen.
+# 5. Scannen. Een of meer locaties, ingesteld met TOPZORG_LOCATIES.
 # ---------------------------------------------------------------------------
 STEMPEL="$(date +%Y-%m-%d_%H-%M-%S)"
-UIT="$(pwd)/runs/live_${STEMPEL}"
-melding "Scan starten. De agent stopt bij de agenda en bevestigt nooit een afspraak."
-node src/scan.mjs --out="$UIT" --bewaar-html
-CODE=$?
+BASISMAP="$(pwd)/runs/live_${STEMPEL}"
+LOCATIES="${TOPZORG_LOCATIES:-revalidatie-amersfoort-databankweg,fysiotherapie-amersfoort-databankweg}"
+SLECHTSTE=0
+OVERZICHT=""
+
+OUD_IFS="$IFS"
+IFS=','
+for SLEUTEL in $LOCATIES; do
+  IFS="$OUD_IFS"
+  [ -n "$SLEUTEL" ] || continue
+
+  melding "Scan starten voor $SLEUTEL. De agent stopt bij de agenda en bevestigt nooit een afspraak."
+  node src/scan.mjs --locatie="$SLEUTEL" --out="$BASISMAP/$SLEUTEL" --bewaar-html
+  CODE=$?
+
+  case "$CODE" in
+    0) UITSLAG="GROEN, de online route werkt tot en met de tijdselectie" ;;
+    1) UITSLAG="ORANJE, de route start maar loopt vast voor de tijdselectie" ;;
+    2) UITSLAG="ROOD, de online route is niet bereikt" ;;
+    *) UITSLAG="de scan is afgebroken door een technische fout" ;;
+  esac
+
+  OVERZICHT="${OVERZICHT}${SLEUTEL}: ${UITSLAG}
+"
+  [ "$CODE" -gt "$SLECHTSTE" ] && SLECHTSTE="$CODE"
+  IFS=','
+done
+IFS="$OUD_IFS"
+
+UIT="$BASISMAP"
+CODE="$SLECHTSTE"
 
 # ---------------------------------------------------------------------------
 # 6. Resultaat klaarzetten.
 # ---------------------------------------------------------------------------
-case "$CODE" in
-  0) UITSLAG="GROEN, de online route werkt tot en met de tijdselectie" ;;
-  1) UITSLAG="ORANJE, de route start maar loopt vast voor de tijdselectie" ;;
-  2) UITSLAG="ROOD, de online route is geblokkeerd" ;;
-  *) UITSLAG="de scan is afgebroken door een technische fout" ;;
-esac
-
 BUNDEL=""
 if [ -d "$UIT" ]; then
   DOELMAP="$HOME/Desktop"
@@ -139,16 +159,12 @@ if [ -d "$UIT" ]; then
   fi
 fi
 
-melding "Uitslag: $UITSLAG"
-printf '\nRapport:        %s/rapport.txt\n' "$UIT"
-printf 'Data:           %s/rapport.json\n' "$UIT"
-printf 'Log:            %s/run.log\n' "$UIT"
-printf 'Schermen:       %s/screenshots/\n' "$UIT"
-printf 'Diagnose:       %s/diagnose/\n' "$UIT"
+melding "Uitslag per locatie"
+printf '%s\n' "$OVERZICHT"
+printf 'Alle resultaten staan in: %s\n' "$UIT"
 if [ -n "$BUNDEL" ] && [ -f "$BUNDEL" ]; then
-  printf '\nAlles in één bestand: %s\n' "$BUNDEL"
-  printf 'Deel dat bestand terug in de chat, dan kalibreer ik de keuzepatronen op wat het portaal werkelijk toont.\n'
-  # Zet het bestand meteen zichtbaar in de Finder, zodat er niets opgezocht hoeft te worden.
+  printf '\nAlles in een bestand: %s\n' "$BUNDEL"
+  printf 'Deel dat bestand terug in de chat, dan werk ik het rapport af.\n'
   if command -v open >/dev/null 2>&1; then open -R "$BUNDEL" >/dev/null 2>&1 || true; fi
 fi
 
