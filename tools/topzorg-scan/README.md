@@ -124,6 +124,20 @@ Lees eerst `ADVIES.md` voordat je opschaalt naar alle vestigingen.
 De eerste echte meting moet gedaan worden vanaf een werkplek met gewone internettoegang. Daarvoor is
 één commando genoeg:
 
+Vanaf een Mac zonder lokale kopie van deze repository, in één commando, ongeacht de map waarin
+Terminal staat:
+
+```bash
+bash -c 'set -u; D="$HOME/topzorg-live-validatie/$(date +%Y%m%d-%H%M%S)"; mkdir -p "$D" && { git clone --depth 1 --branch claude/topzorg-appointment-poc-h2f5e7 https://github.com/ftrprf-labs/website.git "$D/website" || { rm -rf "$D/website"; git clone --depth 1 --branch claude/topzorg-appointment-poc-h2f5e7 git@github.com:ftrprf-labs/website.git "$D/website"; }; } && TOPZORG_GEISOLEERD=1 bash "$D/website/tools/topzorg-scan/live-validatie.sh"'
+```
+
+Elke run kloont naar een eigen map met tijdstempel onder `~/topzorg-live-validatie/`. Met
+`TOPZORG_GEISOLEERD=1` blijft het script binnen die kopie en kijkt het niet naar andere
+repositories op de machine, dus bestaand lokaal werk blijft ongemoeid. Werkt HTTPS niet, dan valt
+het commando terug op SSH.
+
+Staat de repository al lokaal, dan volstaat vanuit `tools/topzorg-scan`:
+
 ```bash
 bash live-validatie.sh
 ```
