@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { ApiFout, kiesOpLabel, leesAdres, maakClient } from '../src/api.mjs';
 import { maakLogger } from '../src/logger.mjs';
 import { verkenApi } from '../src/api-verken.mjs';
-import { STATUS, vatVensterSamen } from '../src/beschikbaarheid.mjs';
+import { haalBeschikbaarheid, STATUS, vatVensterSamen } from '../src/beschikbaarheid.mjs';
 import { bouwProvincieKaart, zoekProvincie } from '../src/ophalen.mjs';
 import { maakNepFetch, REFERENTIES } from './api-antwoorden.mjs';
 
@@ -105,6 +105,34 @@ const kaart = bouwProvincieKaart([
 ]);
 meld(zoekProvincie(kaart, 'Amersfoort') === 'Utrecht', 'plaats naar provincie');
 meld(zoekProvincie(kaart, 'Onbekendstad') === null, 'onbekende plaats levert niets op in plaats van een gok');
+
+// 8. Tellen over dezelfde periode, zonder dubbeltelling en zonder de horizon te
+//    overschrijden. Blok 1 en blok 2 delen 2 september, en 14 september ligt
+//    voorbij de horizon van 10 september.
+const overBlokken = await haalBeschikbaarheid({
+  client,
+  apiUrl: 'https://api.mijnzorgtoegang.nl',
+  token: 'test-token',
+  params: {
+    focus: REFERENTIES.FOCUS_FYSIO,
+    referral: REFERENTIES.REFERRAL_GEEN,
+    practice: REFERENTIES.PRACTICE_A,
+  },
+  peildatum: '2026-08-24',
+});
+
+meld(overBlokken.vensters === 2, `beide blokken opgehaald (${overBlokken.vensters})`);
+meld(overBlokken.totaalTijden === 4, `2 september telt een keer mee, totaal ${overBlokken.totaalTijden} in plaats van 5`);
+meld(overBlokken.horizon === '2026-09-10', `horizon ${overBlokken.horizon}`);
+// Meegeteld horen: 24 en 25 augustus, en 2, 5 en 8 september. Dus vijf dagen.
+// 20 augustus valt voor de peildatum, 14 september valt voorbij de horizon, en 2
+// september zit in beide blokken maar telt een keer.
+meld(
+  overBlokken.dagenGeteld === 5,
+  `vijf dagen geteld, dus niets voor de peildatum en niets voorbij de horizon (${overBlokken.dagenGeteld})`,
+);
+meld(overBlokken.eersteDatum === '2026-08-25', `eerste mogelijkheid ${overBlokken.eersteDatum}`);
+meld(overBlokken.tijdenVandaag === 0, 'de peildatum zelf staat uitgeschakeld en telt nul');
 
 process.stdout.write(`\n${fouten === 0 ? 'API TEST GESLAAGD' : `${fouten} API CONTROLES GEFAALD`}\n`);
 process.exit(fouten === 0 ? 0 : 1);

@@ -161,10 +161,15 @@ export function bouwDashboard(dataset, { artefact = false } = {}) {
   const gemeten = new Date(m.tijdstip ?? Date.now());
   const tijdstip = gemeten.toLocaleString('nl-NL', { dateStyle: 'full', timeStyle: 'short', timeZone: 'Europe/Amsterdam' });
 
+  // De horizon staat per locatie in de meting. Meestal is die overal gelijk, en
+  // dan kan hij in de uitleg genoemd worden.
+  const horizons = [...new Set(locaties.map((l) => l.horizon).filter(Boolean))];
+  const horizonZin = horizons.length === 1 ? `, nu tot en met ${nlDatum(horizons[0])}` : '';
+
   const tegels = [
-    statTegel('critical', s.perStatus?.[STATUS.GEEN_RUIMTE] ?? 0, 'Geen ruimte', 'Niets te plannen binnen de horizon'),
-    statTegel('warning', s.perStatus?.[STATUS.KRAP] ?? 0, 'Krap', 'Lange wachttijd of weinig tijden'),
-    statTegel('good', s.perStatus?.[STATUS.RUIMTE] ?? 0, 'Ruimte', 'Snel terecht, genoeg tijden'),
+    statTegel('critical', s.perStatus?.[STATUS.GEEN_RUIMTE] ?? 0, 'Geen ruimte', 'Geen enkele vrije tijd online'),
+    statTegel('warning', s.perStatus?.[STATUS.KRAP] ?? 0, 'Krap', 'Lange wachttijd of weinig vrije tijden'),
+    statTegel('good', s.perStatus?.[STATUS.RUIMTE] ?? 0, 'Ruimte', 'Snel terecht, genoeg vrije tijden'),
     statTegel('serious', (s.perStatus?.[STATUS.FOUT] ?? 0) + (s.perStatus?.[STATUS.GEEN_ONLINE_ROUTE] ?? 0), 'Aandacht', 'Meting mislukt of geen online route'),
   ].join('\n');
 
@@ -341,8 +346,9 @@ ${perProvincie(locaties).map(provincieKaart).join('\n')}
   <h2>Alle locaties</h2>
   <p class="uitleg">
     Gesorteerd op urgentie. Bovenaan staan de locaties waar online niets te plannen is, daarna de
-    krappe. "Tijden vandaag" telt de vrije tijden op de peildatum, "in venster" telt alles binnen de
-    horizon van ongeveer vier weken.
+    krappe. De aantallen zijn de vrije tijden die een patiënt op dit moment online kan kiezen: die van
+    vandaag, en het totaal vanaf vandaag tot het einde van de periode die het portaal openstelt${horizonZin}.
+    Voor elke locatie over dezelfde periode geteld.
   </p>
 
   <div class="filters">
@@ -371,8 +377,8 @@ ${perProvincie(locaties).map(provincieKaart).join('\n')}
           <th scope="col">Locatie</th>
           <th scope="col">Plaats</th>
           <th scope="col">Provincie</th>
-          <th scope="col" class="getal">Tijden vandaag</th>
-          <th scope="col" class="getal">In venster</th>
+          <th scope="col" class="getal">Vrije tijden vandaag</th>
+          <th scope="col" class="getal">Vrije tijden totaal</th>
           <th scope="col">Eerstvolgende mogelijkheid</th>
         </tr>
       </thead>

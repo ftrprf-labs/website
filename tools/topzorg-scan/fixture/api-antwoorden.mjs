@@ -84,16 +84,36 @@ export const PRACTICES = {
   ],
 };
 
-export const SLOTS = {
+// Twee blokken die elkaar overlappen, zoals het echte portaal ze levert. Blok 1
+// begint voor de peildatum en loopt tot 5 september, blok 2 begint op 1
+// september. De dagen 1 tot en met 5 september zitten dus in allebei, en mogen
+// maar een keer meetellen.
+export const SLOTS_BLOK1 = {
+  dates: { current: '2026-08-24', min: '2026-08-24', max: '2026-09-10', previous: null, next: '2026-09-01' },
   days: [
-    { date: '2026-08-25', available: true },
-    { date: '2026-08-26', available: false },
-  ],
-  slots: [
-    { reference: 'slot-1', start: '2026-08-25T08:00:00+02:00', label: '08:00' },
-    { reference: 'slot-2', start: '2026-08-25T10:05:00+02:00', label: '10:05' },
+    { date: '2026-08-20', disabled: true, slots: [] },
+    { date: '2026-08-24', disabled: true, slots: [] },
+    { date: '2026-08-25', disabled: false, slots: [
+      { reference: 'a', label: '08:00', disabled: false },
+      { reference: 'b', label: '10:05', disabled: false },
+    ] },
+    { date: '2026-09-02', disabled: false, slots: [{ reference: 'c', label: '09:00', disabled: false }] },
+    { date: '2026-09-05', disabled: true, slots: [] },
   ],
 };
+
+export const SLOTS_BLOK2 = {
+  dates: { current: '2026-09-01', min: '2026-08-24', max: '2026-09-10', previous: '2026-08-24', next: null },
+  days: [
+    // Dezelfde dag als in blok 1. Mag niet dubbel tellen.
+    { date: '2026-09-02', disabled: false, slots: [{ reference: 'c', label: '09:00', disabled: false }] },
+    { date: '2026-09-08', disabled: false, slots: [{ reference: 'd', label: '14:00', disabled: false }] },
+    // Voorbij de horizon, telt niet mee.
+    { date: '2026-09-14', disabled: false, slots: [{ reference: 'e', label: '15:00', disabled: false }] },
+  ],
+};
+
+export const SLOTS = SLOTS_BLOK1;
 
 // Een fetch vervanger die op pad en parameters antwoordt zoals de echte API.
 // De variant slots eist practice, focus en referral, zodat de probeerlogica in
@@ -123,7 +143,7 @@ export function maakNepFetch({ log = [] } = {}) {
       if (!q.get('practice') || !q.get('focus') || !q.get('referral')) {
         return antwoord({ melding: 'onvolledige selectie' }, 422);
       }
-      return antwoord(SLOTS);
+      return antwoord(q.get('date') === '2026-09-01' ? SLOTS_BLOK2 : SLOTS_BLOK1);
     }
     return antwoord({ melding: 'onbekend pad' }, 404);
   };

@@ -38,27 +38,40 @@ export function dagenVerschil(vanIso, totIso) {
   return Math.round((tot - van) / 86_400_000);
 }
 
-// Vat een of meer opgehaalde vensters samen tot een beeld per locatie.
+// Vat de opgehaalde vensters samen tot een beeld per locatie.
+//
+// Het portaal levert blokken van 42 dagen die ongeveer vier weken in het
+// verleden beginnen en elkaar overlappen. Daarom worden dagen op datum
+// ontdubbeld, en tellen alleen de dagen vanaf de peildatum tot en met de
+// horizon mee. Zo betekent het getal voor elke locatie hetzelfde: alle vrije
+// tijden die vanaf vandaag online te plannen zijn.
 export function vatVensterSamen(vensters, { peildatum, drempels = DREMPELS } = {}) {
-  const dagen = [];
+  const horizon = vensters.reduce((laatste, v) => {
+    const max = v?.dates?.max;
+    return max && (!laatste || max > laatste) ? max : laatste;
+  }, null);
+
+  const perDatum = new Map();
   for (const venster of vensters) {
-    for (const dag of venster?.days ?? []) dagen.push(dag);
+    for (const dag of venster?.days ?? []) {
+      if (!dag?.date) continue;
+      if (dag.date < peildatum) continue;
+      if (horizon && dag.date > horizon) continue;
+      // Bij overlap wint de rijkste opgave, zodat een dag die in het ene blok
+      // nog leeg was maar in het volgende gevuld, niet verloren gaat.
+      const bestaand = perDatum.get(dag.date);
+      if (!bestaand || telTijden(dag) > telTijden(bestaand)) perDatum.set(dag.date, dag);
+    }
   }
 
-  const dagenMetTijden = dagen
-    .filter((d) => !d.disabled && telTijden(d) > 0)
-    .sort((a, b) => a.date.localeCompare(b.date));
-
+  const dagen = [...perDatum.values()].sort((a, b) => a.date.localeCompare(b.date));
+  const dagenMetTijden = dagen.filter((d) => !d.disabled && telTijden(d) > 0);
   const totaalTijden = dagen.reduce((som, d) => som + telTijden(d), 0);
-  const vandaag = dagen.find((d) => d.date === peildatum);
-  const tijdenVandaag = telTijden(vandaag);
+  const tijdenVandaag = telTijden(perDatum.get(peildatum));
 
   const eerste = dagenMetTijden[0] ?? null;
   const eersteDatum = eerste?.date ?? null;
   const wachtdagen = eersteDatum ? dagenVerschil(peildatum, eersteDatum) : null;
-
-  const laatsteVenster = vensters[vensters.length - 1] ?? null;
-  const horizon = laatsteVenster?.dates?.max ?? null;
 
   let status;
   if (totaalTijden === 0) {
@@ -80,15 +93,16 @@ export function vatVensterSamen(vensters, { peildatum, drempels = DREMPELS } = {
     eersteDatum,
     wachtdagen,
     dagenMetTijden: dagenMetTijden.length,
-    dagenBekeken: dagen.length,
+    dagenGeteld: dagen.length,
     horizon,
     eersteTijden: (eerste?.slots ?? []).filter((s) => !s.disabled).map((s) => s.label).slice(0, 8),
   };
 }
 
-// Haalt de beschikbaarheid van een locatie op, en bladert door zolang er nog
-// geen enkele vrije dag gevonden is. Zo komt de eerstvolgende mogelijkheid ook
-// in beeld als die buiten het eerste venster valt.
+// Haalt de beschikbaarheid op tot en met de horizon van het portaal, voor elke
+// locatie even ver. Eerder werd alleen doorgebladerd als het eerste blok leeg
+// was, waardoor een volle locatie over een kortere periode geteld werd dan een
+// lege. Het getal was daardoor niet tussen locaties te vergelijken.
 export async function haalBeschikbaarheid({
   client,
   apiUrl,
@@ -100,14 +114,23 @@ export async function haalBeschikbaarheid({
 }) {
   const vensters = [];
   let datum = peildatum;
+  const bezocht = new Set();
 
   for (let i = 0; i < maxVensters; i += 1) {
+    if (bezocht.has(datum)) break;
+    bezocht.add(datum);
+
     const venster = await client.haalSlots(apiUrl, token, { ...params, date: datum });
     vensters.push(venster);
 
-    const heeftTijden = (venster?.days ?? []).some((d) => !d.disabled && (d.slots ?? []).some((s) => !s.disabled));
+    const horizon = venster?.dates?.max ?? null;
+    const laatsteDag = (venster?.days ?? []).at(-1)?.date ?? null;
     const volgende = venster?.dates?.next ?? null;
-    if (heeftTijden || !volgende) break;
+
+    // Klaar zodra het opgehaalde blok tot aan de horizon reikt, of zodra het
+    // portaal geen volgend blok meer aanbiedt.
+    if (!volgende) break;
+    if (horizon && laatsteDag && laatsteDag >= horizon) break;
     datum = volgende;
   }
 
