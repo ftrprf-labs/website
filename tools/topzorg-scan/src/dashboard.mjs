@@ -96,32 +96,34 @@ function provincieKaart(rij) {
     .filter((s) => rij.statussen[s] > 0)
     .map((s) => {
       const u = STATUS_UITERLIJK[s];
-      return `<div class="pkc-regel" data-rol="${u.rol}">
+      return `<span class="pkc-regel" data-rol="${u.rol}">
         <span class="stip" data-rol="${u.rol}" aria-hidden="true"></span>
         <span class="pkc-getal getal">${rij.statussen[s]}</span>
         <span class="pkc-woord">${esc(u.woord)}</span>
-      </div>`;
+      </span>`;
     })
     .join('');
 
   const regels = KAART_STATUSSEN.map((s) => {
     const u = STATUS_UITERLIJK[s];
     const aantal = rij.statussen[s] ?? 0;
-    return `<div class="pkc-regel${aantal === 0 ? ' leeg' : ''}" data-rol="${u.rol}">
+    return `<span class="pkc-regel${aantal === 0 ? ' leeg' : ''}" data-rol="${u.rol}">
       <span class="stip" data-rol="${u.rol}" aria-hidden="true"></span>
       <span class="pkc-getal getal">${aantal}</span>
       <span class="pkc-woord">${esc(u.woord)}</span>
-    </div>`;
+    </span>`;
   }).join('');
 
-  return `<article class="pkaart">
-    <header class="pkc-kop">
-      <h3>${esc(rij.provincie)}</h3>
-      <span class="pkc-totaal">${rij.totaal} ${rij.totaal === 1 ? 'locatie' : 'locaties'}</span>
-    </header>
+  const aantalTekst = `${rij.totaal} ${rij.totaal === 1 ? 'locatie' : 'locaties'}`;
+  return `<button type="button" class="pkaart" data-kies-provincie="${esc(rij.provincie)}"
+      aria-pressed="false" title="Toon de locaties in ${esc(rij.provincie)}">
+    <span class="pkc-kop">
+      <span class="pkc-naam">${esc(rij.provincie)}</span>
+      <span class="pkc-totaal">${aantalTekst}</span>
+    </span>
     <span class="balk" role="img" aria-label="Verdeling in ${esc(rij.provincie)}">${delen}</span>
-    <div class="pkc-cijfers">${regels}${extra}</div>
-  </article>`;
+    <span class="pkc-cijfers">${regels}${extra}</span>
+  </button>`;
 }
 
 function locatieRij(l) {
@@ -296,9 +298,19 @@ export function bouwDashboard(dataset, { artefact = false } = {}) {
     border: 1px solid var(--lijn);
     border-radius: 10px;
     padding: 15px 16px 16px;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 120ms, box-shadow 120ms;
+  }
+  .pkaart:hover { border-color: var(--rand); }
+  .pkaart[aria-pressed="true"] {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
   }
   .pkc-kop { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-  .pkc-kop h3 { margin: 0; font-size: 15px; font-weight: 600; }
+  .pkc-naam { font-size: 15px; font-weight: 600; }
   .pkc-totaal { color: var(--ink-muted); font-size: 12px; white-space: nowrap; }
   .pkc-cijfers { display: flex; flex-direction: column; gap: 5px; }
   .pkc-regel { display: grid; grid-template-columns: 10px 2.4em 1fr; align-items: center; gap: 8px; }
@@ -337,7 +349,8 @@ ${tegels}
   <h2>Per provincie</h2>
   <p class="uitleg">
     Dezelfde telling, uitgesplitst naar provincie en gesorteerd op het aantal locaties waar iets aan
-    de hand is. Beweeg over een balk voor de aantallen.
+    de hand is. Klik een provincie aan om alleen die locaties in de lijst hieronder te zien. Nog een
+    keer klikken zet de lijst terug op alles.
   </p>
   <div class="provinciekaarten">
 ${perProvincie(locaties).map(provincieKaart).join('\n')}
@@ -417,6 +430,26 @@ ${locaties.map(locatieRij).join('\n')}
       if (past) zichtbaar += 1;
     }
     telling.textContent = zichtbaar + ' van ' + rijen.length + ' locaties zichtbaar.';
+    markeerKaarten();
+  }
+
+  // De provinciekaarten sturen de filter aan. Klik dezelfde kaart nog een keer en
+  // de lijst staat weer op alles.
+  const kaarten = Array.from(document.querySelectorAll('[data-kies-provincie]'));
+
+  function markeerKaarten() {
+    for (const kaart of kaarten) {
+      kaart.setAttribute('aria-pressed', String(kaart.dataset.kiesProvincie === provincie.value));
+    }
+  }
+
+  for (const kaart of kaarten) {
+    kaart.addEventListener('click', () => {
+      const gekozen = kaart.dataset.kiesProvincie;
+      provincie.value = provincie.value === gekozen ? '' : gekozen;
+      pasToe();
+      document.getElementById('locatietabel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
   for (const veld of [provincie, status, zoek]) veld.addEventListener('input', pasToe);
