@@ -74,6 +74,11 @@ export const config = {
   topzorgBehandeling: process.env.TOPZORG_BEHANDELING || 'Fysiotherapie (intake)',
   topzorgGelijktijdig: Number(process.env.TOPZORG_GELIJKTIJDIG || 3),
   topzorgWachtwoord: process.env.TOPZORG_WACHTWOORD || '',
+  // Op 1 draait deze instantie alleen het beschikbaarheidsoverzicht. Testerbeheer
+  // wordt dan niet bediend, en de eisen die daarbij horen gelden niet. Bedoeld
+  // voor een aparte service die het overzicht met een bredere groep deelt, zonder
+  // dat daar ooit persoonsgegevens van testers op staan.
+  topzorgAlleen: process.env.TOPZORG_ALLEEN === '1',
 
   // E-mail sending contract (see server/mailer.mjs). No credentials in code:
   //   MAIL_TRANSPORT = ''      → not configured; the app never fake-sends.

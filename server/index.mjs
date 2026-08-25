@@ -623,6 +623,11 @@ const server = createServer(async (req, res) => {
       const afgehandeld = await handleTopzorg(req, res, pathname);
       if (afgehandeld) return;
     }
+    if (config.topzorgAlleen && pathname !== '/healthz') {
+      // Alles wijst naar het overzicht. Testerbeheer bestaat op deze instantie niet.
+      res.writeHead(303, { Location: '/topzorg' });
+      return res.end();
+    }
     if (pathname.startsWith('/api/') || pathname === '/healthz') {
       await handleApi(req, res, pathname);
     } else {
@@ -643,8 +648,21 @@ function isLocalUrl(u) {
   return /localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]/i.test(String(u || ''));
 }
 
+// In alleen-modus bedient deze instantie uitsluitend het beschikbaarheidsoverzicht.
+// De eisen van Testerbeheer gelden dan niet, maar het overzicht moet wel dicht
+// zitten zodra het op een netwerkadres staat.
+if (config.topzorgAlleen) {
+  if (config.production && !config.topzorgWachtwoord) {
+    console.error(
+      '\n[SECURITY] TOPZORG_ALLEEN staat aan maar TOPZORG_WACHTWOORD is leeg.\n' +
+        'Het overzicht zou dan open staan. Zet TOPZORG_WACHTWOORD en start opnieuw.\n',
+    );
+    process.exit(1);
+  }
+}
+
 // Fail-closed guard: never expose an unauthenticated admin tool on the network.
-if (nonLoopback && !authRequired()) {
+if (!config.topzorgAlleen && nonLoopback && !authRequired()) {
   console.error(
     '\n[SECURITY] HOST is not loopback but ADMIN_PASSWORD is empty.\n' +
       'Refusing to expose an unauthenticated admin tool to the network.\n' +
@@ -654,7 +672,7 @@ if (nonLoopback && !authRequired()) {
 }
 
 // Production (managed deployment) fail-closed checks (§3, §5, §10).
-if (config.production) {
+if (config.production && !config.topzorgAlleen) {
   const problems = [];
   // 1. The admin gate is mandatory online (this app holds PII).
   if (!authRequired()) problems.push('ADMIN_PASSWORD is not set — the admin UI would be publicly open.');

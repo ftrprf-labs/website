@@ -176,6 +176,14 @@ wel persoonsgegevens bevat.
 | `TOPZORG_BEHANDELING` | welke behandeling gemeten wordt | `Fysiotherapie (intake)` |
 | `TOPZORG_GELIJKTIJDIG` | verzoeken tegelijk | `3` |
 | `TOPZORG_ACTIEF` | op `0` legt de meting stil | `1` |
+| `TOPZORG_ALLEEN` | op `1` bedient de instantie alleen het overzicht | `0` |
+
+**Alleen het overzicht draaien.** Met `TOPZORG_ALLEEN=1` bedient een instantie uitsluitend
+`/topzorg`. Testerbeheer bestaat daar dan niet: elk ander adres verwijst door naar het overzicht en
+de API is onbereikbaar. Zo kan een aparte service het overzicht met een bredere groep delen zonder
+dat er ooit testergegevens op die service staan. In die modus is `ADMIN_PASSWORD` niet nodig, maar
+weigert de service in productie te starten zonder `TOPZORG_WACHTWOORD`. Liever dicht dan per ongeluk
+open.
 
 **Waarom in het proces en niet als losse cron job.** Een cron job draait op het platform als aparte
 service en kan de persistente schijf van de webservice niet benaderen, want een schijf hoort bij een
