@@ -651,14 +651,16 @@ function isLocalUrl(u) {
 // In alleen-modus bedient deze instantie uitsluitend het beschikbaarheidsoverzicht.
 // De eisen van Testerbeheer gelden dan niet, maar het overzicht moet wel dicht
 // zitten zodra het op een netwerkadres staat.
-if (config.topzorgAlleen) {
-  if (config.production && !config.topzorgWachtwoord) {
-    console.error(
-      '\n[SECURITY] TOPZORG_ALLEEN staat aan maar TOPZORG_WACHTWOORD is leeg.\n' +
-        'Het overzicht zou dan open staan. Zet TOPZORG_WACHTWOORD en start opnieuw.\n',
-    );
-    process.exit(1);
-  }
+if (config.topzorgAlleen && config.production && !config.topzorgWachtwoord) {
+  // Niet afbreken maar luid waarschuwen. De routelaag laat zonder wachtwoord
+  // niets zien en toont in plaats daarvan een pagina die uitlegt wat er moet
+  // gebeuren. Zo staat de service groen en is meteen zichtbaar wat er ontbreekt,
+  // zonder dat er ook maar iets van het overzicht naar buiten komt.
+  console.warn(
+    '\n[TOPZORG] TOPZORG_WACHTWOORD is nog niet gezet.\n' +
+      'Het overzicht blijft gesloten tot dat gebeurt. Zet de waarde in de\n' +
+      'omgevingsvariabelen van de service en start opnieuw.\n',
+  );
 }
 
 // Fail-closed guard: never expose an unauthenticated admin tool on the network.
