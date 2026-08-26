@@ -5,11 +5,14 @@
 //   POST /topzorg/logout       uitloggen
 //   GET  /topzorg/meting.json  de meting als data
 //   GET  /topzorg/status.json  draait de planner, en wanneer was de laatste meting
+//   GET  /topzorg/push         de wekelijkse mail aan marketing, zoals hij eruit zou gaan
+//   POST /topzorg/push/verstuur  die mail nu versturen, met de hand
 //
 // Alles lezend. Het overzicht bevat geen persoonsgegevens.
 
 import { bouwDashboard } from '../../tools/topzorg-scan/src/dashboard.mjs';
 import { plannerStatus } from './planner.mjs';
+import { pushStatus, stelPushSamen, verstuurPush } from './push.mjs';
 import { beschikbareDatums, laatsteMeting, metingVan } from './opslag.mjs';
 import { controleerWachtwoord, heeftToegang, wachtwoordVereist, wisCookie, zetCookie } from './toegang.mjs';
 
@@ -110,6 +113,114 @@ function nogGeenMeting() {
 </html>`;
 }
 
+const DAGEN = ['', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
+
+function escHtml(waarde) {
+  return String(waarde ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function pushPagina({ melding = '' } = {}) {
+  const st = pushStatus();
+  const mail = stelPushSamen();
+
+  const blokkades = [];
+  if (!st.actief) blokkades.push('De automatische verzending staat uit. Zet TOPZORG_PUSH_ACTIEF op 1.');
+  if (st.aantalOntvangers === 0) blokkades.push('Er zijn geen ontvangers ingesteld. Vul TOPZORG_PUSH_ONTVANGERS.');
+  if (!st.mailWerkt) blokkades.push('Er is geen werkende mailkoppeling. Stel MAIL_TRANSPORT, MAIL_API_KEY en MAIL_FROM in.');
+  if (!mail) blokkades.push('Er is nog geen meting om over te berichten.');
+
+  const kanVersturen = st.aantalOntvangers > 0 && st.mailWerkt && Boolean(mail);
+
+  return `<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wekelijkse mail aan marketing</title>
+<style>
+  :root { color-scheme: light; --plane:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink-2:#52514e;
+          --ink-muted:#898781; --lijn:#e1e0d9; --rand:#c3c2b7; --accent:#2a78d6; --warning:#fab219; --good:#0ca30c; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { color-scheme: dark; --plane:#0d0d0d; --surface:#1a1a19;
+      --ink:#fff; --ink-2:#c3c2b7; --lijn:#2c2c2a; --rand:#383835; --accent:#3987e5; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--plane); color:var(--ink);
+         font:15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .blad { max-width: 820px; margin: 0 auto; padding: 32px 20px 72px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  h2 { font-size:16px; margin:30px 0 10px; }
+  p { color:var(--ink-2); max-width:62ch; }
+  a { color:var(--accent); }
+  .kaart { background:var(--surface); border:1px solid var(--lijn); border-radius:10px; padding:16px 18px; margin:14px 0; }
+  dl { display:grid; grid-template-columns:auto 1fr; gap:6px 18px; margin:0; }
+  dt { color:var(--ink-muted); font-size:13px; }
+  dd { margin:0; }
+  pre { background:var(--surface); border:1px solid var(--lijn); border-radius:10px; padding:16px 18px;
+        white-space:pre-wrap; word-wrap:break-word; font:13px/1.6 ui-monospace, Menlo, monospace; }
+  ul { color:var(--ink-2); }
+  button { font:inherit; font-weight:600; padding:10px 16px; border:0; border-radius:8px;
+           background:var(--accent); color:#fff; cursor:pointer; }
+  button[disabled] { background:var(--rand); cursor:not-allowed; }
+  .melding { border-left:3px solid var(--good); padding-left:12px; }
+  .waarschuwing { border-left:3px solid var(--warning); padding-left:12px; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+</style>
+</head>
+<body>
+<div class="blad">
+  <h1>Wekelijkse mail aan marketing</h1>
+  <p>
+    Locaties met veel online ruimte in de komende week, zodat daar extra op ingezet kan worden.
+    Hieronder staat het bericht precies zoals het verstuurd wordt.
+  </p>
+
+  ${melding ? `<p class="melding">${escHtml(melding)}</p>` : ''}
+
+  <div class="kaart">
+    <dl>
+      <dt>Automatisch</dt>
+      <dd>${st.actief ? `elke ${escHtml(DAGEN[st.dag] ?? `dag ${st.dag}`)} vanaf ${String(st.uur).padStart(2, '0')}:00` : 'staat uit'}</dd>
+      <dt>Ontvangers</dt>
+      <dd>${st.aantalOntvangers === 0 ? 'nog niet ingesteld' : escHtml(st.ontvangers.join(', '))}</dd>
+      <dt>Mailkoppeling</dt>
+      <dd>${st.mailWerkt ? 'werkt' : 'niet ingesteld'}</dd>
+      <dt>Grens</dt>
+      <dd>minstens ${st.drempels.minTijdenKomendeWeek} vrije tijden en binnen ${st.drempels.maxWachtdagen} dagen terecht</dd>
+      <dt>Laatst verstuurd</dt>
+      <dd>${st.alVerstuurdOp ? escHtml(st.alVerstuurdOp) : 'nog nooit'}</dd>
+    </dl>
+  </div>
+
+  ${
+    blokkades.length
+      ? `<div class="kaart waarschuwing"><strong>Er gaat nu niets uit.</strong><ul>${blokkades
+          .map((b) => `<li>${escHtml(b)}</li>`)
+          .join('')}</ul></div>`
+      : ''
+  }
+
+  <h2>Het bericht</h2>
+  ${
+    mail
+      ? `<p><strong>Onderwerp:</strong> ${escHtml(mail.onderwerp)}</p>
+  <pre>${escHtml(mail.tekst)}</pre>
+  <form method="POST" action="/topzorg/push/verstuur">
+    <button type="submit"${kanVersturen ? '' : ' disabled'}>Verstuur dit bericht nu</button>
+  </form>`
+      : '<p>Zodra er een meting is, staat het bericht hier.</p>'
+  }
+
+  <p style="margin-top:28px"><a href="/topzorg">Terug naar het overzicht</a></p>
+</div>
+</body>
+</html>`;
+}
+
 // Retourneert true wanneer het verzoek is afgehandeld.
 export async function handleTopzorg(req, res, pathname) {
   if (pathname !== '/topzorg' && !pathname.startsWith('/topzorg/')) return false;
@@ -146,6 +257,26 @@ export async function handleTopzorg(req, res, pathname) {
     return true;
   }
 
+  if (pathname === '/topzorg/push' && methode === 'GET') {
+    html(res, 200, pushPagina());
+    return true;
+  }
+
+  if (pathname === '/topzorg/push/verstuur' && methode === 'POST') {
+    const uitkomst = await verstuurPush({ reden: 'met de hand vanuit het overzicht' });
+    const melding = uitkomst.verstuurd
+      ? `Verstuurd aan ${uitkomst.bezorgd} van de ${uitkomst.bezorgd + uitkomst.mislukt} ontvangers.`
+      : `Er is niets verstuurd. ${uitkomst.reden ?? ''}`.trim();
+    html(res, 200, pushPagina({ melding }));
+    return true;
+  }
+
+  if (pathname === '/topzorg/push.json' && methode === 'GET') {
+    const mail = stelPushSamen();
+    json(res, 200, { ...pushStatus(), mail: mail ? { onderwerp: mail.onderwerp, aantal: mail.aantal } : null });
+    return true;
+  }
+
   if (pathname === '/topzorg/status.json' && methode === 'GET') {
     json(res, 200, { ...plannerStatus(), datums: beschikbareDatums().slice(0, 30) });
     return true;
@@ -171,7 +302,7 @@ export async function handleTopzorg(req, res, pathname) {
       html(res, 200, nogGeenMeting());
       return true;
     }
-    html(res, 200, bouwDashboard(dataset));
+    html(res, 200, bouwDashboard(dataset, { pushLink: true }));
     return true;
   }
 

@@ -12,6 +12,7 @@
 import { haalAlles } from '../../tools/topzorg-scan/src/ophalen.mjs';
 import { config } from '../config.mjs';
 import { bewaarMeting, datumNL, heeftMeting, uurNL } from './opslag.mjs';
+import { controleerPush } from './push.mjs';
 
 const CONTROLE_INTERVAL_MS = 15 * 60 * 1000;
 
@@ -66,13 +67,15 @@ export async function meetNu({ reden = 'handmatig' } = {}) {
 }
 
 // Eén controle. Meet alleen als het Nederlandse uur het meetmoment gepasseerd
-// is en er vandaag nog geen meting ligt.
+// is en er vandaag nog geen meting ligt. Daarna kijkt de wekelijkse mail of hij
+// aan de beurt is, want die hangt aan de meting van diezelfde ochtend.
 async function controleer() {
   try {
     const datum = datumNL();
-    if (heeftMeting(datum)) return;
-    if (uurNL() < config.topzorgUur) return;
-    await meetNu({ reden: `dagmeting ${datum}` });
+    if (!heeftMeting(datum) && uurNL() >= config.topzorgUur) {
+      await meetNu({ reden: `dagmeting ${datum}` });
+    }
+    await controleerPush();
   } catch (err) {
     log(`controle mislukt: ${err.message}`);
   }
@@ -85,6 +88,19 @@ export function startPlanner() {
   }
 
   log(`dagelijkse meting actief, vanaf ${String(config.topzorgUur).padStart(2, '0')}:00 Nederlandse tijd.`);
+  if (config.topzorgPushActief) {
+    const dagen = ['', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag', 'zondag'];
+    log(
+      `wekelijkse mail actief op ${dagen[config.topzorgPushDag] ?? `dag ${config.topzorgPushDag}`} ` +
+        `vanaf ${String(config.topzorgPushUur).padStart(2, '0')}:00, ` +
+        `${config.topzorgPushOntvangers.length} ontvangers.`,
+    );
+    if (config.topzorgPushOntvangers.length === 0) {
+      log('let op: de wekelijkse mail staat aan maar er zijn geen ontvangers ingesteld (TOPZORG_PUSH_ONTVANGERS).');
+    }
+  } else {
+    log('wekelijkse mail staat uit (TOPZORG_PUSH_ACTIEF=1 zet hem aan).');
+  }
 
   // Meteen een controle bij het opstarten, daarna elk kwartier.
   controleer();

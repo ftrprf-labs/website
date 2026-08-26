@@ -79,6 +79,24 @@ export const config = {
   // voor een aparte service die het overzicht met een bredere groep deelt, zonder
   // dat daar ooit persoonsgegevens van testers op staan.
   topzorgAlleen: process.env.TOPZORG_ALLEEN === '1',
+  // Het publieke adres van het overzicht, gebruikt in de wekelijkse mail.
+  topzorgUrl: (process.env.TOPZORG_URL || 'https://beschikbaarheid.topzorggroep.nl/topzorg').replace(/\/+$/, ''),
+
+  // Wekelijkse signalering aan marketing: locaties met veel online ruimte in de
+  // komende week, zodat daar extra op ingezet kan worden. Staat standaard UIT.
+  // Aanzetten is een bewuste handeling, want het stuurt post naar buiten.
+  // De ontvangers staan bewust NIET in de code: het zijn persoonsgegevens en die
+  // horen niet in git. Zet ze als komma-gescheiden lijst in TOPZORG_PUSH_ONTVANGERS.
+  topzorgPushActief: process.env.TOPZORG_PUSH_ACTIEF === '1',
+  topzorgPushOntvangers: (process.env.TOPZORG_PUSH_ONTVANGERS || '')
+    .split(',')
+    .map((adres) => adres.trim())
+    .filter(Boolean),
+  // 1 is maandag, 7 is zondag.
+  topzorgPushDag: Number(process.env.TOPZORG_PUSH_DAG || 1),
+  topzorgPushUur: Number(process.env.TOPZORG_PUSH_UUR || 7),
+  topzorgPushDrempel: Number(process.env.TOPZORG_PUSH_DREMPEL || 10),
+  topzorgPushMaxWachtdagen: Number(process.env.TOPZORG_PUSH_MAX_WACHTDAGEN || 3),
 
   // E-mail sending contract (see server/mailer.mjs). No credentials in code:
   //   MAIL_TRANSPORT = ''      → not configured; the app never fake-sends.

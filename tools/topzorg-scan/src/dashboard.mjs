@@ -49,6 +49,77 @@ function wachttekst(locatie) {
   return `over ${dagen} dagen, ${nlDatum(locatie.eersteDatum)}`;
 }
 
+// De weken die in de meting voorkomen, in volgorde. De horizon kan per locatie
+// verschillen, dus de kolommen komen uit de locatie die het verst vooruit kijkt.
+function alleWeken(locaties) {
+  let langste = [];
+  for (const l of locaties) {
+    if ((l.weken?.length ?? 0) > langste.length) langste = l.weken;
+  }
+  return langste;
+}
+
+function periodeTekst(week) {
+  return `${nlDatum(week.vanaf)} tot en met ${nlDatum(week.totEnMet)}`;
+}
+
+// Het weekprofiel van een locatie: per week het aantal vrije tijden, met een
+// staafje op schaal van de drukste week in diezelfde rij. De vergelijking is
+// dus binnen de locatie, want tussen locaties zeggen deze staafjes niets.
+function weekProfiel(locatie, kolommen) {
+  const eigen = new Map((locatie.weken ?? []).map((w) => [w.sleutel, w]));
+  const deuken = new Set((locatie.deuken ?? []).map((d) => d.sleutel));
+  const hoogste = Math.max(1, ...(locatie.weken ?? []).map((w) => w.tijden ?? 0));
+
+  const blokken = kolommen.map((kolom) => {
+    const week = eigen.get(kolom.sleutel);
+    if (!week) {
+      return `<span class="wblok buiten" title="Week ${kolom.week} valt buiten wat het portaal voor deze locatie toont.">
+        <span class="wlabel">${kolom.week}</span>
+        <span class="wbalk"></span>
+        <span class="wgetal">&middot;</span>
+      </span>`;
+    }
+    const isDeuk = deuken.has(week.sleutel);
+    const hoogte = ((week.tijden / hoogste) * 100).toFixed(1);
+    const label = `Week ${week.week}, ${periodeTekst(week)}: ${week.tijden} vrije ${week.tijden === 1 ? 'tijd' : 'tijden'}${week.volledig ? '' : ', deel van de week'}${isDeuk ? '. Opvallend leeg vergeleken met de weken eromheen.' : ''}`;
+    return `<span class="wblok${isDeuk ? ' deuk' : ''}${week.volledig ? '' : ' half'}" data-week="${esc(week.sleutel)}"
+        ${isDeuk ? 'data-rol="warning"' : ''} title="${esc(label)}">
+      <span class="wlabel">${week.week}</span>
+      <span class="wbalk"><span style="height:${hoogte}%"></span></span>
+      <span class="wgetal getal">${isDeuk ? '<span class="deukteken" aria-hidden="true">&#9661;</span>' : ''}${week.tijden}</span>
+    </span>`;
+  });
+
+  return `<span class="wprofiel">${blokken.join('')}</span>`;
+}
+
+// Alle deuken uit de meting, de scherpste eerst.
+function alleDeuken(locaties) {
+  const rijen = [];
+  for (const l of locaties) {
+    for (const d of l.deuken ?? []) rijen.push({ locatie: l, deuk: d, gat: (d.basis ?? 0) - d.tijden });
+  }
+  return rijen.sort((a, b) => b.gat - a.gat || (a.locatie.naam ?? '').localeCompare(b.locatie.naam ?? ''));
+}
+
+function deukRij({ locatie, deuk }) {
+  const verklaring = deuk.publicatieUitgesloten
+    ? `Week ${deuk.vergelekenMet.at(-1).week} is wel gevuld, dus een agenda die nog niet open staat verklaart dit niet.`
+    : deuk.eerstvolgendeWeek
+      ? 'Dit is de eerstvolgende hele week. Kan vakantie zijn, of gewoon een week die al is volgelopen.'
+      : 'Kan vakantie zijn, volgeboekt, of een agenda die nog niet open staat.';
+  const naast = deuk.vergelekenMet.map((v) => `${v.tijden} in week ${v.week}`).join(' en ');
+  return `<tr data-rol="warning">
+    <td><span class="status" data-rol="warning"><span class="teken" aria-hidden="true">&#9661;</span>Week ${deuk.week}</span>
+      <span class="straat">${esc(`${nlDatum(deuk.start)} tot en met ${nlDatum(deuk.eind)}`)}</span></td>
+    <td class="naam">${esc(locatie.naam)}<span class="straat">${esc(locatie.plaats ?? '')}</span></td>
+    <td class="getal">${deuk.tijden}</td>
+    <td>${esc(naast)}</td>
+    <td>${esc(verklaring)}</td>
+  </tr>`;
+}
+
 // Verdeling per provincie, gesorteerd op hoeveel er mis is.
 function perProvincie(locaties) {
   const kaart = new Map();
@@ -126,9 +197,13 @@ function provincieKaart(rij) {
   </button>`;
 }
 
-function locatieRij(l) {
+function locatieRij(l, kolommen) {
   const uiterlijk = STATUS_UITERLIJK[l.status] ?? STATUS_UITERLIJK[STATUS.FOUT];
+  // De weekgetallen gaan als een blokje mee, zodat de weekkiezer kan sorteren
+  // zonder de rijen opnieuw te hoeven opbouwen.
+  const getallen = Object.fromEntries((l.weken ?? []).map((w) => [w.sleutel, w.tijden]));
   return `<tr data-rol="${uiterlijk.rol}" data-provincie="${esc(l.provincie ?? 'Onbekend')}" data-status="${esc(l.status)}"
+      data-weken="${esc(JSON.stringify(getallen))}"
       data-zoek="${esc(`${l.naam} ${l.plaats ?? ''} ${l.provincie ?? ''}`.toLowerCase())}">
     <td>
       <span class="status" data-rol="${uiterlijk.rol}">
@@ -141,13 +216,14 @@ function locatieRij(l) {
     <td class="getal">${l.tijdenVandaag ?? 0}</td>
     <td class="getal">${l.totaalTijden ?? 0}</td>
     <td>${esc(wachttekst(l))}</td>
+    <td class="weken">${weekProfiel(l, kolommen)}</td>
   </tr>`;
 }
 
 // artefact=true levert alleen de inhoud, zonder doctype en body, voor een
 // gepubliceerde pagina die zelf een omhulsel toevoegt. Zo blijft er een
 // generator bestaan in plaats van twee kopieen die uit elkaar gaan lopen.
-export function bouwDashboard(dataset, { artefact = false } = {}) {
+export function bouwDashboard(dataset, { artefact = false, pushLink = false } = {}) {
   const locaties = [...(dataset.locaties ?? [])].sort((a, b) => {
     const rang = STATUS_VOLGORDE.indexOf(a.status) - STATUS_VOLGORDE.indexOf(b.status);
     if (rang !== 0) return rang;
@@ -167,6 +243,10 @@ export function bouwDashboard(dataset, { artefact = false } = {}) {
   // dan kan hij in de uitleg genoemd worden.
   const horizons = [...new Set(locaties.map((l) => l.horizon).filter(Boolean))];
   const horizonZin = horizons.length === 1 ? `, nu tot en met ${nlDatum(horizons[0])}` : '';
+
+  const weekKolommen = alleWeken(locaties);
+  const deuken = alleDeuken(locaties);
+  const DEUKEN_GETOOND = 30;
 
   const tegels = [
     statTegel('critical', s.perStatus?.[STATUS.GEEN_RUIMTE] ?? 0, 'Geen ruimte', 'Geen enkele vrije tijd online'),
@@ -319,6 +399,30 @@ export function bouwDashboard(dataset, { artefact = false } = {}) {
   .pkc-regel.leeg .pkc-getal, .pkc-regel.leeg .pkc-woord { color: var(--ink-muted); font-weight: 500; }
   .pkc-regel.leeg .stip { background: var(--lijn); }
 
+  .weken { padding-top: 6px; padding-bottom: 6px; }
+  .wprofiel { display: flex; gap: 4px; }
+  .wblok {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    width: 30px; padding: 2px 0 3px; border-radius: 4px;
+  }
+  .wlabel { font-size: 10px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+  .wbalk {
+    width: 100%; height: 24px; display: flex; align-items: flex-end;
+    background: var(--lijn); border-radius: 3px; overflow: hidden;
+  }
+  .wbalk > span { width: 100%; background: var(--ink-muted); border-radius: 3px; }
+  .wgetal { font-size: 12px; font-weight: 600; line-height: 1.3; }
+  .wblok.deuk { background: color-mix(in srgb, var(--warning) 18%, transparent); }
+  .wblok.deuk .wbalk > span { background: var(--warning); }
+  .wblok.deuk .wgetal { color: var(--ink); }
+  .deukteken { color: var(--warning); margin-right: 2px; font-size: 10px; }
+  .wblok.half .wlabel { font-style: italic; }
+  .wblok.half .wbalk > span { opacity: 0.45; }
+  .wblok.half .wgetal { color: var(--ink-2); font-weight: 500; }
+  .wblok.buiten .wgetal { color: var(--ink-muted); }
+  .wblok.buiten .wbalk { background: transparent; border: 1px dashed var(--lijn); }
+  .wblok.gekozen { outline: 2px solid var(--accent); outline-offset: 0; }
+
   .legenda { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0 0; color: var(--ink-2); font-size: 13px; }
   .legenda span.stip { width: 9px; height: 9px; }
   .legenda-item { display: inline-flex; align-items: center; gap: 7px; }
@@ -356,12 +460,52 @@ ${tegels}
 ${perProvincie(locaties).map(provincieKaart).join('\n')}
   </div>
 
+${
+    deuken.length === 0
+      ? `  <h2>Deuken in de komende weken</h2>
+  <p class="uitleg">
+    Geen enkele locatie heeft een komende week die opvallend leger is dan de weken eromheen. Dat is
+    het beeld dat je wilt zien. Let wel op de kanttekening hieronder: het portaal kijkt maar een
+    kleine vier weken vooruit, dus een afwezigheid verderop is hier nog niet zichtbaar.
+  </p>`
+      : `  <h2>Deuken in de komende weken</h2>
+  <p class="uitleg">
+    ${deuken.length} ${deuken.length === 1 ? 'locatie heeft' : 'gevallen waarin een locatie'} een komende week
+    die duidelijk leger is dan de weken ervoor en erna. Dat is het patroon van een afwezigheid die
+    niet is opgevangen. Elke locatie wordt met zichzelf vergeleken, nooit met een andere, want ver
+    vooruit staat elke agenda voller dan vlakbij.
+  </p>
+  <div class="tabelhoes">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Week</th>
+          <th scope="col">Locatie</th>
+          <th scope="col" class="getal">Vrije tijden</th>
+          <th scope="col">Vergeleken met</th>
+          <th scope="col">Wat dit kan zijn</th>
+        </tr>
+      </thead>
+      <tbody>
+${deuken.slice(0, DEUKEN_GETOOND).map(deukRij).join('\n')}
+      </tbody>
+    </table>
+  </div>${
+    deuken.length > DEUKEN_GETOOND
+      ? `\n  <p class="telling">Nog ${deuken.length - DEUKEN_GETOOND} niet getoond. Ze staan wel in het weekprofiel bij de locaties hieronder.</p>`
+      : ''
+  }`
+  }
+
   <h2>Alle locaties</h2>
   <p class="uitleg">
     Gesorteerd op urgentie. Bovenaan staan de locaties waar online niets te plannen is, daarna de
     krappe. De aantallen zijn de vrije tijden die een patiënt op dit moment online kan kiezen: die van
     vandaag, en het totaal vanaf vandaag tot het einde van de periode die het portaal openstelt${horizonZin}.
-    Voor elke locatie over dezelfde periode geteld.
+    Voor elke locatie over dezelfde periode geteld. De laatste kolom laat zien hoe die tijden over de
+    komende weken verdeeld zijn, met het weeknummer erboven. Het staafje is op schaal van de drukste
+    week van diezelfde locatie. Een stip betekent dat de week buiten valt wat het portaal voor die
+    locatie toont, dus niet dat er niets is.
   </p>
 
   <div class="filters">
@@ -380,6 +524,17 @@ ${perProvincie(locaties).map(provincieKaart).join('\n')}
     <label>Zoeken
       <input id="filter-zoek" type="search" placeholder="locatie of plaats" autocomplete="off">
     </label>
+    <label>Sorteer op week
+      <select id="filter-week">
+        <option value="">urgentie nu</option>
+        ${weekKolommen
+          .map(
+            (w) =>
+              `<option value="${esc(w.sleutel)}">week ${w.week}, ${esc(periodeTekst(w))}${w.volledig ? '' : ' (deel)'}</option>`,
+          )
+          .join('\n        ')}
+      </select>
+    </label>
   </div>
 
   <div class="tabelhoes">
@@ -393,28 +548,73 @@ ${perProvincie(locaties).map(provincieKaart).join('\n')}
           <th scope="col" class="getal">Vrije tijden vandaag</th>
           <th scope="col" class="getal">Vrije tijden totaal</th>
           <th scope="col">Eerstvolgende mogelijkheid</th>
+          <th scope="col">Komende weken</th>
         </tr>
       </thead>
       <tbody>
-${locaties.map(locatieRij).join('\n')}
+${locaties.map((l) => locatieRij(l, weekKolommen)).join('\n')}
       </tbody>
     </table>
   </div>
   <p class="telling" id="telling"></p>
+  <div class="legenda">
+    <span class="legenda-item"><span class="deukteken" aria-hidden="true">&#9661;</span>
+      Week die opvallend leger is dan de weken eromheen bij dezelfde locatie</span>
+    <span class="legenda-item"><em>36</em> Schuin weeknummer: maar een deel van die week valt binnen de meting</span>
+    <span class="legenda-item">&middot; De week valt buiten wat het portaal voor deze locatie toont</span>
+  </div>
 
   <footer>
     Meting via de publieke afsprakenroute van Mijn Zorgtoegang. Alleen lezende verzoeken, geen
     afspraken gemaakt en geen persoonsgegevens gebruikt. Een status zegt iets over wat een patiënt op
-    dit moment online kan plannen, en niet over de volledige agenda van een praktijk.
+    dit moment online kan plannen, en niet over de volledige agenda van een praktijk.${
+      pushLink
+        ? '\n    <br><a href="/topzorg/push">Bekijk de wekelijkse mail aan marketing</a>'
+        : ''
+    }
   </footer>
 </div>
 
 <script>
-  const rijen = Array.from(document.querySelectorAll('#locatietabel tbody tr'));
+  const lichaam = document.querySelector('#locatietabel tbody');
+  const rijen = Array.from(lichaam.querySelectorAll('tr'));
   const provincie = document.getElementById('filter-provincie');
   const status = document.getElementById('filter-status');
   const zoek = document.getElementById('filter-zoek');
+  const week = document.getElementById('filter-week');
   const telling = document.getElementById('telling');
+
+  // De oorspronkelijke volgorde is op urgentie en wordt op de server bepaald.
+  const opUrgentie = rijen.slice();
+  for (const rij of rijen) {
+    try {
+      rij._weken = JSON.parse(rij.dataset.weken || '{}');
+    } catch (e) {
+      rij._weken = {};
+    }
+  }
+
+  // Een week die het portaal voor deze locatie niet toont, hoort onderaan en
+  // niet bovenaan bij het sorteren op weinig ruimte. Onbekend is geen nul.
+  function weekWaarde(rij, sleutel) {
+    const waarde = rij._weken[sleutel];
+    return typeof waarde === 'number' ? waarde : Infinity;
+  }
+
+  function sorteer() {
+    const gekozen = week.value;
+    const volgorde = gekozen
+      ? rijen.slice().sort(function (a, b) {
+          const verschil = weekWaarde(a, gekozen) - weekWaarde(b, gekozen);
+          if (verschil !== 0) return verschil;
+          return opUrgentie.indexOf(a) - opUrgentie.indexOf(b);
+        })
+      : opUrgentie;
+    for (const rij of volgorde) lichaam.appendChild(rij);
+    for (const blok of document.querySelectorAll('.wblok')) {
+      blok.classList.toggle('gekozen', Boolean(gekozen) && blok.dataset.week === gekozen);
+    }
+  }
 
   function pasToe() {
     const p = provincie.value;
@@ -429,7 +629,10 @@ ${locaties.map(locatieRij).join('\n')}
       rij.hidden = !past;
       if (past) zichtbaar += 1;
     }
-    telling.textContent = zichtbaar + ' van ' + rijen.length + ' locaties zichtbaar.';
+    const gekozenWeek = week.value ? week.options[week.selectedIndex].textContent.trim() : '';
+    telling.textContent =
+      zichtbaar + ' van ' + rijen.length + ' locaties zichtbaar.' +
+      (gekozenWeek ? ' Gesorteerd op de minste vrije tijden in ' + gekozenWeek + '.' : '');
     markeerKaarten();
   }
 
@@ -453,6 +656,11 @@ ${locaties.map(locatieRij).join('\n')}
   }
 
   for (const veld of [provincie, status, zoek]) veld.addEventListener('input', pasToe);
+  week.addEventListener('input', function () {
+    sorteer();
+    pasToe();
+  });
+  sorteer();
   pasToe();
 </script>
 </body>

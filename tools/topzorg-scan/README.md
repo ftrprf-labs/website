@@ -165,3 +165,62 @@ De werking van de scanner zelf is aangetoond met `npm test`, tegen de lokale nab
 In productie draait deze meetlaag mee in de webservice van dit project. Elke ochtend om 07:00
 Nederlandse tijd wordt er gemeten en het resultaat staat op `/topzorg`. Zie de README in de hoofdmap
 voor de instellingen en de toegang.
+
+## Weekprofiel en deuken in de agenda
+
+Elke meting bewaart naast de totalen ook hoe de vrije tijden over de komende weken verdeeld zijn, in
+ISO weeknummers. Dat kost geen enkel extra verzoek aan het portaal: die dagen worden toch al
+opgehaald, ze werden alleen weggegooid bij het optellen.
+
+Het overzicht toont per locatie een klein weekprofiel, en er is een keuzelijst om de tabel op een
+bepaalde week te sorteren, met de minste ruimte bovenaan. Zo is te zien wat er over drie weken staat
+te gebeuren.
+
+Een **deuk** is een week die duidelijk leger is dan de weken eromheen bij dezelfde locatie. Dat is
+het patroon van een afwezigheid die niet is opgevangen. De vergelijking gebeurt altijd binnen een
+locatie, nooit tussen locaties, want dichtbij staat elke agenda voller dan verderop. Voor de
+eerstvolgende hele week geldt een strengere grens, om precies die reden.
+
+Twee dingen om te onthouden:
+
+- Het portaal publiceert maar ongeveer vier weken vooruit. Een afwezigheid daarbuiten is niet
+  zichtbaar, hoe je het ook bouwt. Weken die buiten de horizon van een locatie vallen krijgen een
+  stip en tellen nergens in mee.
+- Een lege week kan vakantie zijn, volgeboekt, of een agenda die nog niet open staat. Eén geval is
+  wel te onderscheiden: is een latere week wel gevuld, dan verklaart een publicatieachterstand het
+  niet, want agenda's gaan op volgorde open.
+
+De drempels staan in `DEUK` in `src/beschikbaarheid.mjs`.
+
+## Wekelijkse mail aan marketing
+
+Elke maandagochtend, na de meting van die dag, kan er een bericht uitgaan met de locaties die de
+komende week veel online ruimte hebben. Dat is de kant van het overzicht waar iets extra's kan, in
+plaats van iets terugdraaien.
+
+De selectie zit in `src/push.mjs` en is met opzet streng: minstens tien vrije tijden in de komende
+week, en binnen drie dagen terecht kunnen. Ruimte over twee weken is geen argument om vandaag meer
+bezoekers naar een locatie te sturen.
+
+Instellingen, allemaal als omgevingsvariabele op de service:
+
+| Variabele | Betekenis |
+| --- | --- |
+| `TOPZORG_PUSH_ACTIEF` | `1` zet automatisch versturen aan. Standaard uit. |
+| `TOPZORG_PUSH_ONTVANGERS` | De ontvangers, gescheiden door komma's. |
+| `TOPZORG_PUSH_DAG` | 1 is maandag, 7 is zondag. Standaard 1. |
+| `TOPZORG_PUSH_UUR` | Vanaf welk Nederlands uur. Standaard 7. |
+| `TOPZORG_PUSH_DREMPEL` | Minimum aantal vrije tijden in de komende week. Standaard 10. |
+| `TOPZORG_PUSH_MAX_WACHTDAGEN` | Maximale wachttijd op de eerste mogelijkheid. Standaard 3. |
+| `TOPZORG_URL` | Het adres van het overzicht, zoals het in de mail komt te staan. |
+
+De ontvangers staan bewust niet in de code. Het zijn persoonsgegevens en die horen niet in git.
+
+Versturen loopt via de bestaande mailkoppeling (`MAIL_TRANSPORT`, `MAIL_API_KEY`, `MAIL_FROM`). Zolang
+die niet is ingesteld, gaat er niets uit en zegt de pagina waarom.
+
+Op `/topzorg/push` staat het bericht precies zoals het verstuurd zou worden, met wie het krijgt en
+wat er eventueel nog ontbreekt. Daar zit ook een knop om het met de hand te versturen. De
+automatische verzending gaat hooguit één keer per dag, ook als de service tussendoor opnieuw opstart,
+zolang er een persistente schijf is. Zonder schijf kan een herstart op maandagochtend een tweede
+bericht opleveren.

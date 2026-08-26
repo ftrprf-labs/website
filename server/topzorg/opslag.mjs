@@ -62,6 +62,22 @@ export function bewaarMeting(dataset) {
   return datum;
 }
 
+// Kleine losse aantekeningen die geen meting zijn, zoals de dag waarop de
+// wekelijkse mail al is verstuurd. Een paar regels JSON naast de metingen.
+export function leesVlag(naam) {
+  try {
+    return JSON.parse(readFileSync(join(MAP, `vlag-${naam}.json`), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+export function zetVlag(naam, waarde) {
+  zorgVoorMappen();
+  schrijfAtomisch(join(MAP, `vlag-${naam}.json`), JSON.stringify(waarde, null, 2));
+  return waarde;
+}
+
 export function laatsteMeting() {
   try {
     return JSON.parse(readFileSync(LAATSTE, 'utf8'));

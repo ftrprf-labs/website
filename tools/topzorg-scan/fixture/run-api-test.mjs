@@ -8,7 +8,10 @@ import { fileURLToPath } from 'node:url';
 import { ApiFout, kiesOpLabel, leesAdres, maakClient } from '../src/api.mjs';
 import { maakLogger } from '../src/logger.mjs';
 import { verkenApi } from '../src/api-verken.mjs';
-import { haalBeschikbaarheid, STATUS, vatVensterSamen } from '../src/beschikbaarheid.mjs';
+import { haalBeschikbaarheid, STATUS, vatVensterSamen, zoekDeuken } from '../src/beschikbaarheid.mjs';
+import { bouwWeken, isoWeek, maandagVan, weekdag } from '../src/weken.mjs';
+import { bouwPushMail, kiesPushLocaties } from '../src/push.mjs';
+import { bouwDashboard } from '../src/dashboard.mjs';
 import { bouwProvincieKaart, zoekProvincie } from '../src/ophalen.mjs';
 import { maakNepFetch, REFERENTIES } from './api-antwoorden.mjs';
 
@@ -133,6 +136,101 @@ meld(
 );
 meld(overBlokken.eersteDatum === '2026-08-25', `eerste mogelijkheid ${overBlokken.eersteDatum}`);
 meld(overBlokken.tijdenVandaag === 0, 'de peildatum zelf staat uitgeschakeld en telt nul');
+
+// 9. Weekrekenen. De jaarwisseling is de plek waar een eigen weeknummer
+//    misgaat, dus die staat er expliciet in.
+meld(isoWeek('2026-01-01').sleutel === '2026-W01', 'nieuwjaarsdag 2026 valt in week 1');
+meld(isoWeek('2026-12-31').week === 53, '2026 heeft een week 53');
+meld(isoWeek('2027-01-01').jaar === 2026, '1 januari 2027 hoort bij het weekjaar 2026');
+meld(maandagVan('2026-08-26') === '2026-08-24', 'de maandag van een woensdag');
+meld(weekdag('2026-08-24') === 1 && weekdag('2026-08-30') === 7, 'maandag is 1 en zondag is 7');
+
+// 10. De weken tussen peildatum en horizon. De eerste en de laatste zijn half,
+//     en die mogen niet als hele week meetellen.
+const weekLijst = bouwWeken('2026-08-26', '2026-09-23');
+meld(weekLijst.length === 5, `vijf weken tussen 26 augustus en 23 september (${weekLijst.length})`);
+meld(weekLijst[0].vanaf === '2026-08-26' && !weekLijst[0].volledig, 'de eerste week begint op de peildatum en is half');
+meld(weekLijst.at(-1).totEnMet === '2026-09-23' && !weekLijst.at(-1).volledig, 'de laatste week stopt op de horizon');
+meld(weekLijst.filter((w) => w.volledig).length === 3, 'er zijn drie hele weken');
+
+// 11. Het weekprofiel telt de vrije tijden per week.
+function dagenReeks(perWeekAantal) {
+  const days = [];
+  let datum = '2026-08-26';
+  let index = 0;
+  while (datum <= '2026-09-23') {
+    const week = Math.floor((index + 2) / 7); // 26 augustus is woensdag
+    const n = perWeekAantal[week] ?? 0;
+    days.push({
+      date: datum,
+      disabled: n === 0,
+      slots: Array.from({ length: n }, (_, i) => ({ reference: `${datum}-${i}`, label: '09:00', disabled: false })),
+    });
+    const d = new Date(`${datum}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    datum = d.toISOString().slice(0, 10);
+    index += 1;
+  }
+  return { dates: { current: '2026-08-26', min: '2026-08-26', max: '2026-09-23', next: null }, days };
+}
+
+// Twee per dag in elke week, behalve in de derde week. Dat is de vakantie.
+const metVakantie = vatVensterSamen([dagenReeks([2, 2, 0, 2, 2])], { peildatum: '2026-08-26' });
+meld(metVakantie.weken.length === 5, `vijf weken in de samenvatting (${metVakantie.weken.length})`);
+meld(metVakantie.weken[1].tijden === 14, `een hele week met twee per dag telt 14 (${metVakantie.weken[1].tijden})`);
+meld(metVakantie.deuken.length === 1, `een deuk gevonden (${metVakantie.deuken.length})`);
+meld(metVakantie.deuken[0]?.tijden === 0, 'de deuk is de lege week');
+meld(metVakantie.deuken[0]?.publicatieUitgesloten === true, 'een gevulde week erna sluit een publicatieachterstand uit');
+
+// Een vlakke agenda levert geen deuk op, en een lege agenda ook niet, want dan
+// is er niets om mee te vergelijken.
+meld(vatVensterSamen([dagenReeks([2, 2, 2, 2, 2])], { peildatum: '2026-08-26' }).deuken.length === 0,
+  'een gelijkmatige agenda geeft geen valse deuk');
+meld(vatVensterSamen([dagenReeks([0, 0, 0, 0, 0])], { peildatum: '2026-08-26' }).deuken.length === 0,
+  'een lege agenda levert geen deuk op maar de status GEEN_RUIMTE');
+
+// De halve eerste en laatste week doen niet mee, anders zou elke meting midden
+// in de week twee valse deuken opleveren.
+meld(zoekDeuken(metVakantie.weken).every((d) => d.week !== metVakantie.weken[0].week), 'de halve eerste week is nooit een deuk');
+
+// 12. De keuze voor de wekelijkse mail aan marketing.
+const pushSet = {
+  meting: { peildatum: '2026-08-24', behandeling: { label: 'Fysiotherapie (intake)' } },
+  locaties: [
+    { naam: 'Veel ruimte', plaats: 'Assen', provincie: 'Drenthe', status: STATUS.RUIMTE, wachtdagen: 0,
+      weken: [{ week: 35, sleutel: '2026-W35', vanaf: '2026-08-24', totEnMet: '2026-08-30', volledig: true, tijden: 20 }] },
+    { naam: 'Net te weinig', plaats: 'Breda', provincie: 'Noord-Brabant', status: STATUS.RUIMTE, wachtdagen: 0,
+      weken: [{ week: 35, sleutel: '2026-W35', vanaf: '2026-08-24', totEnMet: '2026-08-30', volledig: true, tijden: 9 }] },
+    { naam: 'Ruimte maar pas laat', plaats: 'Zwolle', provincie: 'Overijssel', status: STATUS.RUIMTE, wachtdagen: 6,
+      weken: [{ week: 35, sleutel: '2026-W35', vanaf: '2026-08-24', totEnMet: '2026-08-30', volledig: true, tijden: 30 }] },
+    { naam: 'Krap', plaats: 'Utrecht', provincie: 'Utrecht', status: STATUS.KRAP, wachtdagen: 0,
+      weken: [{ week: 35, sleutel: '2026-W35', vanaf: '2026-08-24', totEnMet: '2026-08-30', volledig: true, tijden: 40 }] },
+  ],
+};
+
+const gekozen = kiesPushLocaties(pushSet);
+meld(gekozen.length === 1 && gekozen[0].locatie.naam === 'Veel ruimte', `alleen de locatie met veel ruimte en snel terecht (${gekozen.length})`);
+
+const pushMail = bouwPushMail(pushSet, { url: 'https://voorbeeld.test/topzorg' });
+meld(/week 35/.test(pushMail.onderwerp), `het weeknummer staat in het onderwerp: "${pushMail.onderwerp}"`);
+meld(pushMail.tekst.includes('Veel ruimte') && !pushMail.tekst.includes('Krap'), 'de mail noemt alleen de gekozen locaties');
+meld(pushMail.tekst.includes('https://voorbeeld.test/topzorg'), 'de link naar het overzicht staat in de mail');
+// De huisregel voor zichtbare tekst: geen streepje als stijlmiddel.
+meld(!/ [-–—] /.test(pushMail.tekst), 'de mailtekst gebruikt geen streepje als pauze');
+
+const leegPush = bouwPushMail({ meting: {}, locaties: [] });
+meld(leegPush.aantal === 0 && /geen locaties/.test(leegPush.onderwerp), 'zonder ruimte zegt de mail dat er niets te pushen valt');
+
+// 13. Het dashboard verwerkt het weekprofiel zonder te struikelen.
+const html = bouwDashboard({
+  meting: { tijdstip: '2026-08-26T05:00:00.000Z', peildatum: '2026-08-26', behandeling: { label: 'Fysiotherapie (intake)' } },
+  samenvatting: { totaal: 1, perStatus: {} },
+  locaties: [{ naam: 'Testlocatie', plaats: 'Assen', provincie: 'Drenthe', straat: 'Weg 1', ...metVakantie }],
+});
+meld(html.includes('Komende weken'), 'het dashboard toont de kolom met komende weken');
+meld(html.includes('Deuken in de komende weken'), 'het dashboard toont de sectie met deuken');
+meld((html.match(/class="wblok/g) || []).length === 5, 'er staan vijf weekblokjes in de rij');
+meld(html.includes('filter-week'), 'de weekkiezer staat in de pagina');
 
 process.stdout.write(`\n${fouten === 0 ? 'API TEST GESLAAGD' : `${fouten} API CONTROLES GEFAALD`}\n`);
 process.exit(fouten === 0 ? 0 : 1);

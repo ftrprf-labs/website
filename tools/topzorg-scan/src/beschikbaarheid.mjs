@@ -12,6 +12,8 @@
 // Alles hier is pure rekenkunde op een antwoord, zonder netwerk, zodat het
 // zonder de echte API te toetsen is.
 
+import { bouwWeken, plusDagen } from './weken.mjs';
+
 export const STATUS = {
   RUIMTE: 'RUIMTE',
   KRAP: 'KRAP',
@@ -25,6 +27,24 @@ export const DREMPELS = {
   krapNaDagen: 7,
   // Minder dan zoveel tijden in het hele venster telt ook als krap.
   krapOnderAantalTijden: 5,
+};
+
+// Wanneer een komende week opvalt als een deuk in de agenda, bijvoorbeeld door
+// een vakantie. Een deuk wordt altijd afgezet tegen de weken eromheen bij
+// dezelfde locatie, nooit tegen een andere locatie of tegen een vast getal.
+// Dat moet ook wel: dichtbij staat elke agenda voller dan verderop, dus een
+// vlakke drempel over alle weken heen zou vooral ruis opleveren.
+export const DEUK = {
+  // De week telt als deuk zodra hij onder dit deel van het gemiddelde van de
+  // twee dichtstbijzijnde andere weken zakt.
+  aandeelVanBuren: 0.4,
+  // Strengere eis voor de eerstvolgende week, want die is altijd leger dan de
+  // weken erna. Daar zijn al afspraken op gemaakt. Zonder dit verschil zou elke
+  // normale volgeboekte week als vakantie gelden.
+  aandeelVanBurenDichtbij: 0.25,
+  // Onder dit aantal in de vergelijkingsweken zegt een verschil te weinig. Twee
+  // tijden tegenover vijf is geen vakantie, dat is toeval.
+  minimumBuren: 6,
 };
 
 function telTijden(dag) {
@@ -73,6 +93,9 @@ export function vatVensterSamen(vensters, { peildatum, drempels = DREMPELS } = {
   const eersteDatum = eerste?.date ?? null;
   const wachtdagen = eersteDatum ? dagenVerschil(peildatum, eersteDatum) : null;
 
+  const weken = vulWeken(bouwWeken(peildatum, horizon), perDatum);
+  const deuken = zoekDeuken(weken);
+
   let status;
   if (totaalTijden === 0) {
     status = STATUS.GEEN_RUIMTE;
@@ -94,9 +117,81 @@ export function vatVensterSamen(vensters, { peildatum, drempels = DREMPELS } = {
     wachtdagen,
     dagenMetTijden: dagenMetTijden.length,
     dagenGeteld: dagen.length,
+    weken,
+    deuken,
     horizon,
     eersteTijden: (eerste?.slots ?? []).filter((s) => !s.disabled).map((s) => s.label).slice(0, 8),
   };
+}
+
+// Telt de vrije tijden per week. De dagen zijn al ontdubbeld en al begrensd op
+// de peildatum en de horizon, dus hier hoeft alleen nog opgeteld te worden.
+export function vulWeken(weken, perDatum) {
+  return weken.map((week) => {
+    let tijden = 0;
+    let dagenMetTijden = 0;
+    for (let datum = week.vanaf; datum <= week.totEnMet; datum = plusDagen(datum, 1)) {
+      const aantal = telTijden(perDatum.get(datum));
+      tijden += aantal;
+      if (aantal > 0) dagenMetTijden += 1;
+    }
+    return { ...week, tijden, dagenMetTijden };
+  });
+}
+
+// Zoekt weken die opvallend leger zijn dan de weken eromheen. Alleen volledige
+// weken doen mee, want een halve week is per definitie leger en dat is geen
+// signaal maar een rekenfout in wording.
+//
+// Elke week wordt afgezet tegen de twee dichtstbijzijnde andere volledige
+// weken, bij voorkeur een aan elke kant. Dat de eerste en de laatste week
+// meedoen is belangrijk: het portaal toont maar een kleine vier weken, dus vaak
+// zijn er niet meer dan drie volledige weken, en een regel die alleen het
+// middelste blokje kan beoordelen ziet in de praktijk vrijwel niets.
+export function zoekDeuken(weken, drempels = DEUK) {
+  const volledige = weken.filter((w) => w.volledig);
+  if (volledige.length < 3) return [];
+  const deuken = [];
+
+  for (let i = 0; i < volledige.length; i += 1) {
+    const deze = volledige[i];
+    const vorige = volledige[i - 1] ?? null;
+    const volgende = volledige[i + 1] ?? null;
+
+    // Bij voorkeur een week aan elke kant. Ontbreekt er een, dan de twee
+    // dichtstbijzijnde aan de andere kant, zodat ook de rand beoordeeld wordt.
+    const vergelijking = vorige && volgende
+      ? [vorige, volgende]
+      : vorige
+        ? [volledige[i - 2], vorige].filter(Boolean)
+        : [volgende, volledige[i + 2]].filter(Boolean);
+    if (vergelijking.length < 2) continue;
+
+    const basis = vergelijking.reduce((som, w) => som + w.tijden, 0) / vergelijking.length;
+    if (basis < drempels.minimumBuren) continue;
+
+    // Zonder een eerdere week is dit de eerstvolgende week. Die ligt van
+    // nature lager, dus daar geldt de strengere grens.
+    const grens = vorige ? drempels.aandeelVanBuren : drempels.aandeelVanBurenDichtbij;
+    if (deze.tijden > basis * grens) continue;
+
+    deuken.push({
+      sleutel: deze.sleutel,
+      week: deze.week,
+      start: deze.start,
+      eind: deze.eind,
+      tijden: deze.tijden,
+      basis: Math.round(basis * 10) / 10,
+      vergelekenMet: vergelijking.map((w) => ({ week: w.week, tijden: w.tijden })),
+      eerstvolgendeWeek: !vorige,
+      // Een agenda die nog niet open staat is verderop leeg, niet ertussenin.
+      // Is een latere week wel gevuld, dan verklaart een publicatieachterstand
+      // deze lege week dus niet meer.
+      publicatieUitgesloten: deze.tijden === 0 && volgende !== null && volgende.tijden > 0,
+    });
+  }
+
+  return deuken;
 }
 
 // Haalt de beschikbaarheid op tot en met de horizon van het portaal, voor elke
