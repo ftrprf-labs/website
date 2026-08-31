@@ -365,3 +365,55 @@ plaats van dat er een gok in de data sluipt.
 
 Getoetst op de echte gegevens: het antwoord van Simpelveld levert KRAP op, twee tijden, eerste
 mogelijkheid over drie dagen.
+
+## Run 6, 31 augustus 2026, 21:26, de geslaagde live validatie
+
+De eerste run waarin de volledige patiëntroute van begin tot eind live is doorlopen, zonder fixture.
+Uitgevoerd op een Mac, macOS 26.5.2 op arm64, Node 24.19.0. Totale looptijd voor beide vestigingen
+was minder dan drie minuten, want Chromium stond al klaar uit een eerdere poging.
+
+De verbindingscontrole vooraf gaf voor beide domeinen HTTP 200 binnen 200 ms. Deze run zegt dus wel
+iets over de vestigingen, in tegenstelling tot elke run vanuit de bouwomgeving.
+
+### Fysiotherapie Amersfoort Databankweg: GROEN
+
+Alle zeven controles op JA. De route liep zo:
+
+1. `www.topzorggroep.nl/vestigingen/amersfoort-databankweg/`, HTTP 200
+2. knop "Afspraak maken", die een nieuw tabblad opende
+3. `mtcdatabankweg-tzg.mijnzorgtoegang.nl/app/#/eerste-afspraak-maken`
+4. aandachtsgebied "Fysiotherapie (intake)"
+5. verwijzing "Geen verwijzing"
+6. `#/eerste-afspraak-maken/datum-en-tijdslots`, kalender september 2026
+
+De vestiging heeft een eigen subdomein in het portaal, `mtcdatabankweg-tzg`, en niet het centrale
+`tzg`. De route vanaf de locatiepagina komt dus rechtstreeks op de eigen agenda uit.
+
+De kalender toonde 14 selecteerbare dagen in september: 1, 2, 8, 9, 14, 15, 16, 17, 21, 22, 23, 24,
+25 en 28. Op de eerste selecteerbare dag, 1 september, stond precies een tijd: 21:05.
+
+Dat verschil is belangrijk voor de interpretatie. De browserscan telt de tijden op de dag die hij
+aanklikt, en dat is de eerstvolgende beschikbare dag. Het dashboard telt via de API alle tijden tot
+aan de horizon. Beide getallen kloppen, maar ze beantwoorden een andere vraag. "1 tijdslot" betekent
+hier dus niet dat de praktijk vol zit.
+
+### Revalidatie Amersfoort Databankweg: ROOD, en dat is een bevinding
+
+De locatiepagina laadt, de vestiging is herkenbaar, en er staat een knop "Afspraak maken". Maar op
+die pagina komt het woord "zorgtoegang" nul keer voor. De pagina verwijst naar telefoonnummer
+088 5670 100.
+
+De knop leidt naar `www.topzorggroep.nl/contact/afspraak-maken/`, de algemene afspraakpagina met de
+provinciekiezer. Daarvandaan zijn nog provincie, plaats en vestiging nodig voordat het portaal in
+beeld komt. De scan volgt maximaal drie vervolgstappen en kwam er in twee niet, dus hij stopte.
+
+De juiste conclusie is precies zo eng geformuleerd: **vanaf de locatiepagina van Revalidatie
+Amersfoort bestaat geen directe online afspraakroute.** Dat is niet hetzelfde als de uitspraak dat
+revalidatie nergens online te plannen is. Voor een patiënt die op deze pagina landt, bijvoorbeeld
+via een advertentie, is het verschil academisch: hij moet bellen of zelf gaan zoeken.
+
+### Veiligheid
+
+Beide runs stopten voor het bevestigingsscherm. Stap 4, persoonsgegevens, en stap 5, bevestigen, zijn
+niet benaderd. Nul geblokkeerde schrijfverzoeken, wat betekent dat de netwerkrem niet eens hoefde in
+te grijpen: er is nooit een schrijvend verzoek geprobeerd. Nul ingevulde velden.
