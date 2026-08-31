@@ -133,8 +133,27 @@ bash -c 'set -u; D="$HOME/topzorg-live-validatie/$(date +%Y%m%d-%H%M%S)"; mkdir 
 
 Elke run kloont naar een eigen map met tijdstempel onder `~/topzorg-live-validatie/`. Met
 `TOPZORG_GEISOLEERD=1` blijft het script binnen die kopie en kijkt het niet naar andere
-repositories op de machine, dus bestaand lokaal werk blijft ongemoeid. Werkt HTTPS niet, dan valt
-het commando terug op SSH.
+repositories op de machine, dus bestaand lokaal werk blijft ongemoeid. De repository is openbaar,
+dus klonen vraagt geen inloggegevens. Werkt HTTPS toch niet, dan valt het commando terug op SSH.
+
+### Verbindingscontrole vooraf
+
+Voordat er iets zwaars gebeurt controleert het script of www.topzorggroep.nl en
+tzg.mijnzorgtoegang.nl werkelijk antwoorden. Niet alleen of er iets terugkomt, maar of het antwoord
+ook van de site zelf komt, want een proxy of het inlogscherm van een gastnetwerk antwoordt ook.
+
+Lukt dat niet, dan stopt het script met een uitleg in plaats van Chromium op te halen en daarna een
+volledig rood rapport op te leveren dat eruitziet als een storing bij TopzorgGroep. Dat onderscheid
+is belangrijk: een run vanaf een netwerk dat de sites blokkeert zegt niets over de vestigingen.
+
+Vergist die controle zich, dan draait `TOPZORG_SKIP_PREFLIGHT=1 bash live-validatie.sh` alsnog.
+
+### Wat er terugkomt
+
+Alles wat op het scherm verschijnt gaat ook naar een logbestand, en dat log gaat mee in het
+zipbestand op het bureaublad als `terminal-log.txt`. Loopt een run vast, dan is dat bestand genoeg
+om op afstand te zien waar het misging. Het log bevat geen persoonsgegevens: de scan vult die nooit
+in en vraagt ze nooit op.
 
 Staat de repository al lokaal, dan volstaat vanuit `tools/topzorg-scan`:
 

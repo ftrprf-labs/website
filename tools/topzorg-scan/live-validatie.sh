@@ -15,6 +15,13 @@
 #
 set -u
 
+# Alles wat op het scherm komt gaat ook naar een logbestand. Loopt een run vast,
+# dan is dat bestand het enige dat nog vertelt waar het misging.
+LOGBESTAND="${TMPDIR:-/tmp}/topzorg-live-$(date +%Y%m%d-%H%M%S).log"
+exec > >(tee -a "$LOGBESTAND") 2>&1
+
+bewaar_log() { [ -d "${1:-}" ] && cp "$LOGBESTAND" "$1/terminal-log.txt" 2>/dev/null; return 0; }
+
 BRANCH="claude/topzorg-appointment-poc-h2f5e7"
 REPO_URL="https://github.com/ftrprf-labs/website.git"
 SUBMAP="tools/topzorg-scan"
@@ -31,6 +38,15 @@ if [ "$NODE_MAJOR" -lt 18 ]; then
   fout "Node $NODE_MAJOR is te oud. Versie 18 of nieuwer is nodig."
 fi
 command -v git >/dev/null 2>&1 || fout "Git is niet gevonden. Installeer de Xcode command line tools met: xcode-select --install"
+
+melding "Omgeving"
+printf '  datum      : %s\n' "$(date)"
+printf '  systeem    : %s\n' "$(uname -srm)"
+printf '  macOS      : %s\n' "$(sw_vers -productVersion 2>/dev/null || echo 'niet van toepassing')"
+printf '  node       : %s\n' "$(node -v)"
+printf '  npm        : %s\n' "$(npm -v 2>/dev/null || echo onbekend)"
+printf '  git        : %s\n' "$(git --version 2>/dev/null || echo onbekend)"
+printf '  logbestand : %s\n' "$LOGBESTAND"
 
 # ---------------------------------------------------------------------------
 # 2. De juiste repository vinden. Dit is precies wat handmatig misging.
@@ -87,6 +103,22 @@ cd "$REPO/$SUBMAP" || fout "Kan niet naar $SUBMAP gaan."
 melding "Werkmap: $(pwd)  op branch $(git rev-parse --abbrev-ref HEAD)"
 
 # ---------------------------------------------------------------------------
+# 3b. Verbinding controleren voordat er iets zwaars gebeurt.
+#
+#     Zonder deze controle wordt eerst Chromium opgehaald en start de browser,
+#     om daarna op het netwerk vast te lopen. Dat levert een volledig rood
+#     rapport op dat eruitziet als een storing bij TopzorgGroep terwijl het de
+#     verbinding van deze computer is. Liever meteen duidelijkheid.
+# ---------------------------------------------------------------------------
+if [ "${TOPZORG_SKIP_PREFLIGHT:-0}" != "1" ]; then
+  melding "Verbinding met TopzorgGroep en Mijn Zorgtoegang controleren"
+  if ! node src/verbinding.mjs; then
+    printf '\nEr is geen scan gestart. Het volledige log staat in:\n  %s\n' "$LOGBESTAND"
+    exit 3
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # 4. Installeren.
 # ---------------------------------------------------------------------------
 melding "Afhankelijkheden installeren"
@@ -133,6 +165,7 @@ if [ "${TOPZORG_MODUS:-scan}" = "meting" ]; then
       if command -v open >/dev/null 2>&1; then open "$OVERZICHT" >/dev/null 2>&1 || true; fi
     fi
   fi
+  bewaar_log "$UIT"
   BUNDEL="$DOELMAP/topzorg-meting_${STEMPEL}.zip"
   if command -v zip >/dev/null 2>&1; then
     (cd "$(dirname "$UIT")" && zip -qr "$BUNDEL" "$(basename "$UIT")") || BUNDEL=""
@@ -169,6 +202,7 @@ if [ "${TOPZORG_MODUS:-scan}" = "api" ]; then
 
   DOELMAP="$HOME/Desktop"
   [ -d "$DOELMAP" ] || DOELMAP="$HOME"
+  bewaar_log "$UIT"
   BUNDEL="$DOELMAP/topzorg-api_${STEMPEL}.zip"
   if command -v zip >/dev/null 2>&1; then
     (cd "$(dirname "$UIT")" && zip -qr "$BUNDEL" "$(basename "$UIT")") || BUNDEL=""
@@ -202,6 +236,7 @@ if [ "${TOPZORG_MODUS:-scan}" = "verken" ]; then
   BUNDEL=""
   DOELMAP="$HOME/Desktop"
   [ -d "$DOELMAP" ] || DOELMAP="$HOME"
+  bewaar_log "$UIT"
   BUNDEL="$DOELMAP/topzorg-verkenning_${STEMPEL}.zip"
   if command -v zip >/dev/null 2>&1; then
     (cd "$(dirname "$UIT")" && zip -qr "$BUNDEL" "$(basename "$UIT")") || BUNDEL=""
@@ -241,14 +276,29 @@ for SLEUTEL in $LOCATIES; do
   CODE=$?
 
   case "$CODE" in
-    0) UITSLAG="GROEN, de online route werkt tot en met de tijdselectie" ;;
+    0) UITSLAG="GROEN, de volledige online route werkt tot en met de tijdselectie" ;;
     1) UITSLAG="ORANJE, de route start maar loopt vast voor de tijdselectie" ;;
-    2) UITSLAG="ROOD, de online route is niet bereikt" ;;
-    *) UITSLAG="de scan is afgebroken door een technische fout" ;;
+    2) UITSLAG="ROOD, geen werkende online route gevonden" ;;
+    *) UITSLAG="AFGEBROKEN door een technische fout in de scan" ;;
   esac
+
+  # De conclusie uit het rapport zelf, want de kleur alleen zegt niet welke stap
+  # ontbreekt. Een vestiging die online plannen simpelweg niet aanbiedt is ook
+  # ROOD, en dat is een bevinding en geen mislukte run.
+  CONCLUSIE="$(RAPPORT="$BASISMAP/$SLEUTEL/rapport.json" node -e "
+    const { readFileSync } = await import('node:fs');
+    try {
+      const r = JSON.parse(readFileSync(process.env.RAPPORT, 'utf8'));
+      process.stdout.write(String(r.conclusie || '').replace(/\s+/g, ' ').trim());
+    } catch (e) { process.stdout.write(''); }
+  " 2>/dev/null)"
 
   OVERZICHT="${OVERZICHT}${SLEUTEL}: ${UITSLAG}
 "
+  if [ -n "$CONCLUSIE" ]; then
+    OVERZICHT="${OVERZICHT}    ${CONCLUSIE}
+"
+  fi
   [ "$CODE" -gt "$SLECHTSTE" ] && SLECHTSTE="$CODE"
   IFS=','
 done
@@ -264,6 +314,7 @@ BUNDEL=""
 if [ -d "$UIT" ]; then
   DOELMAP="$HOME/Desktop"
   [ -d "$DOELMAP" ] || DOELMAP="$HOME"
+  bewaar_log "$UIT"
   BUNDEL="$DOELMAP/topzorg-scan_${STEMPEL}.zip"
   BASIS="$(dirname "$UIT")"
   NAAM="$(basename "$UIT")"
@@ -278,6 +329,8 @@ fi
 
 melding "Uitslag per locatie"
 printf '%s\n' "$OVERZICHT"
+printf 'De verbindingscontrole vooraf is geslaagd, dus een rode uitslag hierboven gaat over de\n'
+printf 'vestiging zelf en niet over het netwerk van deze computer.\n\n'
 printf 'Alle resultaten staan in: %s\n' "$UIT"
 if [ -n "$BUNDEL" ] && [ -f "$BUNDEL" ]; then
   printf '\nAlles in een bestand: %s\n' "$BUNDEL"
