@@ -1,0 +1,50 @@
+{
+  "_toelichting": "Configuratie van de Render webservice van het beschikbaarheidsoverzicht, vastgelegd op 13 oktober 2026 vlak voor het stopzetten. Hiermee is de service exact opnieuw aan te maken. Let op: de waarden van de omgevingsvariabelen staan hier NIET in, want die zijn via de API niet uit te lezen en horen niet in git.",
+  "vastgelegdOp": "2026-10-13",
+  "service": {
+    "id": "srv-da6mtau1egvs7398fo00",
+    "naam": "topzorg-beschikbaarheid",
+    "type": "web_service",
+    "dashboardUrl": "https://dashboard.render.com/web/srv-da6mtau1egvs7398fo00",
+    "url": "https://topzorg-beschikbaarheid.onrender.com",
+    "aangemaakt": "2026-08-25T10:30:04Z",
+    "laatsteDeploy": "2026-09-10T03:49:29Z",
+    "repo": "https://github.com/ftrprf-labs/website",
+    "branch": "claude/topzorg-appointment-poc-h2f5e7",
+    "autoDeploy": "yes, bij elke commit",
+    "runtime": "node",
+    "region": "frankfurt",
+    "plan": "starter",
+    "buildPlan": "starter",
+    "numInstances": 1,
+    "buildCommand": "npm install",
+    "startCommand": "node server/index.mjs",
+    "healthCheckPath": "",
+    "openPorts": [{ "port": 10000, "protocol": "TCP" }],
+    "disk": null,
+    "ipAllowList": [{ "cidrBlock": "0.0.0.0/0", "description": "everywhere" }]
+  },
+  "omgevingsvariabelen": {
+    "_toelichting": "De namen die deze service nodig heeft. De waarden staan alleen in Render. Bij pauzeren blijven ze bewaard, bij verwijderen zijn ze weg en moeten ze opnieuw gezet worden.",
+    "verplicht": {
+      "TOPZORG_ALLEEN": "1",
+      "TOPZORG_WACHTWOORD": "geheim, opnieuw te kiezen",
+      "HOST": "0.0.0.0",
+      "NODE_ENV": "production"
+    },
+    "optioneel": {
+      "TOPZORG_UUR": "7",
+      "TOPZORG_BEHANDELING": "Fysiotherapie (intake)",
+      "TOPZORG_GELIJKTIJDIG": "3",
+      "TOPZORG_ACTIEF": "1",
+      "DATA_DIR": "niet gezet, er is bewust geen schijf"
+    }
+  },
+  "gekoppeldeResources": {
+    "database": "geen",
+    "keyValue": "geen",
+    "schijf": "geen, nooit aangemaakt",
+    "cronJobs": "geen, de dagelijkse meting draait in het proces van de webservice zelf",
+    "betaaldeExterneDiensten": "geen"
+  }
+}
